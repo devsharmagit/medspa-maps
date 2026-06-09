@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { Fraunces, Geist_Mono, Inter, Montserrat } from "next/font/google";
-import { Footer } from "@/components/footer";
+import NextAuthProvider from "@/app/_providers/session-provider";
 import "./globals.css";
+
 
 const montserrat = Montserrat({
   variable: "--font-montserrat",
@@ -47,9 +48,11 @@ export default function RootLayout({
         className="flex min-h-full flex-col"
         suppressHydrationWarning
       >
-        {children}
-        <Footer />
+        <NextAuthProvider>
+          {children}
+        </NextAuthProvider>
       </body>
+
     </html>
   );
 }

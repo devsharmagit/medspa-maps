@@ -1,3 +1,4 @@
+import { Footer } from "@/components/footer";
 import { CTACards } from "@/components/hero/cta-cards";
 import { FindClinicSection } from "@/components/hero/find-clinic-section";
 import { HeroSection } from "@/components/hero/hero-section";
@@ -36,6 +37,7 @@ export default function Home() {
       <Testimonials />
       <CTACards />
       <ResourcesSection />
+      <Footer />
     </main>
   );
 }
