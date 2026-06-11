@@ -6,36 +6,36 @@ import { useRef } from "react";
 const providers = [
   {
     id: 1,
-    name: "Dr. Larissa ",
+    name: "Shelby Miller ",
     verified: true,
     specialty: "Injectable Specialist",
     experience: "10+ years of Experience",
     description:
       "Expert in Botox, fillers and laser treatments. Provides soft and natural looking results.",
     rating: 4.9,
-    image: "/images/landingpage/provider-1.png",
+    image: "/images/landingpage/SHELBY-HEADSHOT.webp",
   },
   {
     id: 2,
-    name: "Dr. Larissa ",
+    name: "Shelby Miller ",
     verified: true,
     specialty: "Injectable Specialist",
     experience: "10+ years of Experience",
     description:
       "Expert in Botox, fillers and laser treatments. Provides soft and natural looking results.",
     rating: 4.9,
-    image: "/images/landingpage/provider-2.png",
+    image: "/images/landingpage/SHELBY-HEADSHOT.webp",
   },
   {
     id: 3,
-    name: "Dr. Larissa ",
+    name: "Shelby Miller ",
     verified: true,
     specialty: "Injectable Specialist",
     experience: "10+ years of Experience",
     description:
       "Expert in Botox, fillers and laser treatments. Provides soft and natural looking results.",
     rating: 4.9,
-    image: "/images/landingpage/provider-3.png",
+    image: "/images/landingpage/SHELBY-HEADSHOT.webp",
   },
 ];
 
