@@ -1,234 +1,161 @@
 "use client";
 
-import { ChevronRight, Search, Sparkles } from "lucide-react";
-import Image from "next/image";
-import Link from "next/link";
+import { Gem, Star, LifeBuoy } from "lucide-react";
 
-const categories = [
-  {
-    id: 1,
-    name: "Treatments",
-    articleCount: 24,
-    icon: <Sparkles className="h-6 w-6 text-[#CF5D9A]" />,
-  },
-  {
-    id: 2,
-    name: "Skin Care",
-    articleCount: 15,
-    icon: <Sparkles className="h-6 w-6 text-[#CF5D9A]" />,
-  },
-  {
-    id: 3,
-    name: "Wellness",
-    articleCount: 56,
-    icon: <Sparkles className="h-6 w-6 text-[#CF5D9A]" />,
-  },
-  {
-    id: 4,
-    name: "Business Tips",
-    articleCount: 22,
-    icon: <Sparkles className="h-6 w-6 text-[#CF5D9A]" />,
-  },
-  {
-    id: 5,
-    name: "Patient Guide",
-    articleCount: 15,
-    icon: <Sparkles className="h-6 w-6 text-[#CF5D9A]" />,
-  },
-];
-
-const popularTopics = [
-  "Botox",
-  "Fillers",
-  "Laser Treatments",
-  "Acne",
-  "Anti Aging",
-];
-
-const latestArticles = [
-  {
-    id: 1,
-    category: "TREATMENTS",
-    title: "Benefits of Laser Hair Treatments",
-    date: "May 12, 2026",
-    readTime: "5 min read",
-    image: "/images/hero/bg-overlay-1.jpg",
-  },
-  {
-    id: 2,
-    category: "TREATMENTS",
-    title: "Benefits of Laser Hair Treatments",
-    date: "May 12, 2026",
-    readTime: "6 min read",
-    image: "/images/hero/bg-overlay-2.png",
-  },
-  {
-    id: 3,
-    category: "TREATMENTS",
-    title: "Benefits of Laser Hair Treatments",
-    date: "May 12, 2026",
-    readTime: "5 min read",
-    image: "/images/hero/bg-overlay-1.jpg",
-  },
-];
-
-function CategoryCard({
-  name,
-  articleCount,
-  icon,
-}: {
-  name: string;
-  articleCount: number;
-  icon: React.ReactNode;
-}) {
-  return (
-    <Link
-      href="#"
-      className="flex h-[100px] w-[120px] shrink-0 flex-col items-center justify-center gap-2 rounded-2xl bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
-    >
-      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#F9E9FC]">
-        {icon}
-      </div>
-      <div className="flex flex-col items-center gap-0.5">
-        <span className="text-center font-montserrat text-sm font-medium text-[#383838]">
-          {name}
-        </span>
-        <span className="text-center font-montserrat text-xs text-[#9A9A9A]">
-          {articleCount} Articles
-        </span>
-      </div>
-    </Link>
-  );
-}
-
-function ArticleCard({
-  article,
-}: {
-  article: (typeof latestArticles)[0];
-}) {
-  return (
-    <Link
-      href="#"
-      className="flex w-[280px] shrink-0 flex-col gap-3 transition-transform hover:scale-[1.02]"
-    >
-      {/* Image */}
-      <div className="relative h-[160px] w-full overflow-hidden rounded-xl">
-        <Image
-          src={article.image}
-          alt={article.title}
-          fill
-          className="object-cover"
-        />
-      </div>
-
-      {/* Content */}
-      <div className="flex flex-col gap-2">
-        {/* Category Badge */}
-        <span className="w-fit rounded bg-[#F5F0F7] px-2 py-0.5 font-montserrat text-xs font-semibold uppercase tracking-wide text-[#CF5D9A]">
-          {article.category}
-        </span>
-
-        {/* Title */}
-        <h3 className="font-montserrat text-base font-medium leading-tight text-[#383838]">
-          {article.title}
-        </h3>
-
-        {/* Meta */}
-        <div className="flex items-center gap-2 font-montserrat text-xs text-[#9A9A9A]">
-          <span>{article.date}</span>
-          <span>•</span>
-          <span>{article.readTime}</span>
-        </div>
-      </div>
-    </Link>
-  );
-}
+// ─── ResourcesSection ─────────────────────────────────────────────────────────
 
 export function ResourcesSection() {
   return (
-    <section className="flex w-full max-w-[1372px] flex-col gap-8 rounded-3xl bg-gradient-to-br from-[#FAF8FB] to-[#F5F0F7] p-12">
-      {/* Header Section */}
-      <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-        {/* Left - Title and Description */}
-        <div className="flex flex-col gap-3">
-          <h2 className="font-montserrat text-[32px] font-normal leading-tight text-[#8B6E7F]">
-            Your Resource for Expert
+    <section className="mx-auto flex w-full max-w-[1372px] flex-col lg:flex-row items-center justify-between gap-6 overflow-visible py-8 px-4 lg:px-0">
+      {/* ── Left Card: Get Your medSpa listed ── */}
+      <div
+        className="relative flex w-full lg:w-[814px] h-auto lg:h-[546px] flex-col items-start rounded-[18px] border border-[#DEC6DF] overflow-hidden p-6 sm:p-10 lg:p-0"
+        style={{
+          backgroundImage: "url(/images/landingpage/gift-bg-whole.png)",
+          backgroundSize: "107%",
+          backgroundPosition: "center",
+          boxShadow: "0px 8px 14px rgba(0, 0, 0, 0.02)",
+        }}
+      >
+        {/* Text Block */}
+        <div className="flex flex-col w-full lg:max-w-[512px] lg:absolute lg:left-[61px] lg:top-[65px] z-30">
+          <h2
+            className="font-montserrat font-medium leading-[116.02%] tracking-[-0.04em] text-[#99597A] text-[28px] sm:text-[39px]"
+            style={{ lineHeight: "116.02%" }}
+          >
+            Get Your medSpa listed{" "}
+            <span className="font-heading italic block sm:inline">& Get More Clients!</span>
           </h2>
-          <h3 className="font-heading text-[36px] italic leading-tight text-[#8B6E7F]">
-            MedSpa Knowledge!
-          </h3>
-          <p className="max-w-md font-montserrat text-sm leading-relaxed text-[#8B6E7F]">
-            In-depth guide, expert tips and the latest insight to help you make
-            informed decisions.
+          <p className="mt-4 font-montserrat font-medium text-[16px] sm:text-[18px] leading-[140%] text-[#353535] max-w-[432px]">
+            List your clinic today and get a chance to be featured on our homepage!
           </p>
         </div>
 
-        {/* Right - Search Bar */}
-        <div className="relative w-full max-w-md">
-          <input
-            type="text"
-            placeholder="Search articles, topics, treatments..."
-            className="w-full rounded-full border border-[#E8D5E8] bg-white px-5 py-3 pr-12 font-montserrat text-sm text-[#6B4A6B] placeholder-[#B8A8B8] transition-colors focus:border-[#CF5D9A] focus:outline-none"
-          />
+        {/* Benefit Items List */}
+        <div className="flex flex-col gap-[25px] w-full sm:max-w-[337px] mt-8 lg:mt-0 lg:absolute lg:left-[61px] lg:top-[246px] z-30">
+          {/* Item 1 */}
+          <div
+            className="flex items-center gap-[9px] w-full h-[61px] pl-3 rounded-[10px]"
+            style={{
+              background: "linear-gradient(90deg, #FFFFFF 0%, rgba(255, 255, 255, 0) 100%)",
+            }}
+          >
+            <div className="flex h-[35px] w-[35px] items-center justify-center text-[#CF5D9A]">
+              <Gem className="h-6 w-6" strokeWidth={1.5} />
+            </div>
+            <div className="flex flex-col">
+              <span className="font-montserrat font-medium text-[18px] leading-[140%] text-[#353535]">
+                Free Premium Listing
+              </span>
+              <span className="font-montserrat font-medium text-[14px] leading-[140%] text-[#98889A]">
+                For first 100 signups
+              </span>
+            </div>
+          </div>
+
+          {/* Item 2 */}
+          <div
+            className="flex items-center gap-[9px] w-full h-[61px] pl-3 rounded-[10px]"
+            style={{
+              background: "linear-gradient(90deg, #FFFFFF 0%, rgba(255, 255, 255, 0) 100%)",
+            }}
+          >
+            <div className="flex h-[35px] w-[35px] items-center justify-center text-[#CF5D9A]">
+              <Star className="h-6 w-6" strokeWidth={1.5} />
+            </div>
+            <div className="flex flex-col">
+              <span className="font-montserrat font-medium text-[18px] leading-[140%] text-[#353535]">
+                Featured on Homepage
+              </span>
+              <span className="font-montserrat font-medium text-[14px] leading-[140%] text-[#98889A]">
+                Get maximum velocity
+              </span>
+            </div>
+          </div>
+
+          {/* Item 3 */}
+          <div
+            className="flex items-center gap-[9px] w-full h-[61px] pl-3 rounded-[10px]"
+            style={{
+              background: "linear-gradient(90deg, #FFFFFF 0%, rgba(255, 255, 255, 0) 100%)",
+            }}
+          >
+            <div className="flex h-[35px] w-[35px] items-center justify-center text-[#CF5D9A]">
+              <LifeBuoy className="h-6 w-6" strokeWidth={1.5} />
+            </div>
+            <div className="flex flex-col">
+              <span className="font-montserrat font-medium text-[18px] leading-[140%] text-[#353535]">
+                Priority Support
+              </span>
+              <span className="font-montserrat font-medium text-[14px] leading-[140%] text-[#98889A]">
+                Dedicated account manager
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Right Card: Claim Your Benefits ── */}
+      <div
+        className="relative flex w-full lg:w-[535px] h-auto lg:h-[546px] flex-col items-center rounded-[18px] border border-[#DEC6DF] p-6 sm:p-10 lg:p-0"
+        style={{
+          background: "linear-gradient(147.33deg, #FCD1FF -144.24%, #FFFFFF 47.26%)",
+          boxShadow: "0px 8px 14px rgba(0, 0, 0, 0.02)",
+        }}
+      >
+        {/* Title Block */}
+        <div className="flex flex-col items-center w-full lg:max-w-[432px] lg:absolute lg:left-[52px] lg:top-[49px] z-30">
+          <h2
+            className="font-montserrat font-medium leading-[116.02%] tracking-[-0.04em] text-[#99597A] text-[28px] sm:text-[32px] text-center"
+            style={{ lineHeight: "116.02%" }}
+          >
+           List your medspa 
+          </h2>
+        </div>
+
+        {/* Form Inputs (Desktop absolute, mobile mt-8) */}
+        <form className="flex flex-col gap-[13px] w-full lg:max-w-[422px] mt-8 lg:mt-0 lg:absolute lg:left-[54px] lg:top-[170px] z-30">
+          {/* Full Name */}
+          <div className="flex h-[50px] w-full items-center rounded-[4px] border border-[#D2C3D3] bg-white px-[15px]">
+            <input
+              type="text"
+              placeholder="Full Name"
+              className="w-full font-montserrat text-[16px] leading-[140%] text-[#353535] placeholder-[#B5A4B6] bg-transparent border-none outline-none focus:ring-0"
+              required
+            />
+          </div>
+
+          {/* Business Email */}
+          <div className="flex h-[50px] w-full items-center rounded-[4px] border border-[#D2C3D3] bg-white px-[15px]">
+            <input
+              type="email"
+              placeholder="Business Email"
+              className="w-full font-montserrat text-[16px] leading-[140%] text-[#353535] placeholder-[#B5A4B6] bg-transparent border-none outline-none focus:ring-0"
+              required
+            />
+          </div>
+
+          {/* Business Name */}
+          <div className="flex h-[50px] w-full items-center rounded-[4px] border border-[#D2C3D3] bg-white px-[15px]">
+            <input
+              type="text"
+              placeholder="Business Name"
+              className="w-full font-montserrat text-[16px] leading-[140%] text-[#353535] placeholder-[#B5A4B6] bg-transparent border-none outline-none focus:ring-0"
+              required
+            />
+          </div>
+
+          {/* Submit Button */}
           <button
-            className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-[#CF5D9A] transition-opacity hover:opacity-90"
-            aria-label="Search"
+            type="submit"
+            className="flex h-[53px] w-full items-center justify-center rounded-[8px] mt-4 font-montserrat font-semibold text-[18px] text-white cursor-pointer hover:opacity-90 active:scale-[0.99] transition-all"
+            style={{
+              background: "linear-gradient(90deg, #DE7F4C 0%, #C341D7 100%)",
+            }}
           >
-            <Search className="h-4 w-4 text-white" />
+           Submit
           </button>
-        </div>
-      </div>
-
-      {/* Categories */}
-      <div className="flex flex-col gap-4">
-        <div className="flex items-center gap-8 overflow-x-auto pb-2 scrollbar-none">
-          {categories.map((category) => (
-            <CategoryCard key={category.id} {...category} />
-          ))}
-        </div>
-      </div>
-
-      {/* Popular Topics */}
-      <div className="flex flex-col gap-3">
-        <h4 className="font-montserrat text-sm font-semibold text-[#8B6E7F]">
-          Popular Topics
-        </h4>
-        <div className="flex flex-wrap gap-2">
-          {popularTopics.map((topic) => (
-            <Link
-              key={topic}
-              href="#"
-              className="rounded-full bg-[#E8D5E8] px-4 py-1.5 font-montserrat text-sm text-[#6B4A6B] transition-colors hover:bg-[#CF5D9A] hover:text-white"
-            >
-              {topic}
-            </Link>
-          ))}
-        </div>
-      </div>
-
-      {/* Latest Articles */}
-      <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <h4 className="font-montserrat text-lg font-semibold text-[#8B6E7F]">
-            Latest Articles
-          </h4>
-          <Link
-            href="#"
-            className="flex items-center gap-2 transition-opacity hover:opacity-70"
-          >
-            <span className="font-montserrat text-sm font-medium text-[#CF5D9A]">
-              View All Articles
-            </span>
-            <ChevronRight className="h-4 w-4 text-[#CF5D9A]" />
-          </Link>
-        </div>
-
-        {/* Articles Grid */}
-        <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-none">
-          {latestArticles.map((article) => (
-            <ArticleCard key={article.id} article={article} />
-          ))}
-        </div>
+        </form>
       </div>
     </section>
   );

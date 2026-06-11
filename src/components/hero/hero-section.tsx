@@ -55,7 +55,7 @@ export function HeroSection() {
           <div className="flex flex-col gap-8 lg:gap-10">
             {/* Trust badge */}
             <div className="inline-flex w-fit max-w-full items-center gap-2 rounded-full border border-white/40 bg-black/25 px-4 py-1.5 backdrop-blur-sm ">
-              <Image src={"/images/hero/group.png"} alt="shield icon" width={15} height={15} />
+              <Image src={"/images/hero/group.png"} alt="shield icon" width={15} height={16} style={{ height: "auto" }} />
               <span className="text-sm font-semibold tracking-wide sm:text-[17px] bg-gradient-to-r from-[#FFFFFF] to-[#DF67D6] bg-clip-text text-transparent">
                 <span className="">TRUSTED MEDSPA DIRECTORY</span>
                 <span className=""> + PATIENT EDUCATION</span>

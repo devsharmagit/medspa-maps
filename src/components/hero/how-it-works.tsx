@@ -1,110 +1,154 @@
 import { Search } from "lucide-react";
 
+// ─── Data ─────────────────────────────────────────────────────────────────────
+
 const steps = [
   {
     id: 1,
-    icon: <Search className="h-6 w-6 text-white" />,
     title: "SEARCH",
     description: "Find treatments & clinic near you!",
     number: "1",
+    svg: "/images/landingpage/1.svg",
+    leftOffset: -15,
   },
   {
     id: 2,
-    icon: <Search className="h-6 w-6 text-white" />,
     title: "COMPARE",
-    description: "Compare prices reviews & results.",
+    description: "Compare prices revives & results.",
     number: "2",
+    svg: "/images/landingpage/2.svg",
+    leftOffset: -24.25,
   },
   {
     id: 3,
-    icon: <Search className="h-6 w-6 text-white" />,
     title: "BOOK",
     description: "Book your appointment online.",
     number: "3",
+    svg: "/images/landingpage/3.svg",
+    leftOffset: -10.5,
   },
   {
     id: 4,
-    icon: <Search className="h-6 w-6 text-white" />,
     title: "ENJOY",
     description: "Love your results and feel confident.",
     number: "4",
+    svg: "/images/landingpage/4.svg",
+    leftOffset: -17.75,
   },
 ];
 
-function StepCard({
-  step,
-  index,
-}: {
-  step: (typeof steps)[0];
-  index: number;
-}) {
-  return (
-    <div className="relative flex flex-col items-center">
-      {/* Card */}
-      <div className="flex h-[157px] w-[172px] flex-col items-center justify-center gap-4 rounded-2xl border border-[#E8E8E8] bg-white px-4 py-6 shadow-sm">
-        {/* Icon Circle */}
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#C77BA8]">
-          {step.icon}
-        </div>
-
-        {/* Title */}
-        <h3 className="font-montserrat text-sm font-semibold uppercase tracking-[0.08em] text-[#8B6E7F]">
-          {step.title}
-        </h3>
-
-        {/* Description */}
-        <p className="text-center font-montserrat text-xs leading-[140%] text-[#8B8B8B]">
-          {step.description}
-        </p>
-      </div>
-
-      {/* Arrow and Number */}
-      {index < steps.length - 1 && (
-        <div className="absolute -right-8 top-1/2 flex -translate-y-1/2 items-center">
-          {/* Arrow SVG */}
-          <svg
-            width="50"
-            height="40"
-            viewBox="0 0 50 40"
-            fill="none"
-            className="text-[#E8E8E8]"
-          >
-            <path
-              d="M2 20H45M45 20L30 5M45 20L30 35"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              opacity="0.3"
-            />
-          </svg>
-          {/* Step Number */}
-          <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 font-montserrat text-[80px] font-bold leading-none text-[#F5F5F5]">
-            {step.number}
-          </span>
-        </div>
-      )}
-    </div>
-  );
-}
+// ─── HowItWorks ───────────────────────────────────────────────────────────────
 
 export function HowItWorks() {
   return (
-    <section className="flex w-full max-w-[1372px] items-center justify-center gap-8 rounded-2xl bg-[#FAF8FB] px-16 py-12">
-      {/* Left Side - Title */}
-      <div className="flex flex-col items-start">
-        <h2 className="font-montserrat text-[42px] font-normal leading-[110%] text-[#8B6E7F]">
-          How It
+    // Outer container: 1372×330px on desktop, gradient, pink border, subtle shadow
+    <section
+      className="flex w-full max-w-[1372px] flex-col lg:flex-row items-center justify-center rounded-[18px] border border-[#DEC6DF] py-10 px-6 lg:py-[14px] lg:pr-[34px] lg:pl-0 lg:pb-[5px]"
+      style={{
+        background: "linear-gradient(129.28deg, #FCD1FF -95.16%, #FFFFFF 21.93%)",
+        boxShadow: "0px 8px 14px rgba(0,0,0,0.02)",
+        minHeight: 330,
+        gap: 1,
+      }}
+    >
+      {/* ── Left title block ── */}
+      {/* Width 317px on desktop: padding 0 59px 0 62px → title is 216px wide */}
+      <div
+        className="flex shrink-0 items-start justify-center mb-10 lg:mb-0 w-full lg:w-[317px] px-4 lg:px-0 lg:pl-[62px] lg:pr-[59px]"
+      >
+        <h2
+          className="font-montserrat font-medium leading-[116.02%] tracking-[-0.04em] text-[#99597A] text-center lg:text-left text-4xl lg:text-[58px]"
+          style={{ lineHeight: "116.02%" }}
+        >
+          How It{" "}
+          <span className="font-heading italic">Works?</span>
         </h2>
-        <span className="font-heading text-[48px] italic leading-[110%] text-[#8B6E7F]">
-          Works?
-        </span>
       </div>
 
-      {/* Right Side - Steps */}
-      <div className="flex items-center gap-16">
-        {steps.map((step, index) => (
-          <StepCard key={step.id} step={step} index={index} />
+      {/* ── Steps area: 994×206px on desktop, relative for absolute numbers ── */}
+      <div
+        className="relative flex flex-col md:flex-row items-center justify-center gap-12 md:gap-[27px] w-full lg:w-[994px]"
+        style={{ minHeight: 206, isolation: "isolate" }}
+      >
+        {/* ── Step cards ── */}
+        {steps.map((step, idx) => (
+          // Each card wrapper: 228.25×206px, relative positioning anchor
+          <div
+            key={step.id}
+            className="relative flex shrink-0"
+            style={{
+              width: 228.25,
+              height: 206,
+              zIndex: 2 + idx * 2, // stack layers correctly
+            }}
+          >
+            {/* Watermark Number SVG (relative to card bottom-left) */}
+            <div
+              className="pointer-events-none absolute select-none flex items-center justify-center"
+              style={{
+                top: 150,
+                left: step.leftOffset,
+                zIndex: 1, // behind card body
+              }}
+            >
+              <img
+                src={step.svg}
+                alt={step.number}
+                className="select-none pointer-events-none object-contain"
+                style={{
+                  height: 73,
+                  width: "auto",
+                }}
+              />
+            </div>
+
+            {/* Card Body */}
+            <div
+              className="relative flex h-full w-full flex-col items-center justify-center rounded-[22px] border border-[#E9CCEC]"
+              style={{
+                background: "rgba(255,255,255,0.7)",
+                padding: "19px 26px 0px",
+                gap: 14,
+                zIndex: 2, // in front of watermark number
+              }}
+            >
+              {/* Pink circle icon — floats above top edge */}
+              <div
+                className="absolute flex items-center justify-center rounded-full bg-[#CF5D9A]"
+                style={{
+                  width: 50,
+                  height: 49,
+                  top: -21.5,
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  zIndex: 10,
+                  padding: 3,
+                }}
+              >
+                <Search className="h-[18px] w-[18px] text-white" strokeWidth={1.5} />
+              </div>
+
+              {/* Title */}
+              <h3
+                className="w-full text-center font-montserrat font-semibold uppercase text-[#A8698B]"
+                style={{
+                  fontSize: 20,
+                  lineHeight: "116.02%",
+                  letterSpacing: "0.29em",
+                }}
+              >
+                {step.title}
+              </h3>
+
+              {/* Description */}
+              <p
+                className="text-center font-montserrat text-[#575757]"
+                style={{ fontSize: 18, lineHeight: "140%" }}
+              >
+                {step.description}
+              </p>
+            </div>
+          </div>
         ))}
       </div>
     </section>

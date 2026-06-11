@@ -92,52 +92,14 @@ export function CTACards() {
   return (
     <div className="flex w-full max-w-[1372px] gap-6">
       {/* Left Card - Get Your medSpa Listed */}
-      <div className="relative flex-1 overflow-hidden rounded-3xl bg-gradient-to-br from-[#E8D5E8] via-[#D4B8D9] to-[#C9A8D4] p-12">
-        {/* Decorative elements */}
-        <div className="absolute right-0 top-0 h-full w-1/2 opacity-20">
-          <svg
-            className="absolute right-10 top-10 h-32 w-32 text-white/30"
-            viewBox="0 0 100 100"
-          >
-            <circle cx="50" cy="50" r="40" fill="currentColor" opacity="0.3" />
-          </svg>
-          <svg
-            className="absolute bottom-20 right-20 h-20 w-20 text-white/30"
-            viewBox="0 0 100 100"
-          >
-            <circle cx="50" cy="50" r="40" fill="currentColor" opacity="0.3" />
-          </svg>
-        </div>
-
-        {/* Gift box illustration */}
-        <div className="absolute bottom-0 right-12 h-64 w-64 opacity-90">
-          <div className="relative h-full w-full">
-            {/* Gift box */}
-            <div className="absolute bottom-8 left-1/2 h-40 w-48 -translate-x-1/2 rounded-lg bg-gradient-to-b from-[#9B6FB5] to-[#7B4F95] shadow-2xl">
-              {/* Ribbon vertical */}
-              <div className="absolute left-1/2 top-0 h-full w-8 -translate-x-1/2 bg-gradient-to-b from-[#B88ACE] to-[#9B6FB5]"></div>
-              {/* Ribbon horizontal */}
-              <div className="absolute left-0 top-1/3 h-8 w-full bg-gradient-to-r from-[#B88ACE] to-[#9B6FB5]"></div>
-              {/* Text on box */}
-              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-center">
-                <span className="font-montserrat text-lg font-bold uppercase tracking-wider text-white">
-                  EXCLUSIVE
-                </span>
-                <br />
-                <span className="font-montserrat text-lg font-bold uppercase tracking-wider text-white">
-                  BENEFITS
-                </span>
-              </div>
-            </div>
-            {/* Bow */}
-            <div className="absolute left-1/2 top-0 h-24 w-32 -translate-x-1/2">
-              <div className="absolute left-0 top-8 h-16 w-16 rounded-full bg-gradient-to-br from-[#B88ACE] to-[#9B6FB5] opacity-80"></div>
-              <div className="absolute right-0 top-8 h-16 w-16 rounded-full bg-gradient-to-br from-[#B88ACE] to-[#9B6FB5] opacity-80"></div>
-              <div className="absolute left-1/2 top-4 h-8 w-12 -translate-x-1/2 rounded-t-full bg-gradient-to-b from-[#D4B8E8] to-[#B88ACE]"></div>
-            </div>
-          </div>
-        </div>
-
+      <div
+        className="relative flex-1 overflow-hidden rounded-3xl p-12"
+        style={{
+          backgroundImage: "url(/images/landingpage/gift-bg-whole.png)",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }}
+      >
         {/* Content */}
         <div className="relative z-10 max-w-md">
           <h2 className="mb-2 font-montserrat text-[32px] font-normal leading-tight text-[#6B4A6B]">

@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, ChevronLeft, ChevronRight, Heart, MapPin, Play, Search, Star } from "lucide-react";
+import { ChevronDown, Heart, MapPin, Play, Star } from "lucide-react";
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -19,13 +19,16 @@ interface Clinic {
   treatments: string[];
   featured: boolean;
   discount: string;
-  images: string[];
+  thumbnails: string[];
   additionalImages: number;
   logo: string;
   mainImage: string;
 }
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
+
+const CLINIC_IMG = "/images/landingpage/clinic-2.png";
+const CLINIC_IMG2 = "/images/landingpage/clinic-3.png";
 
 const clinicData: Clinic[] = [
   {
@@ -41,10 +44,10 @@ const clinicData: Clinic[] = [
     treatments: ["Botox", "Fillers", "Laser", "Skin", "IV Therapy"],
     featured: true,
     discount: "15% Off",
-    images: ["/clinic image", "/clinic image", "/clinic image"],
+    thumbnails: [CLINIC_IMG2, CLINIC_IMG, CLINIC_IMG2],
     additionalImages: 18,
-    logo: "/clinic image",
-    mainImage: "/clinic image",
+    logo: "/images/landingpage/clinic-logo.png",
+    mainImage: CLINIC_IMG,
   },
   {
     id: 2,
@@ -54,36 +57,18 @@ const clinicData: Clinic[] = [
     location: "Austin, TX",
     distance: "8.5 Miles Away",
     rating: 4.8,
-    reviewCount: 68,
-    startingPrice: 129,
+    reviewCount: 54,
+    startingPrice: 99,
     treatments: ["Botox", "Fillers"],
     featured: true,
     discount: "15% Off",
-    images: ["/clinic image", "/clinic image", "/clinic image"],
+    thumbnails: [CLINIC_IMG, CLINIC_IMG2, CLINIC_IMG],
     additionalImages: 18,
-    logo: "/clinic image",
-    mainImage: "/clinic image",
+    logo: "/images/landingpage/clinic-logo.png",
+    mainImage: CLINIC_IMG2,
   },
   {
     id: 3,
-    name: "Beauty Clinic",
-    abbr: "BC",
-    verified: true,
-    location: "Austin, TX",
-    distance: "8.5 Miles Away",
-    rating: 4.8,
-    reviewCount: 68,
-    startingPrice: 129,
-    treatments: ["Botox", "Fillers", "Laser"],
-    featured: true,
-    discount: "15% Off",
-    images: ["/clinic image", "/clinic image", "/clinic image"],
-    additionalImages: 18,
-    logo: "/clinic image",
-    mainImage: "/clinic image",
-  },
-  {
-    id: 4,
     name: "Glow Studio",
     abbr: "GS",
     verified: true,
@@ -95,13 +80,13 @@ const clinicData: Clinic[] = [
     treatments: ["Skin", "Laser", "Peels"],
     featured: true,
     discount: "10% Off",
-    images: ["/clinic image", "/clinic image", "/clinic image"],
+    thumbnails: [CLINIC_IMG2, CLINIC_IMG, CLINIC_IMG2],
     additionalImages: 18,
-    logo: "/clinic image",
-    mainImage: "/clinic image",
+    logo: "/images/landingpage/clinic-logo.png",
+    mainImage: CLINIC_IMG,
   },
   {
-    id: 5,
+    id: 4,
     name: "Aura Aesthetics",
     abbr: "AA",
     verified: true,
@@ -113,19 +98,33 @@ const clinicData: Clinic[] = [
     treatments: ["Botox", "Skin", "IV Therapy"],
     featured: true,
     discount: "20% Off",
-    images: ["/clinic image", "/clinic image", "/clinic image"],
+    thumbnails: [CLINIC_IMG, CLINIC_IMG2, CLINIC_IMG],
     additionalImages: 18,
-    logo: "/clinic image",
-    mainImage: "/clinic image",
+    logo: "/images/landingpage/clinic-logo.png",
+    mainImage: CLINIC_IMG2,
+  },
+  {
+    id: 5,
+    name: "Beauty Clinic",
+    abbr: "BC",
+    verified: true,
+    location: "Austin, TX",
+    distance: "3 Miles Away",
+    rating: 4.6,
+    reviewCount: 77,
+    startingPrice: 79,
+    treatments: ["Botox", "Fillers", "Laser"],
+    featured: true,
+    discount: "12% Off",
+    thumbnails: [CLINIC_IMG2, CLINIC_IMG, CLINIC_IMG2],
+    additionalImages: 18,
+    logo: "/images/landingpage/clinic-logo.png",
+    mainImage: CLINIC_IMG,
   },
 ];
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Carousel Helpers ─────────────────────────────────────────────────────────
 
-/**
- * Returns the signed offset of `idx` relative to `current` in a circular
- * array of `total` items, always choosing the shortest path.
- */
 function getOffset(idx: number, current: number, total: number): number {
   let d = idx - current;
   if (d > total / 2) d -= total;
@@ -133,129 +132,125 @@ function getOffset(idx: number, current: number, total: number): number {
   return d;
 }
 
-/**
- * Computes the CSS transform + visual style for a card slot based on its
- * position relative to the active card.
- */
-interface SlotStyle {
-  transform: string;
-  opacity: number;
-  zIndex: number;
-  pointerEvents: "auto" | "none";
-  cursor: string;
-}
-
-function getSlotStyle(offset: number): SlotStyle {
-  const CARD_W = 580;
-  const GAP = 400;
-  const SIDE_SCALE = 1;
-  const SIDE_SKEW = 30;
-  const BACK_SCALE = 1;
-
-  const base = `translateX(${-CARD_W / 2}px) translateY(-260px)`;
+// Card is 660px wide. Side cards peek from behind — no Y shift, no skew, no opacity reduction.
+// We just scale them down and push them behind the active card.
+function getSlotStyle(offset: number) {
+  const CARD_W = 660;
+  const baseX = -CARD_W / 2;
+  const baseY = -250;
 
   if (offset === 0) {
     return {
-      transform: `${base} translateZ(0px) rotateY(0deg) scale(1)`,
+      transform: `translateX(${baseX}px) translateY(${baseY}px) translateZ(0px) rotateY(0deg) scale(1)`,
       opacity: 1,
       zIndex: 20,
-      pointerEvents: "auto",
+      pointerEvents: "auto" as const,
       cursor: "default",
     };
   }
 
-  if (offset === 1 || offset === -1) {
+  if (Math.abs(offset) === 1) {
     const dir = offset > 0 ? 1 : -1;
-    const sideY = -260 * SIDE_SCALE + (260 - 260 * SIDE_SCALE);
     return {
-      transform: `translateX(${-CARD_W / 2 + dir * GAP * 0.82}px) translateY(${sideY}px) translateZ(-120px) rotateY(${-dir * SIDE_SKEW}deg) scale(${SIDE_SCALE})`,
-      opacity: 0.85,
+      transform: `translateX(${baseX + dir * 240}px) translateY(${baseY}px) translateZ(-140px) rotateY(${-dir * 26}deg) scale(0.9)`,
+      opacity: 0.9,
       zIndex: 14,
-      pointerEvents: "auto",
+      pointerEvents: "auto" as const,
       cursor: "pointer",
     };
   }
 
-  if (offset === 2 || offset === -2) {
+  if (Math.abs(offset) === 2) {
     const dir = offset > 0 ? 1 : -1;
-    const backY = -260 * BACK_SCALE + (260 - 260 * BACK_SCALE);
     return {
-      transform: `translateX(${-CARD_W / 2 + dir * GAP * 1.42}px) translateY(${backY}px) translateZ(-240px) rotateY(${-dir * SIDE_SKEW * 1.5}deg) scale(${BACK_SCALE})`,
-      opacity: 0.55,
+      transform: `translateX(${baseX + dir * 420}px) translateY(${baseY}px) translateZ(-260px) rotateY(${-dir * 40}deg) scale(0.78)`,
+      opacity: 0.65,
       zIndex: 8,
-      pointerEvents: "auto",
+      pointerEvents: "auto" as const,
       cursor: "pointer",
     };
   }
 
-  // Far / hidden
   const dir = offset > 0 ? 1 : -1;
   return {
-    transform: `translateX(${-CARD_W / 2 + dir * GAP * 2}px) translateY(-260px) translateZ(-360px) rotateY(${-dir * SIDE_SKEW * 2}deg) scale(0.52)`,
+    transform: `translateX(${baseX + dir * 560}px) translateY(${baseY}px) translateZ(-380px) rotateY(${-dir * 54}deg) scale(0.6)`,
     opacity: 0,
     zIndex: 2,
-    pointerEvents: "none",
+    pointerEvents: "none" as const,
     cursor: "default",
   };
 }
 
 // ─── ClinicCard ───────────────────────────────────────────────────────────────
+// Layout (matching Figma):
+//   ┌──────────────────────────────────────────────┐
+//   │              Main Image (302px tall)          │
+//   │  [FEATURED]         [♥]                       │
+//   │              [▶]                              │
+//   │ 15% OFF                                       │
+//   ├──────────────────────────────────────────────┤
+//   │ [Logo] Name ✓          [thumb][thumb][+18]    │
+//   │        Austin, TX  📍 8.5 Miles               │
+//   │ 4.8 ★★★★★ (68) Starting at $129              │
+//   │ [Botox][Fillers][Laser][Skin][IV Therapy]     │
+//   │ [View Profile]              [Book Now ▶]      │
+//   └──────────────────────────────────────────────┘
 
 function ClinicCard({ clinic }: { clinic: Clinic }) {
   const [isFavorited, setIsFavorited] = useState(false);
 
   return (
     <div
-      className="w-[580px] overflow-hidden rounded-[18px] border-2 border-white bg-white"
-      style={{ boxShadow: "0 8px 40px rgba(0,0,0,0.35)" }}
+      className="w-[660px] overflow-hidden rounded-[18px] border-2 border-white bg-white"
+      style={{ boxShadow: "0px 4px 21.3px #E2D8E6" }}
     >
       {/* ── Main Image ── */}
-      <div className="relative h-[272px] w-full overflow-hidden bg-[#c8a8bc]">
+      <div className="relative h-[302px] w-full overflow-hidden">
         <Image
           src={clinic.mainImage}
           alt={clinic.name}
           fill
           className="object-cover"
+          sizes="(max-width: 768px) 100vw, 660px"
         />
 
         {/* Play button */}
         <button
-          className="absolute left-1/2 top-1/2 flex h-[72px] w-[72px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white/70"
+          className="absolute left-1/2 top-1/2 flex h-[79px] w-[79px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white/70"
           aria-label="Play video"
         >
-          <div className="flex h-[54px] w-[54px] items-center justify-center rounded-full bg-black/70">
+          <div className="flex h-[58px] w-[58px] items-center justify-center rounded-full bg-black/70">
             <Play className="ml-1 h-5 w-5 fill-white text-white" />
           </div>
         </button>
 
+        {/* Heart */}
+        <button
+          onClick={() => setIsFavorited(!isFavorited)}
+          className="absolute right-[18px] top-[18px] flex h-[40px] w-[40px] items-center justify-center rounded-full border-2 border-white bg-white/20"
+          aria-label="Add to favorites"
+        >
+          <Heart
+            className={`h-[18px] w-[18px] ${isFavorited ? "fill-[#CF5D9A] text-[#CF5D9A]" : "fill-white text-white"}`}
+          />
+        </button>
+
         {/* Featured badge */}
         {clinic.featured && (
-          <div className="absolute left-[18px] top-[18px] rounded bg-[#D3A845] px-2.5 py-1">
-            <span className="font-montserrat text-[11px] font-bold uppercase tracking-[0.04em] text-white">
+          <div className="absolute left-[22px] top-[23px] rounded bg-[#D3A845] px-[10px] py-1">
+            <span className="font-montserrat text-[14px] font-semibold uppercase tracking-[-0.02em] text-white">
               Featured
             </span>
           </div>
         )}
 
-        {/* Heart button */}
-        <button
-          onClick={() => setIsFavorited(!isFavorited)}
-          className="absolute right-[16px] top-[14px] flex h-[38px] w-[38px] items-center justify-center rounded-full border-2 border-white/90 bg-white/20"
-          aria-label="Add to favorites"
-        >
-          <Heart
-            className={`h-[17px] w-[17px] ${
-              isFavorited ? "fill-[#CF5D9A] text-[#CF5D9A]" : "fill-white text-white"
-            }`}
-          />
-        </button>
-
         {/* Discount banner */}
         {clinic.discount && (
-          <div className="absolute bottom-0 left-0 w-full px-3.5 py-1.5"
-            style={{ background: "linear-gradient(to right, #CF5C9B, rgba(207,92,155,0.3), transparent)" }}
+          <div
+            className="absolute bottom-0 left-0 w-full px-[10px] py-1.5"
+            style={{ background: "linear-gradient(90deg, #CF5C9B 15.45%, rgba(211,168,69,0) 100%)" }}
           >
-            <span className="font-montserrat text-[13px] font-bold uppercase text-white">
+            <span className="font-montserrat text-[14px] font-bold uppercase tracking-[-0.02em] text-white">
               {clinic.discount}
             </span>
           </div>
@@ -263,98 +258,151 @@ function ClinicCard({ clinic }: { clinic: Clinic }) {
       </div>
 
       {/* ── Card Body ── */}
-      <div className="bg-white px-[26px] pt-5 pb-4">
-        {/* Clinic header */}
-        <div className="mb-3 flex items-end gap-3">
-          {/* Logo / abbr */}
-          <div className="flex h-12 w-[52px] flex-shrink-0 items-center justify-center rounded-lg border border-[#e5e5e5] bg-[#f8f3f6] text-[15px] font-bold tracking-tight text-[#CF5D9A]">
-            {clinic.abbr}
-          </div>
+      <div className="bg-white px-[30px] pt-[24px] pb-[24px]">
 
-          <div>
-            <div className="flex items-center gap-1 mb-[3px]">
-              <h3 className="font-montserrat text-[17px] font-semibold leading-tight tracking-[0.01em] text-[#383838]">
-                {clinic.name}
-              </h3>
-              {clinic.verified && (
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" className="ml-0.5">
-                  <path
-                    d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"
-                    stroke="#CF5D9A"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              )}
+        {/* Row 1: Logo + Name/Location  |  Thumbnails */}
+        <div className="flex items-start justify-between gap-4">
+          {/* Left: logo + text */}
+          <div className="flex items-start gap-[11px]">
+            {/* Logo */}
+            <div className="h-[50px] w-[57px] shrink-0 overflow-hidden rounded-[6px] border border-[#E5E5E5]">
+              <Image
+                src={clinic.logo}
+                alt={`${clinic.name} logo`}
+                width={57}
+                height={50}
+                className="h-full w-full object-cover"
+              />
             </div>
 
-            <div className="flex items-center gap-[10px] text-[11px] text-[#727272]">
-              <span className="font-montserrat">{clinic.location}</span>
-              <div className="h-3.5 w-px bg-[#ddd]" />
-              <div className="flex items-center gap-0.5">
-                <MapPin className="h-[13px] w-[13px] text-[#EE97C6]" />
-                <span className="font-montserrat">{clinic.distance}</span>
+            {/* Name + location */}
+            <div className="flex flex-col gap-[4px]">
+              <div className="flex items-center gap-[4px]">
+                <h3 className="font-montserrat text-[20px] font-medium leading-[116.02%] tracking-[0.02em] text-[#383838]">
+                  {clinic.name}
+                </h3>
+                {clinic.verified && (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="shrink-0">
+                    <path
+                      d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"
+                      stroke="#CF5D9A"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                )}
+              </div>
+              <div className="flex items-center gap-[13px] text-[12px] text-[#727272]">
+                <span className="font-montserrat font-medium tracking-[0.02em]">{clinic.location}</span>
+                <div className="h-[14px] w-px bg-[#DBDBDB]" />
+                <div className="flex items-center gap-[2px]">
+                  <MapPin className="h-[13px] w-[13px] text-[#EE97C6]" />
+                  <span className="font-montserrat tracking-[0.02em]">{clinic.distance}</span>
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Rating row */}
-        <div className="mb-3.5 flex items-center gap-1.5 text-[11px] text-[#727272]">
-          <span className="font-montserrat">{clinic.rating}</span>
-          <div className="flex items-center gap-0.5">
-            {[...Array(5)].map((_, i) => (
-              <Star key={i} className="h-[13px] w-[13px] fill-[#FFBA19] text-[#FFBA19]" />
-            ))}
-          </div>
-          <span className="font-montserrat">({clinic.reviewCount})</span>
-          <span className="font-montserrat">Starting at ${clinic.startingPrice}</span>
-        </div>
-
-        {/* Treatments + action buttons */}
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex flex-wrap gap-1.5">
-            {clinic.treatments.map((t) => (
-              <span
-                key={t}
-                className="rounded border-[0.5px] border-[#dfdfdf] bg-[#f5f5f5] px-2 py-1 font-montserrat text-[10px] tracking-[0.02em] text-[#7f7f7f]"
+          {/* Right: thumbnails */}
+          <div className="flex shrink-0 items-center gap-[9px]">
+            {clinic.thumbnails.map((img, idx) => (
+              <div
+                key={idx}
+                className="relative h-[56px] w-[76px] overflow-hidden rounded-[6px]"
               >
-                {t}
-              </span>
+                <Image
+                  src={img}
+                  alt={`Gallery ${idx + 1}`}
+                  fill
+                  className="object-cover"
+                  sizes="76px"
+                />
+                {idx === 2 && (
+                  <div className="absolute inset-0 flex items-center justify-center rounded-[6px] bg-black/40">
+                    <span className="font-montserrat text-[14px] font-semibold text-white">
+                      +{clinic.additionalImages}
+                    </span>
+                  </div>
+                )}
+              </div>
             ))}
           </div>
-
-          <div className="flex flex-shrink-0 items-center gap-2">
-            <button className="h-[38px] rounded-lg px-4 font-montserrat text-[12px] font-semibold text-[#CF5D9A] transition-colors hover:bg-pink-50">
-              View Profile
-            </button>
-            <button
-              className="h-[38px] rounded-lg px-4 font-montserrat text-[12px] font-semibold text-white transition-opacity hover:opacity-90"
-              style={{ background: "linear-gradient(135deg, #CF5D9A, #e07040)" }}
-            >
-              Book Now
-            </button>
-          </div>
         </div>
-      </div>
 
-      {/* ── Thumbnails ── */}
-      <div className="flex gap-1.5 bg-white px-[26px] pb-4">
-        {clinic.images.map((img, idx) => (
-          <div key={idx} className="relative h-[50px] w-[68px] flex-shrink-0 overflow-hidden rounded-lg bg-[#c8a8bc]">
-            <Image src={img} alt={`Gallery ${idx + 1}`} fill className="object-cover" />
-            {idx === 2 && (
-              <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/40">
-                <span className="font-montserrat text-[13px] font-semibold text-white">
-                  +{clinic.additionalImages}
-                </span>
-              </div>
-            )}
+        {/* Row 2: Rating */}
+        <div className="mt-[14px] flex items-center gap-[6px] text-[12px] text-[#727272]">
+          <span className="font-montserrat tracking-[-0.02em]">{clinic.rating}</span>
+          <div className="flex items-center gap-[4px]">
+            {[...Array(5)].map((_, i) => (
+              <Star key={i} className="h-[14px] w-[14px] fill-[#FFBA19] text-[#FFBA19]" />
+            ))}
           </div>
-        ))}
+          <span className="font-montserrat tracking-[-0.02em]">({clinic.reviewCount})</span>
+          <span className="font-montserrat tracking-[-0.02em]">Starting at ${clinic.startingPrice}</span>
+        </div>
+
+<div className="flex justify-between ">
+
+        {/* Row 3: Treatment tags */}
+        <div className="mt-[10px] flex flex-wrap items-center gap-[6px]">
+          {clinic.treatments.map((t) => (
+            <span
+              key={t}
+              className="rounded border-[0.5px] border-[#DFDFDF] bg-[#F5F5F5] px-[10px] py-1 font-montserrat text-[12px] tracking-[0.02em] text-[#7F7F7F]"
+            >
+              {t}
+            </span>
+          ))}
+        </div>
+
+        {/* Row 4: CTA buttons */}
+        <div className="mt-[20px] flex items-center gap-[9px]">
+          <button className="flex h-[43px] w-[120px] items-center justify-center rounded-lg border border-[#CF5B9D] font-montserrat text-[14px] font-semibold text-[#CF5B9D] transition-colors hover:bg-pink-50">
+            View Profile
+          </button>
+          <button className="flex h-[43px] w-[127px] items-center justify-center rounded-lg bg-[linear-gradient(90deg,#DE7F4C_0%,#C341D7_100%)] font-montserrat text-[14px] font-semibold text-white transition-opacity hover:opacity-90">
+            Book Now
+          </button>
+        </div>
+</div>
       </div>
     </div>
+  );
+}
+
+// ─── Filter Icon SVGs ─────────────────────────────────────────────────────────
+
+function SearchIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <circle cx="11" cy="11" r="7" stroke="white" strokeWidth="2" />
+      <path d="M16.5 16.5L21 21" stroke="white" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function LocationIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 6.5 12 6.5s2.5 1.12 2.5 2.5S13.38 11.5 12 11.5z"
+        fill="white"
+      />
+    </svg>
+  );
+}
+
+function StarOutlineIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+        stroke="white"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 
@@ -364,21 +412,17 @@ export function FindClinicSection() {
   const [current, setCurrent] = useState(0);
   const total = clinicData.length;
 
-  // Drag / swipe state
   const dragStart = useRef<number | null>(null);
   const isDragging = useRef(false);
 
   const goTo = useCallback(
-    (idx: number) => {
-      setCurrent(((idx % total) + total) % total);
-    },
+    (idx: number) => setCurrent(((idx % total) + total) % total),
     [total]
   );
 
   const prev = useCallback(() => goTo(current - 1), [current, goTo]);
   const next = useCallback(() => goTo(current + 1), [current, goTo]);
 
-  // Keyboard navigation
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "ArrowLeft") prev();
@@ -388,7 +432,6 @@ export function FindClinicSection() {
     return () => window.removeEventListener("keydown", onKey);
   }, [prev, next]);
 
-  // Pointer drag handlers
   const onPointerDown = (e: React.PointerEvent) => {
     dragStart.current = e.clientX;
     isDragging.current = false;
@@ -406,163 +449,120 @@ export function FindClinicSection() {
   };
 
   return (
-    <section
-      className="flex w-full flex-col items-center gap-0 overflow-hidden rounded-2xl py-10"
-      style={{ background: "#0e0e0e" }}
-    >
+    <section className="flex w-full flex-col items-center gap-[27px] overflow-hidden pb-16 pt-0">
       {/* ── Title ── */}
-      <h2 className="mb-8 w-full text-center font-montserrat text-[28px] font-normal leading-[116%] tracking-[-0.04em] text-white">
-        Find the{" "}
-        <em
-          className="not-italic font-semibold"
-          style={{ color: "#e8d5b7", fontStyle: "italic" }}
-        >
-          Perfect Clinic
-        </em>
+      <h2 className="w-full text-center font-montserrat text-[34px] font-normal leading-[116.02%] tracking-[-0.04em] text-[#373634]">
+        Find the <em className="font-normal font-heading" >Perfect Clinic</em>
       </h2>
 
-      {/* ── Filter Bar ── */}
-      <div className="mb-10 flex flex-wrap items-center justify-center gap-4 px-6">
-        {/* Treatment */}
-        <div className="flex items-center gap-2">
-          <button
-            className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full border-none"
-            style={{ background: "linear-gradient(135deg, #CF5D9A, #e07040)" }}
-          >
-            <Search className="h-5 w-5 text-white" />
-          </button>
-          <div className="flex h-11 w-[200px] items-center justify-between rounded-lg border border-[#333] bg-[#1c1c1c] px-3.5">
-            <span className="font-montserrat text-[13px] text-[#aaa]">Treatments</span>
-            <ChevronDown className="h-4 w-4 text-[#666]" />
+      {/* ── Filter Bar — single row, centred ── */}
+      <div className="flex w-full max-w-[1355px] items-center justify-center gap-[25px] px-8">
+        {/* Filter dropdowns group */}
+        <div className="flex items-center gap-[27px]">
+          {/* Treatments */}
+          <div className="flex items-center gap-[8px]">
+            <div className="flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-full bg-[#CF5D9A]">
+              <SearchIcon />
+            </div>
+            <div className="flex h-[50px] w-[280px] cursor-pointer items-center justify-between rounded-[4px] border border-[#D2C3D3] bg-white px-[22px]">
+              <span className="font-montserrat text-[16px] leading-[140%] text-[#727272]">Treatments</span>
+              <ChevronDown className="h-4 w-4 text-[#353535]" />
+            </div>
+          </div>
+
+          {/* Distance */}
+          <div className="flex items-center gap-[8px]">
+            <div className="flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-full bg-[#CF5D9A]">
+              <LocationIcon />
+            </div>
+            <div className="flex h-[50px] w-[280px] cursor-pointer items-center justify-between rounded-[4px] border border-[#D2C3D3] bg-white px-[22px]">
+              <span className="font-montserrat text-[16px] leading-[140%] text-[#727272]">25 Miles Away</span>
+              <ChevronDown className="h-4 w-4 text-[#353535]" />
+            </div>
+          </div>
+
+          {/* Rating */}
+          <div className="flex items-center gap-[8px]">
+            <div className="flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-full bg-[#CF5D9A]">
+              <StarOutlineIcon />
+            </div>
+            <div className="flex h-[50px] w-[280px] cursor-pointer items-center justify-between rounded-[4px] border border-[#D2C3D3] bg-white px-[22px]">
+              <span className="font-montserrat text-[16px] leading-[140%] text-[#727272]">4.0+ and More Rating</span>
+              <ChevronDown className="h-4 w-4 text-[#353535]" />
+            </div>
           </div>
         </div>
 
-        {/* Distance */}
-        <div className="flex items-center gap-2">
-          <button
-            className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full border-none"
-            style={{ background: "linear-gradient(135deg, #CF5D9A, #e07040)" }}
-          >
-            <MapPin className="h-5 w-5 text-white" />
+        {/* Divider + actions */}
+        <div className="flex items-center gap-[20px]">
+          <div className="h-[50px] w-px bg-[#D2D2D2]" />
+          <button className="whitespace-nowrap font-montserrat text-[16px] font-medium text-[#CF5D9A] transition-opacity hover:opacity-70">
+            Clear Filters
           </button>
-          <div className="flex h-11 w-[200px] items-center justify-between rounded-lg border border-[#333] bg-[#1c1c1c] px-3.5">
-            <span className="font-montserrat text-[13px] text-[#aaa]">25 Miles Away</span>
-            <ChevronDown className="h-4 w-4 text-[#666]" />
-          </div>
-        </div>
-
-        {/* Rating */}
-        <div className="flex items-center gap-2">
-          <button
-            className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full border-none"
-            style={{ background: "linear-gradient(135deg, #CF5D9A, #e07040)" }}
-          >
-            <Star className="h-5 w-5 text-white" />
+          <button className="flex h-[47px] w-[127px] shrink-0 items-center justify-center rounded-[8px] bg-[linear-gradient(90deg,#DE7F4C_0%,#C341D7_100%)] font-montserrat text-[14px] font-semibold text-white transition-opacity hover:opacity-90">
+            Apply Filters
           </button>
-          <div className="flex h-11 w-[200px] items-center justify-between rounded-lg border border-[#333] bg-[#1c1c1c] px-3.5">
-            <span className="font-montserrat text-[13px] text-[#aaa]">4.0+ and More Rating</span>
-            <ChevronDown className="h-4 w-4 text-[#666]" />
-          </div>
         </div>
-
-        <div className="h-10 w-px bg-[#333]" />
-
-        <button className="font-montserrat text-[14px] font-medium text-[#CF5D9A] transition-opacity hover:opacity-70">
-          Clear Filters
-        </button>
-
-        <button
-          className="h-11 rounded-lg px-6 font-montserrat text-[13px] font-semibold text-white transition-opacity hover:opacity-90"
-          style={{ background: "linear-gradient(135deg, #CF5D9A, #e07040)" }}
-        >
-          Apply Filters
-        </button>
       </div>
 
       {/* ── Carousel ── */}
       <div
-        className="relative w-full"
-        style={{ height: 520, perspective: "1400px", perspectiveOrigin: "50% 45%" }}
+        className="relative w-full max-w-[1346px]"
+        style={{ height: 520, perspective: "1400px", perspectiveOrigin: "50% 50%" }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
       >
-        {/* Cards */}
-        <div
-          className="absolute inset-0"
-          style={{ transformStyle: "preserve-3d" }}
-        >
-          {clinicData.map((clinic, idx) => {
-            const offset = getOffset(idx, current, total);
-            const style = getSlotStyle(offset);
+        {clinicData.map((clinic, idx) => {
+          const offset = getOffset(idx, current, total);
+          const slot = getSlotStyle(offset);
 
-            return (
-              <div
-                key={clinic.id}
-                onClick={() => {
-                  // Only navigate on click, not after drag
-                  if (!isDragging.current && offset !== 0) goTo(idx);
-                }}
-                style={{
-                  position: "absolute",
-                  top: "50%",
-                  left: "50%",
-                  transform: style.transform,
-                  opacity: style.opacity,
-                  zIndex: style.zIndex,
-                  pointerEvents: style.pointerEvents,
-                  cursor: style.cursor,
-                  transition: "all 0.55s cubic-bezier(0.4, 0, 0.2, 1)",
-                  transformStyle: "preserve-3d",
-                  willChange: "transform, opacity",
-                }}
-              >
-                <ClinicCard clinic={clinic} />
-              </div>
-            );
-          })}
-        </div>
+          return (
+            <div
+              key={clinic.id}
+              onClick={() => {
+                if (!isDragging.current && offset !== 0) goTo(idx);
+              }}
+              style={{
+                position: "absolute",
+                top: "50%",
+                left: "50%",
+                transform: slot.transform,
+                opacity: slot.opacity,
+                zIndex: slot.zIndex,
+                pointerEvents: slot.pointerEvents,
+                cursor: slot.cursor,
+                transition: "all 0.55s cubic-bezier(0.4, 0, 0.2, 1)",
+                transformStyle: "preserve-3d",
+                willChange: "transform, opacity",
+              }}
+            >
+              <ClinicCard clinic={clinic} />
+            </div>
+          );
+        })}
 
-        {/* Left nav */}
+        {/* Left nav — inset from edge */}
         <button
           onClick={prev}
-          className="absolute left-5 top-1/2 z-30 flex h-[52px] w-[52px] -translate-y-1/2 items-center justify-center rounded-full bg-white transition-opacity hover:opacity-80"
-          style={{ border: "3px solid rgba(225,204,227,0.7)", boxShadow: "0 2px 12px rgba(0,0,0,0.25)" }}
+          className="absolute left-8 top-1/2 z-30 flex h-[56px] w-[56px] -translate-y-1/2 items-center justify-center rounded-full border-[3px] border-[#E1CCE3] bg-white shadow-sm transition-opacity hover:opacity-80"
           aria-label="Previous clinic"
         >
-          <ChevronLeft className="h-6 w-6 text-[#333]" />
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+            <path d="M19 12H5M5 12L12 5M5 12L12 19" stroke="#333" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
         </button>
 
-        {/* Right nav */}
+        {/* Right nav — inset from edge */}
         <button
           onClick={next}
-          className="absolute right-5 top-1/2 z-30 flex h-[52px] w-[52px] -translate-y-1/2 items-center justify-center rounded-full bg-white transition-opacity hover:opacity-80"
-          style={{ border: "3px solid rgba(225,204,227,0.7)", boxShadow: "0 2px 12px rgba(0,0,0,0.25)" }}
+          className="absolute right-8 top-1/2 z-30 flex h-[56px] w-[56px] -translate-y-1/2 items-center justify-center rounded-full border-[3px] border-[#E1CCE3] bg-white shadow-sm transition-opacity hover:opacity-80"
           aria-label="Next clinic"
         >
-          <ChevronRight className="h-6 w-6 text-[#333]" />
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+            <path d="M5 12H19M19 12L12 5M19 12L12 19" stroke="#333" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
         </button>
-      </div>
-
-      {/* ── Dots ── */}
-      <div className="mt-6 flex items-center gap-2">
-        {clinicData.map((_, idx) => (
-          <button
-            key={idx}
-            onClick={() => goTo(idx)}
-            aria-label={`Go to clinic ${idx + 1}`}
-            style={{
-              height: 8,
-              width: idx === current ? 22 : 8,
-              borderRadius: idx === current ? 4 : 9999,
-              background: idx === current ? "#CF5D9A" : "#444",
-              border: "none",
-              cursor: "pointer",
-              transition: "all 0.3s ease",
-              padding: 0,
-            }}
-          />
-        ))}
       </div>
     </section>
   );

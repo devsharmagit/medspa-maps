@@ -6,28 +6,28 @@ import { HowItWorks } from "@/components/hero/how-it-works";
 import { PopularTreatments } from "@/components/hero/popular-treatments";
 import { ProvidersSpotlight } from "@/components/hero/providers-spotlight";
 import { ResourcesSection } from "@/components/hero/resources-section";
+import { Newsletter } from "@/components/hero/newsletter";
+import { TopCities } from "@/components/hero/top-cities";
+import { ArticleSection } from "@/components/hero/article-section";
 import StatsSection from "@/components/hero/stat-section";
 import { Testimonials } from "@/components/hero/testimonials";
 import Image from "next/image";
 
 export default function Home() {
   return (
-    <main className="relative flex flex-1 flex-col items-center bg-[#FDFDFD] gap-10 ">
-     
-        {/* <div className="absolute inset-0" aria-hidden>
-                  <div className="absolute inset-0 " />
-                    <Image
-                    src="/images/hero/whole-bg.png"
-                    alt=""
-                    fill
-                    className="object-cover object-[70%_center] opacity-20 brightness-50 -z-10"
-                    priority
-                    sizes="100vw"
-                  />
-                 
-                 
-                </div> */}
-     
+    <main className="relative flex flex-1 flex-col items-center bg-[#FDFDFD] gap-10 isolate w-full">     
+      {/* Page-wide Background Image */}
+      <div className="absolute inset-0 pointer-events-none -z-10 overflow-hidden" aria-hidden="true">
+        <Image
+          src="/images/landingpage/whole-bg-png.png"
+          alt=""
+          fill
+          className="object-cover object-center opacity-20"
+          priority
+          sizes="100vw"
+        />
+      </div>
+
       <HeroSection />
       <StatsSection />
       <PopularTreatments />
@@ -35,8 +35,10 @@ export default function Home() {
       <ProvidersSpotlight />
       <HowItWorks />
       <Testimonials />
-      <CTACards />
       <ResourcesSection />
+      <TopCities />
+      <ArticleSection />
+      <Newsletter />
       <Footer />
     </main>
   );
