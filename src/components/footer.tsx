@@ -51,12 +51,7 @@ export function Footer() {
               >
                 Get a Free Listings
               </Link>
-              <Link
-                href="/client-login"
-                className="font-montserrat font-medium text-[14px] leading-[180%] tracking-[0.02em] text-[#C4C4C4] uppercase transition-colors hover:text-white"
-              >
-                I’M A G99 Client
-              </Link>
+              
               <Link
                 href="/featured-plans"
                 className="font-montserrat font-medium text-[14px] leading-[180%] tracking-[0.02em] text-[#C4C4C4] uppercase transition-colors hover:text-white"
