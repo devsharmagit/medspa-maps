@@ -1,11 +1,28 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { MapPin, Search, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export function HeroSearchBar({ className }: { className?: string }) {
+  const router = useRouter();
+  const [service, setService] = useState("");
+  const [location, setLocation] = useState("");
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const params = new URLSearchParams();
+    if (service.trim()) params.set("q", service.trim());
+    if (location.trim()) params.set("location", location.trim());
+    router.push(`/search?${params.toString()}`);
+  };
+
   return (
-    <div
+    <form
+      onSubmit={handleSearch}
       className={cn(
         "flex w-full flex-col overflow-hidden rounded-[18px] bg-white shadow-lg sm:flex-row sm:items-stretch sm:h-[75px]",
         className,
@@ -22,6 +39,8 @@ export function HeroSearchBar({ className }: { className?: string }) {
         </div>
         <input
           type="search"
+          value={service}
+          onChange={(e) => setService(e.target.value)}
           placeholder="Search treatment, condition or services..."
           className="w-full border-0 bg-transparent p-0 text-sm text-foreground placeholder:text-brand-placeholder focus:outline-none focus:ring-0"
           aria-label="Search services"
@@ -38,6 +57,8 @@ export function HeroSearchBar({ className }: { className?: string }) {
           </div>
           <input
             type="search"
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
             placeholder='City, Zip or "Near Me"'
             className="w-full border-0 bg-transparent p-0 text-sm text-foreground placeholder:text-brand-placeholder focus:outline-none focus:ring-0"
             aria-label="Search location"
@@ -55,6 +76,6 @@ export function HeroSearchBar({ className }: { className?: string }) {
           </Button>
         </div>
       </div>
-    </div>
+    </form>
   );
 }
