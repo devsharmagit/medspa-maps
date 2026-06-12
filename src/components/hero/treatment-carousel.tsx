@@ -35,7 +35,7 @@ export function TreatmentCarousel({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "relative z-10 mx-auto -mt-11 w-[calc(100%-2rem)] max-w-[1292px] rounded-full border border-[#e4e4e4] bg-white py-1 shadow-[0_8px_7px_rgba(0,0,0,0.02)]",
+        "relative z-1 mx-auto -mt-11 w-[calc(100%-2rem)] max-w-[1292px] rounded-full border border-[#e4e4e4] bg-white py-1 shadow-[0_8px_7px_rgba(0,0,0,0.02)]",
         className,
       )}
     >

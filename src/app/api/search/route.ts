@@ -17,25 +17,35 @@ export async function GET(request: NextRequest) {
     if (q) {
       conditions.push(`(
         s.name ILIKE $${paramIdx}
-        OR s.slug ILIKE $${paramIdx}
+        OR s.slug = $${paramIdx + 1}
         OR EXISTS (SELECT 1 FROM unnest(s.alias) a WHERE a ILIKE $${paramIdx})
         OR c.name ILIKE $${paramIdx}
         OR b.name ILIKE $${paramIdx}
         OR cat.name ILIKE $${paramIdx}
+        OR cat.slug = $${paramIdx + 1}
       )`);
-      params.push(`%${q}%`);
-      paramIdx++;
+      params.push(`%${q}%`, q);
+      paramIdx += 2;
     }
 
     // Location search (city, state, zip)
+    // Handles both exact state abbreviation matches (e.g. "TX") and
+    // freetext city/zip/state-name searches
     if (location) {
-      conditions.push(`(
-        c.city ILIKE $${paramIdx}
-        OR c.state ILIKE $${paramIdx}
-        OR c.zip ILIKE $${paramIdx}
-        OR (c.city || ', ' || c.state) ILIKE $${paramIdx}
-      )`);
-      params.push(`%${location}%`);
+      // Check if location looks like a 2-letter state abbreviation
+      const isAbbreviation = /^[A-Z]{2}$/.test(location.toUpperCase());
+      if (isAbbreviation) {
+        conditions.push(`c.state ILIKE $${paramIdx}`);
+        params.push(location);
+      } else {
+        conditions.push(`(
+          c.city ILIKE $${paramIdx}
+          OR c.state ILIKE $${paramIdx}
+          OR c.zip ILIKE $${paramIdx}
+          OR (c.city || ', ' || c.state) ILIKE $${paramIdx}
+        )`);
+        params.push(`%${location}%`);
+      }
       paramIdx++;
     }
 

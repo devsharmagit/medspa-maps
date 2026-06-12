@@ -16,6 +16,11 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import {
+  SearchableDropdown,
+  type DropdownOption,
+} from "@/components/ui/searchable-dropdown";
+import { US_STATES } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -80,6 +85,24 @@ export function SearchResults() {
   // Search bar state
   const [searchService, setSearchService] = useState(q);
   const [searchLocation, setSearchLocation] = useState(location);
+  const [serviceOptions, setServiceOptions] = useState<DropdownOption[]>([]);
+
+  // Fetch service options for the dropdown
+  useEffect(() => {
+    fetch("/api/services")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.services) {
+          setServiceOptions(
+            data.services.map((s: { name: string; slug: string }) => ({
+              label: s.name,
+              value: s.slug,
+            }))
+          );
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const fetchResults = useCallback(async () => {
     setLoading(true);
@@ -150,25 +173,29 @@ export function SearchResults() {
 
   const hasActiveFilters = q || location || tier;
 
+  // Resolve abbreviation/slug → display name
+  const displayLocation = US_STATES.find((s) => s.value.toLowerCase() === location.toLowerCase())?.label || location;
+  const displayService = serviceOptions.find((s) => s.value === q)?.label || q;
+
   return (
     <div className="mx-auto flex w-full max-w-[1380px] flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8">
       {/* ── Search Bar ──────────────────────────────────────────────────── */}
       <form
         onSubmit={handleSearch}
-        className="flex w-full flex-col overflow-hidden rounded-2xl border border-[#e8e0e8] bg-white shadow-[0_4px_24px_rgba(170,78,179,0.08)] sm:flex-row sm:items-stretch sm:h-[68px]"
+        className="relative flex w-full flex-col rounded-2xl border border-[#e8e0e8] bg-white shadow-[0_4px_24px_rgba(170,78,179,0.08)] sm:flex-row sm:items-stretch sm:h-[68px]"
       >
-        {/* Service input */}
+        {/* Service dropdown */}
         <div className="flex flex-1 items-center gap-3 px-5 py-3 sm:py-0 sm:pl-6">
           <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-magenta/10">
             <Sparkles className="size-4 text-brand-magenta" aria-hidden />
           </span>
-          <input
-            type="search"
+          <SearchableDropdown
+            options={serviceOptions}
             value={searchService}
-            onChange={(e) => setSearchService(e.target.value)}
+            onChange={setSearchService}
             placeholder="Treatment, condition, or clinic name…"
-            className="w-full border-0 bg-transparent p-0 text-sm text-foreground placeholder:text-brand-placeholder focus:outline-none focus:ring-0"
-            aria-label="Search services"
+            className="flex-1"
+            allowFreeText
           />
         </div>
 
@@ -177,16 +204,15 @@ export function SearchResults() {
           <div className="h-[36px] w-px bg-[#e1e1e1]" />
         </div>
 
-        {/* Location input */}
+        {/* Location dropdown */}
         <div className="flex flex-1 items-center gap-3 border-t border-[#e1e1e1] px-5 py-3 sm:border-t-0 sm:py-0 sm:pl-5">
           <MapPin className="size-5 shrink-0 text-brand-magenta" aria-hidden />
-          <input
-            type="search"
+          <SearchableDropdown
+            options={US_STATES}
             value={searchLocation}
-            onChange={(e) => setSearchLocation(e.target.value)}
-            placeholder='City, state, or zip…'
-            className="w-full border-0 bg-transparent p-0 text-sm text-foreground placeholder:text-brand-placeholder focus:outline-none focus:ring-0"
-            aria-label="Search location"
+            onChange={setSearchLocation}
+            placeholder="Select a state…"
+            className="flex-1"
           />
         </div>
 
@@ -209,14 +235,14 @@ export function SearchResults() {
           <h1 className="text-2xl font-semibold tracking-tight text-[#1a1a1a] sm:text-3xl">
             {q && location
               ? <>
-                  <span className="bg-gradient-to-r from-brand-coral to-brand-purple bg-clip-text text-transparent">{q}</span>
+                  <span className="bg-gradient-to-r from-brand-coral to-brand-purple bg-clip-text text-transparent">{displayService}</span>
                   {" "}in{" "}
-                  <span className="bg-gradient-to-r from-brand-purple to-brand-coral bg-clip-text text-transparent">{location}</span>
+                  <span className="bg-gradient-to-r from-brand-purple to-brand-coral bg-clip-text text-transparent">{displayLocation}</span>
                 </>
               : q
-                ? <>Results for <span className="bg-gradient-to-r from-brand-coral to-brand-purple bg-clip-text text-transparent">&ldquo;{q}&rdquo;</span></>
+                ? <>Results for <span className="bg-gradient-to-r from-brand-coral to-brand-purple bg-clip-text text-transparent">&ldquo;{displayService}&rdquo;</span></>
                 : location
-                  ? <>Clinics in <span className="bg-gradient-to-r from-brand-coral to-brand-purple bg-clip-text text-transparent">{location}</span></>
+                  ? <>Clinics in <span className="bg-gradient-to-r from-brand-coral to-brand-purple bg-clip-text text-transparent">{displayLocation}</span></>
                   : "All Clinics"
             }
           </h1>
@@ -278,13 +304,13 @@ export function SearchResults() {
         <div className="flex flex-wrap items-center gap-2 -mt-4">
           {q && (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-magenta/10 px-3 py-1 text-xs font-medium text-brand-magenta">
-              <Sparkles className="size-3" /> {q}
+              <Sparkles className="size-3" /> {displayService}
               <button onClick={() => updateParam("q", "")} className="ml-1 hover:opacity-70"><X className="size-3" /></button>
             </span>
           )}
           {location && (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-coral/10 px-3 py-1 text-xs font-medium text-brand-coral">
-              <MapPin className="size-3" /> {location}
+              <MapPin className="size-3" /> {displayLocation}
               <button onClick={() => updateParam("location", "")} className="ml-1 hover:opacity-70"><X className="size-3" /></button>
             </span>
           )}

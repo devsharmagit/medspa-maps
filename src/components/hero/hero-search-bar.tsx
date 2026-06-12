@@ -1,16 +1,39 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { MapPin, Search, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import {
+  SearchableDropdown,
+  type DropdownOption,
+} from "@/components/ui/searchable-dropdown";
+import { US_STATES } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
 export function HeroSearchBar({ className }: { className?: string }) {
   const router = useRouter();
   const [service, setService] = useState("");
   const [location, setLocation] = useState("");
+  const [serviceOptions, setServiceOptions] = useState<DropdownOption[]>([]);
+
+  // Fetch services from DB
+  useEffect(() => {
+    fetch("/api/services")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.services) {
+          setServiceOptions(
+            data.services.map((s: { name: string; slug: string }) => ({
+              label: s.name,
+              value: s.slug,
+            }))
+          );
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,44 +47,37 @@ export function HeroSearchBar({ className }: { className?: string }) {
     <form
       onSubmit={handleSearch}
       className={cn(
-        "flex w-full flex-col overflow-hidden rounded-[18px] bg-white shadow-lg sm:flex-row sm:items-stretch sm:h-[75px]",
+        "relative flex w-full flex-col rounded-[18px] bg-white shadow-lg sm:flex-row sm:items-stretch sm:h-[75px]",
         className,
       )}
     >
+      {/* ── Services dropdown ── */}
       <div className="flex flex-1 flex-col justify-center gap-2 px-5 py-4 sm:py-0 sm:pl-6">
-        <div className="flex items-center gap-2">
-          <span className="flex size-5 items-center justify-center rounded-full bg-brand-magenta text-white">
-            <Sparkles className="size-3" aria-hidden />
-          </span>
-          <span className="text-sm font-semibold uppercase tracking-wide text-brand-muted">
-            Services
-          </span>
-        </div>
-        <input
-          type="search"
+        <SearchableDropdown
+          options={serviceOptions}
           value={service}
-          onChange={(e) => setService(e.target.value)}
+          onChange={setService}
           placeholder="Search treatment, condition or services..."
-          className="w-full border-0 bg-transparent p-0 text-sm text-foreground placeholder:text-brand-placeholder focus:outline-none focus:ring-0"
-          aria-label="Search services"
+          icon={
+            <span className="flex size-5 items-center justify-center rounded-full bg-brand-magenta text-white">
+              <Sparkles className="size-3" aria-hidden />
+            </span>
+          }
+          label="Services"
+          allowFreeText
         />
       </div>
 
+      {/* ── Location dropdown ── */}
       <div className="flex flex-1 items-stretch border-t border-[#e1e1e1] sm:border-t-0 sm:border-l">
         <div className="flex flex-1 flex-col justify-center gap-2 px-5 py-4 sm:py-0 sm:pl-[18px]">
-          <div className="flex items-center gap-2">
-            <MapPin className="size-5 text-brand-magenta" aria-hidden />
-            <span className="text-sm font-semibold uppercase tracking-wide text-brand-muted">
-              Location
-            </span>
-          </div>
-          <input
-            type="search"
+          <SearchableDropdown
+            options={US_STATES}
             value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            placeholder='City, Zip or "Near Me"'
-            className="w-full border-0 bg-transparent p-0 text-sm text-foreground placeholder:text-brand-placeholder focus:outline-none focus:ring-0"
-            aria-label="Search location"
+            onChange={setLocation}
+            placeholder='Select a state…'
+            icon={<MapPin className="size-5 text-brand-magenta" aria-hidden />}
+            label="Location"
           />
         </div>
 
