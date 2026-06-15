@@ -7,14 +7,14 @@ import { ApiError } from "@/lib/errors";
 import { successResponse, handleApiError } from "@/lib/api-response";
 
 const patchSchema = z.object({
-  is_enabled: z.boolean(),
+  is_active: z.boolean(),
 });
 
 interface Business {
   id: string;
   name: string;
-  website_url: string;
-  is_enabled: boolean;
+  website_url: string | null;
+  is_active: boolean;
   created_at: string;
 }
 
@@ -51,14 +51,14 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
 
     const { id } = await params;
     const body = await req.json();
-    const { is_enabled } = patchSchema.parse(body);
+    const { is_active } = patchSchema.parse(body);
 
     const updated = await queryOne<Business>(
       `UPDATE businesses
-       SET is_enabled = $1
+       SET is_active = $1
        WHERE id = $2
-       RETURNING id, name, website_url, is_enabled, created_at`,
-      [is_enabled, id]
+       RETURNING id, name, website_url, is_active, created_at`,
+      [is_active, id]
     );
 
     if (!updated) throw ApiError.notFound("Business not found");

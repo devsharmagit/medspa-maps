@@ -9,8 +9,8 @@ import { Building2, Globe, TrendingDown } from "lucide-react";
 interface Business {
   id: string;
   name: string;
-  website_url: string;
-  is_enabled: boolean;
+  website_url: string | null;
+  is_active: boolean;
   created_at: string;
 }
 
@@ -21,11 +21,11 @@ export default async function AdminDashboardPage() {
   if (!session) redirect("/admin/login");
 
   const businesses = await query<Business>(
-    "SELECT id, name, website_url, is_enabled, created_at FROM businesses ORDER BY created_at DESC"
+    "SELECT id, name, website_url, is_active, created_at FROM businesses ORDER BY created_at DESC"
   );
 
   const total = businesses.length;
-  const enabled = businesses.filter((b) => b.is_enabled).length;
+  const enabled = businesses.filter((b) => b.is_active).length;
   const disabled = total - enabled;
 
   const stats = [

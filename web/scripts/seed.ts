@@ -42,7 +42,7 @@ async function seed() {
         id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         name        TEXT NOT NULL,
         website_url TEXT NOT NULL UNIQUE,
-        is_enabled  BOOLEAN NOT NULL DEFAULT TRUE,
+        is_active   BOOLEAN NOT NULL DEFAULT TRUE,
         created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
     `);

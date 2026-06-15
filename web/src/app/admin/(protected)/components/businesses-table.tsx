@@ -18,8 +18,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 interface Business {
   id: string;
   name: string;
-  website_url: string;
-  is_enabled: boolean;
+  website_url: string | null;
+  is_active: boolean;
   created_at: string;
 }
 
@@ -63,7 +63,7 @@ export default function BusinessesTable({ initialBusinesses }: { initialBusiness
       const res = await fetch(`/api/admin/businesses/${business.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ is_enabled: !business.is_enabled }),
+        body: JSON.stringify({ is_active: !business.is_active }),
       });
       const json: ApiResponse<Business> = await res.json();
       if (json.success) setBusinesses((prev) => prev.map((b) => (b.id === business.id ? json.data : b)));
@@ -117,7 +117,7 @@ export default function BusinessesTable({ initialBusinesses }: { initialBusiness
               </TableHeader>
               <TableBody>
                 {businesses.map((b) => (
-                  <TableRow key={b.id} className={`border-slate-100 ${!b.is_enabled ? "opacity-50" : ""}`}>
+                  <TableRow key={b.id} className={`border-slate-100 ${!b.is_active ? "opacity-50" : ""}`}>
                     <TableCell>
                       <div className="flex items-center gap-2.5 font-medium text-slate-800 text-sm">
                         <div className="w-7 h-7 rounded-md bg-slate-50 flex items-center justify-center text-slate-900 shrink-0">
@@ -128,28 +128,32 @@ export default function BusinessesTable({ initialBusinesses }: { initialBusiness
                     </TableCell>
 
                     <TableCell>
-                      <a
-                        href={b.website_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 text-slate-500 hover:text-slate-900 text-[13px] transition-colors max-w-[240px] truncate"
-                      >
-                        <Globe size={12} className="shrink-0" />
-                        {b.website_url.replace(/^https?:\/\//, "")}
-                        <ExternalLink size={10} className="shrink-0" />
-                      </a>
+                      {b.website_url ? (
+                        <a
+                          href={b.website_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 text-slate-500 hover:text-slate-900 text-[13px] transition-colors max-w-[240px] truncate"
+                        >
+                          <Globe size={12} className="shrink-0" />
+                          {b.website_url.replace(/^https?:\/\//, "")}
+                          <ExternalLink size={10} className="shrink-0" />
+                        </a>
+                      ) : (
+                        <span className="text-slate-400 text-[13px] italic">No website</span>
+                      )}
                     </TableCell>
 
                     <TableCell>
                       <Badge
-                        variant={b.is_enabled ? "default" : "secondary"}
+                        variant={b.is_active ? "default" : "secondary"}
                         className={
-                          b.is_enabled
+                          b.is_active
                             ? "bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-50"
                             : "bg-slate-100 text-slate-500 border border-slate-200"
                         }
                       >
-                        {b.is_enabled ? "Active" : "Disabled"}
+                        {b.is_active ? "Active" : "Disabled"}
                       </Badge>
                     </TableCell>
 
@@ -167,19 +171,19 @@ export default function BusinessesTable({ initialBusinesses }: { initialBusiness
                           onClick={() => handleToggle(b)}
                           disabled={togglingId === b.id || deletingId === b.id}
                           className={`h-7 px-2.5 text-xs gap-1 border ${
-                            b.is_enabled
+                            b.is_active
                               ? "border-amber-200 text-amber-700 hover:bg-amber-50"
                               : "border-emerald-200 text-emerald-700 hover:bg-emerald-50"
                           }`}
                         >
                           {togglingId === b.id ? (
                             <Loader2 size={12} className="animate-spin" />
-                          ) : b.is_enabled ? (
+                          ) : b.is_active ? (
                             <ToggleRight size={12} />
                           ) : (
                             <ToggleLeft size={12} />
                           )}
-                          {b.is_enabled ? "Disable" : "Enable"}
+                          {b.is_active ? "Disable" : "Enable"}
                         </Button>
 
                         <Button

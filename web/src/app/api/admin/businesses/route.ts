@@ -14,8 +14,8 @@ const createBusinessSchema = z.object({
 interface Business {
   id: string;
   name: string;
-  website_url: string;
-  is_enabled: boolean;
+  website_url: string | null;
+  is_active: boolean;
   created_at: string;
 }
 
@@ -26,7 +26,7 @@ export async function GET() {
     if (!session) throw ApiError.unauthorized();
 
     const businesses = await query<Business>(
-      "SELECT id, name, website_url, is_enabled, created_at FROM businesses ORDER BY created_at DESC"
+      "SELECT id, name, website_url, is_active, created_at FROM businesses ORDER BY created_at DESC"
     );
 
     return successResponse(businesses);
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
     const rows = await query<Business>(
       `INSERT INTO businesses (name, website_url)
        VALUES ($1, $2)
-       RETURNING id, name, website_url, is_enabled, created_at`,
+       RETURNING id, name, website_url, is_active, created_at`,
       [name, website_url]
     );
 
