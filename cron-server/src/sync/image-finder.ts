@@ -1,10 +1,18 @@
 /**
  * Scrapes clinic websites to find cover images.
+ * Two levels of parallelism:
+ *   1. Clinics processed in batches of BATCH_SIZE simultaneously.
+ *   2. For each clinic, homepage + /about + /team fetched in parallel
+ *      — first page that yields a keyword-matching image wins.
+ *
  * Found image URLs are sent to Next.js to store — this server never touches the DB.
  */
 
 import * as cheerio from "cheerio";
 import { getClinicsMissingImages, saveClinicImage } from "../api-client";
+import { runInBatches } from "../batch";
+
+const BATCH_SIZE = 5;
 
 const LOCATION_KEYWORDS = [
   "location", "clinic", "spa", "medspa",
@@ -16,12 +24,14 @@ export async function runImageFinder(): Promise<void> {
 
   const clinics = await getClinicsMissingImages();
   console.log(`  ${clinics.length} clinics need cover images`);
+  console.log(`  running in batches of ${BATCH_SIZE}\n`);
 
-  for (const clinic of clinics) {
-    await findAndSaveImage(clinic);
-  }
+  const results = await runInBatches(clinics, BATCH_SIZE, findAndSaveImage);
 
-  console.log("── Image Finder complete ─────────────────────────────────────\n");
+  const ok = results.filter((r) => !r.error).length;
+  const failed = results.filter((r) => r.error).length;
+
+  console.log(`\n── Image Finder complete — ${ok} ok, ${failed} failed ──────────\n`);
 }
 
 async function findAndSaveImage(clinic: {
@@ -40,18 +50,22 @@ async function findAndSaveImage(clinic: {
     ...LOCATION_KEYWORDS,
   ];
 
+  // Fetch all candidate pages in parallel — pick the first that has a match
   const pagesToTry = [baseUrl, `${baseUrl}/about`, `${baseUrl}/team`];
 
-  for (const pageUrl of pagesToTry) {
-    const result = await scrapePageForImage(pageUrl, keywords);
-    if (result) {
-      const absolute = toAbsolute(result.src, baseUrl);
+  const pageResults = await Promise.allSettled(
+    pagesToTry.map((url) => scrapePageForImage(url, keywords))
+  );
+
+  for (const settled of pageResults) {
+    if (settled.status === "fulfilled" && settled.value) {
+      const absolute = toAbsolute(settled.value.src, baseUrl);
       if (!absolute) continue;
 
       await saveClinicImage(clinic.id, {
         source_url: absolute,
         scraped_domain: domain,
-        alt_text: result.alt || undefined,
+        alt_text: settled.value.alt || undefined,
         found: true,
       });
       console.log(`  ✓ ${clinic.name} → ${absolute}`);
@@ -59,7 +73,7 @@ async function findAndSaveImage(clinic: {
     }
   }
 
-  // Mark failed so we don't retry every run
+  // Nothing found on any page — mark failed so we skip next run
   await saveClinicImage(clinic.id, {
     source_url: clinic.website,
     scraped_domain: domain,
