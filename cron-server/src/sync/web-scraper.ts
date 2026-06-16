@@ -1,78 +1,88 @@
 /**
- * Scrapes phone and social links from non-G99 business websites.
- * Runs in parallel batches of BATCH_SIZE — network I/O is the bottleneck,
- * so parallel fetching gives the biggest speedup here.
- * Scraped data is sent to Next.js to write — this server never touches the DB.
+ * web-scraper.ts — nightly clinic website scraper.
+ *
+ * For each non-G99 clinic:
+ *   1. Create a scrape job record
+ *   2. Call /api/internal/scrape to run Cheerio scraper on the clinic's website
+ *   3. Save the full result via /api/internal/clinics/[id]/full-scrape
+ *   4. Update the job record with result counts
+ *
+ * All DB writes go through the Next.js API — this server never touches the DB.
  */
 
-import * as cheerio from "cheerio";
-import { getNonG99Businesses, updateBusinessScraped } from "../api-client";
+import {
+  getNonG99Clinics,
+  scrapeUrl,
+  saveClinicFullScrape,
+  createScrapeJob,
+  updateScrapeJob,
+  type ClinicForScrape,
+} from "../api-client";
 import { runInBatches } from "../batch";
 
-const BATCH_SIZE = 5;
+const BATCH_SIZE = 3; // scraping is heavy — fewer parallel requests
 
 export async function runWebScraper(): Promise<void> {
-  console.log("── Non-G99 Scraper started ───────────────────────────────────");
+  console.log("── Web Scraper started ───────────────────────────────────────");
 
-  const businesses = await getNonG99Businesses();
-  console.log(`  ${businesses.length} non-G99 businesses to refresh`);
+  const clinics = await getNonG99Clinics();
+  console.log(`  ${clinics.length} non-G99 clinics to scrape`);
   console.log(`  running in batches of ${BATCH_SIZE}\n`);
 
-  const results = await runInBatches(businesses, BATCH_SIZE, scrapeBusiness);
+  const results = await runInBatches(clinics, BATCH_SIZE, scrapeClinic);
 
   const ok = results.filter((r) => !r.error).length;
   const failed = results.filter((r) => r.error).length;
 
-  console.log(`\n── Non-G99 Scraper complete — ${ok} ok, ${failed} failed ─────\n`);
+  console.log(`\n── Web Scraper complete — ${ok} ok, ${failed} failed ─────────\n`);
 }
 
-async function scrapeBusiness(biz: {
-  id: string;
-  name: string;
-  website_url: string;
-}): Promise<void> {
+async function scrapeClinic(clinic: ClinicForScrape): Promise<void> {
+  const jobId = await createScrapeJob({
+    clinic_id: clinic.id,
+    target_url: clinic.website,
+    job_type: "full",
+  }).catch(() => null);
+
   try {
-    const res = await fetch(biz.website_url, {
-      signal: AbortSignal.timeout(10_000),
-      headers: { "User-Agent": "MedSpaMaps-Bot/1.0" },
-    });
-    if (!res.ok) {
-      console.log(`  ✗ ${biz.name} — HTTP ${res.status}`);
+    console.log(`  ⏳ ${clinic.name} → ${clinic.website}`);
+
+    const result = await scrapeUrl(clinic.website);
+
+    if (result.pages_visited.length === 0) {
+      console.log(`  ✗ ${clinic.name} — site unreachable`);
+      if (jobId) {
+        await updateScrapeJob(jobId, { status: "failed", error_message: "site unreachable" });
+      }
       return;
     }
 
-    const html = await res.text();
-    const $ = cheerio.load(html);
-
-    let phone: string | null = null;
-    $("a[href^='tel:']").each((_, el) => {
-      if (!phone) phone = $(el).attr("href")!.replace("tel:", "").trim();
-    });
-    if (!phone) {
-      const m = html.match(/\(?\d{3}\)?[\s.\-]\d{3}[\s.\-]\d{4}/);
-      if (m) phone = m[0];
-    }
-
-    let instagram: string | null = null;
-    let facebook: string | null = null;
-    $("a[href*='instagram.com']").each((_, el) => {
-      if (!instagram) instagram = $(el).attr("href") ?? null;
-    });
-    $("a[href*='facebook.com']").each((_, el) => {
-      if (!facebook) facebook = $(el).attr("href") ?? null;
+    const saved = await saveClinicFullScrape(clinic.id, {
+      ...result,
+      job_id: jobId ?? undefined,
     });
 
-    if (phone || instagram || facebook) {
-      await updateBusinessScraped(biz.id, {
-        phone,
-        instagram_url: instagram,
-        facebook_url: facebook,
+    console.log(
+      `  ✓ ${clinic.name} — ` +
+      `${saved.saved.services} services, ` +
+      `${saved.saved.providers} providers, ` +
+      `${saved.saved.images} images`
+    );
+
+    if (jobId) {
+      await updateScrapeJob(jobId, {
+        status: "done",
+        services_found: saved.saved.services,
+        providers_found: saved.saved.providers,
+        images_found: saved.saved.images,
       });
     }
-
-    console.log(`  ✓ ${biz.name}`);
   } catch (err) {
-    console.log(`  ✗ ${biz.name} — ${(err as Error).message}`);
-    throw err; // let runInBatches record this as an error
+    const msg = (err as Error).message;
+    console.log(`  ✗ ${clinic.name} — ${msg}`);
+    if (jobId) {
+      await updateScrapeJob(jobId, { status: "failed", error_message: msg });
+    }
+    throw err;
   }
 }

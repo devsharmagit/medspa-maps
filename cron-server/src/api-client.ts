@@ -5,6 +5,8 @@
  * Every read and write goes through these methods.
  */
 
+import type { ScrapeResult } from "./types";
+
 const BASE = (process.env.NEXTJS_URL ?? "http://localhost:3000").replace(/\/$/, "");
 const SECRET = process.env.INTERNAL_API_SECRET ?? "";
 
@@ -23,10 +25,10 @@ async function internalFetch(
       "x-internal-secret": SECRET,
       ...(options.headers ?? {}),
     },
-    signal: AbortSignal.timeout(30_000),
+    signal: AbortSignal.timeout(60_000),
   });
 
-  if (!res.ok && res.status !== 200) {
+  if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(`${options.method ?? "GET"} ${path} → ${res.status}: ${text}`);
   }
@@ -34,7 +36,7 @@ async function internalFetch(
   return res;
 }
 
-// ─── G99 data ─────────────────────────────────────────────────────────────────
+// ─── G99 ──────────────────────────────────────────────────────────────────────
 
 export async function getG99Businesses(): Promise<{ id: string; name: string }[]> {
   const res = await internalFetch("/api/internal/g99/businesses");
@@ -42,7 +44,7 @@ export async function getG99Businesses(): Promise<{ id: string; name: string }[]
   return data.businesses;
 }
 
-// ─── Sync ─────────────────────────────────────────────────────────────────────
+// ─── G99 Sync ─────────────────────────────────────────────────────────────────
 
 export async function syncBusiness(g99BusinessId: string): Promise<{ ok: boolean; name: string }> {
   const res = await internalFetch("/api/internal/sync/business", {
@@ -56,35 +58,60 @@ export async function refreshView(): Promise<void> {
   await internalFetch("/api/internal/sync/refresh-view", { method: "POST" });
 }
 
-// ─── Non-G99 businesses ───────────────────────────────────────────────────────
+// ─── Scraper ──────────────────────────────────────────────────────────────────
 
-export async function getNonG99Businesses(): Promise<
-  { id: string; name: string; website_url: string }[]
-> {
-  const res = await internalFetch("/api/internal/businesses/non-g99");
-  const data = await res.json() as { businesses: { id: string; name: string; website_url: string }[] };
-  return data.businesses;
+/** Run the scraper on a URL — Next.js does the scraping, returns structured JSON */
+export async function scrapeUrl(url: string): Promise<ScrapeResult> {
+  const res = await internalFetch("/api/internal/scrape", {
+    method: "POST",
+    body: JSON.stringify({ url }),
+  });
+  const data = await res.json() as { ok: boolean; result: ScrapeResult };
+  return data.result;
 }
 
-export async function updateBusinessScraped(
-  id: string,
-  fields: { phone?: string | null; instagram_url?: string | null; facebook_url?: string | null }
-): Promise<void> {
-  await internalFetch(`/api/internal/businesses/${id}`, {
-    method: "PATCH",
-    body: JSON.stringify(fields),
+// ─── Clinics ──────────────────────────────────────────────────────────────────
+
+export interface ClinicForScrape {
+  id: string;
+  name: string;
+  website: string;
+  business_id: string;
+  business_name: string;
+  last_scraped_at: string | null;
+}
+
+/** Get non-G99 clinics that need scraping */
+export async function getNonG99Clinics(): Promise<ClinicForScrape[]> {
+  const res = await internalFetch("/api/internal/clinics/non-g99");
+  const data = await res.json() as { clinics: ClinicForScrape[] };
+  return data.clinics;
+}
+
+/** Save a full scrape result for a clinic */
+export async function saveClinicFullScrape(
+  clinicId: string,
+  result: ScrapeResult & { job_id?: string }
+): Promise<{ saved: { services: number; providers: number; images: number } }> {
+  const res = await internalFetch(`/api/internal/clinics/${clinicId}/full-scrape`, {
+    method: "POST",
+    body: JSON.stringify(result),
   });
+  return res.json() as Promise<{ saved: { services: number; providers: number; images: number } }>;
 }
 
 // ─── Clinic images ────────────────────────────────────────────────────────────
 
-export async function getClinicsMissingImages(): Promise<
-  { id: string; name: string; website: string; business_name: string }[]
-> {
+export interface ClinicForImages {
+  id: string;
+  name: string;
+  website: string;
+  business_name: string;
+}
+
+export async function getClinicsMissingImages(): Promise<ClinicForImages[]> {
   const res = await internalFetch("/api/internal/clinics/missing-images");
-  const data = await res.json() as {
-    clinics: { id: string; name: string; website: string; business_name: string }[];
-  };
+  const data = await res.json() as { clinics: ClinicForImages[] };
   return data.clinics;
 }
 
@@ -94,6 +121,37 @@ export async function saveClinicImage(
 ): Promise<void> {
   await internalFetch(`/api/internal/clinics/${clinicId}/images`, {
     method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+// ─── Scrape jobs ──────────────────────────────────────────────────────────────
+
+export async function createScrapeJob(payload: {
+  clinic_id: string;
+  target_url: string;
+  job_type: string;
+}): Promise<string> {
+  const res = await internalFetch("/api/internal/scrape-jobs", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json() as { job_id: string };
+  return data.job_id;
+}
+
+export async function updateScrapeJob(
+  jobId: string,
+  payload: {
+    status: "done" | "failed";
+    error_message?: string;
+    services_found?: number;
+    providers_found?: number;
+    images_found?: number;
+  }
+): Promise<void> {
+  await internalFetch(`/api/internal/scrape-jobs/${jobId}`, {
+    method: "PATCH",
     body: JSON.stringify(payload),
   });
 }
