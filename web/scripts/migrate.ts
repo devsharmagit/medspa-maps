@@ -1,15 +1,18 @@
 /**
  * migrate.ts — run with: bun scripts/migrate.ts
  *
- * Applies the full MedSpa Maps production schema.
- * - Drops the old simple `businesses` table (and all data)
- * - Creates all new tables, triggers, views
- * - Leaves `admin_users` untouched
+ * Resets the database and applies the MedSpaMaps v2 schema.
+ * Drops ALL existing tables, views, triggers, and functions,
+ * then recreates everything from scratch.
+ *
+ * Tables: businesses, clinics, services, clinic_services,
+ *         providers, clinic_providers, images, listing_claims,
+ *         scrape_jobs
+ * Views:  clinic_search_view (materialized)
  */
 
 import { Pool } from "pg";
 import * as dotenv from "dotenv";
-
 dotenv.config();
 
 const pool = new Pool({
@@ -23,569 +26,496 @@ async function migrate() {
   try {
     await client.query("BEGIN");
 
-    // ── Extensions ──────────────────────────────────────────────────────────
+    // ── Extensions ─────────────────────────────────────────────────────────
     console.log("⏳ Enabling extensions...");
+    await client.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
     await client.query(`CREATE EXTENSION IF NOT EXISTS "pgcrypto"`);
     await client.query(`CREATE EXTENSION IF NOT EXISTS "pg_trgm"`);
     await client.query(`CREATE EXTENSION IF NOT EXISTS "unaccent"`);
-    // PostGIS is often pre-installed on Neon but may not be available on all plans
     try {
       await client.query(`CREATE EXTENSION IF NOT EXISTS "postgis"`);
       console.log("✓ PostGIS enabled");
     } catch {
-      console.log("⚠ PostGIS not available — geo column will be skipped");
+      console.log("⚠ PostGIS not available on this plan — geo column will be TEXT");
     }
     console.log("✓ Extensions ready");
 
-    // ── Drop old tables in dependency order ────────────────────────────────
-    console.log("⏳ Dropping old tables...");
-    // Drop materialized view first if exists
+    // ── Drop everything in dependency order ──────────────────────────────────
+    console.log("⏳ Dropping existing objects...");
     await client.query(`DROP MATERIALIZED VIEW IF EXISTS clinic_search_view CASCADE`);
-    // Drop tables in reverse dependency order
-    const tablesToDrop = [
-      "listing_claims",
-      "concern_services",
-      "concerns",
-      "reviews",
-      "images",
-      "clinic_services",
-      "service_categories",
-      "services",
-      "categories",
-      "clinic_providers",
-      "providers",
-      "clinics",
-      "businesses", // old table — will be recreated with new schema
-    ];
-    for (const table of tablesToDrop) {
-      await client.query(`DROP TABLE IF EXISTS ${table} CASCADE`);
-    }
-    // Drop old functions
-    await client.query(`DROP FUNCTION IF EXISTS slugify(TEXT) CASCADE`);
+    await client.query(`DROP TABLE IF EXISTS scrape_jobs CASCADE`);
+    await client.query(`DROP TABLE IF EXISTS listing_claims CASCADE`);
+    await client.query(`DROP TABLE IF EXISTS images CASCADE`);
+    await client.query(`DROP TABLE IF EXISTS clinic_providers CASCADE`);
+    await client.query(`DROP TABLE IF EXISTS providers CASCADE`);
+    await client.query(`DROP TABLE IF EXISTS clinic_services CASCADE`);
+    await client.query(`DROP TABLE IF EXISTS services CASCADE`);
+    await client.query(`DROP TABLE IF EXISTS clinics CASCADE`);
+    await client.query(`DROP TABLE IF EXISTS businesses CASCADE`);
+    // Legacy tables from old schema
+    await client.query(`DROP TABLE IF EXISTS concern_services CASCADE`);
+    await client.query(`DROP TABLE IF EXISTS concerns CASCADE`);
+    await client.query(`DROP TABLE IF EXISTS reviews CASCADE`);
+    await client.query(`DROP TABLE IF EXISTS service_categories CASCADE`);
+    await client.query(`DROP TABLE IF EXISTS categories CASCADE`);
     await client.query(`DROP FUNCTION IF EXISTS set_updated_at() CASCADE`);
+    await client.query(`DROP FUNCTION IF EXISTS slugify(TEXT) CASCADE`);
     await client.query(`DROP FUNCTION IF EXISTS refresh_clinic_rating() CASCADE`);
-    console.log("✓ Old tables dropped");
+    console.log("✓ Old objects dropped");
 
-    // ── Utility functions ──────────────────────────────────────────────────
-    console.log("⏳ Creating utility functions...");
-    await client.query(`
-      CREATE OR REPLACE FUNCTION slugify(val TEXT)
-      RETURNS TEXT AS $$
-        SELECT lower(
-          trim(both '-' FROM
-            regexp_replace(
-              regexp_replace(
-                regexp_replace(unaccent(val), '[®™©°]', '', 'g'),
-                '[^a-zA-Z0-9\\s\\-]', '', 'g'),
-              '\\s+', '-', 'g')
-          )
-        )
-      $$ LANGUAGE SQL IMMUTABLE STRICT
-    `);
-
+    // ── Helper: set_updated_at ────────────────────────────────────────────────
     await client.query(`
       CREATE OR REPLACE FUNCTION set_updated_at()
       RETURNS TRIGGER AS $$
       BEGIN
-        NEW.updated_at = now();
+        NEW.updated_at = NOW();
         RETURN NEW;
       END;
       $$ LANGUAGE plpgsql
     `);
-    console.log("✓ Utility functions created");
 
-    // ── 1. BUSINESSES ──────────────────────────────────────────────────────
+    // ── Helper: slugify ───────────────────────────────────────────────────────
+    await client.query(`
+      CREATE OR REPLACE FUNCTION slugify(val TEXT)
+      RETURNS TEXT AS $$
+      BEGIN
+        RETURN lower(
+          regexp_replace(
+            regexp_replace(
+              unaccent(trim(val)),
+              '[^a-zA-Z0-9\\s-]', '', 'g'
+            ),
+            '[\\s-]+', '-', 'g'
+          )
+        );
+      END;
+      $$ LANGUAGE plpgsql IMMUTABLE
+    `);
+    console.log("✓ Helper functions created");
+
+    // ── 1. BUSINESSES ─────────────────────────────────────────────────────────
     console.log("⏳ Creating businesses table...");
     await client.query(`
       CREATE TABLE businesses (
-        id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-        name                TEXT        NOT NULL,
-        slug                TEXT        NOT NULL UNIQUE,
-        website_url         TEXT        UNIQUE,
-        logo_url            TEXT,
-        phone               TEXT,
-        email               TEXT,
-        address             TEXT,
-        city                TEXT,
-        state               TEXT,
-        country             TEXT        DEFAULT 'US',
-        timezone            TEXT,
-        instagram_url       TEXT,
-        facebook_url        TEXT,
-        tier                TEXT        NOT NULL DEFAULT 'free'
-                              CHECK (tier IN ('free','featured','elite')),
-        tier_expires_at     TIMESTAMPTZ,
-        verified            BOOLEAN     NOT NULL DEFAULT FALSE,
-        verified_at         TIMESTAMPTZ,
-        about               TEXT,
-        meta_title          TEXT,
-        meta_description    TEXT,
-        g99_business_id     BIGINT      UNIQUE,
-        g99_tenant_id       BIGINT      UNIQUE,
-        data_source         TEXT        NOT NULL DEFAULT 'manual'
-                              CHECK (data_source IN ('manual','g99','scraped')),
-        last_synced_at      TIMESTAMPTZ,
-        is_active           BOOLEAN     NOT NULL DEFAULT TRUE,
-        created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
-        updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
-        created_by          UUID,
-        updated_by          UUID
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        name TEXT NOT NULL,
+        tier TEXT NOT NULL DEFAULT 'free',
+        tier_expires_at TIMESTAMPTZ,
+        verified BOOLEAN NOT NULL DEFAULT false,
+        verified_at TIMESTAMPTZ,
+        data_source TEXT NOT NULL DEFAULT 'manual',
+        g99_business_id BIGINT UNIQUE,
+        g99_tenant_id BIGINT UNIQUE,
+        last_synced_at TIMESTAMPTZ,
+        is_active BOOLEAN NOT NULL DEFAULT true,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
     `);
-    await client.query(`CREATE INDEX idx_businesses_slug ON businesses (slug)`);
-    await client.query(`CREATE INDEX idx_businesses_tier ON businesses (tier) WHERE is_active = TRUE`);
     await client.query(`CREATE INDEX idx_businesses_g99_id ON businesses (g99_business_id)`);
-    await client.query(`CREATE INDEX idx_businesses_name_trgm ON businesses USING gin (name gin_trgm_ops)`);
+    await client.query(`CREATE INDEX idx_businesses_tenant_id ON businesses (g99_tenant_id)`);
+    await client.query(`CREATE INDEX idx_businesses_tier ON businesses (tier)`);
+    await client.query(`CREATE INDEX idx_businesses_is_active ON businesses (is_active)`);
     await client.query(`
       CREATE TRIGGER trg_businesses_updated_at
-        BEFORE UPDATE ON businesses
-        FOR EACH ROW EXECUTE FUNCTION set_updated_at()
+      BEFORE UPDATE ON businesses
+      FOR EACH ROW EXECUTE FUNCTION set_updated_at()
     `);
     console.log("✓ businesses table created");
 
-    // ── 2. CLINICS ─────────────────────────────────────────────────────────
+    // ── 2. CLINICS ────────────────────────────────────────────────────────────
     console.log("⏳ Creating clinics table...");
     await client.query(`
       CREATE TABLE clinics (
-        id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-        business_id         UUID        NOT NULL REFERENCES businesses (id) ON DELETE CASCADE,
-        name                TEXT        NOT NULL,
-        slug                TEXT        NOT NULL,
-        tagline             TEXT,
-        address             TEXT,
-        city                TEXT,
-        state               TEXT,
-        zip                 TEXT,
-        country             TEXT        DEFAULT 'US',
-        lat                 NUMERIC(9,6),
-        lng                 NUMERIC(9,6),
-        phone               TEXT,
-        email               TEXT,
-        website             TEXT,
-        booking_url         TEXT,
-        instagram_url       TEXT,
-        facebook_url        TEXT,
-        google_my_business  TEXT,
-        google_place_id     TEXT,
-        yelp_url            TEXT,
-        about               TEXT,
-        hours               JSONB,
-        tier                TEXT        NOT NULL DEFAULT 'free'
-                              CHECK (tier IN ('free','featured','elite')),
-        verified            BOOLEAN     NOT NULL DEFAULT FALSE,
-        featured            BOOLEAN     NOT NULL DEFAULT FALSE,
-        is_active           BOOLEAN     NOT NULL DEFAULT TRUE,
-        avg_rating          NUMERIC(3,2) CHECK (avg_rating BETWEEN 0 AND 5),
-        review_count        INTEGER     NOT NULL DEFAULT 0,
-        meta_title          TEXT,
-        meta_description    TEXT,
-        g99_clinic_id       BIGINT      UNIQUE,
-        data_source         TEXT        NOT NULL DEFAULT 'manual'
-                              CHECK (data_source IN ('manual','g99','scraped')),
-        last_synced_at      TIMESTAMPTZ,
-        created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
-        updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
-        created_by          UUID,
-        updated_by          UUID,
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        business_id UUID NOT NULL REFERENCES businesses (id) ON DELETE RESTRICT,
+        name TEXT NOT NULL,
+        slug TEXT NOT NULL,
+        website TEXT NOT NULL,
+        booking_url TEXT,
+        address TEXT,
+        city TEXT,
+        state TEXT,
+        zip TEXT,
+        country TEXT DEFAULT 'US',
+        geo GEOGRAPHY(POINT, 4326),
+        lat NUMERIC(10, 7),
+        lng NUMERIC(10, 7),
+        phone TEXT,
+        email TEXT,
+        about TEXT,
+        instagram_url TEXT,
+        facebook_url TEXT,
+        tiktok_url TEXT,
+        youtube_url TEXT,
+        x_url TEXT,
+        linkedin_url TEXT,
+        yelp_url TEXT,
+        google_my_business TEXT,
+        google_place_id TEXT,
+        hours JSONB,
+        tier TEXT NOT NULL DEFAULT 'free',
+        verified BOOLEAN NOT NULL DEFAULT false,
+        featured BOOLEAN NOT NULL DEFAULT false,
+        avg_rating NUMERIC(3, 2),
+        review_count INTEGER NOT NULL DEFAULT 0,
+        data_source TEXT NOT NULL DEFAULT 'manual',
+        g99_clinic_id BIGINT UNIQUE,
+        last_synced_at TIMESTAMPTZ,
+        last_scraped_at TIMESTAMPTZ,
+        is_active BOOLEAN NOT NULL DEFAULT true,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         UNIQUE (business_id, slug)
       )
     `);
     await client.query(`CREATE INDEX idx_clinics_business_id ON clinics (business_id)`);
-    await client.query(`CREATE INDEX idx_clinics_slug ON clinics (slug)`);
-    await client.query(`CREATE INDEX idx_clinics_city_state ON clinics (lower(city), lower(state))`);
-    await client.query(`CREATE INDEX idx_clinics_tier ON clinics (tier) WHERE is_active = TRUE`);
-    await client.query(`CREATE INDEX idx_clinics_featured ON clinics (featured) WHERE is_active = TRUE`);
+    await client.query(`CREATE INDEX idx_clinics_slug ON clinics (business_id, slug)`);
     await client.query(`CREATE INDEX idx_clinics_g99_id ON clinics (g99_clinic_id)`);
-    await client.query(`CREATE INDEX idx_clinics_name_trgm ON clinics USING gin (name gin_trgm_ops)`);
-    await client.query(`CREATE INDEX idx_clinics_search ON clinics (city, state, tier, avg_rating DESC) WHERE is_active = TRUE AND featured = TRUE`);
+    await client.query(`CREATE INDEX idx_clinics_city ON clinics (lower(city))`);
+    await client.query(`CREATE INDEX idx_clinics_state ON clinics (lower(state))`);
+    await client.query(`CREATE INDEX idx_clinics_tier ON clinics (tier)`);
+    await client.query(`CREATE INDEX idx_clinics_is_active ON clinics (is_active)`);
+    await client.query(`CREATE INDEX idx_clinics_website ON clinics (website)`);
+    await client.query(`CREATE INDEX idx_clinics_google_place ON clinics (google_place_id)`);
+    try {
+      await client.query(`CREATE INDEX idx_clinics_geo ON clinics USING GIST (geo)`);
+    } catch {
+      console.log("  ⚠ Skipping PostGIS index on clinics.geo");
+    }
+    await client.query(`
+      CREATE INDEX idx_clinics_fts ON clinics
+      USING GIN (to_tsvector('english', coalesce(name, '') || ' ' || coalesce(city, '')))
+    `);
     await client.query(`
       CREATE TRIGGER trg_clinics_updated_at
-        BEFORE UPDATE ON clinics
-        FOR EACH ROW EXECUTE FUNCTION set_updated_at()
+      BEFORE UPDATE ON clinics
+      FOR EACH ROW EXECUTE FUNCTION set_updated_at()
     `);
     console.log("✓ clinics table created");
 
-    // ── 3. PROVIDERS ───────────────────────────────────────────────────────
-    console.log("⏳ Creating providers table...");
-    await client.query(`
-      CREATE TABLE providers (
-        id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-        business_id         UUID        NOT NULL REFERENCES businesses (id) ON DELETE CASCADE,
-        name                TEXT        NOT NULL,
-        slug                TEXT        NOT NULL,
-        title               TEXT,
-        designation         TEXT,
-        bio                 TEXT,
-        photo_url           TEXT,
-        years_experience    SMALLINT    CHECK (years_experience >= 0),
-        specializations     TEXT[],
-        avg_rating          NUMERIC(3,2) CHECK (avg_rating BETWEEN 0 AND 5),
-        review_count        INTEGER     NOT NULL DEFAULT 0,
-        is_active           BOOLEAN     NOT NULL DEFAULT TRUE,
-        g99_user_id         BIGINT      UNIQUE,
-        data_source         TEXT        NOT NULL DEFAULT 'manual'
-                              CHECK (data_source IN ('manual','g99','scraped')),
-        created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
-        updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
-        created_by          UUID,
-        updated_by          UUID,
-        UNIQUE (business_id, slug)
-      )
-    `);
-    await client.query(`CREATE INDEX idx_providers_business_id ON providers (business_id)`);
-    await client.query(`CREATE INDEX idx_providers_slug ON providers (slug)`);
-    await client.query(`CREATE INDEX idx_providers_g99_id ON providers (g99_user_id)`);
-    await client.query(`CREATE INDEX idx_providers_name_trgm ON providers USING gin (name gin_trgm_ops)`);
-    await client.query(`
-      CREATE TRIGGER trg_providers_updated_at
-        BEFORE UPDATE ON providers
-        FOR EACH ROW EXECUTE FUNCTION set_updated_at()
-    `);
-    console.log("✓ providers table created");
-
-    // ── 4. CLINIC_PROVIDERS ────────────────────────────────────────────────
-    console.log("⏳ Creating clinic_providers table...");
-    await client.query(`
-      CREATE TABLE clinic_providers (
-        id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-        clinic_id           UUID        NOT NULL REFERENCES clinics   (id) ON DELETE CASCADE,
-        provider_id         UUID        NOT NULL REFERENCES providers (id) ON DELETE CASCADE,
-        is_primary          BOOLEAN     NOT NULL DEFAULT FALSE,
-        is_active           BOOLEAN     NOT NULL DEFAULT TRUE,
-        created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
-        UNIQUE (clinic_id, provider_id)
-      )
-    `);
-    await client.query(`CREATE INDEX idx_clinic_providers_clinic ON clinic_providers (clinic_id)`);
-    await client.query(`CREATE INDEX idx_clinic_providers_provider ON clinic_providers (provider_id)`);
-    console.log("✓ clinic_providers table created");
-
-    // ── 5. CATEGORIES ──────────────────────────────────────────────────────
-    console.log("⏳ Creating categories table...");
-    await client.query(`
-      CREATE TABLE categories (
-        id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-        name                TEXT        NOT NULL,
-        slug                TEXT        NOT NULL UNIQUE,
-        description         TEXT,
-        icon_url            TEXT,
-        display_order       SMALLINT    NOT NULL DEFAULT 0,
-        is_active           BOOLEAN     NOT NULL DEFAULT TRUE,
-        g99_category_id     BIGINT      UNIQUE,
-        data_source         TEXT        NOT NULL DEFAULT 'manual'
-                              CHECK (data_source IN ('manual','g99','scraped')),
-        created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
-        updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
-      )
-    `);
-    await client.query(`CREATE INDEX idx_categories_slug ON categories (slug)`);
-    await client.query(`CREATE INDEX idx_categories_order ON categories (display_order) WHERE is_active = TRUE`);
-    await client.query(`
-      CREATE TRIGGER trg_categories_updated_at
-        BEFORE UPDATE ON categories
-        FOR EACH ROW EXECUTE FUNCTION set_updated_at()
-    `);
-    console.log("✓ categories table created");
-
-    // ── 6. SERVICES ────────────────────────────────────────────────────────
+    // ── 3. SERVICES (canonical taxonomy) ─────────────────────────────────────
+    // A short, curated catalog of service *types* (Botox, Dermal Fillers,
+    // Laser Hair Removal, ...). This is what search/filter UI is built on.
+    // It is NOT per-clinic — clinic_services links clinics to these rows.
     console.log("⏳ Creating services table...");
     await client.query(`
       CREATE TABLE services (
-        id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-        name                TEXT        NOT NULL,
-        slug                TEXT        NOT NULL UNIQUE,
-        alias               TEXT[],
-        summary             TEXT,
-        what_it_is          TEXT,
-        how_it_works        TEXT,
-        cost_range_low      NUMERIC(10,2),
-        cost_range_high     NUMERIC(10,2),
-        cost_notes          TEXT,
-        recovery_time       TEXT,
-        duration_minutes    SMALLINT,
-        faqs                JSONB,
-        medical_reviewer    TEXT,
-        reviewer_credentials TEXT,
-        last_reviewed_at    TIMESTAMPTZ,
-        meta_title          TEXT,
-        meta_description    TEXT,
-        schema_markup       JSONB,
-        is_active           BOOLEAN     NOT NULL DEFAULT TRUE,
-        is_published        BOOLEAN     NOT NULL DEFAULT FALSE,
-        display_order       SMALLINT    NOT NULL DEFAULT 0,
-        g99_service_id      BIGINT,
-        data_source         TEXT        NOT NULL DEFAULT 'manual'
-                              CHECK (data_source IN ('manual','g99','scraped')),
-        created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
-        updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        name TEXT NOT NULL,
+        slug TEXT NOT NULL,
+        category TEXT,
+        is_active BOOLEAN NOT NULL DEFAULT true,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE (slug)
       )
     `);
     await client.query(`CREATE INDEX idx_services_slug ON services (slug)`);
-    await client.query(`CREATE INDEX idx_services_published ON services (is_published) WHERE is_active = TRUE`);
-    await client.query(`CREATE INDEX idx_services_name_trgm ON services USING gin (name gin_trgm_ops)`);
-    await client.query(`CREATE INDEX idx_services_alias ON services USING gin (alias)`);
+    await client.query(`CREATE INDEX idx_services_category ON services (category)`);
+    await client.query(`CREATE INDEX idx_services_is_active ON services (is_active)`);
     await client.query(`
       CREATE TRIGGER trg_services_updated_at
-        BEFORE UPDATE ON services
-        FOR EACH ROW EXECUTE FUNCTION set_updated_at()
+      BEFORE UPDATE ON services
+      FOR EACH ROW EXECUTE FUNCTION set_updated_at()
     `);
     console.log("✓ services table created");
 
-    // ── 7. SERVICE_CATEGORIES ──────────────────────────────────────────────
-    console.log("⏳ Creating service_categories table...");
-    await client.query(`
-      CREATE TABLE service_categories (
-        id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-        service_id          UUID        NOT NULL REFERENCES services    (id) ON DELETE CASCADE,
-        category_id         UUID        NOT NULL REFERENCES categories  (id) ON DELETE CASCADE,
-        is_primary          BOOLEAN     NOT NULL DEFAULT TRUE,
-        created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
-        UNIQUE (service_id, category_id)
-      )
-    `);
-    await client.query(`CREATE INDEX idx_svc_categories_service ON service_categories (service_id)`);
-    await client.query(`CREATE INDEX idx_svc_categories_category ON service_categories (category_id)`);
-    console.log("✓ service_categories table created");
-
-    // ── 8. CLINIC_SERVICES ─────────────────────────────────────────────────
+    // ── 4. CLINIC_SERVICES (join: what a clinic actually offers) ────────────
+    // One row per offering as scraped/entered. service_id is nullable until
+    // raw_name has been matched to a canonical service — scraping should
+    // never block on taxonomy matching.
     console.log("⏳ Creating clinic_services table...");
     await client.query(`
       CREATE TABLE clinic_services (
-        id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-        clinic_id           UUID        NOT NULL REFERENCES clinics  (id) ON DELETE CASCADE,
-        service_id          UUID        NOT NULL REFERENCES services (id) ON DELETE CASCADE,
-        price_from          NUMERIC(10,2),
-        price_to            NUMERIC(10,2),
-        price_notes         TEXT,
-        price_varies        BOOLEAN     NOT NULL DEFAULT FALSE,
-        featured_service    BOOLEAN     NOT NULL DEFAULT FALSE,
-        is_active           BOOLEAN     NOT NULL DEFAULT TRUE,
-        display_order       SMALLINT    NOT NULL DEFAULT 0,
-        g99_service_clinic_id BIGINT    UNIQUE,
-        data_source         TEXT        NOT NULL DEFAULT 'manual'
-                              CHECK (data_source IN ('manual','g99','scraped')),
-        created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
-        updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
-        UNIQUE (clinic_id, service_id)
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        clinic_id UUID NOT NULL REFERENCES clinics (id) ON DELETE CASCADE,
+        service_id UUID REFERENCES services (id) ON DELETE SET NULL,
+        raw_name TEXT NOT NULL,
+        description TEXT,
+        data_source TEXT NOT NULL DEFAULT 'scraped',
+        scraped_from_url TEXT,
+        last_scraped_at TIMESTAMPTZ,
+        is_active BOOLEAN NOT NULL DEFAULT true,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE (clinic_id, raw_name)
       )
     `);
-    await client.query(`CREATE INDEX idx_clinic_services_clinic ON clinic_services (clinic_id)`);
-    await client.query(`CREATE INDEX idx_clinic_services_service ON clinic_services (service_id)`);
-    await client.query(`CREATE INDEX idx_clinic_services_featured ON clinic_services (clinic_id, featured_service) WHERE is_active = TRUE`);
-    await client.query(`CREATE INDEX idx_clinic_services_search ON clinic_services (service_id, clinic_id) WHERE is_active = TRUE`);
+    await client.query(`CREATE INDEX idx_clinic_services_clinic_id ON clinic_services (clinic_id)`);
+    await client.query(`CREATE INDEX idx_clinic_services_service_id ON clinic_services (service_id)`);
+    await client.query(`CREATE INDEX idx_clinic_services_is_active ON clinic_services (is_active)`);
+    await client.query(`
+      CREATE INDEX idx_clinic_services_fts ON clinic_services
+      USING GIN (to_tsvector('english', coalesce(raw_name, '') || ' ' || coalesce(description, '')))
+    `);
     await client.query(`
       CREATE TRIGGER trg_clinic_services_updated_at
-        BEFORE UPDATE ON clinic_services
-        FOR EACH ROW EXECUTE FUNCTION set_updated_at()
+      BEFORE UPDATE ON clinic_services
+      FOR EACH ROW EXECUTE FUNCTION set_updated_at()
     `);
     console.log("✓ clinic_services table created");
 
-    // ── 9. IMAGES ──────────────────────────────────────────────────────────
+    // ── 5. PROVIDERS (skipped for now) ───────────────────────────────────────
+    // console.log("⏳ Creating providers table...");
+    // await client.query(`
+    //   CREATE TABLE providers (
+    //     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    //     business_id UUID NOT NULL REFERENCES businesses (id) ON DELETE RESTRICT,
+    //     name TEXT NOT NULL,
+    //     slug TEXT NOT NULL,
+    //     title TEXT,
+    //     designation TEXT,
+    //     bio TEXT,
+    //     photo_url TEXT,
+    //     years_experience SMALLINT,
+    //     specializations TEXT[],
+    //     avg_rating NUMERIC(3, 2),
+    //     review_count INTEGER NOT NULL DEFAULT 0,
+    //     data_source TEXT NOT NULL DEFAULT 'manual',
+    //     g99_user_id BIGINT UNIQUE,
+    //     last_synced_at TIMESTAMPTZ,
+    //     last_scraped_at TIMESTAMPTZ,
+    //     is_active BOOLEAN NOT NULL DEFAULT true,
+    //     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    //     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    //     UNIQUE (business_id, slug)
+    //   )
+    // `);
+    // await client.query(`CREATE INDEX idx_providers_business_id ON providers (business_id)`);
+    // await client.query(`CREATE INDEX idx_providers_g99_user_id ON providers (g99_user_id)`);
+    // await client.query(`CREATE INDEX idx_providers_is_active ON providers (is_active)`);
+    // await client.query(`CREATE INDEX idx_providers_slug ON providers (business_id, slug)`);
+    // await client.query(`
+    //   CREATE TRIGGER trg_providers_updated_at
+    //   BEFORE UPDATE ON providers
+    //   FOR EACH ROW EXECUTE FUNCTION set_updated_at()
+    // `);
+    // console.log("✓ providers table created");
+
+    // ── 6. CLINIC_PROVIDERS (skipped for now) ────────────────────────────────
+    // console.log("⏳ Creating clinic_providers table...");
+    // await client.query(`
+    //   CREATE TABLE clinic_providers (
+    //     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    //     clinic_id UUID NOT NULL REFERENCES clinics (id) ON DELETE CASCADE,
+    //     provider_id UUID NOT NULL REFERENCES providers (id) ON DELETE CASCADE,
+    //     is_primary BOOLEAN NOT NULL DEFAULT false,
+    //     is_active BOOLEAN NOT NULL DEFAULT true,
+    //     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    //     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    //     UNIQUE (clinic_id, provider_id)
+    //   )
+    // `);
+    // await client.query(`CREATE INDEX idx_clinic_providers_clinic_id ON clinic_providers (clinic_id)`);
+    // await client.query(`CREATE INDEX idx_clinic_providers_provider_id ON clinic_providers (provider_id)`);
+    // await client.query(`
+    //   CREATE TRIGGER trg_clinic_providers_updated_at
+    //   BEFORE UPDATE ON clinic_providers
+    //   FOR EACH ROW EXECUTE FUNCTION set_updated_at()
+    // `);
+    // console.log("✓ clinic_providers table created");
+
+    // ── 7. IMAGES ─────────────────────────────────────────────────────────────
     console.log("⏳ Creating images table...");
     await client.query(`
       CREATE TABLE images (
-        id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-        entity_type         TEXT        NOT NULL
-                              CHECK (entity_type IN ('business','clinic','provider','service','category')),
-        entity_id           UUID        NOT NULL,
-        source_url          TEXT        NOT NULL,
-        scraped_domain      TEXT,
-        role                TEXT        NOT NULL DEFAULT 'gallery'
-                              CHECK (role IN ('cover','gallery','avatar','logo','before_after')),
-        sort_order          SMALLINT    NOT NULL DEFAULT 0,
-        alt_text            TEXT,
-        width               INTEGER,
-        height              INTEGER,
-        mime_type           TEXT,
-        scrape_status       TEXT        NOT NULL DEFAULT 'pending'
-                              CHECK (scrape_status IN ('ok','pending','failed','broken')),
-        last_checked_at     TIMESTAMPTZ,
-        cdn_url             TEXT,
-        storage_key         TEXT,
-        g99_image_id        BIGINT,
-        data_source         TEXT        NOT NULL DEFAULT 'scraped'
-                              CHECK (data_source IN ('manual','g99','scraped')),
-        created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
-        updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        entity_type TEXT NOT NULL,
+        entity_id UUID NOT NULL,
+        source_url TEXT NOT NULL,
+        cdn_url TEXT,
+        storage_key TEXT,
+        role TEXT NOT NULL DEFAULT 'gallery',
+        sort_order SMALLINT NOT NULL DEFAULT 0,
+        alt_text TEXT,
+        scraped_domain TEXT,
+        scrape_status TEXT NOT NULL DEFAULT 'pending',
+        last_checked_at TIMESTAMPTZ,
+        g99_image_id BIGINT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         UNIQUE (entity_type, entity_id, source_url)
       )
     `);
-    await client.query(`CREATE INDEX idx_images_entity ON images (entity_type, entity_id, role, sort_order)`);
-    await client.query(`CREATE INDEX idx_images_status ON images (scrape_status) WHERE scrape_status != 'ok'`);
-    await client.query(`CREATE INDEX idx_images_domain ON images (scraped_domain)`);
+    await client.query(`CREATE INDEX idx_images_entity ON images (entity_type, entity_id)`);
+    await client.query(`CREATE INDEX idx_images_role ON images (entity_type, entity_id, role)`);
+    await client.query(`CREATE INDEX idx_images_scrape_status ON images (scrape_status)`);
+    await client.query(`CREATE INDEX idx_images_scraped_domain ON images (scraped_domain)`);
     await client.query(`
       CREATE TRIGGER trg_images_updated_at
-        BEFORE UPDATE ON images
-        FOR EACH ROW EXECUTE FUNCTION set_updated_at()
+      BEFORE UPDATE ON images
+      FOR EACH ROW EXECUTE FUNCTION set_updated_at()
     `);
     console.log("✓ images table created");
 
-    // ── 10. REVIEWS ────────────────────────────────────────────────────────
-    console.log("⏳ Creating reviews table...");
-    await client.query(`
-      CREATE TABLE reviews (
-        id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-        clinic_id           UUID        NOT NULL REFERENCES clinics   (id) ON DELETE CASCADE,
-        provider_id         UUID        REFERENCES providers (id) ON DELETE SET NULL,
-        rating              SMALLINT    NOT NULL CHECK (rating BETWEEN 1 AND 5),
-        body                TEXT,
-        reviewer_name       TEXT,
-        source              TEXT        NOT NULL DEFAULT 'internal'
-                              CHECK (source IN ('google','yelp','internal','imported')),
-        source_review_id    TEXT,
-        source_url          TEXT,
-        is_approved         BOOLEAN     NOT NULL DEFAULT TRUE,
-        is_flagged          BOOLEAN     NOT NULL DEFAULT FALSE,
-        flagged_reason      TEXT,
-        g99_review_id       BIGINT      UNIQUE,
-        data_source         TEXT        NOT NULL DEFAULT 'g99'
-                              CHECK (data_source IN ('manual','g99','scraped')),
-        created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
-        updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
-      )
-    `);
-    await client.query(`CREATE INDEX idx_reviews_clinic ON reviews (clinic_id, is_approved, rating DESC)`);
-    await client.query(`CREATE INDEX idx_reviews_provider ON reviews (provider_id) WHERE provider_id IS NOT NULL`);
-    await client.query(`CREATE INDEX idx_reviews_source ON reviews (source)`);
-    await client.query(`CREATE INDEX idx_reviews_g99_id ON reviews (g99_review_id)`);
-    await client.query(`
-      CREATE TRIGGER trg_reviews_updated_at
-        BEFORE UPDATE ON reviews
-        FOR EACH ROW EXECUTE FUNCTION set_updated_at()
-    `);
-    console.log("✓ reviews table created");
-
-    // ── 11. CONCERNS ───────────────────────────────────────────────────────
-    console.log("⏳ Creating concerns table...");
-    await client.query(`
-      CREATE TABLE concerns (
-        id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-        name                TEXT        NOT NULL,
-        slug                TEXT        NOT NULL UNIQUE,
-        description         TEXT,
-        overview            TEXT,
-        faqs                JSONB,
-        meta_title          TEXT,
-        meta_description    TEXT,
-        schema_markup       JSONB,
-        is_active           BOOLEAN     NOT NULL DEFAULT TRUE,
-        is_published        BOOLEAN     NOT NULL DEFAULT FALSE,
-        display_order       SMALLINT    NOT NULL DEFAULT 0,
-        g99_symptom_id      BIGINT      UNIQUE,
-        created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
-        updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
-      )
-    `);
-    await client.query(`CREATE INDEX idx_concerns_slug ON concerns (slug)`);
-    await client.query(`CREATE INDEX idx_concerns_published ON concerns (is_published) WHERE is_active = TRUE`);
-    await client.query(`
-      CREATE TRIGGER trg_concerns_updated_at
-        BEFORE UPDATE ON concerns
-        FOR EACH ROW EXECUTE FUNCTION set_updated_at()
-    `);
-    console.log("✓ concerns table created");
-
-    // ── 12. CONCERN_SERVICES ───────────────────────────────────────────────
-    console.log("⏳ Creating concern_services table...");
-    await client.query(`
-      CREATE TABLE concern_services (
-        id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-        concern_id          UUID        NOT NULL REFERENCES concerns  (id) ON DELETE CASCADE,
-        service_id          UUID        NOT NULL REFERENCES services  (id) ON DELETE CASCADE,
-        display_order       SMALLINT    NOT NULL DEFAULT 0,
-        created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
-        UNIQUE (concern_id, service_id)
-      )
-    `);
-    await client.query(`CREATE INDEX idx_concern_services_concern ON concern_services (concern_id)`);
-    await client.query(`CREATE INDEX idx_concern_services_service ON concern_services (service_id)`);
-    console.log("✓ concern_services table created");
-
-    // ── 13. LISTING_CLAIMS ─────────────────────────────────────────────────
+    // ── 8. LISTING_CLAIMS ─────────────────────────────────────────────────────
     console.log("⏳ Creating listing_claims table...");
     await client.query(`
       CREATE TABLE listing_claims (
-        id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-        business_id         UUID        NOT NULL REFERENCES businesses (id) ON DELETE CASCADE,
-        contact_name        TEXT        NOT NULL,
-        contact_email       TEXT        NOT NULL,
-        contact_phone       TEXT,
-        spa_name            TEXT,
-        status              TEXT        NOT NULL DEFAULT 'pending'
-                              CHECK (status IN ('pending','verified','approved','rejected')),
-        verification_token  TEXT        UNIQUE,
-        verified_at         TIMESTAMPTZ,
-        approved_at         TIMESTAMPTZ,
-        rejected_reason     TEXT,
-        source_page         TEXT,
-        utm_source          TEXT,
-        utm_medium          TEXT,
-        utm_campaign        TEXT,
-        created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
-        updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        business_id UUID NOT NULL REFERENCES businesses (id) ON DELETE CASCADE,
+        contact_name TEXT NOT NULL,
+        contact_email TEXT NOT NULL,
+        contact_phone TEXT,
+        spa_name TEXT,
+        status TEXT NOT NULL DEFAULT 'pending',
+        verification_token TEXT UNIQUE,
+        verified_at TIMESTAMPTZ,
+        approved_at TIMESTAMPTZ,
+        rejected_at TIMESTAMPTZ,
+        rejection_reason TEXT,
+        source_page TEXT,
+        utm_source TEXT,
+        utm_medium TEXT,
+        utm_campaign TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
     `);
-    await client.query(`CREATE INDEX idx_claims_business ON listing_claims (business_id)`);
-    await client.query(`CREATE INDEX idx_claims_status ON listing_claims (status)`);
-    await client.query(`CREATE INDEX idx_claims_email ON listing_claims (contact_email)`);
+    await client.query(`CREATE INDEX idx_listing_claims_business_id ON listing_claims (business_id)`);
+    await client.query(`CREATE INDEX idx_listing_claims_status ON listing_claims (status)`);
+    await client.query(`CREATE INDEX idx_listing_claims_email ON listing_claims (contact_email)`);
     await client.query(`
-      CREATE TRIGGER trg_claims_updated_at
-        BEFORE UPDATE ON listing_claims
-        FOR EACH ROW EXECUTE FUNCTION set_updated_at()
+      CREATE TRIGGER trg_listing_claims_updated_at
+      BEFORE UPDATE ON listing_claims
+      FOR EACH ROW EXECUTE FUNCTION set_updated_at()
     `);
     console.log("✓ listing_claims table created");
 
-    // ── Rating refresh trigger ─────────────────────────────────────────────
-    console.log("⏳ Creating rating refresh trigger...");
+    // ── 9. SCRAPE_JOBS ────────────────────────────────────────────────────────
+    console.log("⏳ Creating scrape_jobs table...");
     await client.query(`
-      CREATE OR REPLACE FUNCTION refresh_clinic_rating()
-      RETURNS TRIGGER AS $$
-      DECLARE
-        target_clinic_id UUID;
-      BEGIN
-        target_clinic_id := COALESCE(NEW.clinic_id, OLD.clinic_id);
-        UPDATE clinics
-        SET
-          avg_rating   = (
-            SELECT ROUND(AVG(rating)::NUMERIC, 2)
-            FROM reviews
-            WHERE clinic_id = target_clinic_id AND is_approved = TRUE
-          ),
-          review_count = (
-            SELECT COUNT(*)
-            FROM reviews
-            WHERE clinic_id = target_clinic_id AND is_approved = TRUE
-          )
-        WHERE id = target_clinic_id;
-        RETURN NULL;
-      END;
-      $$ LANGUAGE plpgsql
+      CREATE TABLE scrape_jobs (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        clinic_id UUID NOT NULL REFERENCES clinics (id) ON DELETE CASCADE,
+        target_url TEXT NOT NULL,
+        job_type TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        started_at TIMESTAMPTZ,
+        finished_at TIMESTAMPTZ,
+        error_message TEXT,
+        services_found INTEGER DEFAULT 0,
+        images_found INTEGER DEFAULT 0,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
     `);
+    await client.query(`CREATE INDEX idx_scrape_jobs_clinic_id ON scrape_jobs (clinic_id)`);
+    await client.query(`CREATE INDEX idx_scrape_jobs_status ON scrape_jobs (status)`);
+    await client.query(`CREATE INDEX idx_scrape_jobs_type ON scrape_jobs (job_type)`);
+    await client.query(`CREATE INDEX idx_scrape_jobs_created ON scrape_jobs (created_at DESC)`);
     await client.query(`
-      CREATE TRIGGER trg_refresh_clinic_rating
-        AFTER INSERT OR UPDATE OR DELETE ON reviews
-        FOR EACH ROW EXECUTE FUNCTION refresh_clinic_rating()
+      CREATE TRIGGER trg_scrape_jobs_updated_at
+      BEFORE UPDATE ON scrape_jobs
+      FOR EACH ROW EXECUTE FUNCTION set_updated_at()
     `);
-    console.log("✓ Rating refresh trigger created");
+    console.log("✓ scrape_jobs table created");
 
-    // ── Table comments ─────────────────────────────────────────────────────
-    await client.query(`COMMENT ON TABLE businesses IS 'Top-level entity. One business owns multiple clinic locations.'`);
-    await client.query(`COMMENT ON TABLE clinics IS 'Physical medspa locations.'`);
-    await client.query(`COMMENT ON TABLE providers IS 'Practitioners.'`);
-    await client.query(`COMMENT ON TABLE clinic_providers IS 'Junction: which provider works at which clinic.'`);
-    await client.query(`COMMENT ON TABLE categories IS 'Top-level service groups (Injectables, Laser...).'`);
-    await client.query(`COMMENT ON TABLE services IS 'Master treatment catalog. Powers /treatments/{slug} pages.'`);
-    await client.query(`COMMENT ON TABLE service_categories IS 'Junction: service → category.'`);
-    await client.query(`COMMENT ON TABLE clinic_services IS 'Which services a clinic offers + location-specific pricing.'`);
-    await client.query(`COMMENT ON TABLE images IS 'All images — scraped URLs.'`);
-    await client.query(`COMMENT ON TABLE reviews IS 'Patient reviews.'`);
-    await client.query(`COMMENT ON TABLE concerns IS '/conditions pages.'`);
-    await client.query(`COMMENT ON TABLE concern_services IS 'Concern → treatment mapping.'`);
-    await client.query(`COMMENT ON TABLE listing_claims IS 'Claim flow for unclaimed listings.'`);
+    // ── 10. MATERIALIZED VIEW: clinic_search_view ────────────────────────────
+    console.log("⏳ Creating clinic_search_view materialized view...");
+    await client.query(`
+      CREATE MATERIALIZED VIEW clinic_search_view AS
+      SELECT
+        c.id AS clinic_id,
+        c.business_id,
+        c.name AS clinic_name,
+        c.slug AS clinic_slug,
+        b.name AS business_name,
+        c.address,
+        c.city,
+        c.state,
+        c.zip,
+        c.country,
+        c.lat,
+        c.lng,
+        c.geo,
+        c.phone,
+        c.website,
+        c.booking_url,
+        c.about,
+        c.instagram_url,
+        c.facebook_url,
+        c.google_place_id,
+        c.yelp_url,
+        c.hours,
+        c.tier,
+        c.verified,
+        c.featured,
+        c.avg_rating,
+        c.review_count,
+        COALESCE(
+          ARRAY_AGG(DISTINCT COALESCE(sv.name, cs.raw_name))
+            FILTER (WHERE cs.is_active = true),
+          '{}'
+        ) AS service_names,
+        COALESCE(
+          ARRAY_AGG(DISTINCT COALESCE(sv.slug, slugify(cs.raw_name)))
+            FILTER (WHERE cs.is_active = true),
+          '{}'
+        ) AS service_slugs,
+        (
+          SELECT source_url FROM images i
+          WHERE i.entity_type = 'clinic' AND i.entity_id = c.id
+            AND i.role = 'cover' AND i.scrape_status = 'ok'
+          ORDER BY i.sort_order LIMIT 1
+        ) AS cover_image_url,
+        (
+          SELECT source_url FROM images i
+          WHERE i.entity_type = 'business' AND i.entity_id = c.business_id
+            AND i.role = 'logo' AND i.scrape_status = 'ok'
+          ORDER BY i.sort_order LIMIT 1
+        ) AS logo_url
+      FROM clinics c
+      JOIN businesses b ON b.id = c.business_id
+      LEFT JOIN clinic_services cs ON cs.clinic_id = c.id
+      LEFT JOIN services sv ON sv.id = cs.service_id
+      WHERE c.is_active = true AND b.is_active = true
+      GROUP BY
+        c.id, c.business_id, c.name, c.slug, b.name,
+        c.address, c.city, c.state, c.zip, c.country, c.lat, c.lng, c.geo,
+        c.phone, c.website, c.booking_url, c.about, c.instagram_url,
+        c.facebook_url, c.google_place_id, c.yelp_url, c.hours, c.tier,
+        c.verified, c.featured, c.avg_rating, c.review_count
+    `);
+    await client.query(`CREATE UNIQUE INDEX idx_csv_clinic_id ON clinic_search_view (clinic_id)`);
+    await client.query(`CREATE INDEX idx_csv_city ON clinic_search_view (lower(city))`);
+    await client.query(`CREATE INDEX idx_csv_state ON clinic_search_view (lower(state))`);
+    await client.query(`CREATE INDEX idx_csv_tier ON clinic_search_view (tier)`);
+    await client.query(`CREATE INDEX idx_csv_avg_rating ON clinic_search_view (avg_rating DESC)`);
+    await client.query(`CREATE INDEX idx_csv_service_slugs ON clinic_search_view USING GIN (service_slugs)`);
+    try {
+      await client.query(`CREATE INDEX idx_csv_geo ON clinic_search_view USING GIST (geo)`);
+    } catch {
+      console.log("  ⚠ Skipping PostGIS index on clinic_search_view.geo");
+    }
+    console.log("✓ clinic_search_view created");
 
     await client.query("COMMIT");
-    console.log("\n✅ Migration complete! All 13 tables created successfully.");
+    console.log(`
+✅ Migration complete!
 
+Tables created:
+  1. businesses
+  2. clinics
+  3. services          (canonical taxonomy)
+  4. clinic_services   (clinic ↔ service join, raw scraped/entered names)
+  5. providers         (skipped for now)
+  6. clinic_providers  (skipped for now)
+  7. images
+  8. listing_claims
+  9. scrape_jobs
+
+Views:
+  • clinic_search_view (materialized)
+
+Next steps:
+  1. Run G99 sync to populate businesses + clinics
+  2. Geocode clinics → lat/lng/geo
+  3. Run scraper → clinic_services, images
+  4. Match clinic_services.raw_name → services.id where possible
+  5. REFRESH MATERIALIZED VIEW CONCURRENTLY clinic_search_view;
+    `);
   } catch (err) {
     await client.query("ROLLBACK");
     console.error("❌ Migration failed:", err);
