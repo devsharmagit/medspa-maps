@@ -25,6 +25,8 @@ FROM oven/bun:1-debian AS runner
 
 WORKDIR /app
 
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+
 # ── Next.js ───────────────────────────────────────────────────────────────────
 COPY --from=web-builder /app/web/public ./web/public
 COPY --from=web-builder /app/web/.next ./web/.next

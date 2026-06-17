@@ -9,7 +9,6 @@ export async function runG99Sync(limit?: number): Promise<void> {
   const startedAt = Date.now();
 
   const businesses = await api.getG99Businesses();
-  console.log(businesses[0])
   const toProcess = limit ? businesses.slice(0, limit) : businesses;
   console.log(
     `[g99-sync] ${businesses.length} businesses in G99 (processing ${toProcess.length})`
