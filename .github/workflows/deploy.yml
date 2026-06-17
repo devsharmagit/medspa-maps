@@ -43,11 +43,23 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
           echo "Image pushed: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
 
-      # ── ECS deployment (manual for now) ──────────────────────────────────────
-      # - name: Deploy to ECS
-      #   uses: aws-actions/amazon-ecs-deploy-task-definition@v2
-      #   with:
-      #     task-definition: ecs/task-definition.json
-      #     service: medspa-maps-service
-      #     cluster: medspa-maps-cluster
-      #     wait-for-service-stability: true
+      - name: Download task definition
+        run: |
+          aws ecs describe-task-definition --task-definition medspa-maps --query taskDefinition > task-definition.json
+
+      - name: Fill in the new image ID in the Amazon ECS task definition
+        id: render-task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: medspa-maps
+          image: ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+
+      - name: Deploy Amazon ECS task definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.render-task-def.outputs.task-definition }}
+          service: medspa-maps
+          cluster: Infra
+          wait-for-service-stability: true
+
