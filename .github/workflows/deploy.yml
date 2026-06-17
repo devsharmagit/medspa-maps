@@ -1,0 +1,53 @@
+name: Build & Push to ECR
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  AWS_REGION: us-east-2
+  ECR_REGISTRY: 584537429324.dkr.ecr.us-east-2.amazonaws.com
+  ECR_REPOSITORY: medspa-maps
+
+jobs:
+  build-and-push:
+    name: Build & Push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          role-session-name: github-ecr-push-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push image to ECR
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          echo "Image pushed: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+
+      # ── ECS deployment (manual for now) ──────────────────────────────────────
+      # - name: Deploy to ECS
+      #   uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+      #   with:
+      #     task-definition: ecs/task-definition.json
+      #     service: medspa-maps-service
+      #     cluster: medspa-maps-cluster
+      #     wait-for-service-stability: true
