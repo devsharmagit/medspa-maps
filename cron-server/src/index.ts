@@ -40,9 +40,29 @@ async function runFullSync(): Promise<void> {
 }
 
 const RUN_ONCE = process.argv.includes("--run-once");
+const NEXTJS_URL = (process.env.NEXTJS_URL ?? "http://localhost:3000").replace(/\/$/, "");
+
+async function waitForNextJS(timeoutMs: number = 45000): Promise<void> {
+  const start = Date.now();
+  console.log(`[cron] Waiting for Next.js to be ready at ${NEXTJS_URL}/health...`);
+  while (Date.now() - start < timeoutMs) {
+    try {
+      const res = await fetch(`${NEXTJS_URL}/health`);
+      if (res.ok) {
+        console.log("[cron] Next.js is ready!");
+        return;
+      }
+    } catch (e) {
+      // Ignore connection errors and keep waiting
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+  console.warn("[cron] Next.js did not start within timeout, proceeding anyway...");
+}
 
 if (RUN_ONCE) {
-  runFullSync()
+  waitForNextJS()
+    .then(() => runFullSync())
     .then(() => process.exit(0))
     .catch((err) => {
       console.error("[cron] Fatal:", err);
@@ -55,5 +75,7 @@ if (RUN_ONCE) {
     runFullSync().catch((err) => console.error("[cron] Uncaught:", err));
   });
 
-  runFullSync().catch((err) => console.error("[cron] Initial sync error:", err));
+  waitForNextJS()
+    .then(() => runFullSync())
+    .catch((err) => console.error("[cron] Initial sync error:", err));
 }

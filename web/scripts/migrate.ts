@@ -44,13 +44,17 @@ async function migrate() {
     await client.query(`CREATE EXTENSION IF NOT EXISTS "pgcrypto"`);
     await client.query(`CREATE EXTENSION IF NOT EXISTS "pg_trgm"`);
     await client.query(`CREATE EXTENSION IF NOT EXISTS "unaccent"`);
+    let hasPostgis = false;
     try {
       await client.query(`CREATE EXTENSION IF NOT EXISTS "postgis"`);
       console.log("✓ PostGIS enabled");
+      hasPostgis = true;
     } catch {
       console.log("⚠ PostGIS not available on this plan — geo column will be TEXT");
     }
     console.log("✓ Extensions ready");
+
+    const geoColumnType = hasPostgis ? "GEOGRAPHY(POINT, 4326)" : "TEXT";
 
     await client.query("BEGIN");
 
@@ -159,7 +163,7 @@ async function migrate() {
         state TEXT,
         zip TEXT,
         country TEXT DEFAULT 'US',
-        geo GEOGRAPHY(POINT, 4326),
+        geo ${geoColumnType},
         lat NUMERIC(10, 7),
         lng NUMERIC(10, 7),
         phone TEXT,
@@ -199,10 +203,12 @@ async function migrate() {
     await client.query(`CREATE INDEX IF NOT EXISTS idx_clinics_is_active ON clinics (is_active)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_clinics_website ON clinics (website)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_clinics_google_place ON clinics (google_place_id)`);
-    try {
-      await client.query(`CREATE INDEX IF NOT EXISTS idx_clinics_geo ON clinics USING GIST (geo)`);
-    } catch {
-      console.log("  ⚠ Skipping PostGIS index on clinics.geo");
+    if (hasPostgis) {
+      try {
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_clinics_geo ON clinics USING GIST (geo)`);
+      } catch {
+        console.log("  ⚠ Skipping PostGIS index on clinics.geo");
+      }
     }
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_clinics_fts ON clinics
@@ -226,7 +232,7 @@ async function migrate() {
       { name: "state", type: "TEXT" },
       { name: "zip", type: "TEXT" },
       { name: "country", type: "TEXT DEFAULT 'US'" },
-      { name: "geo", type: "GEOGRAPHY(POINT, 4326)" },
+      { name: "geo", type: geoColumnType },
       { name: "lat", type: "NUMERIC(10, 7)" },
       { name: "lng", type: "NUMERIC(10, 7)" },
       { name: "phone", type: "TEXT" },
@@ -558,10 +564,12 @@ async function migrate() {
     await client.query(`CREATE INDEX idx_csv_tier ON clinic_search_view (tier)`);
     await client.query(`CREATE INDEX idx_csv_avg_rating ON clinic_search_view (avg_rating DESC)`);
     await client.query(`CREATE INDEX idx_csv_service_slugs ON clinic_search_view USING GIN (service_slugs)`);
-    try {
-      await client.query(`CREATE INDEX idx_csv_geo ON clinic_search_view USING GIST (geo)`);
-    } catch {
-      console.log("  ⚠ Skipping PostGIS index on clinic_search_view.geo");
+    if (hasPostgis) {
+      try {
+        await client.query(`CREATE INDEX idx_csv_geo ON clinic_search_view USING GIST (geo)`);
+      } catch {
+        console.log("  ⚠ Skipping PostGIS index on clinic_search_view.geo");
+      }
     }
     console.log("✓ clinic_search_view created");
 
