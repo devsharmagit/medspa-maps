@@ -1,6 +1,8 @@
 import { isInternalAuthorized, unauthorizedResponse } from "@/lib/internal-auth";
 import { query, queryOne } from "@/lib/db";
 import { successResponse, errorResponse, handleApiError } from "@/lib/api-response";
+import { parseUSAddress, normalizeState } from "@/lib/address-parser";
+import { geocodeAddress } from "@/lib/geocoder";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +45,38 @@ interface G99Clinic {
   google_profile_id: string | null;
 }
 
+// ── Address resolution helpers ──────────────────────────────────────────────
+
+/**
+ * Resolves city, state (abbreviation), and zip by combining G99 fields
+ * with parsed data from the address string. G99 explicit fields take
+ * priority; address parsing is the fallback.
+ */
+function resolveLocation(g99: G99Clinic): {
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+} {
+  const parsed = parseUSAddress(g99.clinic_address);
+
+  // State: prefer G99 value (normalized to abbreviation) → parsed
+  const state =
+    normalizeState(g99.clinic_state) ??
+    parsed?.state ??
+    null;
+
+  // City: prefer G99 value → parsed
+  const city =
+    (g99.clinic_city && g99.clinic_city.trim()) || parsed?.city || null;
+
+  // Zip: only from parsing (G99 doesn't provide it)
+  const zip = parsed?.zip ?? null;
+
+  return { city, state, zip };
+}
+
+// ── Route handler ───────────────────────────────────────────────────────────
+
 export async function POST(req: Request) {
   if (!isInternalAuthorized(req)) return unauthorizedResponse();
 
@@ -59,75 +93,127 @@ export async function POST(req: Request) {
   }
 
   try {
+    // Resolve city / state / zip from G99 fields + address parsing
+    const { city, state, zip } = resolveLocation(g99Clinic);
+
     // Check if this G99 clinic already exists
-    const existing = await queryOne<{ id: string; slug: string }>(
-      "SELECT id, slug FROM clinics WHERE g99_clinic_id = $1",
+    const existing = await queryOne<{
+      id: string;
+      slug: string;
+      lat: number | null;
+      lng: number | null;
+    }>(
+      "SELECT id, slug, lat, lng FROM clinics WHERE g99_clinic_id = $1",
       [g99Clinic.clinic_id]
     );
 
     if (existing) {
-      // Update in-place — keep same slug to avoid breaking URLs
+      // ── UPDATE existing clinic ──────────────────────────────────────────
+      // Geocode only if lat/lng are still missing
+      let lat: number | null = existing.lat;
+      let lng: number | null = existing.lng;
+
+      if (lat == null || lng == null) {
+        const geo = await geocodeAddress(g99Clinic.clinic_address ?? "");
+        if (geo) {
+          lat = geo.lat;
+          lng = geo.lng;
+          console.log(`[upsert-clinic] Geocoded "${g99Clinic.clinic_name}" → ${lat}, ${lng}`);
+        }
+      }
+
       await query(
         `UPDATE clinics SET
            name                = $1,
            address             = $2,
-           city                = $3,
-           state               = $4,
-           country             = COALESCE($5, 'US'),
-           phone               = $6,
-           website             = COALESCE($7, website),
-           about               = $8,
-           google_my_business  = $9,
-           google_place_id     = $10,
+           city                = COALESCE($3, city),
+           state               = COALESCE($4, state),
+           zip                 = COALESCE($5, zip),
+           country             = COALESCE($6, 'US'),
+           phone               = $7,
+           website             = COALESCE($8, website),
+           about               = $9,
+           google_my_business  = $10,
+           google_place_id     = $11,
+           lat                 = COALESCE($12, lat),
+           lng                 = COALESCE($13, lng),
+           geo                 = COALESCE(
+             CASE WHEN $12::numeric IS NOT NULL AND $13::numeric IS NOT NULL
+               THEN ST_SetSRID(ST_MakePoint($13::float, $12::float), 4326)::geography
+             END,
+             geo
+           ),
            last_synced_at      = NOW(),
            is_active           = true,
            updated_at          = NOW()
-         WHERE id = $11`,
+         WHERE id = $14`,
         [
-          g99Clinic.clinic_name,
-          g99Clinic.clinic_address,
-          g99Clinic.clinic_city,
-          g99Clinic.clinic_state,
-          g99Clinic.clinic_country,
-          g99Clinic.clinic_contact_number,
-          g99Clinic.clinic_website,
-          g99Clinic.clinic_about,
-          g99Clinic.google_my_business,
-          g99Clinic.google_place_id,
-          existing.id,
+          g99Clinic.clinic_name,       // $1
+          g99Clinic.clinic_address,     // $2
+          city,                         // $3
+          state,                        // $4
+          zip,                          // $5
+          g99Clinic.clinic_country,     // $6
+          g99Clinic.clinic_contact_number, // $7
+          g99Clinic.clinic_website,     // $8
+          g99Clinic.clinic_about,       // $9
+          g99Clinic.google_my_business, // $10
+          g99Clinic.google_place_id,    // $11
+          lat,                          // $12
+          lng,                          // $13
+          existing.id,                  // $14
         ]
       );
       return successResponse({ our_clinic_id: existing.id });
     }
 
-    // New clinic — generate a unique slug
+    // ── INSERT new clinic ───────────────────────────────────────────────
+    // Always attempt geocoding for new records
+    let lat: number | null = null;
+    let lng: number | null = null;
+
+    const geo = await geocodeAddress(g99Clinic.clinic_address ?? "");
+    if (geo) {
+      lat = geo.lat;
+      lng = geo.lng;
+      console.log(`[upsert-clinic] Geocoded new "${g99Clinic.clinic_name}" → ${lat}, ${lng}`);
+    }
+
     const baseSlug = slugify(g99Clinic.clinic_name) || "clinic";
     const slug = await uniqueSlug(ourBusinessId, baseSlug);
 
     const row = await queryOne<{ id: string }>(
       `INSERT INTO clinics
-         (business_id, name, slug, website, address, city, state, country,
+         (business_id, name, slug, website, address, city, state, zip, country,
           phone, about, google_my_business, google_place_id,
+          lat, lng, geo,
           data_source, g99_clinic_id, last_synced_at, is_active)
        VALUES
-         ($1, $2, $3, $4, $5, $6, $7, COALESCE($8, 'US'),
-          $9, $10, $11, $12,
-          'g99', $13, NOW(), true)
+         ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9, 'US'),
+          $10, $11, $12, $13,
+          $14, $15,
+          CASE WHEN $14::numeric IS NOT NULL AND $15::numeric IS NOT NULL
+            THEN ST_SetSRID(ST_MakePoint($15::float, $14::float), 4326)::geography
+          END,
+          'g99', $16, NOW(), true)
        RETURNING id`,
       [
-        ourBusinessId,
-        g99Clinic.clinic_name,
-        slug,
-        g99Clinic.clinic_website ?? "",
-        g99Clinic.clinic_address,
-        g99Clinic.clinic_city,
-        g99Clinic.clinic_state,
-        g99Clinic.clinic_country,
-        g99Clinic.clinic_contact_number,
-        g99Clinic.clinic_about,
-        g99Clinic.google_my_business,
-        g99Clinic.google_place_id,
-        g99Clinic.clinic_id,
+        ourBusinessId,                   // $1
+        g99Clinic.clinic_name,           // $2
+        slug,                            // $3
+        g99Clinic.clinic_website ?? "",   // $4
+        g99Clinic.clinic_address,         // $5
+        city,                             // $6
+        state,                            // $7
+        zip,                              // $8
+        g99Clinic.clinic_country,         // $9
+        g99Clinic.clinic_contact_number,  // $10
+        g99Clinic.clinic_about,           // $11
+        g99Clinic.google_my_business,     // $12
+        g99Clinic.google_place_id,        // $13
+        lat,                              // $14
+        lng,                              // $15
+        g99Clinic.clinic_id,              // $16
       ]
     );
 

@@ -42,24 +42,25 @@ export async function GET(request: NextRequest) {
       paramIdx += 2;
     }
 
-    // Location search — dropdown passes 2-letter abbreviations; DB stores full names
+    // Location search — dropdown sends 2-letter abbreviations; DB stores abbreviations
     if (location) {
       const upper = location.toUpperCase();
       const fullName = STATE_ABBR_TO_NAME[upper];
       if (fullName) {
-        // Exact full-name match (case-insensitive) — most precise
-        conditions.push(`c.state ILIKE $${paramIdx}`);
-        params.push(fullName);
+        // Known state abbreviation — match abbreviation OR legacy full-name records
+        conditions.push(`(c.state = $${paramIdx} OR c.state ILIKE $${paramIdx + 1})`);
+        params.push(upper, fullName);
+        paramIdx += 2;
       } else {
-        // Free-text fallback: city, state name, zip
+        // Free-text fallback: city, state name/abbr, zip
         conditions.push(`(
           c.city ILIKE $${paramIdx}
           OR c.state ILIKE $${paramIdx}
           OR c.zip ILIKE $${paramIdx}
         )`);
         params.push(`%${location}%`);
+        paramIdx++;
       }
-      paramIdx++;
     }
 
     // Tier filter

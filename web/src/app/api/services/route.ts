@@ -9,7 +9,8 @@ export async function GET() {
     );
 
     if (canonical.rows.length > 0) {
-      return NextResponse.json({ services: canonical.rows });
+      const uniqueServices = Array.from(new Map(canonical.rows.map(s => [s.slug, s])).values());
+      return NextResponse.json({ services: uniqueServices });
     }
 
     // No canonical services yet — derive from scraped raw names
@@ -24,7 +25,8 @@ export async function GET() {
        ORDER BY raw_name`
     );
 
-    return NextResponse.json({ services: raw.rows });
+    const uniqueRawServices = Array.from(new Map(raw.rows.map(s => [s.slug, s])).values());
+    return NextResponse.json({ services: uniqueRawServices });
   } catch (error) {
     console.error("Services API error:", error);
     return NextResponse.json(

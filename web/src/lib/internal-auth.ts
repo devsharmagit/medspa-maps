@@ -3,7 +3,10 @@
  * Cron server must send: X-Internal-Secret: <INTERNAL_API_SECRET>
  */
 export function isInternalAuthorized(req: Request): boolean {
-  return req.headers.get("x-internal-secret") === process.env.INTERNAL_API_SECRET;
+  const header = req.headers.get("x-internal-secret");
+  const secret = process.env.INTERNAL_API_SECRET;
+  console.log(`[auth check] header: ${header}, env: ${secret}`);
+  return header === secret;
 }
 
 export function unauthorizedResponse(): Response {

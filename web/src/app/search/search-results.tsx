@@ -373,7 +373,15 @@ function ClinicCard({
   clinic: ClinicResult;
   openStatus: { isOpen: boolean; text: string } | null;
 }) {
-  const lowestPrice = clinic.services
+  const uniqueServices = Array.from(
+    new Map(clinic.services.map((s) => [s.slug, s])).values()
+  );
+
+  const uniqueProviders = Array.from(
+    new Map(clinic.providers.map((p) => [p.slug, p])).values()
+  );
+
+  const lowestPrice = uniqueServices
     .map((s) => s.price_from)
     .filter((p): p is number => p !== null)
     .sort((a, b) => a - b)[0];
@@ -478,7 +486,7 @@ function ClinicCard({
 
         {/* Services tags */}
         <div className="flex flex-wrap gap-1.5">
-          {clinic.services.slice(0, 4).map((svc) => (
+          {uniqueServices.slice(0, 4).map((svc) => (
             <span
               key={svc.slug}
               className="rounded-md border border-[#ece6ec] bg-[#faf7fa] px-2 py-0.5 text-[11px] font-medium text-[#8a6f8a] transition-colors hover:border-brand-magenta/30 hover:bg-brand-magenta/5"
@@ -486,9 +494,9 @@ function ClinicCard({
               {svc.name}
             </span>
           ))}
-          {clinic.services.length > 4 && (
+          {uniqueServices.length > 4 && (
             <span className="rounded-md bg-brand-magenta/8 px-2 py-0.5 text-[11px] font-medium text-brand-magenta">
-              +{clinic.services.length - 4} more
+              +{uniqueServices.length - 4} more
             </span>
           )}
         </div>
@@ -513,9 +521,9 @@ function ClinicCard({
           </div>
 
           {/* Providers badges */}
-          {clinic.providers.length > 0 && (
+          {uniqueProviders.length > 0 && (
             <div className="flex items-center">
-              {clinic.providers.slice(0, 2).map((prov, i) => (
+              {uniqueProviders.slice(0, 2).map((prov, i) => (
                 <div
                   key={prov.slug}
                   className={cn(
@@ -531,9 +539,9 @@ function ClinicCard({
                     .slice(0, 2)}
                 </div>
               ))}
-              {clinic.providers.length > 2 && (
+              {uniqueProviders.length > 2 && (
                 <div className="-ml-2 flex size-8 items-center justify-center rounded-full border-2 border-white bg-[#f0e6f2] text-[10px] font-bold text-brand-magenta shadow-sm">
-                  +{clinic.providers.length - 2}
+                  +{uniqueProviders.length - 2}
                 </div>
               )}
             </div>
