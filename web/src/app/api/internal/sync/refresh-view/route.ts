@@ -1,20 +1,16 @@
-/**
- * POST /api/internal/sync/refresh-view
- * Refreshes the clinic_search_view materialized view after sync is complete.
- */
+import { isInternalAuthorized, unauthorizedResponse } from "@/lib/internal-auth";
+import { query } from "@/lib/db";
+import { successResponse, handleApiError } from "@/lib/api-response";
 
 export const dynamic = "force-dynamic";
 
-import { isInternalAuthorized, unauthorizedResponse } from "@/lib/internal-auth";
-import { ourQuery } from "@/lib/sync/db-helpers";
-
-export async function POST(req: Request): Promise<Response> {
+export async function POST(req: Request) {
   if (!isInternalAuthorized(req)) return unauthorizedResponse();
 
   try {
-    await ourQuery("REFRESH MATERIALIZED VIEW CONCURRENTLY clinic_search_view");
-    return Response.json({ ok: true });
-  } catch {
-    return Response.json({ ok: false, error: "clinic_search_view not found — skipping" });
+    await query("REFRESH MATERIALIZED VIEW CONCURRENTLY clinic_search_view");
+    return successResponse({ refreshed: true });
+  } catch (err) {
+    return handleApiError(err);
   }
 }

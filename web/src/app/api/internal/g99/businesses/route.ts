@@ -1,39 +1,42 @@
-/**
- * GET /api/internal/g99/businesses
- * Returns the list of valid G99 business IDs + names for the cron server to iterate.
- * Filters: not deleted, not test accounts, website must be a valid URL
- */
+import { isInternalAuthorized, unauthorizedResponse } from "@/lib/internal-auth";
+import { queryG99 } from "@/lib/db";
+import { successResponse, handleApiError } from "@/lib/api-response";
 
 export const dynamic = "force-dynamic";
 
-import { isInternalAuthorized, unauthorizedResponse } from "@/lib/internal-auth";
-import { g99Query } from "@/lib/sync/db-helpers";
-
-function isValidUrl(value: string | null | undefined): value is string {
-  if (!value) return false;
-  try {
-    new URL(value);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-export async function GET(req: Request): Promise<Response> {
+export async function GET(req: Request) {
   if (!isInternalAuthorized(req)) return unauthorizedResponse();
 
-  const rows = await g99Query<{ id: string; name: string; website: string | null }>(
-    `SELECT b.id::text AS id, b.name, b.website
-     FROM businesses b
-     JOIN business_config bc ON bc.tenant_id = b.id
-     WHERE b.deleted = false
-       AND bc.is_test_business = false
-     ORDER BY b.id`
-  );
+  try {
+    const rows = await queryG99(`
+      SELECT
+        b.id          AS business_id,
+        b.name        AS business_name,
+        b.logo_url,
+        b.about,
+        json_agg(json_build_object(
+          'clinic_id',            c.id,
+          'clinic_name',          c.name,
+          'clinic_address',       c.address,
+          'clinic_city',          c.city,
+          'clinic_state',         c.state,
+          'clinic_country',       c.country,
+          'clinic_contact_number',c.contact_number,
+          'clinic_website',       c.website,
+          'clinic_about',         c.about,
+          'google_my_business',   c.google_my_business,
+          'google_place_id',      c.google_place_id,
+          'google_profile_id',    c.google_profile_id
+        )) AS clinics
+      FROM businesses b
+      JOIN clinics c ON c.tenant_id = b.id
+      WHERE b.deleted IS NOT TRUE
+        AND c.deleted IS NOT TRUE
+      GROUP BY b.id
+    `);
 
-  const businesses = rows
-    // .filter(({ website }) => isValidUrl(website))
-    .map(({ id, name, website }) => ({ id, name, website: website as string }));
-
-  return Response.json({ businesses });
+    return successResponse(rows);
+  } catch (err) {
+    return handleApiError(err);
+  }
 }

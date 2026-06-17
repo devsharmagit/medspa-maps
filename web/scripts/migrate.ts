@@ -82,7 +82,7 @@ async function migrate() {
         RETURN lower(
           regexp_replace(
             regexp_replace(
-              unaccent(trim(val)),
+              public.unaccent(trim(val)),
               '[^a-zA-Z0-9\\s-]', '', 'g'
             ),
             '[\\s-]+', '-', 'g'
@@ -256,68 +256,7 @@ async function migrate() {
     `);
     console.log("✓ clinic_services table created");
 
-    // ── 5. PROVIDERS (skipped for now) ───────────────────────────────────────
-    // console.log("⏳ Creating providers table...");
-    // await client.query(`
-    //   CREATE TABLE providers (
-    //     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    //     business_id UUID NOT NULL REFERENCES businesses (id) ON DELETE RESTRICT,
-    //     name TEXT NOT NULL,
-    //     slug TEXT NOT NULL,
-    //     title TEXT,
-    //     designation TEXT,
-    //     bio TEXT,
-    //     photo_url TEXT,
-    //     years_experience SMALLINT,
-    //     specializations TEXT[],
-    //     avg_rating NUMERIC(3, 2),
-    //     review_count INTEGER NOT NULL DEFAULT 0,
-    //     data_source TEXT NOT NULL DEFAULT 'manual',
-    //     g99_user_id BIGINT UNIQUE,
-    //     last_synced_at TIMESTAMPTZ,
-    //     last_scraped_at TIMESTAMPTZ,
-    //     is_active BOOLEAN NOT NULL DEFAULT true,
-    //     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    //     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    //     UNIQUE (business_id, slug)
-    //   )
-    // `);
-    // await client.query(`CREATE INDEX idx_providers_business_id ON providers (business_id)`);
-    // await client.query(`CREATE INDEX idx_providers_g99_user_id ON providers (g99_user_id)`);
-    // await client.query(`CREATE INDEX idx_providers_is_active ON providers (is_active)`);
-    // await client.query(`CREATE INDEX idx_providers_slug ON providers (business_id, slug)`);
-    // await client.query(`
-    //   CREATE TRIGGER trg_providers_updated_at
-    //   BEFORE UPDATE ON providers
-    //   FOR EACH ROW EXECUTE FUNCTION set_updated_at()
-    // `);
-    // console.log("✓ providers table created");
-
-    // ── 6. CLINIC_PROVIDERS (skipped for now) ────────────────────────────────
-    // console.log("⏳ Creating clinic_providers table...");
-    // await client.query(`
-    //   CREATE TABLE clinic_providers (
-    //     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    //     clinic_id UUID NOT NULL REFERENCES clinics (id) ON DELETE CASCADE,
-    //     provider_id UUID NOT NULL REFERENCES providers (id) ON DELETE CASCADE,
-    //     is_primary BOOLEAN NOT NULL DEFAULT false,
-    //     is_active BOOLEAN NOT NULL DEFAULT true,
-    //     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    //     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    //     UNIQUE (clinic_id, provider_id)
-    //   )
-    // `);
-    // await client.query(`CREATE INDEX idx_clinic_providers_clinic_id ON clinic_providers (clinic_id)`);
-    // await client.query(`CREATE INDEX idx_clinic_providers_provider_id ON clinic_providers (provider_id)`);
-    // await client.query(`
-    //   CREATE TRIGGER trg_clinic_providers_updated_at
-    //   BEFORE UPDATE ON clinic_providers
-    //   FOR EACH ROW EXECUTE FUNCTION set_updated_at()
-    // `);
-    // console.log("✓ clinic_providers table created");
-
-    // ── 7. IMAGES ─────────────────────────────────────────────────────────────
-    console.log("⏳ Creating images table...");
+   console.log("⏳ Creating images table...");
     await client.query(`
       CREATE TABLE images (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

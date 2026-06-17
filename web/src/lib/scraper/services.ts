@@ -2,6 +2,134 @@ import type { CheerioAPI } from "cheerio";
 import type { ScrapedService } from "./types";
 import { cleanText, slugify, parsePrice, parseDuration, dedupeBy } from "./utils";
 
+// ─── Nav-link service extraction (Step 2 of spec) ─────────────────────────────
+//
+// Scans every <nav> element for <a href> links whose path matches /services?/.
+// This is the primary extraction strategy — it captures the full treatment
+// catalogue that medspa sites link in their navigation, including deeply-nested
+// sub-menus (Services > Injectables > Botox®).
+
+/**
+ * Extract services by scanning <nav> links for /services?/{slug}/ URL patterns.
+ *
+ * Rules (per spec):
+ *  - Skip #, tel:, mailto:, empty href
+ *  - Skip if resolved hostname != scraped domain
+ *  - Skip if path doesn't contain /services?/
+ *  - Skip if path after stripping /services?/ prefix is empty (index page)
+ *  - Dedupe by absolute URL
+ *  - raw_name = link visible text
+ *  - category = nearest ancestor menu-group label (grandparent <li>'s <a> text)
+ *  - is_category = true when the link's own <li> has child sub-menu items
+ */
+export function extractServicesFromNav($: CheerioAPI, baseUrl: string): ScrapedService[] {
+  let baseDomain: string;
+  try {
+    baseDomain = new URL(baseUrl).hostname;
+  } catch {
+    return [];
+  }
+
+  const seen = new Set<string>();
+  const services: ScrapedService[] = [];
+
+  $("nav").each((_, navEl) => {
+    $(navEl)
+      .find("a[href]")
+      .each((_, linkEl) => {
+        const link = $(linkEl);
+        const href = (link.attr("href") ?? "").trim();
+        if (!href || /^(#|tel:|mailto:)/i.test(href)) return;
+
+        let abs: string;
+        try {
+          abs = new URL(href, baseUrl).href;
+        } catch {
+          return;
+        }
+
+        let urlObj: URL;
+        try {
+          urlObj = new URL(abs);
+        } catch {
+          return;
+        }
+
+        // Same domain only
+        if (urlObj.hostname !== baseDomain) return;
+
+        // Path must contain /service(s)/
+        if (!/\/services?\//i.test(urlObj.pathname)) return;
+
+        // Path after stripping /services?/ prefix must be non-empty (exclude index page)
+        const afterServices = urlObj.pathname
+          .replace(/^.*?\/services?\//i, "")
+          .replace(/\/+$/, "")
+          .trim();
+        if (!afterServices) return;
+
+        // Dedupe by full URL (same treatment often appears in multiple nav sections)
+        if (seen.has(abs)) return;
+        seen.add(abs);
+
+        const rawName = cleanText(
+          link.text() || link.attr("aria-label") || link.attr("title") || ""
+        );
+        if (!rawName || rawName.length < 2 || rawName.length > 120) return;
+
+        const slug = slugify(rawName);
+        if (!slug) return;
+
+        // Is this a category page (has its own sub-menu children)?
+        const parentLi = link.closest("li");
+        const isCategory = parentLi.length > 0 && parentLi.find("ul a[href]").length > 0;
+
+        // Find category label from grandparent <li>
+        const category = findAncestorMenuLabel(link);
+
+        services.push({
+          name: rawName,
+          slug,
+          category: category ?? undefined,
+          scraped_from_url: abs,
+          is_category: isCategory || undefined,
+        });
+      });
+  });
+
+  return services;
+}
+
+/**
+ * Walk up from a nav link to find its parent menu-group label.
+ *
+ * Typical WordPress/Elementor nav structure:
+ *   <li class="menu-item-has-children">      <- category item
+ *     <a href="/services/injectables/">Injectables</a>
+ *     <ul class="sub-menu">
+ *       <li><a href="/services/injectables/botox/">Botox</a></li>  <- leaf
+ *     </ul>
+ *   </li>
+ *
+ * Returns the category link text, or null if not nested.
+ */
+function findAncestorMenuLabel(link: ReturnType<CheerioAPI>): string | null {
+  const itemLi = link.closest("li");
+  if (!itemLi.length) return null;
+
+  const subMenu = itemLi.parent(); // should be <ul>
+  if (!subMenu.length) return null;
+
+  const categoryLi = subMenu.parent(); // should be parent <li>
+  if (!categoryLi.length) return null;
+
+  const tag = (categoryLi.prop("tagName") as string | undefined)?.toLowerCase();
+  if (tag !== "li") return null;
+
+  const label = cleanText(categoryLi.children("a").first().text());
+  return label || null;
+}
+
 const SERVICE_CONTAINER_SELECTORS = [
   "[class*='service-item']",
   "[class*='treatment-item']",
@@ -186,14 +314,41 @@ function extractFromList($: CheerioAPI): ScrapedService[] {
 function isLikelyService(name: string): boolean {
   const lower = name.toLowerCase();
   const blacklist = [
+    // Navigation / UI
     "home", "about", "contact", "gallery", "blog", "faq", "testimonials",
     "privacy", "terms", "sitemap", "login", "cart", "menu", "navigation",
-    "read more", "learn more", "click here", "schedule", "book now",
-    "call us", "get started", "view all", "see all", "copyright",
+    "read more", "learn more", "click here", "view all", "see all",
+    "copyright", "all rights reserved",
+    // CTAs
+    "schedule", "book now", "book appointment", "book a consultation",
+    "call us", "get started", "contact us", "get in touch", "reach out",
     "follow us", "sign up", "subscribe", "newsletter",
+    "schedule now", "schedule your treatment", "schedule your appointment",
+    "ready to schedule", "book today",
+    // Hours / location blocks
+    "business hours", "hours of operation", "open hours",
+    "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
+    // Invitation / greeting phrases
+    "you are invited", "visit us", "welcome",
   ];
-  if (blacklist.some((b) => lower === b || lower === b + "s")) return false;
+  if (blacklist.some((b) => lower === b || lower === b + "s" || lower.startsWith(b + " "))) return false;
+  // Too short or not text
   if (!/[a-z]/i.test(name)) return false;
   if (name.length < 3) return false;
+  // Looks like a standalone city/state name (no brand/treatment word)
+  // e.g. "Abilene", "Brownwood" — but NOT "Facials", "Skincare", "Toxin"
+  const KNOWN_SERVICES_SINGLEWORD = new Set([
+    "botox", "dysport", "xeomin", "jeuveau", "daxxify", "sculptra", "radiesse",
+    "facials", "facial", "skincare", "toxin", "toxins", "fillers", "filler",
+    "kybella", "ultherapy", "coolsculpting", "morpheus8", "sofwave",
+    "prp", "prf", "microneedling", "hydrafacial", "dermaplaning",
+    "peels", "lashes", "waxing", "threading",
+    "nutraceuticals", "peptides", "injections", "infusions",
+  ]);
+  if (
+    /^[A-Z][a-z]+(,?\s[A-Z]{2})?$/.test(name) &&
+    name.split(" ").length <= 2 &&
+    !KNOWN_SERVICES_SINGLEWORD.has(lower)
+  ) return false;
   return true;
 }

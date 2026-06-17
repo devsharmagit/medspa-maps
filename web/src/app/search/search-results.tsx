@@ -7,6 +7,8 @@ import {
   BadgeCheck,
   Clock,
   Crown,
+  ExternalLink,
+  Globe,
   MapPin,
   Phone,
   Search,
@@ -47,6 +49,7 @@ interface ClinicResult {
   state: string;
   zip: string;
   phone: string;
+  website: string | null;
   lat: number;
   lng: number;
   avg_rating: number | null;
@@ -57,6 +60,8 @@ interface ClinicResult {
   about: string;
   hours: Record<string, { open: string; close: string; is_open: boolean }> | null;
   booking_url: string | null;
+  google_place_id: string | null;
+  instagram_url: string | null;
   business_id: string;
   business_name: string;
   business_slug: string;
@@ -353,6 +358,14 @@ export function SearchResults() {
 
 // ─── Clinic Card ──────────────────────────────────────────────────────────────
 
+function buildMapsUrl(clinic: ClinicResult): string {
+  if (clinic.google_place_id) {
+    return `https://www.google.com/maps/place/?q=place_id:${clinic.google_place_id}`;
+  }
+  const parts = [clinic.address, clinic.city, clinic.state, clinic.zip].filter(Boolean);
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(parts.join(", "))}`;
+}
+
 function ClinicCard({
   clinic,
   openStatus,
@@ -364,6 +377,9 @@ function ClinicCard({
     .map((s) => s.price_from)
     .filter((p): p is number => p !== null)
     .sort((a, b) => a - b)[0];
+
+  const mapsUrl = buildMapsUrl(clinic);
+  const bookUrl = clinic.booking_url || clinic.website || "#";
 
   return (
     <div
@@ -435,13 +451,19 @@ function ClinicCard({
           <h3 className="line-clamp-1 text-[17px] font-semibold leading-tight text-[#1a1a1a] group-hover:text-brand-magenta transition-colors">
             {clinic.clinic_name}
           </h3>
-          <div className="mt-1 flex items-center gap-1.5 text-xs text-[#727272]">
+          <a
+            href={mapsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-1 flex items-center gap-1.5 text-xs text-[#727272] transition-colors hover:text-brand-magenta"
+          >
             <MapPin className="size-3.5 shrink-0 text-brand-magenta/60" />
             <span className="line-clamp-1">
               {clinic.city}, {clinic.state}
               {clinic.address && ` · ${clinic.address}`}
             </span>
-          </div>
+            <ExternalLink className="size-3 shrink-0 opacity-50" />
+          </a>
         </div>
 
         {/* Open status */}
@@ -518,19 +540,49 @@ function ClinicCard({
           )}
         </div>
 
-        {/* CTA */}
+        {/* Secondary action links */}
+        <div className="flex gap-2">
+          <a
+            href={mapsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-[#e1e1e1] py-2 text-[11px] font-semibold text-[#727272] transition-colors hover:border-brand-magenta/30 hover:text-brand-magenta"
+          >
+            <MapPin className="size-3.5" />
+            Maps
+          </a>
+          {clinic.website && (
+            <a
+              href={clinic.website}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-[#e1e1e1] py-2 text-[11px] font-semibold text-[#727272] transition-colors hover:border-brand-magenta/30 hover:text-brand-magenta"
+            >
+              <Globe className="size-3.5" />
+              Website
+            </a>
+          )}
+        </div>
+
+        {/* Primary CTAs */}
         <div className="flex gap-2 pt-1">
           <Button
             variant="outline"
             className="flex-1 h-[38px] rounded-xl border-brand-magenta/30 text-xs font-semibold text-brand-magenta hover:bg-brand-magenta/5 hover:text-brand-magenta"
+            asChild
           >
-            View Profile
+            <a href={clinic.website ?? "#"} target="_blank" rel="noopener noreferrer">
+              View Profile
+            </a>
           </Button>
           <Button
             variant="gradient"
             className="flex-1 h-[38px] rounded-xl text-xs font-semibold"
+            asChild
           >
-            Book Now
+            <a href={bookUrl} target="_blank" rel="noopener noreferrer">
+              Book Now
+            </a>
           </Button>
         </div>
       </div>

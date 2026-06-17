@@ -1,6 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/lib/db";
 
+// Maps 2-letter state abbreviations to full names as stored in the DB
+const STATE_ABBR_TO_NAME: Record<string, string> = {
+  AL: "Alabama", AK: "Alaska", AZ: "Arizona", AR: "Arkansas", CA: "California",
+  CO: "Colorado", CT: "Connecticut", DE: "Delaware", FL: "Florida", GA: "Georgia",
+  HI: "Hawaii", ID: "Idaho", IL: "Illinois", IN: "Indiana", IA: "Iowa",
+  KS: "Kansas", KY: "Kentucky", LA: "Louisiana", ME: "Maine", MD: "Maryland",
+  MA: "Massachusetts", MI: "Michigan", MN: "Minnesota", MS: "Mississippi",
+  MO: "Missouri", MT: "Montana", NE: "Nebraska", NV: "Nevada", NH: "New Hampshire",
+  NJ: "New Jersey", NM: "New Mexico", NY: "New York", NC: "North Carolina",
+  ND: "North Dakota", OH: "Ohio", OK: "Oklahoma", OR: "Oregon", PA: "Pennsylvania",
+  RI: "Rhode Island", SC: "South Carolina", SD: "South Dakota", TN: "Tennessee",
+  TX: "Texas", UT: "Utah", VT: "Vermont", VA: "Virginia", WA: "Washington",
+  WV: "West Virginia", WI: "Wisconsin", WY: "Wyoming",
+};
+
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const q = searchParams.get("q") || "";
@@ -13,36 +28,34 @@ export async function GET(request: NextRequest) {
     const params: (string | number)[] = [];
     let paramIdx = 1;
 
-    // Service / treatment search (searches clinic services, service names, aliases)
+    // Service / treatment search — checks canonical services AND raw scraped names
     if (q) {
       conditions.push(`(
         s.name ILIKE $${paramIdx}
         OR s.slug = $${paramIdx + 1}
-        OR EXISTS (SELECT 1 FROM unnest(s.alias) a WHERE a ILIKE $${paramIdx})
+        OR s.category ILIKE $${paramIdx}
+        OR cs.raw_name ILIKE $${paramIdx}
         OR c.name ILIKE $${paramIdx}
         OR b.name ILIKE $${paramIdx}
-        OR cat.name ILIKE $${paramIdx}
-        OR cat.slug = $${paramIdx + 1}
       )`);
       params.push(`%${q}%`, q);
       paramIdx += 2;
     }
 
-    // Location search (city, state, zip)
-    // Handles both exact state abbreviation matches (e.g. "TX") and
-    // freetext city/zip/state-name searches
+    // Location search — dropdown passes 2-letter abbreviations; DB stores full names
     if (location) {
-      // Check if location looks like a 2-letter state abbreviation
-      const isAbbreviation = /^[A-Z]{2}$/.test(location.toUpperCase());
-      if (isAbbreviation) {
+      const upper = location.toUpperCase();
+      const fullName = STATE_ABBR_TO_NAME[upper];
+      if (fullName) {
+        // Exact full-name match (case-insensitive) — most precise
         conditions.push(`c.state ILIKE $${paramIdx}`);
-        params.push(location);
+        params.push(fullName);
       } else {
+        // Free-text fallback: city, state name, zip
         conditions.push(`(
           c.city ILIKE $${paramIdx}
           OR c.state ILIKE $${paramIdx}
           OR c.zip ILIKE $${paramIdx}
-          OR (c.city || ', ' || c.state) ILIKE $${paramIdx}
         )`);
         params.push(`%${location}%`);
       }
@@ -71,6 +84,7 @@ export async function GET(request: NextRequest) {
         c.state,
         c.zip,
         c.phone,
+        c.website,
         c.lat,
         c.lng,
         c.avg_rating,
@@ -81,19 +95,23 @@ export async function GET(request: NextRequest) {
         c.about,
         c.hours,
         c.booking_url,
+        c.google_place_id,
+        c.instagram_url,
         b.id AS business_id,
         b.name AS business_name,
-        b.slug AS business_slug,
-        b.logo_url,
+        (
+          SELECT source_url FROM images
+          WHERE entity_type = 'business' AND entity_id = b.id
+          AND role = 'logo' AND scrape_status = 'ok'
+          ORDER BY sort_order LIMIT 1
+        ) AS logo_url,
         (
           SELECT COALESCE(json_agg(json_build_object(
-            'name', sv.name,
-            'slug', sv.slug,
-            'price_from', cs2.price_from,
-            'price_to', cs2.price_to
+            'name', COALESCE(sv.name, cs2.raw_name),
+            'slug', COALESCE(sv.slug, slugify(cs2.raw_name))
           )), '[]'::json)
           FROM clinic_services cs2
-          JOIN services sv ON sv.id = cs2.service_id
+          LEFT JOIN services sv ON sv.id = cs2.service_id
           WHERE cs2.clinic_id = c.id AND cs2.is_active = TRUE
           LIMIT 8
         ) AS services,
@@ -103,23 +121,11 @@ export async function GET(request: NextRequest) {
           AND role = 'cover' AND scrape_status = 'ok'
           ORDER BY sort_order LIMIT 1
         ) AS cover_image_url,
-        (
-          SELECT COALESCE(json_agg(json_build_object(
-            'name', p.name,
-            'title', p.title,
-            'slug', p.slug
-          )), '[]'::json)
-          FROM clinic_providers cp
-          JOIN providers p ON p.id = cp.provider_id
-          WHERE cp.clinic_id = c.id AND cp.is_active = TRUE
-          LIMIT 3
-        ) AS providers
+        '[]'::json AS providers
       FROM clinics c
       JOIN businesses b ON b.id = c.business_id
       LEFT JOIN clinic_services cs ON cs.clinic_id = c.id AND cs.is_active = TRUE
       LEFT JOIN services s ON s.id = cs.service_id AND s.is_active = TRUE
-      LEFT JOIN service_categories sc ON sc.service_id = s.id
-      LEFT JOIN categories cat ON cat.id = sc.category_id
       WHERE ${conditions.join(" AND ")}
       ORDER BY c.id, ${orderBy}
       LIMIT 50

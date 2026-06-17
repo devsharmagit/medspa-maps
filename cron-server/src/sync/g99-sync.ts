@@ -1,51 +1,110 @@
-/**
- * Iterates valid G99 businesses and tells Next.js to sync each one.
- * Runs in parallel batches of BATCH_SIZE for speed.
- * This server does NOT touch any database — all reads/writes happen in Next.js.
- */
+import { api } from "../lib/api-client";
+import { scrapeWebsite, isScrapableUrl } from "../lib/scraper";
+import type { G99Business } from "../types";
 
-import { getG99Businesses, syncBusiness } from "../api-client";
-import { runInBatches } from "../batch";
-
-const BATCH_SIZE = 5;
+const CONCURRENCY = 5;
 
 export async function runG99Sync(limit?: number): Promise<void> {
-  console.log("── G99 Sync started ──────────────────────────────────────────");
+  console.log("[g99-sync] Starting...");
+  const startedAt = Date.now();
 
-  const all = await getG99Businesses();
-  const businesses = limit ? all.slice(0, limit) : all;
+  const businesses = await api.getG99Businesses();
+  console.log(businesses[0])
+  const toProcess = limit ? businesses.slice(0, limit) : businesses;
+  console.log(
+    `[g99-sync] ${businesses.length} businesses in G99 (processing ${toProcess.length})`
+  );
 
-  if (limit && all.length > limit) {
-    console.log(`  found ${all.length} valid G99 businesses — processing first ${limit}`);
-  } else {
-    console.log(`  found ${businesses.length} valid G99 businesses`);
+  const seenBusinessIds: number[] = [];
+  const seenClinicIds: number[] = [];
+  let bDone = 0;
+  let cScraped = 0;
+  let cFailed = 0;
+
+  for (let i = 0; i < toProcess.length; i += CONCURRENCY) {
+    const batch = toProcess.slice(i, i + CONCURRENCY);
+    await Promise.all(
+      batch.map(async (biz) => {
+        const result = await processBusiness(biz, seenClinicIds);
+        seenBusinessIds.push(biz.business_id);
+        bDone++;
+        cScraped += result.scraped;
+        cFailed += result.failed;
+      })
+    );
+    console.log(`[g99-sync] ${bDone}/${toProcess.length} businesses done`);
   }
-  console.log(`  running in batches of ${BATCH_SIZE}\n`);
 
-  let synced = 0;
+  // Deactivate records no longer in G99
+  const stale = await api.deactivateStale(seenClinicIds, seenBusinessIds);
+  console.log(
+    `[g99-sync] Deactivated ${stale.clinics_deactivated} clinics, ${stale.businesses_deactivated} businesses`
+  );
+
+  const elapsed = ((Date.now() - startedAt) / 1000).toFixed(1);
+  console.log(
+    `[g99-sync] Done in ${elapsed}s — ${cScraped} scraped, ${cFailed} skipped`
+  );
+}
+
+async function processBusiness(
+  biz: G99Business,
+  seenClinicIds: number[]
+): Promise<{ scraped: number; failed: number }> {
+  let scraped = 0;
   let failed = 0;
-  const totalBatches = Math.ceil(businesses.length / BATCH_SIZE);
 
-  const results = await runInBatches(businesses, BATCH_SIZE, async (biz, idx) => {
-    const batchNum = Math.floor(idx / BATCH_SIZE) + 1;
-    // Log batch start only at the first item in each chunk
-    if (idx % BATCH_SIZE === 0) {
-      console.log(`  [batch ${batchNum}/${totalBatches}] syncing ${Math.min(BATCH_SIZE, businesses.length - idx)} businesses...`);
-    }
-    const result = await syncBusiness(biz.id);
-    return { name: result.name };
-  });
-
-  for (let i = 0; i < results.length; i++) {
-    const biz = businesses[i];
-    if (results[i].error) {
-      failed++;
-      console.error(`  ✗ ${biz.name} (g99=${biz.id}): ${results[i].error!.message}`);
-    } else {
-      synced++;
-      console.log(`  ✓ ${results[i].value!.name}`);
-    }
+  // Skip the entire business if none of its clinics have a valid website
+  const validClinics = biz.clinics.filter((c) => isScrapableUrl(c.clinic_website));
+  if (validClinics.length === 0) {
+    console.log(
+      `[g99-sync] Skipping business ${biz.business_id} (${biz.business_name}) — no clinics with a valid website`
+    );
+    return { scraped, failed };
   }
 
-  console.log(`\n── G99 Sync complete — ${synced} ok, ${failed} failed ─────────\n`);
+  try {
+    const { our_business_id } = await api.upsertBusiness(biz);
+
+    for (const clinic of biz.clinics) {
+      // Skip clinics with no valid website — don't write them to the DB
+      if (!isScrapableUrl(clinic.clinic_website)) {
+        console.log(
+          `[g99-sync] Skipping clinic ${clinic.clinic_id} (${clinic.clinic_name}) — website is null or invalid`
+        );
+        continue;
+      }
+
+      seenClinicIds.push(clinic.clinic_id);
+
+      try {
+        const { our_clinic_id } = await api.upsertClinic(our_business_id, clinic);
+
+        const result = await scrapeWebsite(clinic.clinic_website!);
+        if (result) {
+          await api.storeScrape({
+            clinicId: our_clinic_id,
+            businessId: our_business_id,
+            scrapeResult: result,
+          });
+          scraped++;
+        } else {
+          failed++;
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error(
+          `[g99-sync] Clinic ${clinic.clinic_id} (${clinic.clinic_name}): ${msg}`
+        );
+        failed++;
+      }
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(
+      `[g99-sync] Business ${biz.business_id} (${biz.business_name}): ${msg}`
+    );
+  }
+
+  return { scraped, failed };
 }

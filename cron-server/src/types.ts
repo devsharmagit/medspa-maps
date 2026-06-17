@@ -1,62 +1,75 @@
-/** Mirror of web/src/lib/scraper/types.ts — kept in sync manually */
+// ── G99 types (shapes returned by /api/internal/g99/businesses) ───────────────
 
-export interface HoursEntry {
-  open: string | null;
-  close: string | null;
-  is_open: boolean;
+export interface G99Clinic {
+  clinic_id: number;
+  clinic_name: string;
+  clinic_address: string | null;
+  clinic_city: string | null;
+  clinic_state: string | null;
+  clinic_country: string | null;
+  clinic_contact_number: string | null;
+  clinic_website: string | null;
+  clinic_about: string | null;
+  google_my_business: string | null;
+  google_place_id: string | null;
+  google_profile_id: string | null;
 }
 
-export interface ScrapedService {
-  name: string;
+export interface G99Business {
+  business_id: number;
+  business_name: string;
+  logo_url: string | null;
+  about: string | null;
+  clinics: G99Clinic[];
+}
+
+// ── Internal API responses ────────────────────────────────────────────────────
+
+export interface UpsertBusinessResponse {
+  our_business_id: string;
+}
+
+export interface UpsertClinicResponse {
+  our_clinic_id: string;
+}
+
+export interface ManualClinic {
+  id: string;
+  business_id: string;
+  website: string;
+}
+
+// ── Scrape API response (from /api/scrape) ────────────────────────────────────
+
+export interface ScrapeServiceRow {
+  raw_name: string;
   slug: string;
+  category?: string;
+  is_category?: boolean;
   description?: string;
   price_from?: number;
-  price_to?: number;
-  price_notes?: string;
-  price_varies?: boolean;
-  duration_minutes?: number;
+  scraped_from_url: string;
 }
 
-export interface ScrapedProvider {
-  name: string;
-  title?: string;
-  designation?: string;
-  bio?: string;
-  photo_url?: string;
-  specializations?: string[];
-}
-
-export interface ScrapedImage {
+export interface ScrapeImageRow {
+  entity_type: "clinic" | "business";
   source_url: string;
   role: "cover" | "gallery" | "logo";
   alt_text?: string;
-  sort_order?: number;
+  sort_order: number;
+  match_score?: number;
+  scraped_domain: string;
+  scrape_status: "pending";
 }
 
-export interface ScrapeContact {
-  name?: string;
-  phone?: string;
-  email?: string;
-  address?: string;
-  city?: string;
-  state?: string;
-  zip?: string;
-  about?: string;
-  booking_url?: string;
-  hours?: Record<string, HoursEntry>;
-  instagram_url?: string;
-  facebook_url?: string;
-  tiktok_url?: string;
-  yelp_url?: string;
-  google_my_business?: string;
+export interface ScrapeClinicResult {
+  services: ScrapeServiceRow[];
+  images: ScrapeImageRow[];
 }
 
-export interface ScrapeResult {
-  url: string;
+export interface ScrapeApiResponse {
   scraped_at: string;
-  pages_visited: string[];
-  contact: ScrapeContact;
-  services: ScrapedService[];
-  providers: ScrapedProvider[];
-  images: ScrapedImage[];
+  source_url: string;
+  business: { name: string; logo_url?: string; business_images: ScrapeImageRow[] };
+  clinics: ScrapeClinicResult[];
 }

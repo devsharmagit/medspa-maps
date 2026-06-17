@@ -1,42 +1,59 @@
-/**
- * index.ts — cron server entry point.
- * Runs the full sync every day at 03:00 UTC.
- *
- * Start: bun src/index.ts
- */
+import * as dotenv from "dotenv";
+dotenv.config();
 
-import "dotenv/config";
 import cron from "node-cron";
 import { runG99Sync } from "./sync/g99-sync";
-import { runWebScraper } from "./sync/web-scraper";
-import { runImageFinder } from "./sync/image-finder";
-import { refreshView } from "./api-client";
+import { runManualSync } from "./sync/manual-sync";
+import { api } from "./lib/api-client";
 
-const NEXTJS_URL = process.env.NEXTJS_URL ?? "http://localhost:3000";
-console.log(`MedSpaMaps cron server started — Next.js at ${NEXTJS_URL}`);
-console.log("Scheduled: daily at 03:00 UTC\n");
+const SYNC_LIMIT = process.env.SYNC_LIMIT
+  ? parseInt(process.env.SYNC_LIMIT, 10) || undefined
+  : undefined;
 
 async function runFullSync(): Promise<void> {
-  const start = Date.now();
   console.log(`\n${"=".repeat(60)}`);
-  console.log(`MedSpaMaps Sync — ${new Date().toISOString()}`);
-  console.log(`${"=".repeat(60)}\n`);
+  console.log(`[cron] Full sync started at ${new Date().toISOString()}`);
+  console.log(`[cron] SYNC_LIMIT = ${SYNC_LIMIT ?? "none (all records)"}`);
+  console.log("=".repeat(60));
 
   try {
-    // Production: no limit — sync all valid businesses
-    await runG99Sync();
-    await runWebScraper();
-    await runImageFinder();
-    await refreshView().catch((e: Error) =>
-      console.log(`⚠ view refresh: ${e.message}`)
-    );
-
-    const elapsed = ((Date.now() - start) / 1000).toFixed(1);
-    console.log(`\n✓ Sync complete in ${elapsed}s\n`);
+    await runG99Sync(SYNC_LIMIT);
   } catch (err) {
-    console.error("✗ Sync failed:", (err as Error).message);
+    console.error("[cron] G99 sync crashed:", err);
   }
+
+  try {
+    await runManualSync();
+  } catch (err) {
+    console.error("[cron] Manual sync crashed:", err);
+  }
+
+  try {
+    await api.refreshView();
+    console.log("[cron] Materialized view refreshed");
+  } catch (err) {
+    console.error("[cron] View refresh failed:", err);
+  }
+
+  console.log(`[cron] Full sync finished at ${new Date().toISOString()}`);
+  console.log("=".repeat(60));
 }
 
-// Run daily at 03:00 UTC
-cron.schedule("0 3 * * *", runFullSync, { timezone: "UTC" });
+const RUN_ONCE = process.argv.includes("--run-once");
+
+if (RUN_ONCE) {
+  runFullSync()
+    .then(() => process.exit(0))
+    .catch((err) => {
+      console.error("[cron] Fatal:", err);
+      process.exit(1);
+    });
+} else {
+  console.log("[cron] Scheduler started. Daily sync at 3:00 AM.");
+
+  cron.schedule("0 3 * * *", () => {
+    runFullSync().catch((err) => console.error("[cron] Uncaught:", err));
+  });
+
+  runFullSync().catch((err) => console.error("[cron] Initial sync error:", err));
+}

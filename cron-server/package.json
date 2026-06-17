@@ -4,10 +4,9 @@
   "private": true,
   "scripts": {
     "start": "bun src/index.ts",
-    "run-once": "bun src/sync/run.ts"
+    "run-once": "bun src/index.ts --run-once"
   },
   "dependencies": {
-    "cheerio": "^1.2.0",
     "dotenv": "^17.4.2",
     "node-cron": "^3.0.3"
   },

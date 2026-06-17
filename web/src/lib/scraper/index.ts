@@ -6,6 +6,7 @@
  *   - Services / treatments
  *   - Team members / providers
  *   - Images (logo, cover, gallery)
+ *   - Locations (one per physical site — multi-location aware)
  *
  * Usage:
  *   const result = await scrapeWebsite("https://example-medspa.com");
@@ -18,11 +19,20 @@ import type { ScrapeResult, ScrapeContact } from "./types";
 import { fetchHtml, getBase, normalizeUrl, load } from "./utils";
 import { discoverPages, pageGuesses } from "./pages";
 import { extractContact } from "./contact";
-import { extractServices } from "./services";
+import { extractServices, extractServicesFromNav } from "./services";
 import { extractProviders } from "./providers";
 import { extractImages, extractCover } from "./images";
+import { detectLocations } from "./locations";
 
-export type { ScrapeResult, ScrapeContact, ScrapedService, ScrapedProvider, ScrapedImage, HoursEntry } from "./types";
+export type {
+  ScrapeResult,
+  ScrapeContact,
+  ScrapedService,
+  ScrapedProvider,
+  ScrapedImage,
+  ScrapedLocation,
+  HoursEntry,
+} from "./types";
 
 /** Scrape a medspa website and return structured data */
 export async function scrapeWebsite(rawUrl: string): Promise<ScrapeResult> {
@@ -39,6 +49,7 @@ export async function scrapeWebsite(rawUrl: string): Promise<ScrapeResult> {
       scraped_at,
       pages_visited: [],
       contact: {},
+      locations: [],
       services: [],
       providers: [],
       images: [],
@@ -54,7 +65,7 @@ export async function scrapeWebsite(rawUrl: string): Promise<ScrapeResult> {
   // ── Discover sub-pages from homepage nav ────────────────────────────────────
   const discovered = discoverPages($home, effectiveBase);
 
-  // Resolve services page (discovered or guessed)
+  // Resolve pages (discovered or guessed)
   const servicesUrl = discovered.services ?? null;
   const teamUrl = discovered.team ?? null;
   const contactUrl = discovered.contact ?? null;
@@ -77,9 +88,13 @@ export async function scrapeWebsite(rawUrl: string): Promise<ScrapeResult> {
   const homeContact = extractContact($home, homeHtml);
   let merged: ScrapeContact = homeContact;
 
+  let $contactPage: ReturnType<typeof load> | undefined;
+  let contactPageHtml: string | undefined;
+
   if (contactResult) {
-    const $contact = load(contactResult.html);
-    const c = extractContact($contact, contactResult.html);
+    $contactPage = load(contactResult.html);
+    contactPageHtml = contactResult.html;
+    const c = extractContact($contactPage, contactResult.html);
     merged = mergeContact(merged, c);
   }
   if (aboutResult) {
@@ -88,15 +103,32 @@ export async function scrapeWebsite(rawUrl: string): Promise<ScrapeResult> {
     merged = mergeContact(merged, c);
   }
 
+  // ── Detect locations (multi-location aware) ──────────────────────────────────
+  // Pass the contact page DOM so the footer text parser can use it (highest priority source)
+  const locations = await detectLocations(
+    $home, homeHtml, effectiveBase, merged,
+    $contactPage, contactPageHtml,
+  );
+
   // ── Extract services ─────────────────────────────────────────────────────────
   const allServices: ReturnType<typeof extractServices> = [];
 
-  if (servicesResult) {
+  // Primary: nav-link extraction (Step 2 of spec).
+  // The homepage nav always contains the full treatment catalogue with proper URLs.
+  const navServices = extractServicesFromNav($home, effectiveBase);
+  allServices.push(...navServices);
+
+  // Secondary: services page content — only runs when nav extraction found nothing.
+  // Content extraction is noisier (headings, list items) and adds false positives
+  // when mixed with clean nav URLs, so it's reserved as a fallback only.
+  if (navServices.length === 0 && servicesResult) {
     const $svc = load(servicesResult.html);
-    allServices.push(...extractServices($svc, servicesResult.finalUrl));
+    const pageServices = extractServices($svc, servicesResult.finalUrl);
+    const existingSlugs = new Set(allServices.map((s) => s.slug));
+    allServices.push(...pageServices.filter((s) => !existingSlugs.has(s.slug)));
   }
 
-  // Also try extracting from homepage if services page had nothing
+  // Final fallback: DOM card / heading extraction on homepage.
   if (allServices.length === 0) {
     allServices.push(...extractServices($home, finalUrl));
   }
@@ -115,13 +147,14 @@ export async function scrapeWebsite(rawUrl: string): Promise<ScrapeResult> {
   }
 
   // ── Extract images ────────────────────────────────────────────────────────────
-  const homeImages = extractImages($home, effectiveBase);
+  // Pass business name + city so cover selection is scored by relevance (Step 3 of spec).
+  const homeImages = extractImages($home, effectiveBase, merged.name, merged.city);
 
   // Add cover from services page if homepage had none
   const hasCover = homeImages.some((i) => i.role === "cover");
   if (!hasCover && servicesResult) {
     const $svc = load(servicesResult.html);
-    const cover = extractCover($svc, servicesResult.finalUrl);
+    const cover = extractCover($svc, servicesResult.finalUrl, merged.name, merged.city);
     if (cover) homeImages.unshift(cover);
   }
 
@@ -130,6 +163,7 @@ export async function scrapeWebsite(rawUrl: string): Promise<ScrapeResult> {
     scraped_at,
     pages_visited: pagesVisited,
     contact: merged,
+    locations,
     services: allServices,
     providers: allProviders,
     images: homeImages,

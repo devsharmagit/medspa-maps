@@ -145,23 +145,46 @@ export function parseAddress(address: string): {
   zip: string | null;
   street: string | null;
 } {
-  const zipMatch = address.match(/\b(\d{5})(?:-\d{4})?\b/);
-  const zip = zipMatch ? zipMatch[1] : null;
-
-  // Find state code
-  const stateMatch = address.match(/\b([A-Z]{2})\b/);
-  const state = stateMatch && US_STATES[stateMatch[1]] ? stateMatch[1] : null;
-
-  // Try to parse "City, ST" pattern
-  const cityStateMatch = address.match(/([^,]+),\s*([A-Z]{2})\s*\d{0,5}/);
+  // Strategy: anchor to the trailing "STATE[,] ZIP" to extract city, state, zip reliably.
+  // Handles all common formats:
+  //   "123 Main St, Dallas, TX 75201"
+  //   "123 Main St, Suite 100, Dallas, TX 75201"
+  //   "541 Buttermilk Pike, Suite 100 Crescent Springs, KY 41017"
+  //   "5901 E Galbraith RD, Cincinnati, OH, 45236"   ← comma before zip
+  const tailMatch = address.match(/,\s*([A-Z]{2})[,\s]+(\d{5})(?:-\d{4})?\s*$/);
+  let state: string | null = null;
+  let zip: string | null = null;
   let city: string | null = null;
-  if (cityStateMatch) {
-    city = cityStateMatch[1].trim();
+
+  if (tailMatch && US_STATES[tailMatch[1]]) {
+    state = tailMatch[1];
+    zip = tailMatch[2];
+
+    // City = last comma-delimited segment before ", STATE ZIP"
+    const body = address.slice(0, tailMatch.index).trimEnd();
+    const segs = body.split(",");
+    let rawCity = (segs[segs.length - 1] ?? "").trim();
+
+    // Strip leading Suite/Apt/Unit/Floor/Building number that got merged into the city segment
+    // e.g. "Suite 100 Crescent Springs" → "Crescent Springs"
+    rawCity = rawCity.replace(
+      /^(?:Suite|Ste\.?|Apt\.?|Unit|#|Bldg\.?|Fl(?:oor)?)\s+\S+\s*/i,
+      ""
+    ).trim();
+
+    city = rawCity || null;
+  } else {
+    // Fallback: original heuristic for unusual formats
+    const zipMatch = address.match(/\b(\d{5})(?:-\d{4})?\b/);
+    zip = zipMatch ? zipMatch[1] : null;
+    const stateMatch = address.match(/\b([A-Z]{2})\b/);
+    state = stateMatch && US_STATES[stateMatch[1]] ? stateMatch[1] : null;
+    const cityStateMatch = address.match(/([^,]+),\s*([A-Z]{2})\s*\d{0,5}/);
+    if (cityStateMatch) city = cityStateMatch[1].trim();
   }
 
-  // Street is everything before the city
-  const parts = address.split(",");
-  const street = parts.length > 1 ? parts[0].trim() : null;
+  // Street = first comma-delimited segment
+  const street = address.split(",")[0]?.trim() ?? null;
 
   return { city, state, zip, street };
 }
