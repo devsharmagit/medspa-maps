@@ -1,6 +1,10 @@
 #!/bin/bash
 set -e
 
+echo "Running database migrations..."
+cd /app/web
+bun scripts/migrate.ts
+
 echo "Starting Next.js on port 3000..."
 cd /app/web
 bun node_modules/.bin/next start -p 3000 &
