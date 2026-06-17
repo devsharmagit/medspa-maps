@@ -38,8 +38,6 @@ async function migrate() {
   const client = await pool.connect();
 
   try {
-    await client.query("BEGIN");
-
     // ── Extensions ─────────────────────────────────────────────────────────
     console.log("⏳ Enabling extensions...");
     await client.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
@@ -53,6 +51,8 @@ async function migrate() {
       console.log("⚠ PostGIS not available on this plan — geo column will be TEXT");
     }
     console.log("✓ Extensions ready");
+
+    await client.query("BEGIN");
 
     // ── Drop everything in dependency order ──────────────────────────────────
     console.log("⏳ Dropping existing objects...");
