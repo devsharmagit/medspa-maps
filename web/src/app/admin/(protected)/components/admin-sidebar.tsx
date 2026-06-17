@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Globe } from "lucide-react";
+import { LayoutDashboard, Building2, Store } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 
 const navItems = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/businesses", label: "Businesses", icon: Globe },
+  { href: "/admin/businesses", label: "Businesses", icon: Building2 },
+  { href: "/admin/clinics", label: "Clinics", icon: Store },
 ];
 
 export default function AdminSidebar() {

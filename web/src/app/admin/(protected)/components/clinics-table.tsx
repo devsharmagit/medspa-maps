@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, Loader2, ToggleLeft, ToggleRight, Trash2, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Building2, Globe, Loader2, MapPin, ToggleLeft, ToggleRight, Trash2, ExternalLink, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import type { ApiResponse } from "@/lib/api-response";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,53 +10,67 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
-export interface Business {
+export interface Clinic {
   id: string;
   name: string;
-  tier: string;
-  verified: boolean;
-  data_source: string;
+  slug: string;
+  website: string | null;
+  city: string | null;
+  state: string | null;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  booking_url: string | null;
+  about: string | null;
   is_active: boolean;
+  verified: boolean;
+  tier: string;
   created_at: string;
-  g99_business_id: string | null;
-  g99_tenant_id: string | null;
+  g99_clinic_id: string | null;
+  instagram_url: string | null;
+  facebook_url: string | null;
+  google_my_business: string | null;
+  google_place_id: string | null;
+  yelp_url: string | null;
+  avg_rating: string | null;
+  review_count: number;
 }
 
 interface Props {
-  initialData: Business[];
+  initialData: Clinic[];
   searchQuery: string;
   currentPage: number;
   totalPages: number;
 }
 
-export default function BusinessesTable({ initialData, searchQuery, currentPage, totalPages }: Props) {
+export default function ClinicsTable({ initialData, searchQuery, currentPage, totalPages }: Props) {
   const router = useRouter();
-  const [data, setData] = useState<Business[]>(initialData);
+  const [data, setData] = useState<Clinic[]>(initialData);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [search, setSearch] = useState(searchQuery);
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
-    router.push(`/admin/businesses?q=${encodeURIComponent(search)}&page=1`);
+    router.push(`/admin/clinics?q=${encodeURIComponent(search)}&page=1`);
   }
 
   function goToPage(page: number) {
-    router.push(`/admin/businesses?q=${encodeURIComponent(searchQuery)}&page=${page}`);
+    router.push(`/admin/clinics?q=${encodeURIComponent(searchQuery)}&page=${page}`);
   }
 
-  async function handleToggle(business: Business, e: React.MouseEvent) {
+  async function handleToggle(clinic: Clinic, e: React.MouseEvent) {
     e.stopPropagation();
-    setTogglingId(business.id);
+    setTogglingId(clinic.id);
     try {
-      const res = await fetch(`/api/admin/businesses/${business.id}`, {
+      const res = await fetch(`/api/admin/clinics/${clinic.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ is_active: !business.is_active }),
+        body: JSON.stringify({ is_active: !clinic.is_active }),
       });
       const json: ApiResponse<any> = await res.json();
       if (json.success) {
-        setData((prev) => prev.map((item) => (item.id === business.id ? { ...item, is_active: !item.is_active } : item)));
+        setData((prev) => prev.map((item) => (item.id === clinic.id ? { ...item, is_active: !item.is_active } : item)));
       }
     } finally {
       setTogglingId(null);
@@ -65,10 +79,10 @@ export default function BusinessesTable({ initialData, searchQuery, currentPage,
 
   async function handleDelete(id: string, e: React.MouseEvent) {
     e.stopPropagation();
-    if (!confirm("Delete this business? This cannot be undone.")) return;
+    if (!confirm("Delete this clinic? This cannot be undone.")) return;
     setDeletingId(id);
     try {
-      const res = await fetch(`/api/admin/businesses/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/admin/clinics/${id}`, { method: "DELETE" });
       const json: ApiResponse = await res.json();
       if (json.success) setData((prev) => prev.filter((item) => item.id !== id));
     } finally {
@@ -82,7 +96,7 @@ export default function BusinessesTable({ initialData, searchQuery, currentPage,
         <form onSubmit={handleSearch} className="flex gap-2 max-w-sm relative">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
           <Input
-            placeholder="Search businesses..."
+            placeholder="Search clinics..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9 bg-white border-slate-200"
@@ -95,14 +109,15 @@ export default function BusinessesTable({ initialData, searchQuery, currentPage,
         {data.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 py-16 text-slate-400 text-sm">
             <Building2 size={36} className="opacity-30" />
-            <p>No businesses found.</p>
+            <p>No clinics found.</p>
           </div>
         ) : (
           <Table>
             <TableHeader>
               <TableRow className="border-slate-200 bg-slate-50 hover:bg-slate-50">
-                <TableHead className="text-slate-500 font-semibold text-xs uppercase tracking-wider">Business Name</TableHead>
-                <TableHead className="text-slate-500 font-semibold text-xs uppercase tracking-wider w-[120px]">Tier</TableHead>
+                <TableHead className="text-slate-500 font-semibold text-xs uppercase tracking-wider">Clinic Name</TableHead>
+                <TableHead className="text-slate-500 font-semibold text-xs uppercase tracking-wider">Location</TableHead>
+                <TableHead className="text-slate-500 font-semibold text-xs uppercase tracking-wider">Website</TableHead>
                 <TableHead className="text-slate-500 font-semibold text-xs uppercase tracking-wider w-[100px]">Status</TableHead>
                 <TableHead className="text-slate-500 font-semibold text-xs uppercase tracking-wider w-[130px]">Added</TableHead>
                 <TableHead className="text-slate-500 font-semibold text-xs uppercase tracking-wider w-[160px]">Actions</TableHead>
@@ -113,7 +128,7 @@ export default function BusinessesTable({ initialData, searchQuery, currentPage,
                 <TableRow 
                   key={item.id} 
                   className={`border-slate-100 cursor-pointer hover:bg-slate-50/50 transition-colors ${!item.is_active ? "opacity-50" : ""}`}
-                  onClick={() => router.push(`/admin/businesses/${item.id}`)}
+                  onClick={() => router.push(`/admin/clinics/${item.id}`)}
                 >
                   <TableCell>
                     <div className="flex items-center gap-3 font-medium text-slate-800 text-sm">
@@ -122,14 +137,34 @@ export default function BusinessesTable({ initialData, searchQuery, currentPage,
                       </div>
                       <div className="flex flex-col">
                         <span className="font-semibold text-slate-900">{item.name}</span>
-                        <span className="text-[11px] text-slate-400 font-normal">{item.id}</span>
+                        <span className="text-xs text-slate-500">{item.id.split("-")[0]}</span>
                       </div>
                     </div>
                   </TableCell>
 
                   <TableCell>
-                    <Badge variant="outline" className="capitalize text-xs font-medium text-slate-600 bg-slate-50">{item.tier}</Badge>
-                    {item.verified && <Badge variant="default" className="ml-1 bg-blue-50 text-blue-600 hover:bg-blue-50 text-[10px] px-1 py-0 h-4 border-blue-200">✓</Badge>}
+                    <div className="flex items-center gap-1.5 text-xs text-slate-600">
+                      <MapPin size={12} className="text-slate-400" />
+                      {item.city && item.state ? `${item.city}, ${item.state}` : "No location"}
+                    </div>
+                  </TableCell>
+
+                  <TableCell>
+                    {item.website ? (
+                      <a
+                        href={item.website}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="inline-flex items-center gap-1.5 text-slate-500 hover:text-brand-purple text-[13px] transition-colors max-w-[200px] truncate"
+                      >
+                        <Globe size={12} className="shrink-0" />
+                        <span className="truncate">{item.website.replace(/^https?:\/\//, "")}</span>
+                        <ExternalLink size={10} className="shrink-0" />
+                      </a>
+                    ) : (
+                      <span className="text-slate-400 text-[13px] italic">No website</span>
+                    )}
                   </TableCell>
 
                   <TableCell>

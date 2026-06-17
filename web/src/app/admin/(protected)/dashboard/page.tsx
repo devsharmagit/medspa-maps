@@ -2,17 +2,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { redirect } from "next/navigation";
 import { query } from "@/lib/db";
-import BusinessesTable from "../components/businesses-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, Globe, TrendingDown } from "lucide-react";
-
-interface Business {
-  id: string;
-  name: string;
-  website_url: string | null;
-  is_active: boolean;
-  created_at: string;
-}
+import { Building2, Store } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -20,29 +11,24 @@ export default async function AdminDashboardPage() {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/admin/login");
 
-  const businesses = await query<Business>(
-    "SELECT id, name, website_url, is_active, created_at FROM businesses ORDER BY created_at DESC"
-  );
-
-  const total = businesses.length;
-  const enabled = businesses.filter((b) => b.is_active).length;
-  const disabled = total - enabled;
+  const [businessesCount, clinicsCount] = await Promise.all([
+    query<{ count: string }>("SELECT COUNT(*) FROM businesses"),
+    query<{ count: string }>("SELECT COUNT(*) FROM clinics")
+  ]);
 
   const stats = [
-    { label: "Total Businesses", value: total, icon: Building2, color: "text-slate-600", bg: "bg-slate-100" },
-    { label: "Active", value: enabled, icon: Globe, color: "text-emerald-600", bg: "bg-emerald-50" },
-    { label: "Disabled", value: disabled, icon: TrendingDown, color: "text-amber-600", bg: "bg-amber-50" },
+    { label: "Total Businesses", value: businessesCount[0].count, icon: Building2, color: "text-slate-600", bg: "bg-slate-100" },
+    { label: "Total Clinics", value: clinicsCount[0].count, icon: Store, color: "text-emerald-600", bg: "bg-emerald-50" },
   ];
 
   return (
     <div className="flex flex-col gap-6">
       <div>
         <h2 className="text-lg font-semibold text-slate-900">Dashboard</h2>
-        <p className="text-sm text-slate-500">Overview of your MedSpa Map listings.</p>
+        <p className="text-sm text-slate-500">Overview of your MedSpa Map entities.</p>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 gap-4">
         {stats.map(({ label, value, icon: Icon, color, bg }) => (
           <Card key={label} className="shadow-sm border-slate-200">
             <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
@@ -57,9 +43,10 @@ export default async function AdminDashboardPage() {
           </Card>
         ))}
       </div>
-
-      {/* Businesses table */}
-      <BusinessesTable initialBusinesses={businesses} />
+      
+      <div className="py-12 flex items-center justify-center text-slate-400 border border-dashed border-slate-200 rounded-lg bg-slate-50">
+        <p className="text-sm">Use the left sidebar to navigate to Businesses and Clinics.</p>
+      </div>
     </div>
   );
 }
