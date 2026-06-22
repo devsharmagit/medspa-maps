@@ -7,10 +7,7 @@ import {
   BadgeCheck,
   Clock,
   Crown,
-  ExternalLink,
-  Globe,
   MapPin,
-  Phone,
   Search,
   Sparkles,
   Star,
@@ -387,7 +384,6 @@ function ClinicCard({
     .sort((a, b) => a - b)[0];
 
   const mapsUrl = buildMapsUrl(clinic);
-  const bookUrl = clinic.booking_url || clinic.website || "#";
 
   return (
     <div
@@ -442,6 +438,16 @@ function ClinicCard({
           </div>
         )}
 
+        {/* Logo */}
+        {clinic.logo_url && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={clinic.logo_url}
+            alt={`${clinic.clinic_name} logo`}
+            className="absolute bottom-3 left-3 size-10 rounded-lg border-2 border-white bg-white object-contain p-0.5 shadow-md"
+          />
+        )}
+
         {/* Rating overlay pill */}
         {clinic.avg_rating && (
           <div className="absolute bottom-3 right-3 flex items-center gap-1 rounded-full bg-black/60 px-2.5 py-1 backdrop-blur-sm">
@@ -459,19 +465,13 @@ function ClinicCard({
           <h3 className="line-clamp-1 text-[17px] font-semibold leading-tight text-[#1a1a1a] group-hover:text-brand-magenta transition-colors">
             {clinic.clinic_name}
           </h3>
-          <a
-            href={mapsUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-1 flex items-center gap-1.5 text-xs text-[#727272] transition-colors hover:text-brand-magenta"
-          >
+          <div className="mt-1 flex items-center gap-1.5 text-xs text-[#727272]">
             <MapPin className="size-3.5 shrink-0 text-brand-magenta/60" />
             <span className="line-clamp-1">
               {clinic.city}, {clinic.state}
               {clinic.address && ` · ${clinic.address}`}
             </span>
-            <ExternalLink className="size-3 shrink-0 opacity-50" />
-          </a>
+          </div>
         </div>
 
         {/* Open status */}
@@ -501,22 +501,13 @@ function ClinicCard({
           )}
         </div>
 
-        {/* Price & phone */}
+        {/* Price */}
         <div className="mt-auto flex items-center justify-between pt-2">
           <div className="flex flex-col">
             {lowestPrice && (
               <span className="text-sm font-semibold text-[#1a1a1a]">
                 From <span className="text-brand-magenta">${lowestPrice}</span>
               </span>
-            )}
-            {clinic.phone && (
-              <a
-                href={`tel:${clinic.phone}`}
-                className="flex items-center gap-1 text-[11px] text-[#727272] transition-colors hover:text-brand-magenta"
-              >
-                <Phone className="size-3" />
-                {clinic.phone}
-              </a>
             )}
           </div>
 
@@ -548,48 +539,15 @@ function ClinicCard({
           )}
         </div>
 
-        {/* Secondary action links */}
-        <div className="flex gap-2">
-          <a
-            href={mapsUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-[#e1e1e1] py-2 text-[11px] font-semibold text-[#727272] transition-colors hover:border-brand-magenta/30 hover:text-brand-magenta"
-          >
-            <MapPin className="size-3.5" />
-            Maps
-          </a>
-          {clinic.website && (
-            <a
-              href={clinic.website}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-[#e1e1e1] py-2 text-[11px] font-semibold text-[#727272] transition-colors hover:border-brand-magenta/30 hover:text-brand-magenta"
-            >
-              <Globe className="size-3.5" />
-              Website
-            </a>
-          )}
-        </div>
-
-        {/* Primary CTAs */}
+        {/* Primary CTA */}
         <div className="flex gap-2 pt-1">
-          <Button
-            variant="outline"
-            className="flex-1 h-[38px] rounded-xl border-brand-magenta/30 text-xs font-semibold text-brand-magenta hover:bg-brand-magenta/5 hover:text-brand-magenta"
-            asChild
-          >
-            <a href={clinic.website ?? "#"} target="_blank" rel="noopener noreferrer">
-              View Profile
-            </a>
-          </Button>
           <Button
             variant="gradient"
             className="flex-1 h-[38px] rounded-xl text-xs font-semibold"
             asChild
           >
-            <a href={bookUrl} target="_blank" rel="noopener noreferrer">
-              Book Now
+            <a href={`/clinics/${clinic.clinic_slug}`}>
+              View Profile
             </a>
           </Button>
         </div>
