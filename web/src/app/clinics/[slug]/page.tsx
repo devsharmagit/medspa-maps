@@ -2,92 +2,18 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
 import {
-  BadgeCheck,
-  Clock,
-  Crown,
-  ExternalLink,
-  Globe,
-  Link2,
-  MapPin,
+  ChevronRight,
+  CalendarDays,
   Phone,
+  MapPin,
+  Clock,
   Star,
 } from "lucide-react";
-
 import { HeroHeader } from "@/components/hero/hero-header";
 import { Footer } from "@/components/footer";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { getClinicData } from "@/lib/clinics/queries";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-interface ClinicService {
-  name: string;
-  slug: string;
-  category: string | null;
-  description: string | null;
-}
-
-interface GalleryImage {
-  id: string;
-  url: string;
-  cdn_url: string | null;
-  alt_text: string | null;
-  role: string;
-}
-
-interface ClinicDetail {
-  clinic_id: string;
-  clinic_slug: string;
-  clinic_name: string;
-  address: string | null;
-  city: string | null;
-  state: string | null;
-  zip: string | null;
-  country: string | null;
-  lat: number | null;
-  lng: number | null;
-  phone: string | null;
-  email: string | null;
-  website: string | null;
-  booking_url: string | null;
-  about: string | null;
-  hours: Record<string, { open: string; close: string; is_open: boolean }> | null;
-  avg_rating: number | null;
-  review_count: number;
-  featured: boolean;
-  tier: string;
-  verified: boolean;
-  google_place_id: string | null;
-  instagram_url: string | null;
-  facebook_url: string | null;
-  tiktok_url: string | null;
-  youtube_url: string | null;
-  x_url: string | null;
-  linkedin_url: string | null;
-  yelp_url: string | null;
-  google_my_business: string | null;
-  business_id: string;
-  business_name: string;
-  logo_url: string | null;
-  cover_image_url: string | null;
-  gallery_images: GalleryImage[];
-  services: ClinicService[];
-}
-
-// ─── Data Fetching ────────────────────────────────────────────────────────────
-
-async function getClinic(slug: string): Promise<ClinicDetail | null> {
-  const baseUrl =
-    process.env.NEXT_PUBLIC_APP_URL ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
-
-  const res = await fetch(`${baseUrl}/api/clinics/${slug}`, { next: { revalidate: 300 } });
-  if (!res.ok) return null;
-  const data = await res.json();
-  return data.clinic ?? null;
-}
-
-// ─── Metadata ────────────────────────────────────────────────────────────────
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({
   params,
@@ -95,40 +21,57 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const clinic = await getClinic(slug);
-  if (!clinic) return { title: "Clinic Not Found | MedSpa Map" };
+  const data = await getClinicData(slug);
+  if (!data) return { title: "Clinic not found" };
+  const { clinic } = data;
+  const loc = [clinic.city, clinic.state].filter(Boolean).join(", ");
   return {
-    title: `${clinic.clinic_name} | MedSpa Map`,
-    description: clinic.about?.slice(0, 155) ?? `Book at ${clinic.clinic_name} in ${clinic.city}, ${clinic.state}`,
+    title: `${clinic.name} — Medspa Map`,
+    description:
+      clinic.about?.slice(0, 155) ??
+      clinic.tagline ??
+      (loc ? `Book at ${clinic.name} in ${loc}` : undefined),
   };
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+const DAY_KEYS = [
+  "SUNDAY",
+  "MONDAY",
+  "TUESDAY",
+  "WEDNESDAY",
+  "THURSDAY",
+  "FRIDAY",
+  "SATURDAY",
+];
 
-const DAY_ORDER = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"];
-const DAY_SHORT: Record<string, string> = {
-  MONDAY: "Mon", TUESDAY: "Tue", WEDNESDAY: "Wed",
-  THURSDAY: "Thu", FRIDAY: "Fri", SATURDAY: "Sat", SUNDAY: "Sun",
-};
+type HoursMap = Record<
+  string,
+  { open: string | null; close: string | null; is_open: boolean }
+>;
 
-function buildMapsUrl(clinic: ClinicDetail) {
-  if (clinic.google_place_id) {
-    return `https://www.google.com/maps/place/?q=place_id:${clinic.google_place_id}`;
-  }
-  const parts = [clinic.address, clinic.city, clinic.state, clinic.zip].filter(Boolean);
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(parts.join(", "))}`;
+function getTodayHours(hours: unknown): { open: string; close: string } | null {
+  if (!hours || typeof hours !== "object") return null;
+  const map = hours as HoursMap;
+  const key = DAY_KEYS[new Date().getDay()];
+  const h = map[key];
+  if (!h || !h.is_open || !h.open || !h.close) return null;
+  return { open: h.open, close: h.close };
 }
 
-function getTodayStatus(hours: ClinicDetail["hours"]) {
-  if (!hours) return null;
-  const days = ["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"];
-  const today = days[new Date().getDay()];
-  const h = hours[today];
-  if (!h || !h.is_open) return { isOpen: false, text: "Closed Today" };
-  return { isOpen: true, text: `Open · ${h.open} – ${h.close}` };
+function buildMapsUrl(parts: (string | null)[]): string {
+  const q = parts.filter(Boolean).join(", ");
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
 }
 
-// ─── Page Component ───────────────────────────────────────────────────────────
+function initials(name: string): string {
+  return name
+    .split(" ")
+    .map((w) => w[0])
+    .filter(Boolean)
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+}
 
 export default async function ClinicPage({
   params,
@@ -136,393 +79,320 @@ export default async function ClinicPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const clinic = await getClinic(slug);
-  if (!clinic) notFound();
+  const data = await getClinicData(slug);
+  if (!data) notFound();
 
-  const mapsUrl = buildMapsUrl(clinic);
-  const todayStatus = getTodayStatus(clinic.hours);
-  const bookUrl = clinic.booking_url || clinic.website || "#";
+  const { clinic, treatments, gallery, gallery_total, reviews, stats } = data;
 
-  // Group services by category
-  const servicesByCategory = clinic.services.reduce<Record<string, ClinicService[]>>(
-    (acc, svc) => {
-      const cat = svc.category || "Other Services";
-      if (!acc[cat]) acc[cat] = [];
-      acc[cat].push(svc);
-      return acc;
-    },
-    {}
-  );
+  const loc = [clinic.city, clinic.state].filter(Boolean).join(", ");
+  const isPremium = clinic.featured || clinic.verified;
+  const todayHours = getTodayHours(clinic.hours);
+  const mapsUrl = buildMapsUrl([
+    clinic.address,
+    clinic.city,
+    clinic.state,
+    clinic.zip,
+  ]);
+  const bookUrl = clinic.booking_url || clinic.website;
+  const excerpt = clinic.tagline ?? clinic.about?.slice(0, 240) ?? null;
+
+  const primaryImage = gallery[0] ?? null;
+  const thumbs = gallery.slice(1, 5);
+  const remaining = gallery_total - 5;
 
   return (
-    <main className="flex min-h-screen flex-col bg-[#FDFDFD]">
-      {/* Header */}
-      <div className="bg-hero-gradient">
+    <main className="flex min-h-screen flex-col bg-[#faf7fb] text-zinc-950">
+      {/* Banner + nav */}
+      <div className="bg-gradient-to-r from-[#7b2d6b] via-[#9b3a6e] to-[#b6663f]">
         <HeroHeader />
       </div>
 
-      {/* Cover hero */}
-      <div className="relative h-[300px] w-full overflow-hidden bg-gradient-to-br from-brand-coral/20 to-brand-purple/20 sm:h-[380px]">
-        {clinic.cover_image_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={clinic.cover_image_url}
-            alt={clinic.clinic_name}
-            className="size-full object-cover"
-          />
-        ) : (
-          <div className="flex size-full items-center justify-center">
-            <span className="text-8xl font-bold text-white/30">
-              {clinic.clinic_name
-                .split(" ")
-                .map((w) => w[0])
-                .join("")
-                .slice(0, 2)}
-            </span>
-          </div>
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+      <div className="mx-auto w-full max-w-[1200px] flex-1 px-4 py-8 sm:px-6">
+        {/* Breadcrumb */}
+        <nav className="flex flex-wrap items-center gap-1.5 text-sm text-zinc-500">
+          <Link href="/" className="hover:text-zinc-800">
+            Home
+          </Link>
+          <ChevronRight className="size-3.5" />
+          <Link href="/clinics" className="hover:text-zinc-800">
+            Clinics
+          </Link>
+          <ChevronRight className="size-3.5" />
+          <span className="text-zinc-700">
+            {clinic.name}
+            {loc ? `, ${loc}` : ""}
+          </span>
+        </nav>
 
-        {/* Tier badge */}
-        <div className="absolute left-4 top-4 flex gap-2">
-          {clinic.featured && (
-            <span className="inline-flex items-center gap-1 rounded-md bg-[#D3A845] px-3 py-1 text-xs font-bold uppercase tracking-wider text-white shadow-lg">
-              <Crown className="size-3" /> Featured
-            </span>
-          )}
-          {clinic.tier === "elite" && !clinic.featured && (
-            <span className="inline-flex items-center gap-1 rounded-md bg-brand-purple px-3 py-1 text-xs font-bold uppercase tracking-wider text-white shadow-lg">
-              <Crown className="size-3" /> Elite
-            </span>
-          )}
-        </div>
+        {/* Hero card */}
+        <section className="mt-6 overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-zinc-100">
+          <div className="grid gap-0 lg:grid-cols-2">
+            {/* LEFT */}
+            <div className="flex flex-col gap-5 p-7 sm:p-10">
+              <div className="flex items-center gap-4">
+                {clinic.logo_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={clinic.logo_url}
+                    alt={`${clinic.name} logo`}
+                    className="size-16 shrink-0 rounded-2xl border border-zinc-100 bg-white object-contain p-1.5 shadow-sm"
+                  />
+                ) : (
+                  <div className="flex size-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#d96f8e]/15 to-[#9b3a9b]/15 text-lg font-semibold text-[#9b3a9b]">
+                    {initials(clinic.name)}
+                  </div>
+                )}
+                {isPremium && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-[#e08a4f]/15 to-[#d96f8e]/15 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-[#9b3a6e]">
+                    <Star className="size-3.5 fill-[#e08a4f] text-[#e08a4f]" />
+                    Featured Premium Clinic
+                  </span>
+                )}
+              </div>
 
-        {/* Rating pill */}
-        {clinic.avg_rating && (
-          <div className="absolute bottom-4 right-4 flex items-center gap-1.5 rounded-full bg-black/60 px-3 py-1.5 backdrop-blur-sm">
-            <Star className="size-4 fill-[#FFBA19] text-[#FFBA19]" />
-            <span className="text-sm font-bold text-white">{Number(clinic.avg_rating).toFixed(1)}</span>
-            <span className="text-xs text-white/70">({clinic.review_count} reviews)</span>
-          </div>
-        )}
-      </div>
+              <h1 className="text-3xl font-semibold tracking-tight text-zinc-900 sm:text-4xl">
+                {clinic.name}
+              </h1>
 
-      {/* ── Main content area ── */}
-      <div className="mx-auto w-full max-w-[1200px] px-4 py-8 sm:px-6 lg:px-8">
-        <div className="flex flex-col gap-8 lg:flex-row lg:gap-12">
-
-          {/* ── Left column — main info ── */}
-          <div className="flex flex-1 flex-col gap-8 min-w-0">
-
-            {/* Identity block: logo + name */}
-            <div className="flex items-start gap-4">
-              {clinic.logo_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={clinic.logo_url}
-                  alt={`${clinic.business_name} logo`}
-                  className="size-[72px] shrink-0 rounded-xl border border-[#ece6ec] bg-white object-contain p-1 shadow-sm"
-                />
-              ) : (
-                <div className="flex size-[72px] shrink-0 items-center justify-center rounded-xl border border-[#ece6ec] bg-gradient-to-br from-brand-coral/20 to-brand-purple/20 text-xl font-bold text-brand-magenta shadow-sm">
-                  {clinic.clinic_name
-                    .split(" ")
-                    .map((w) => w[0])
-                    .join("")
-                    .slice(0, 2)}
-                </div>
+              {excerpt && (
+                <p className="max-w-xl text-base leading-relaxed text-zinc-600">
+                  {excerpt}
+                </p>
               )}
-              <div className="flex-1 min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="text-2xl font-bold text-[#1a1a1a] sm:text-3xl">
-                    {clinic.clinic_name}
-                  </h1>
-                  {clinic.verified && (
-                    <span title="Verified">
-                      <BadgeCheck className="size-6 shrink-0 text-brand-magenta" />
-                    </span>
-                  )}
-                </div>
-                <p className="mt-0.5 text-sm text-brand-muted">{clinic.business_name}</p>
-                {(clinic.city || clinic.state) && (
+
+              {/* Info row */}
+              <div className="grid grid-cols-1 gap-4 rounded-2xl border border-zinc-100 bg-zinc-50/60 p-4 sm:grid-cols-3">
+                {(clinic.address || loc) && (
                   <a
                     href={mapsUrl}
                     target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-1 inline-flex items-center gap-1.5 text-sm text-[#727272] transition-colors hover:text-brand-magenta"
+                    rel="noreferrer"
+                    className="flex items-start gap-2.5 text-sm text-zinc-600 transition hover:text-[#9b3a9b]"
                   >
-                    <MapPin className="size-4 shrink-0 text-brand-magenta/60" />
-                    {[clinic.address, clinic.city, clinic.state, clinic.zip].filter(Boolean).join(", ")}
-                    <ExternalLink className="size-3 opacity-50" />
+                    <MapPin className="mt-0.5 size-4 shrink-0 text-[#9b3a9b]" />
+                    <span>{clinic.address || loc}</span>
+                  </a>
+                )}
+                {todayHours && (
+                  <div className="flex items-start gap-2.5 text-sm text-zinc-600">
+                    <Clock className="mt-0.5 size-4 shrink-0 text-[#9b3a9b]" />
+                    <span>
+                      Open Today {todayHours.open}–{todayHours.close}
+                    </span>
+                  </div>
+                )}
+                {stats.rating != null && (
+                  <div className="flex items-start gap-2.5 text-sm text-zinc-600">
+                    <Star className="mt-0.5 size-4 shrink-0 fill-amber-400 text-amber-400" />
+                    <span>
+                      {stats.rating} ★
+                      {stats.review_count != null && (
+                        <> ({stats.review_count} Reviews)</>
+                      )}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* CTAs */}
+              <div className="flex flex-wrap gap-3">
+                {bookUrl ? (
+                  <a
+                    href={bookUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#e08a4f] to-[#d96f8e] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-95"
+                  >
+                    <CalendarDays className="size-4" /> Book Appointment
+                  </a>
+                ) : (
+                  <span className="inline-flex items-center gap-2 rounded-xl bg-zinc-100 px-5 py-3 text-sm font-semibold text-zinc-400">
+                    <CalendarDays className="size-4" /> Book Appointment
+                  </span>
+                )}
+                {clinic.phone && (
+                  <a
+                    href={`tel:${clinic.phone}`}
+                    className="inline-flex items-center gap-2 rounded-xl border border-zinc-300 px-5 py-3 text-sm font-semibold text-zinc-700 transition hover:border-[#d96f8e] hover:text-[#9b3a9b]"
+                  >
+                    <Phone className="size-4" /> Call Clinic
                   </a>
                 )}
               </div>
             </div>
 
-            {/* Open status + today hours */}
-            {todayStatus && (
-              <div
-                className={cn(
-                  "flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-medium",
-                  todayStatus.isOpen
-                    ? "bg-emerald-50 text-emerald-700"
-                    : "bg-red-50 text-red-600"
-                )}
-              >
-                <Clock className="size-4 shrink-0" />
-                {todayStatus.text}
-              </div>
-            )}
+            {/* RIGHT — gallery */}
+            <div className="bg-zinc-50 p-7 sm:p-10">
+              {primaryImage ? (
+                <div className="flex h-full flex-col gap-3">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={primaryImage.source_url}
+                    alt={primaryImage.alt_text || clinic.name}
+                    className="aspect-[4/3] w-full rounded-2xl object-cover shadow-sm"
+                    loading="lazy"
+                  />
+                  {thumbs.length > 0 && (
+                    <div className="grid grid-cols-4 gap-3">
+                      {thumbs.map((img, i) => {
+                        const isLast = i === thumbs.length - 1;
+                        const showOverlay = isLast && remaining > 0;
+                        return (
+                          <div
+                            key={i}
+                            className="relative overflow-hidden rounded-xl"
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={img.source_url}
+                              alt={img.alt_text || clinic.name}
+                              className="aspect-square w-full object-cover"
+                              loading="lazy"
+                            />
+                            {showOverlay && (
+                              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/55 text-center text-xs font-semibold text-white">
+                                <span className="text-base">+{remaining}</span>
+                                View All
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="flex aspect-[4/3] w-full items-center justify-center rounded-2xl bg-gradient-to-br from-[#d96f8e]/20 to-[#9b3a9b]/20">
+                  <span className="text-5xl font-semibold text-white/60">
+                    {initials(clinic.name)}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
 
-            {/* About */}
-            {clinic.about && (
-              <section className="flex flex-col gap-3">
-                <h2 className="text-lg font-semibold text-[#1a1a1a]">About</h2>
-                <p className="text-sm leading-relaxed text-brand-muted">{clinic.about}</p>
-              </section>
-            )}
+        {/* Treatments Offered */}
+        {treatments.length > 0 && (
+          <section className="mt-12">
+            <h2 className="text-2xl font-semibold tracking-tight text-zinc-900 sm:text-3xl">
+              Treatment{" "}
+              <span className="font-fraunces italic font-normal">Offered</span>{" "}
+              By {clinic.name}
+            </h2>
+            <div className="mt-6 flex gap-4 overflow-x-auto pb-2">
+              {treatments.map((t, i) => {
+                const card = (
+                  <div className="flex min-w-[180px] items-center rounded-2xl border border-zinc-200 bg-white px-5 py-4 text-sm font-semibold text-zinc-800 shadow-sm transition hover:border-[#d96f8e] hover:text-[#9b3a9b]">
+                    {t.name}
+                  </div>
+                );
+                return t.slug ? (
+                  <Link
+                    key={i}
+                    href={`/treatments/${t.slug}`}
+                    className="shrink-0"
+                  >
+                    {card}
+                  </Link>
+                ) : (
+                  <div key={i} className="shrink-0">
+                    {card}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
 
-            {/* Services */}
-            {clinic.services.length > 0 && (
-              <section className="flex flex-col gap-4">
-                <h2 className="text-lg font-semibold text-[#1a1a1a]">Services Offered</h2>
-                {Object.entries(servicesByCategory).map(([cat, svcs]) => (
-                  <div key={cat} className="flex flex-col gap-2">
-                    <h3 className="text-xs font-semibold uppercase tracking-wider text-brand-muted">
-                      {cat}
-                    </h3>
-                    <div className="flex flex-wrap gap-2">
-                      {svcs.map((svc) => (
-                        <div
-                          key={svc.slug}
-                          className="group relative flex flex-col rounded-xl border border-[#ece6ec] bg-white px-3.5 py-2.5 shadow-sm transition-all hover:border-brand-magenta/30 hover:shadow-md"
-                        >
-                          <span className="text-sm font-medium text-[#1a1a1a]">{svc.name}</span>
-                          {svc.description && (
-                            <span className="mt-0.5 text-xs text-brand-muted line-clamp-1">
-                              {svc.description}
-                            </span>
-                          )}
-                        </div>
+        {/* About */}
+        {clinic.about && (
+          <section className="mt-12">
+            <h2 className="text-2xl font-semibold tracking-tight text-zinc-900 sm:text-3xl">
+              About {clinic.name}
+              {loc ? `, ${loc}` : ""}
+            </h2>
+            {clinic.founded_year != null && (
+              <p className="mt-2 inline-flex items-center gap-2 rounded-full bg-zinc-100 px-3 py-1 text-sm font-medium text-zinc-600">
+                Established {clinic.founded_year}
+              </p>
+            )}
+            <p className="mt-4 max-w-3xl whitespace-pre-line text-base leading-relaxed text-zinc-600">
+              {clinic.about}
+            </p>
+          </section>
+        )}
+
+        {/* Stats strip */}
+        <section className="mt-12 rounded-3xl bg-white p-7 shadow-sm ring-1 ring-zinc-100 sm:p-10">
+          <div className="grid grid-cols-2 divide-zinc-200 sm:grid-cols-4 sm:divide-x">
+            <div className="flex flex-col items-center px-4 py-3 text-center">
+              <span className="text-3xl font-semibold text-zinc-900">
+                {stats.treatments_count}
+              </span>
+              <span className="mt-1 text-sm text-zinc-500">Treatments</span>
+            </div>
+            <div className="flex flex-col items-center px-4 py-3 text-center">
+              <span className="text-3xl font-semibold text-zinc-900">
+                {stats.rating ?? "—"}
+              </span>
+              <span className="mt-1 text-sm text-zinc-500">Avg Rating</span>
+            </div>
+            <div className="flex flex-col items-center px-4 py-3 text-center">
+              <span className="text-3xl font-semibold text-zinc-900">
+                {stats.review_count ?? 0}
+              </span>
+              <span className="mt-1 text-sm text-zinc-500">Reviews</span>
+            </div>
+            <div className="flex flex-col items-center px-4 py-3 text-center">
+              <span className="text-3xl font-semibold text-zinc-900">
+                {loc || "—"}
+              </span>
+              <span className="mt-1 text-sm text-zinc-500">Location</span>
+            </div>
+          </div>
+        </section>
+
+        {/* Reviews */}
+        {reviews.length > 0 && (
+          <section className="mt-12">
+            <h2 className="text-2xl font-semibold tracking-tight text-zinc-900">
+              What Our Clients Say
+            </h2>
+            <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {reviews.map((r, i) => (
+                <div
+                  key={i}
+                  className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm"
+                >
+                  {r.rating != null && (
+                    <div className="flex gap-0.5">
+                      {Array.from({ length: 5 }).map((_, s) => (
+                        <Star
+                          key={s}
+                          className={`size-4 ${
+                            s < r.rating!
+                              ? "fill-amber-400 text-amber-400"
+                              : "text-zinc-200"
+                          }`}
+                        />
                       ))}
                     </div>
+                  )}
+                  <p className="mt-3 text-sm leading-relaxed text-zinc-600">
+                    “{r.body}”
+                  </p>
+                  <div className="mt-4 text-sm font-medium text-zinc-800">
+                    — {r.reviewer_name || "Verified Patient"}
                   </div>
-                ))}
-              </section>
-            )}
-
-            {/* Hours */}
-            {clinic.hours && Object.keys(clinic.hours).length > 0 && (
-              <section className="flex flex-col gap-3">
-                <h2 className="text-lg font-semibold text-[#1a1a1a]">Hours</h2>
-                <div className="overflow-hidden rounded-xl border border-[#ece6ec] bg-white">
-                  {DAY_ORDER.filter((d) => clinic.hours![d] !== undefined).map((day, idx) => {
-                    const h = clinic.hours![day];
-                    const isToday =
-                      DAY_ORDER.indexOf(day) ===
-                      ((new Date().getDay() + 6) % 7); // shift Sun=0 → Mon=0
-                    return (
-                      <div
-                        key={day}
-                        className={cn(
-                          "flex items-center justify-between px-4 py-3 text-sm",
-                          idx !== 0 && "border-t border-[#f5f0f5]",
-                          isToday && "bg-brand-magenta/5"
-                        )}
-                      >
-                        <span className={cn("font-medium", isToday && "text-brand-magenta")}>
-                          {DAY_SHORT[day]}
-                          {isToday && (
-                            <span className="ml-2 text-[10px] font-semibold uppercase tracking-wider text-brand-magenta">
-                              Today
-                            </span>
-                          )}
-                        </span>
-                        {h.is_open ? (
-                          <span className="text-[#1a1a1a]">
-                            {h.open} – {h.close}
-                          </span>
-                        ) : (
-                          <span className="text-red-400">Closed</span>
-                        )}
-                      </div>
-                    );
-                  })}
                 </div>
-              </section>
-            )}
-
-            {/* Gallery */}
-            {clinic.gallery_images.length > 0 && (
-              <section className="flex flex-col gap-3">
-                <h2 className="text-lg font-semibold text-[#1a1a1a]">Gallery</h2>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                  {clinic.gallery_images.map((img) => (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      key={img.id}
-                      src={img.cdn_url || img.url}
-                      alt={img.alt_text || clinic.clinic_name}
-                      className="aspect-square w-full rounded-xl object-cover"
-                    />
-                  ))}
-                </div>
-              </section>
-            )}
-          </div>
-
-          {/* ── Right sidebar ── */}
-          <aside className="flex w-full flex-col gap-5 lg:w-[320px] lg:shrink-0">
-
-            {/* CTA card */}
-            <div className="flex flex-col gap-3 rounded-2xl border border-[#ece6ec] bg-white p-5 shadow-sm">
-              <Button variant="gradient" className="h-[46px] w-full rounded-xl text-sm font-semibold" asChild>
-                <a href={bookUrl} target="_blank" rel="noopener noreferrer">
-                  Book Appointment
-                </a>
-              </Button>
-              {clinic.phone && (
-                <a
-                  href={`tel:${clinic.phone}`}
-                  className="flex h-[46px] w-full items-center justify-center gap-2 rounded-xl border border-brand-magenta/30 text-sm font-semibold text-brand-magenta transition-colors hover:bg-brand-magenta/5"
-                >
-                  <Phone className="size-4" />
-                  {clinic.phone}
-                </a>
-              )}
-              {clinic.website && (
-                <a
-                  href={clinic.website}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex h-[46px] w-full items-center justify-center gap-2 rounded-xl border border-[#e1e1e1] text-sm font-semibold text-[#727272] transition-colors hover:border-brand-magenta/30 hover:text-brand-magenta"
-                >
-                  <Globe className="size-4" />
-                  Visit Website
-                </a>
-              )}
+              ))}
             </div>
-
-            {/* Contact & location */}
-            <div className="flex flex-col gap-4 rounded-2xl border border-[#ece6ec] bg-white p-5 shadow-sm">
-              <h3 className="text-sm font-semibold uppercase tracking-wider text-brand-muted">
-                Location & Contact
-              </h3>
-              {(clinic.address || clinic.city) && (
-                <a
-                  href={mapsUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-start gap-3 text-sm text-[#727272] transition-colors hover:text-brand-magenta"
-                >
-                  <MapPin className="mt-0.5 size-4 shrink-0 text-brand-magenta" />
-                  <span>
-                    {[clinic.address, clinic.city, clinic.state, clinic.zip].filter(Boolean).join(", ")}
-                  </span>
-                </a>
-              )}
-              {clinic.phone && (
-                <a
-                  href={`tel:${clinic.phone}`}
-                  className="flex items-center gap-3 text-sm text-[#727272] transition-colors hover:text-brand-magenta"
-                >
-                  <Phone className="size-4 shrink-0 text-brand-magenta" />
-                  {clinic.phone}
-                </a>
-              )}
-              {clinic.email && (
-                <a
-                  href={`mailto:${clinic.email}`}
-                  className="flex items-center gap-3 text-sm text-[#727272] transition-colors hover:text-brand-magenta"
-                >
-                  <Globe className="size-4 shrink-0 text-brand-magenta" />
-                  {clinic.email}
-                </a>
-              )}
-            </div>
-
-            {/* Online presence */}
-            {(clinic.instagram_url ||
-              clinic.facebook_url ||
-              clinic.youtube_url ||
-              clinic.linkedin_url ||
-              clinic.yelp_url ||
-              clinic.google_my_business) && (
-              <div className="flex flex-col gap-4 rounded-2xl border border-[#ece6ec] bg-white p-5 shadow-sm">
-                <h3 className="text-sm font-semibold uppercase tracking-wider text-brand-muted">
-                  Online Presence
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {clinic.instagram_url && (
-                    <SocialLink href={clinic.instagram_url} label="Instagram">
-                      <Link2 className="size-4" />
-                    </SocialLink>
-                  )}
-                  {clinic.facebook_url && (
-                    <SocialLink href={clinic.facebook_url} label="Facebook">
-                      <Link2 className="size-4" />
-                    </SocialLink>
-                  )}
-                  {clinic.youtube_url && (
-                    <SocialLink href={clinic.youtube_url} label="YouTube">
-                      <Link2 className="size-4" />
-                    </SocialLink>
-                  )}
-                  {clinic.linkedin_url && (
-                    <SocialLink href={clinic.linkedin_url} label="LinkedIn">
-                      <Link2 className="size-4" />
-                    </SocialLink>
-                  )}
-                  {clinic.yelp_url && (
-                    <SocialLink href={clinic.yelp_url} label="Yelp">
-                      <Star className="size-4" />
-                    </SocialLink>
-                  )}
-                  {clinic.google_my_business && (
-                    <SocialLink href={clinic.google_my_business} label="Google">
-                      <Globe className="size-4" />
-                    </SocialLink>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Back to search */}
-            <Link
-              href="/search"
-              className="flex items-center justify-center gap-2 rounded-xl border border-[#e1e1e1] py-3 text-sm font-medium text-brand-muted transition-colors hover:border-brand-magenta/30 hover:text-brand-magenta"
-            >
-              ← Back to Search
-            </Link>
-          </aside>
-        </div>
+          </section>
+        )}
       </div>
 
       <Footer />
     </main>
-  );
-}
-
-// ─── Social Link ──────────────────────────────────────────────────────────────
-
-function SocialLink({
-  href,
-  label,
-  children,
-}: {
-  href: string;
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      aria-label={label}
-      className="flex h-9 w-9 items-center justify-center rounded-full border border-[#ece6ec] bg-white text-[#727272] transition-all hover:border-brand-magenta/30 hover:text-brand-magenta hover:shadow-sm"
-    >
-      {children}
-    </a>
   );
 }
