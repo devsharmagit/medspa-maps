@@ -58,12 +58,10 @@ const treatments = [
 function TreatmentCard({
   name,
   clinics,
-  startingPrice,
   icon,
 }: {
   name: string;
   clinics: number;
-  startingPrice: number;
   icon: string;
 }) {
   return (
@@ -88,14 +86,6 @@ function TreatmentCard({
       {/* Clinics */}
       <p className="flex items-center justify-center text-center font-inter text-[12px] font-normal leading-[100%] text-[#9A9A9A]">
         {clinics} clinics
-      </p>
-
-      {/* Divider */}
-      <div className="w-[105px] border-t border-[rgba(245,222,232,0.5)]" />
-
-      {/* Price */}
-      <p className="flex items-end justify-center text-center font-inter text-[12px] font-normal leading-[100%] text-[#9A9A9A]">
-        Starting from ${startingPrice}
       </p>
     </div>
   );

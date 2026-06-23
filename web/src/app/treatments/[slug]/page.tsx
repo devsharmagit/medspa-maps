@@ -84,24 +84,14 @@ export default async function TreatmentPage({
             <span className="font-fraunces italic font-normal">Treatment</span>
           </h1>
 
-          {(service.hero_rating != null ||
-            service.hero_review_count != null ||
-            service.price_from != null) && (
+          {service.hero_rating != null && (
             <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-1.5 text-sm font-medium backdrop-blur-sm">
-              {service.hero_rating != null && (
-                <span className="inline-flex items-center gap-1">
-                  {service.hero_rating} <Star className="size-3.5 fill-white" />
-                  {service.hero_review_count != null && (
-                    <span>({service.hero_review_count})</span>
-                  )}
-                </span>
-              )}
-              {service.hero_rating != null && service.price_from != null && (
-                <span className="text-white/50">|</span>
-              )}
-              {service.price_from != null && (
-                <span>Starting at ${service.price_from}</span>
-              )}
+              <span className="inline-flex items-center gap-1">
+                {service.hero_rating} <Star className="size-3.5 fill-white" />
+                {service.hero_review_count != null && (
+                  <span>({service.hero_review_count})</span>
+                )}
+              </span>
             </div>
           )}
 
@@ -215,29 +205,18 @@ export default async function TreatmentPage({
                       )}
                     </div>
 
-                    <div className="mt-5 flex items-end justify-between gap-3 border-t border-zinc-100 pt-4">
-                      <div>
-                        <p className="text-xs text-zinc-500">Starting At</p>
-                        <p className="text-base font-semibold text-zinc-900">
-                          {c.price_from != null ? `$${c.price_from}` : "—"}
-                          {c.price_from != null && c.price_unit && (
-                            <span className="text-sm font-normal text-zinc-500">
-                              /{c.price_unit}
-                            </span>
-                          )}
-                        </p>
-                      </div>
+                    <div className="mt-5 border-t border-zinc-100 pt-4">
                       {bookUrl ? (
                         <a
                           href={bookUrl}
                           target="_blank"
                           rel="noreferrer"
-                          className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#e08a4f] to-[#d96f8e] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-95"
+                          className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#e08a4f] to-[#d96f8e] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-95"
                         >
                           <CalendarDays className="size-4" /> Book Appointment
                         </a>
                       ) : (
-                        <span className="inline-flex items-center gap-2 rounded-xl bg-zinc-100 px-4 py-2.5 text-sm font-semibold text-zinc-400">
+                        <span className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-zinc-100 px-4 py-2.5 text-sm font-semibold text-zinc-400">
                           <CalendarDays className="size-4" /> Book Appointment
                         </span>
                       )}

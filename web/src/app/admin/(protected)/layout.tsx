@@ -9,6 +9,7 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // Preserve the existing next-auth gate — unauthenticated visitors go to login.
   const session = await getServerSession(authOptions);
 
   if (!session) {
@@ -16,7 +17,7 @@ export default async function AdminLayout({
   }
 
   return (
-    <div className="flex min-h-screen bg-slate-50">
+    <div className="flex min-h-screen bg-[linear-gradient(180deg,#fdf6fb_0%,#faf5fc_100%)]">
       <AdminSidebar />
       <div className="flex flex-1 flex-col min-w-0">
         <AdminTopbar email={session.user?.email ?? ""} />

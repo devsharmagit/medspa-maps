@@ -15,7 +15,7 @@
 import type { CheerioAPI } from "cheerio";
 import type { ScrapedLocation, HoursEntry, ScrapeContact } from "./types";
 import { fetchHtml, load, toAbsolute, cleanText, parseAddress } from "./utils";
-import { extractPhone, extractEmail, extractHours, collectMapsLinks, type MapsLink } from "./contact";
+import { extractPhone, extractEmail, extractHours, collectMapsLinks, sanitizeMapsUrl, mapsUrlQuality, type MapsLink } from "./contact";
 
 // ─── Footer / contact-page text block parser ──────────────────────────────────
 //
@@ -67,14 +67,21 @@ function parseLocationBlocks(rawText: string): TextBlock[] {
   const EMAIL_RE = /^Email:\s*([^\s]+@[^\s]+)/i;
   const ADDR_RE  = /^Address:\s*(.+)/i;
   const CITY_RE  = /^[A-Z][a-zA-Z\s\-&']{1,40}$/;   // title-case, no digits, 2-42 chars
+  // Marketing prose ("Your premier destination...") can pass CITY_RE — reject it.
+  const PROSE_RE = /\b(premier|destination|heart|welcome|located|serving|experience|leading|trusted|home of|your|our|the best|aesthetic|wellness|medspa|med spa|clinic|beauty)\b/i;
+  const isCityLine = (line: string) =>
+    CITY_RE.test(line) &&
+    !/\d/.test(line) &&
+    line.split(/\s+/).length <= 3 &&
+    !PROSE_RE.test(line);
 
   interface RawBlock { cityName: string; phone: string | null; email: string | null; address: string | null }
   const rawBlocks: RawBlock[] = [];
   let current: RawBlock | null = null;
 
   for (const line of lines) {
-    // Detect a city-name line: not a label, not containing digits, title-case
-    if (!LABEL_RE.test(line) && !/@/.test(line) && CITY_RE.test(line) && !/\d/.test(line)) {
+    // Detect a city-name line: not a label, not an email, a real city (not prose)
+    if (!LABEL_RE.test(line) && !/@/.test(line) && isCityLine(line)) {
       // Start a new block
       if (current && (current.address || current.phone)) rawBlocks.push(current);
       current = { cityName: line, phone: null, email: null, address: null };
@@ -222,7 +229,9 @@ function pickMapsLink(
   city: string | null,
   blockIdx: number,
 ): string | null {
-  if (links.length === 0) return null;
+  // Drop coordinate-only / broken maps URLs up front — never return those.
+  const usable = links.filter((l) => sanitizeMapsUrl(l.href));
+  if (usable.length === 0) return null;
 
   // Normalize helper
   const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
@@ -230,10 +239,11 @@ function pickMapsLink(
   const streetNum = address?.match(/^\d+/)?.[0] ?? null;
   const normCity = city ? norm(city) : null;
 
-  // Score each link: higher = better match
-  const scored = links.map((lnk, i) => {
+  // Score each link: higher = better match. Link quality (short link / place URL)
+  // dominates, then street-number, then city, then positional order.
+  const scored = usable.map((lnk, i) => {
     const t = norm(lnk.text);
-    let score = 0;
+    let score = mapsUrlQuality(lnk.href) * 4;               // 0 / 4 / 12
     if (streetNum && t.includes(streetNum)) score += 10;   // street number match (very specific)
     if (normCity && t.includes(normCity)) score += 5;       // city name match
     if (i === blockIdx) score += 1;                          // positional bonus
@@ -241,10 +251,7 @@ function pickMapsLink(
   });
 
   scored.sort((a, b) => b.score - a.score);
-  const best = scored[0];
-
-  // Only return if we have at least some signal (don't blindly return unrelated link)
-  return best.score > 0 ? best.lnk.href : links[blockIdx]?.href ?? links[0]?.href ?? null;
+  return scored[0]?.lnk.href ?? null;
 }
 
 
@@ -293,81 +300,81 @@ function findLocationContainer(
   return anchor.closest("li, div, section") as CEl;
 }
 
+/**
+ * The address a maps link carries in its OWN aria-label / anchor text — the
+ * highest-confidence per-location signal (Elementor footers link the full
+ * address). Returns null when the link has no address of its own.
+ */
+function anchoredAddress(anchor: ReturnType<CheerioAPI>): string | null {
+  // A full street address: starts with a house number, has a comma, and ENDS
+  // with a zip. The trailing-zip requirement avoids treating a bare street whose
+  // house number happens to be 5 digits ("13222 S Tree Sparrow Dr") as a
+  // complete address.
+  const looksLikeAddress = (s: string) =>
+    /^\d/.test(s) && /,/.test(s) && /\b\d{5}(?:-\d{4})?\s*$/.test(s);
+  const aria = (anchor.attr("aria-label") ?? "")
+    .replace(/\s*[-–]\s*opens?\s+in\s+(a\s+)?new\s+tab\s*$/i, "")
+    .trim();
+  if (looksLikeAddress(aria)) return aria;
+  const text = cleanText(anchor.text());
+  if (looksLikeAddress(text)) return text;
+  return null;
+}
+
 function extractFromMapsLinksBlocks($: CheerioAPI): ScrapedLocation[] {
+  const anchors = $(MAPS_LINK_SEL).toArray().map((el) => $(el));
+
+  // When a site links ≥2 of its own addresses (the common multi-location
+  // footer), trust ONLY those address-bearing links and skip the rest — a maps
+  // link without its own address is then almost certainly a stray embed /
+  // template leftover (e.g. a different business's pin) whose surrounding text
+  // would be mis-scavenged. With <2, keep the original behaviour (resolve every
+  // link, scavenging the surrounding block when the link has no address).
+  const anchoredOnly = anchors.filter((a) => anchoredAddress(a)).length >= 2;
+
   const locations: ScrapedLocation[] = [];
   const seen = new Set<string>();
 
-  $(MAPS_LINK_SEL).each((_, el) => {
-    const anchor = $(el);
+  for (const anchor of anchors) {
     const href = (anchor.attr("href") ?? "").trim();
-    if (!href) return;
+    if (!href) continue;
 
-    // ── 1. Find the per-location block ──────────────────────────────────────
-    // Walk up ancestors until we find one that contains a tel: link.
-    // This lands on the Elementor column / grid cell that holds the whole
-    // location card (heading, address, phone, email) even when they're separate widgets.
-    const block = findLocationContainer($, anchor);
-
-    const blockText = block.length ? cleanText(block.text()) : "";
-
-    // ── 2. Resolve the full address ────────────────────────────────────────
-    let addrStr: string | null = null;
-
-    // Priority 1: aria-label (site authors write the full formatted address here)
-    // Strip trailing " - open in a new tab" and similar patterns.
-    const aria = (anchor.attr("aria-label") ?? "")
-      .replace(/\s*[-–]\s*opens?\s+in\s+(a\s+)?new\s+tab\s*$/i, "")
-      .trim();
-    if (aria && /\d{5}/.test(aria) && /^\d/.test(aria)) {
-      addrStr = aria;
-    }
-
-    // Priority 2: anchor text — accept if it starts with a house number and has a zip
+    // ── Resolve the full address ────────────────────────────────────────────
+    let addrStr = anchoredAddress(anchor);
     if (!addrStr) {
-      const anchorText = cleanText(anchor.text());
-      if (/^\d/.test(anchorText) && /\d{5}/.test(anchorText)) {
-        addrStr = anchorText;
-      }
-    }
-
-    // Priority 3: regex match in block text (full street + city + state + zip)
-    if (!addrStr) {
-      const fullM = BLOCK_ADDR_RE.exec(blockText);
+      if (anchoredOnly) continue; // stray link — skip when we already have ≥2 real ones
+      // Fall back to scanning the surrounding block for an address.
+      const block = findLocationContainer($, anchor);
+      const fullM = BLOCK_ADDR_RE.exec(block.length ? cleanText(block.text()) : "");
       if (fullM) addrStr = fullM[0].trim();
     }
+    if (!addrStr) continue;
 
-    if (!addrStr) return;
-
-    // ── 3. Deduplicate ─────────────────────────────────────────────────────
-    // Use street-number + state + last-4-of-zip as the key.
-    // This collapses variants of the same address that differ in Suite text or
-    // abbreviated street names (e.g. "Mason Rd" vs "Mason-Montgomery Road").
+    // ── Deduplicate (street-number + state + last-4-of-zip) ─────────────────
     const parsed = parseAddress(addrStr);
     const streetNum = addrStr.match(/^\d+/)?.[0] ?? "";
     const normKey =
       (streetNum + (parsed.state ?? "") + (parsed.zip?.slice(-4) ?? "")) ||
       addrStr.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 20);
-    if (seen.has(normKey)) return;
+    if (seen.has(normKey)) continue;
     seen.add(normKey);
 
-    // ── 4. Extract phone from the block ────────────────────────────────────
-    const phoneM = BLOCK_PHONE_RE.exec(blockText);
-    const phone = phoneM ? phoneM[0].trim() : null;
-
-    // ── 5. Extract location name from h2/h3/h4 in the block ───────────────
-    const locationName =
-      cleanText(block.find("h2, h3, h4").first().text()) || undefined;
+    // Phone from the surrounding block (best-effort).
+    const block = findLocationContainer($, anchor);
+    const phoneM = BLOCK_PHONE_RE.exec(block.length ? cleanText(block.text()) : "");
 
     locations.push({
-      name: locationName,
+      // City is a cleaner per-location label than scraped headings, which tend
+      // to grab unrelated section titles ("Working Hours", "Address").
+      name: parsed.city ?? undefined,
       address: addrStr,
       city: parsed.city ?? undefined,
       state: parsed.state ?? undefined,
       zip: parsed.zip ?? undefined,
-      phone: phone ?? undefined,
+      phone: phoneM ? phoneM[0].trim() : undefined,
       maps_url: href,
     });
-  });
+  }
 
   return locations;
 }
@@ -429,8 +436,12 @@ function extractFromSchema($: CheerioAPI): ScrapedLocation[] {
           typeof node.telephone === "string" ? node.telephone : undefined;
         const name =
           typeof node.name === "string" ? node.name : undefined;
+        // Many sites put a broken `/maps/search/?query=lat,lng,zoom` link in
+        // hasMap — drop it so we fall back to a real on-page maps link.
         const mapsUrl =
-          typeof node.hasMap === "string" ? node.hasMap : undefined;
+          typeof node.hasMap === "string"
+            ? (sanitizeMapsUrl(node.hasMap) ?? undefined)
+            : undefined;
 
         // Parse hours from openingHoursSpecification
         let hours: Record<string, HoursEntry> | undefined;

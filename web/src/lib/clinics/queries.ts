@@ -14,6 +14,7 @@ export interface ClinicPageData {
     phone: string | null;
     website: string | null;
     booking_url: string | null;
+    google_maps_url: string | null;
     hours: unknown;
     instagram_url: string | null;
     facebook_url: string | null;
@@ -30,6 +31,8 @@ export interface ClinicPageData {
   treatments: { name: string; slug: string | null }[];
   gallery: { source_url: string; alt_text: string | null }[];
   gallery_total: number;
+  before_after: { source_url: string; alt_text: string | null }[];
+  before_after_total: number;
   reviews: { rating: number | null; body: string; reviewer_name: string | null }[];
   stats: {
     treatments_count: number;
@@ -44,14 +47,22 @@ export async function getClinicData(slug: string): Promise<ClinicPageData | null
   const clinic = await pool.query(
     `SELECT
        c.id, c.slug, c.name, c.tagline, c.about, c.address, c.city, c.state,
-       c.zip, c.phone, c.website, c.booking_url, c.hours, c.instagram_url,
+       c.zip, c.phone, c.website, c.booking_url, c.google_maps_url, c.hours, c.instagram_url,
        c.facebook_url, c.youtube_url, c.founded_year, c.avg_rating,
        c.review_count, c.ext_rating, c.ext_review_count, c.verified, c.featured,
        c.business_id,
-       (SELECT source_url FROM images i
-          WHERE i.entity_type = 'business' AND i.entity_id = c.business_id
-            AND i.role = 'logo' AND i.scrape_status = 'ok'
-          ORDER BY i.sort_order LIMIT 1) AS logo_url
+       -- Logo: scraped logos live at the clinic level; fall back to the
+       -- business-level logo for synced records.
+       COALESCE(
+         (SELECT source_url FROM images i
+            WHERE i.entity_type = 'clinic' AND i.entity_id = c.id
+              AND i.role = 'logo' AND i.scrape_status = 'ok'
+            ORDER BY i.sort_order LIMIT 1),
+         (SELECT source_url FROM images i
+            WHERE i.entity_type = 'business' AND i.entity_id = c.business_id
+              AND i.role = 'logo' AND i.scrape_status = 'ok'
+            ORDER BY i.sort_order LIMIT 1)
+       ) AS logo_url
      FROM clinics c
      WHERE c.slug = $1 AND c.is_active = true`,
     [slug]
@@ -59,14 +70,14 @@ export async function getClinicData(slug: string): Promise<ClinicPageData | null
   if (clinic.rows.length === 0) return null;
   const c = clinic.rows[0];
 
-  const [gallery, galleryCount, treatments, reviews] = await Promise.all([
+  const [gallery, galleryCount, beforeAfter, beforeAfterCount, treatments, reviews] = await Promise.all([
     pool.query(
       `SELECT source_url, alt_text
        FROM images
        WHERE entity_type = 'clinic' AND entity_id = $1
          AND role IN ('gallery', 'cover') AND scrape_status = 'ok'
        ORDER BY (role = 'cover') DESC, sort_order
-       LIMIT 12`,
+       LIMIT 24`,
       [c.id]
     ),
     pool.query(
@@ -77,9 +88,27 @@ export async function getClinicData(slug: string): Promise<ClinicPageData | null
       [c.id]
     ),
     pool.query(
-      `SELECT DISTINCT COALESCE(s.name, cls.raw_name) AS name, s.slug AS slug
+      `SELECT source_url, alt_text
+       FROM images
+       WHERE entity_type = 'clinic' AND entity_id = $1
+         AND role = 'before_after' AND scrape_status = 'ok'
+       ORDER BY sort_order
+       LIMIT 24`,
+      [c.id]
+    ),
+    pool.query(
+      `SELECT count(*)::int AS total
+       FROM images
+       WHERE entity_type = 'clinic' AND entity_id = $1
+         AND role = 'before_after' AND scrape_status = 'ok'`,
+      [c.id]
+    ),
+    pool.query(
+      // Only treatments mapped to a canonical service — unmatched scraped rows
+      // (nav junk like "Press Release", "View More Testimonials") are excluded.
+      `SELECT DISTINCT s.name AS name, s.slug AS slug
        FROM clinic_services cls
-       LEFT JOIN services s ON s.id = cls.service_id
+       JOIN services s ON s.id = cls.service_id AND s.is_active = true
        WHERE cls.clinic_id = $1 AND cls.is_active = true
        ORDER BY name`,
       [c.id]
@@ -110,6 +139,7 @@ export async function getClinicData(slug: string): Promise<ClinicPageData | null
       phone: c.phone,
       website: c.website,
       booking_url: c.booking_url,
+      google_maps_url: c.google_maps_url,
       hours: c.hours,
       instagram_url: c.instagram_url,
       facebook_url: c.facebook_url,
@@ -126,6 +156,8 @@ export async function getClinicData(slug: string): Promise<ClinicPageData | null
     treatments: treatments.rows,
     gallery: gallery.rows,
     gallery_total: galleryCount.rows[0]?.total ?? 0,
+    before_after: beforeAfter.rows,
+    before_after_total: beforeAfterCount.rows[0]?.total ?? 0,
     reviews: reviews.rows,
     stats: {
       treatments_count,

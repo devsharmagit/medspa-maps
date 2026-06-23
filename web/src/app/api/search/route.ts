@@ -165,20 +165,20 @@ export async function GET(request: NextRequest) {
           ORDER BY sort_order LIMIT 1
         ) AS logo_url,
         (
-          SELECT COALESCE(json_agg(json_build_object(
-            'name', COALESCE(sv.name, cs2.raw_name),
-            'slug', COALESCE(sv.slug, slugify(cs2.raw_name))
-          )), '[]'::json)
-          FROM clinic_services cs2
-          LEFT JOIN services sv ON sv.id = cs2.service_id
-          WHERE cs2.clinic_id = c.id AND cs2.is_active = TRUE
-          LIMIT 8
+          -- Only canonical-mapped services (skip unmatched scraped nav junk).
+          SELECT COALESCE(json_agg(t), '[]'::json) FROM (
+            SELECT DISTINCT sv.name AS name, sv.slug AS slug
+            FROM clinic_services cs2
+            JOIN services sv ON sv.id = cs2.service_id AND sv.is_active = TRUE
+            WHERE cs2.clinic_id = c.id AND cs2.is_active = TRUE
+            LIMIT 8
+          ) t
         ) AS services,
         (
           SELECT source_url FROM images
           WHERE entity_type = 'clinic' AND entity_id = c.id
-          AND role = 'cover' AND scrape_status = 'ok'
-          ORDER BY sort_order LIMIT 1
+          AND role IN ('cover', 'gallery') AND scrape_status = 'ok'
+          ORDER BY (role = 'cover') DESC, sort_order LIMIT 1
         ) AS cover_image_url,
         '[]'::json AS providers
       FROM clinics c

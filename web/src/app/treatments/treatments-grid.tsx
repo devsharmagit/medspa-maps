@@ -25,14 +25,6 @@ function TreatmentCard({ t }: { t: TreatmentListItem }) {
       )}
 
       <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-        {t.price_from != null && (
-          <span className="font-semibold text-zinc-900">
-            From ${Number(t.price_from)}
-            {t.price_unit ? (
-              <span className="font-normal text-zinc-400">/{t.price_unit}</span>
-            ) : null}
-          </span>
-        )}
         {t.hero_rating != null && (
           <span className="flex items-center gap-1 text-zinc-600">
             <Star className="size-3.5 fill-amber-400 text-amber-400" />

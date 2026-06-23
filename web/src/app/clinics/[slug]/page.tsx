@@ -8,10 +8,12 @@ import {
   MapPin,
   Clock,
   Star,
+  Sparkles,
 } from "lucide-react";
 import { HeroHeader } from "@/components/hero/hero-header";
 import { Footer } from "@/components/footer";
 import { getClinicData } from "@/lib/clinics/queries";
+import { ClinicGallery, BeforeAfterGallery } from "./gallery";
 
 export const dynamic = "force-dynamic";
 
@@ -82,23 +84,19 @@ export default async function ClinicPage({
   const data = await getClinicData(slug);
   if (!data) notFound();
 
-  const { clinic, treatments, gallery, gallery_total, reviews, stats } = data;
+  const { clinic, treatments, gallery, gallery_total, before_after, before_after_total, reviews, stats } =
+    data;
 
   const loc = [clinic.city, clinic.state].filter(Boolean).join(", ");
   const isPremium = clinic.featured || clinic.verified;
   const todayHours = getTodayHours(clinic.hours);
-  const mapsUrl = buildMapsUrl([
-    clinic.address,
-    clinic.city,
-    clinic.state,
-    clinic.zip,
-  ]);
+  // Prefer the real maps link captured at ingestion (resolves to the actual
+  // pin); fall back to a textual address search only when it's missing.
+  const mapsUrl =
+    clinic.google_maps_url ||
+    buildMapsUrl([clinic.address, clinic.city, clinic.state, clinic.zip]);
   const bookUrl = clinic.booking_url || clinic.website;
   const excerpt = clinic.tagline ?? clinic.about?.slice(0, 240) ?? null;
-
-  const primaryImage = gallery[0] ?? null;
-  const thumbs = gallery.slice(1, 5);
-  const remaining = gallery_total - 5;
 
   return (
     <main className="flex min-h-screen flex-col bg-[#faf7fb] text-zinc-950">
@@ -131,14 +129,18 @@ export default async function ClinicPage({
             <div className="flex flex-col gap-5 p-7 sm:p-10">
               <div className="flex items-center gap-4">
                 {clinic.logo_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={clinic.logo_url}
-                    alt={`${clinic.name} logo`}
-                    className="size-16 shrink-0 rounded-2xl border border-zinc-100 bg-white object-contain p-1.5 shadow-sm"
-                  />
+                  // Branded dark chip so logos with white lettering (common for
+                  // medspas) stay visible — a white logo vanishes on white.
+                  <div className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-[#7b2d6b] to-[#b6663f] p-2.5 shadow-sm ring-1 ring-black/5">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={clinic.logo_url}
+                      alt={`${clinic.name} logo`}
+                      className="size-full object-contain"
+                    />
+                  </div>
                 ) : (
-                  <div className="flex size-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#d96f8e]/15 to-[#9b3a9b]/15 text-lg font-semibold text-[#9b3a9b]">
+                  <div className="flex size-20 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#d96f8e]/15 to-[#9b3a9b]/15 text-xl font-semibold text-[#9b3a9b]">
                     {initials(clinic.name)}
                   </div>
                 )}
@@ -223,51 +225,11 @@ export default async function ClinicPage({
 
             {/* RIGHT — gallery */}
             <div className="bg-zinc-50 p-7 sm:p-10">
-              {primaryImage ? (
-                <div className="flex h-full flex-col gap-3">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={primaryImage.source_url}
-                    alt={primaryImage.alt_text || clinic.name}
-                    className="aspect-[4/3] w-full rounded-2xl object-cover shadow-sm"
-                    loading="lazy"
-                  />
-                  {thumbs.length > 0 && (
-                    <div className="grid grid-cols-4 gap-3">
-                      {thumbs.map((img, i) => {
-                        const isLast = i === thumbs.length - 1;
-                        const showOverlay = isLast && remaining > 0;
-                        return (
-                          <div
-                            key={i}
-                            className="relative overflow-hidden rounded-xl"
-                          >
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={img.source_url}
-                              alt={img.alt_text || clinic.name}
-                              className="aspect-square w-full object-cover"
-                              loading="lazy"
-                            />
-                            {showOverlay && (
-                              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/55 text-center text-xs font-semibold text-white">
-                                <span className="text-base">+{remaining}</span>
-                                View All
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="flex aspect-[4/3] w-full items-center justify-center rounded-2xl bg-gradient-to-br from-[#d96f8e]/20 to-[#9b3a9b]/20">
-                  <span className="text-5xl font-semibold text-white/60">
-                    {initials(clinic.name)}
-                  </span>
-                </div>
-              )}
+              <ClinicGallery
+                images={gallery}
+                total={gallery_total}
+                name={clinic.name}
+              />
             </div>
           </div>
         </section>
@@ -280,28 +242,45 @@ export default async function ClinicPage({
               <span className="font-fraunces italic font-normal">Offered</span>{" "}
               By {clinic.name}
             </h2>
-            <div className="mt-6 flex gap-4 overflow-x-auto pb-2">
+            <div className="mt-6 flex flex-wrap gap-3">
               {treatments.map((t, i) => {
-                const card = (
-                  <div className="flex min-w-[180px] items-center rounded-2xl border border-zinc-200 bg-white px-5 py-4 text-sm font-semibold text-zinc-800 shadow-sm transition hover:border-[#d96f8e] hover:text-[#9b3a9b]">
+                const inner = (
+                  <span className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-4 py-2.5 text-sm font-medium text-zinc-700 shadow-sm transition hover:-translate-y-0.5 hover:border-[#d96f8e] hover:bg-[#fdf4f9] hover:text-[#9b3a9b] hover:shadow">
+                    <Sparkles className="size-3.5 text-[#d96f8e]" />
                     {t.name}
-                  </div>
+                    {t.slug && (
+                      <ChevronRight className="size-3.5 text-zinc-300 transition group-hover:text-[#9b3a9b]" />
+                    )}
+                  </span>
                 );
                 return t.slug ? (
-                  <Link
-                    key={i}
-                    href={`/treatments/${t.slug}`}
-                    className="shrink-0"
-                  >
-                    {card}
+                  <Link key={i} href={`/treatments/${t.slug}`} className="group">
+                    {inner}
                   </Link>
                 ) : (
-                  <div key={i} className="shrink-0">
-                    {card}
-                  </div>
+                  <span key={i}>{inner}</span>
                 );
               })}
             </div>
+          </section>
+        )}
+
+        {/* Before & After */}
+        {before_after.length > 0 && (
+          <section className="mt-12">
+            <h2 className="text-2xl font-semibold tracking-tight text-zinc-900 sm:text-3xl">
+              Before{" "}
+              <span className="font-fraunces italic font-normal">&amp; After</span>
+            </h2>
+            <p className="mt-2 text-sm text-zinc-500">
+              Real results from {clinic.name}
+              {before_after_total > 0 ? ` · ${before_after_total} photos` : ""}
+            </p>
+            <BeforeAfterGallery
+              images={before_after}
+              total={before_after_total}
+              name={clinic.name}
+            />
           </section>
         )}
 

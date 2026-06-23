@@ -339,7 +339,6 @@ function ClinicCard({ clinic }: { clinic: Clinic }) {
             ))}
           </div>
           <span className="font-montserrat tracking-[-0.02em]">({clinic.reviewCount})</span>
-          <span className="font-montserrat tracking-[-0.02em]">Starting at ${clinic.startingPrice}</span>
         </div>
 
 <div className="flex justify-between ">
