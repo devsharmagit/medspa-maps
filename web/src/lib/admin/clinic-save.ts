@@ -9,8 +9,8 @@
  *     match_confidence; unmatched ones kept with service_id NULL)
  *   - images (logo / gallery / before_after — source_url only)
  *   - reviews
- *   - concern_services links (derived from CANONICAL_CONCERNS.serviceKeywords
- *     against the clinic's matched canonical services)
+ *   - concern_services links (derived from the curated CANONICAL_CONCERNS
+ *     serviceSlugs map against the clinic's matched canonical services)
  *
  * Dedup / overwrite is keyed by WEBSITE DOMAIN: existing clinics whose website
  * resolves to the same hostname are reused. Providers and pricing are skipped.
@@ -441,12 +441,15 @@ export async function saveClinicBundle(
 
 /**
  * Link concerns to the canonical services this clinic actually offers (matched
- * service_id), using CANONICAL_CONCERNS.serviceKeywords against the service
- * name. Mirrors ingest-all.ts deriveConcernServices but scoped to one clinic.
+ * service_id), using the curated CANONICAL_CONCERNS.serviceSlugs map (exact
+ * slug membership). Because the map is the same one that seeds the global
+ * concern_services table, this can only ever re-affirm curated links — it can
+ * never introduce a concern↔service pairing outside the Phase-0 mapping.
+ * display_order follows the curated order so it stays stable across clinics.
  */
 async function deriveConcernServicesForClinic(clinicId: string): Promise<number> {
-  const svcRows = await query<{ id: string; name: string }>(
-    `SELECT DISTINCT s.id, s.name
+  const svcRows = await query<{ id: string; slug: string }>(
+    `SELECT DISTINCT s.id, s.slug
        FROM services s
        JOIN clinic_services cs ON cs.service_id = s.id
       WHERE cs.clinic_id = $1 AND s.is_active = true`,
@@ -454,6 +457,7 @@ async function deriveConcernServicesForClinic(clinicId: string): Promise<number>
   );
   if (svcRows.length === 0) return 0;
 
+  const idBySlug = new Map(svcRows.map((s) => [s.slug, s.id]));
   let links = 0;
   for (const def of CANONICAL_CONCERNS) {
     const concern = await queryOne<{ id: string }>(
@@ -461,15 +465,13 @@ async function deriveConcernServicesForClinic(clinicId: string): Promise<number>
       [def.slug]
     );
     if (!concern) continue;
-    let order = 0;
-    for (const svc of svcRows) {
-      const nm = svc.name.toLowerCase();
-      const included = def.serviceKeywords.some((k) => nm.includes(k.toLowerCase()));
-      if (!included) continue;
+    for (let i = 0; i < def.serviceSlugs.length; i++) {
+      const serviceId = idBySlug.get(def.serviceSlugs[i]);
+      if (!serviceId) continue;
       const res = await query<{ id: string }>(
         `INSERT INTO concern_services (concern_id, service_id, display_order)
          VALUES ($1,$2,$3) ON CONFLICT (concern_id, service_id) DO NOTHING RETURNING id`,
-        [concern.id, svc.id, order++]
+        [concern.id, serviceId, i]
       );
       links += res.length;
     }

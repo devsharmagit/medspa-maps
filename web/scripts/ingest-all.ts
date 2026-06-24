@@ -17,7 +17,7 @@
  *   4. Reviews: extractReviews on /reviews/ (+ aggregate → ext_rating/
  *      ext_review_count). before/after: extractBeforeAfter on gallery pages →
  *      images role='before_after'. Clinic gallery images too.
- *   5. Derives concern_services from CANONICAL_CONCERNS.serviceKeywords against
+ *   5. Derives concern_services from the curated CANONICAL_CONCERNS.serviceSlugs map against
  *      the clinic's matched canonical services.
  *
  * Providers and pricing are skipped entirely.
@@ -401,19 +401,22 @@ async function ingestSite(siteUrl: string): Promise<SiteReport | null> {
 }
 
 /**
- * Derive concern_services from CANONICAL_CONCERNS.serviceKeywords against the
- * canonical services actually matched by the ingested clinics (mirrors the
- * existing approach in ingest-sites.ts — keyword include on the service name).
+ * Derive concern_services from the curated CANONICAL_CONCERNS.serviceSlugs map
+ * against the canonical services actually matched by the ingested clinics
+ * (exact slug membership — no keyword guessing).
  */
 async function deriveConcernServices(): Promise<number> {
   await q(`DELETE FROM concern_services`);
 
   // canonical services in use (linked from any clinic via a matched service_id)
   const { rows: svcRows } = await q(
-    `SELECT DISTINCT s.id, s.name
+    `SELECT DISTINCT s.id, s.slug
        FROM services s
        JOIN clinic_services cs ON cs.service_id = s.id
       WHERE s.is_active = true`
+  );
+  const idBySlug = new Map<string, string>(
+    svcRows.map((s: { id: string; slug: string }) => [String(s.slug), String(s.id)])
   );
 
   let links = 0;
@@ -421,15 +424,13 @@ async function deriveConcernServices(): Promise<number> {
     const { rows: cRows } = await q(`SELECT id FROM concerns WHERE slug=$1 LIMIT 1`, [def.slug]);
     if (cRows.length === 0) continue;
     const concernId = cRows[0].id;
-    let order = 0;
-    for (const svc of svcRows) {
-      const nm = String(svc.name).toLowerCase();
-      const included = def.serviceKeywords.some((k) => nm.includes(k.toLowerCase()));
-      if (!included) continue;
+    for (let i = 0; i < def.serviceSlugs.length; i++) {
+      const serviceId = idBySlug.get(def.serviceSlugs[i]);
+      if (!serviceId) continue;
       const res = await q(
         `INSERT INTO concern_services (concern_id, service_id, display_order)
          VALUES ($1,$2,$3) ON CONFLICT (concern_id, service_id) DO NOTHING RETURNING id`,
-        [concernId, svc.id, order++]
+        [concernId, serviceId, i]
       );
       if (res.rows.length) links++;
     }

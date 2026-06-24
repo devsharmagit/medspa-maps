@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { ChevronRight, CalendarDays, Star } from "lucide-react";
 import { HeroHeader } from "@/components/hero/hero-header";
 import { Footer } from "@/components/footer";
+import { FaqAccordion } from "@/components/faq-accordion";
 import { getConcernData } from "@/lib/concerns/queries";
 import { ConcernTabs } from "./concern-tabs";
 
@@ -135,6 +136,8 @@ export default async function ConditionPage({
             </div>
           </section>
         )}
+        {/* FAQs */}
+        <FaqAccordion faqs={concern.faqs} entityName={concern.name} />
       </div>
 
       <Footer />

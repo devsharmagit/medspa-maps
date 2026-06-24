@@ -17,11 +17,15 @@ const patchSchema = z
     results_timeline: z.string().max(255).nullable(),
     results_duration: z.string().max(255).nullable(),
     recovery_time: z.string().max(255).nullable(),
+    faqs: z.array(z.unknown()).nullable(),
     is_published: z.boolean(),
     review_status: z.string().max(50).nullable(),
     is_active: z.boolean(),
   })
   .partial();
+
+// JSONB columns must be passed as JSON strings to the pg driver.
+const JSON_COLUMNS = new Set(["faqs"]);
 
 interface Service {
   id: string;
@@ -35,6 +39,7 @@ interface Service {
   results_timeline: string | null;
   results_duration: string | null;
   recovery_time: string | null;
+  faqs: unknown[] | null;
   is_published: boolean;
   review_status: string | null;
   is_active: boolean;
@@ -44,7 +49,7 @@ interface Service {
 
 const SERVICE_COLUMNS = `id, name, slug, category, aliases, summary, description,
   treatment_time, results_timeline, results_duration, recovery_time,
-  is_published, review_status, is_active, created_at, updated_at`;
+  faqs, is_published, review_status, is_active, created_at, updated_at`;
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -85,7 +90,8 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
     const setClauses: string[] = [];
     const values: unknown[] = [];
     keys.forEach((key) => {
-      values.push(updates[key]);
+      const raw = updates[key];
+      values.push(JSON_COLUMNS.has(key) && raw !== null ? JSON.stringify(raw) : raw);
       setClauses.push(`${key} = $${values.length}`);
     });
     setClauses.push("updated_at = now()");

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import {
   Globe,
@@ -36,6 +36,7 @@ import {
   type DropdownOption,
 } from "@/components/ui/searchable-dropdown";
 import { adminGet, adminPost } from "@/lib/admin/client";
+import { computePriorityCoverage } from "@/lib/treatments/coverage";
 
 // ── Types (mirror scrape-preview / clinic-save payload) ──────────────────────
 
@@ -221,8 +222,6 @@ export default function NewClinicPage() {
   const [businessName, setBusinessName] = useState("");
   const [locations, setLocations] = useState<SaveLocation[]>([]);
   const [services, setServices] = useState<ServiceRow[]>([]);
-  const [concerns, setConcerns] = useState<string[]>([]);
-  const [activeConcerns, setActiveConcerns] = useState<Set<string>>(new Set());
   const [logo, setLogo] = useState<SaveImageRef | null>(null);
   const [gallery, setGallery] = useState<SaveImageRef[]>([]);
   const [beforeAfter, setBeforeAfter] = useState<SaveImageRef[]>([]);
@@ -232,6 +231,17 @@ export default function NewClinicPage() {
   // canonical services for the mapping dropdowns
   const [canonicalServices, setCanonicalServices] = useState<AdminService[]>([]);
   const [creatingIdx, setCreatingIdx] = useState<number | null>(null);
+
+  // Live Phase-0 priority-treatment coverage, recomputed as services are
+  // mapped/ignored: how many of the 15 priority treatments this clinic offers,
+  // and which priority concerns those treatments can treat.
+  const coverage = useMemo(
+    () =>
+      computePriorityCoverage(
+        services.filter((s) => !s.ignored && s.mappedSlug).map((s) => s.mappedSlug)
+      ),
+    [services]
+  );
 
   // duplicate / overwrite
   const [overwrite, setOverwrite] = useState(false);
@@ -275,8 +285,6 @@ export default function NewClinicPage() {
           ignored: Boolean(s.is_noise),
         }))
       );
-      setConcerns(data.concerns ?? []);
-      setActiveConcerns(new Set(data.concerns ?? []));
       setLogo(data.images?.logo ?? null);
       setGallery(data.images?.gallery ?? []);
       setBeforeAfter(data.images?.before_after ?? []);
@@ -372,16 +380,6 @@ export default function NewClinicPage() {
     }
   };
 
-  // ── concern toggling ─────────────────────────────────────────────────────────
-  const toggleConcern = (slug: string) => {
-    setActiveConcerns((prev) => {
-      const next = new Set(prev);
-      if (next.has(slug)) next.delete(slug);
-      else next.add(slug);
-      return next;
-    });
-  };
-
   // ── image editing ─────────────────────────────────────────────────────────────
   const removeGallery = (idx: number) =>
     setGallery((prev) => prev.filter((_, i) => i !== idx));
@@ -448,7 +446,6 @@ export default function NewClinicPage() {
       business: { name: businessName.trim() || preview.business.name },
       locations: outLocations,
       services: outServices,
-      concerns: [...activeConcerns],
       images: {
         logo: logo ?? null,
         gallery,
@@ -465,7 +462,6 @@ export default function NewClinicPage() {
     services,
     reviews,
     businessName,
-    activeConcerns,
     logo,
     gallery,
     beforeAfter,
@@ -968,6 +964,98 @@ export default function NewClinicPage() {
             </CardContent>
           </Card>
 
+          {/* Priority treatment coverage */}
+          <Card className="border-slate-200 shadow-sm">
+            <CardHeader className="border-b border-slate-100 bg-slate-50/50 pb-4">
+              <CardTitle className="flex items-center gap-2 text-base font-semibold text-slate-800">
+                <Sparkles size={16} style={{ color: BRAND }} />
+                Priority treatment coverage
+                <Badge
+                  variant="secondary"
+                  className="font-normal"
+                  style={{ backgroundColor: `${BRAND}1a`, color: BRAND }}
+                >
+                  {coverage.count} / {coverage.total}
+                </Badge>
+              </CardTitle>
+              <CardDescription className="text-xs text-slate-500">
+                How many of the {coverage.total} priority treatments this clinic
+                offers, and the concerns those treatments can treat. Updates as
+                you map services below.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-5 p-6">
+              <div>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Offered ({coverage.present.length})
+                </p>
+                {coverage.present.length === 0 ? (
+                  <p className="text-sm text-slate-500">
+                    No priority treatments matched yet.
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {coverage.present.map((t) => (
+                      <span
+                        key={t.slug}
+                        className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700"
+                      >
+                        <CheckCircle2 size={12} />
+                        {t.name}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {coverage.missing.length > 0 && (
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    Not offered ({coverage.missing.length})
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {coverage.missing.map((t) => (
+                      <span
+                        key={t.slug}
+                        className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-400"
+                      >
+                        {t.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  Treats these concerns ({coverage.concerns.length})
+                </p>
+                {coverage.concerns.length === 0 ? (
+                  <p className="text-sm text-slate-500">
+                    No priority concerns covered yet.
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {coverage.concerns.map((c) => (
+                      <span
+                        key={c.slug}
+                        className="flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium"
+                        style={{
+                          borderColor: `${BRAND}4d`,
+                          backgroundColor: `${BRAND}1a`,
+                          color: BRAND,
+                        }}
+                      >
+                        <HeartPulse size={12} />
+                        {c.name}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Services */}
           <Card className="border-slate-200 shadow-sm">
             <CardHeader className="border-b border-slate-100 bg-slate-50/50 pb-4">
@@ -1085,51 +1173,6 @@ export default function NewClinicPage() {
                           </label>
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Concerns */}
-          <Card className="border-slate-200 shadow-sm">
-            <CardHeader className="border-b border-slate-100 bg-slate-50/50 pb-4">
-              <CardTitle className="flex items-center gap-2 text-base font-semibold text-slate-800">
-                <HeartPulse size={16} style={{ color: BRAND }} />
-                Concerns
-                <Badge variant="secondary" className="font-normal">
-                  {activeConcerns.size}
-                </Badge>
-              </CardTitle>
-              <CardDescription className="text-xs text-slate-500">
-                Derived from matched services. The final concern links are
-                computed on save.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-6">
-              {concerns.length === 0 ? (
-                <p className="text-sm text-slate-500">
-                  No concerns derived from the scraped services.
-                </p>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {concerns.map((slug) => {
-                    const on = activeConcerns.has(slug);
-                    return (
-                      <button
-                        key={slug}
-                        type="button"
-                        onClick={() => toggleConcern(slug)}
-                        className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
-                          on
-                            ? "border-[#9b3a9b]/30 bg-[#9b3a9b]/10 text-[#9b3a9b]"
-                            : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
-                        }`}
-                      >
-                        {on && <CheckCircle2 size={12} />}
-                        {canonicalLabel(slug)}
-                      </button>
                     );
                   })}
                 </div>
