@@ -1,7 +1,7 @@
 "use client";
 
 import { signOut } from "next-auth/react";
-import { LogOut, User } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 
@@ -10,16 +10,18 @@ interface AdminTopbarProps {
 }
 
 export default function AdminTopbar({ email }: AdminTopbarProps) {
+  const initial = (email || "?").charAt(0).toUpperCase();
+
   return (
-    <header className="flex items-center justify-between px-7 h-14 bg-white border-b border-slate-200 sticky top-0 z-10">
+    <header className="flex items-center justify-between px-7 h-16 bg-white/80 backdrop-blur border-b border-pink-100/80 sticky top-0 z-10">
       <h1 className="text-sm font-semibold text-slate-800">Admin Panel</h1>
 
       <div className="flex items-center gap-3">
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-900 shrink-0">
-            <User size={13} />
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-full bg-[linear-gradient(135deg,#DE7F4C_0%,#C341D7_100%)] flex items-center justify-center text-white text-xs font-semibold shrink-0">
+            {initial}
           </div>
-          <span className="text-sm text-slate-600">{email}</span>
+          <span className="text-sm text-slate-600 hidden sm:inline">{email}</span>
         </div>
 
         <Separator orientation="vertical" className="h-5" />

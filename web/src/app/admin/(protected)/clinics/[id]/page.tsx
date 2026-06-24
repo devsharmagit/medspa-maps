@@ -24,6 +24,7 @@ interface ClinicDetailed {
   phone: string | null;
   email: string | null;
   booking_url: string | null;
+  google_maps_url: string | null;
   about: string | null;
   is_active: boolean;
   verified: boolean;
@@ -103,9 +104,11 @@ export default async function ClinicDetailPage(props: { params: Promise<{ id: st
           </div>
         </div>
         
-        <Button className="bg-brand-purple hover:bg-brand-magenta text-white gap-2">
-          <Pencil size={14} />
-          Edit Clinic
+        <Button asChild className="bg-brand-purple hover:bg-brand-magenta text-white gap-2">
+          <Link href={`/admin/clinics/${clinic.id}/edit`}>
+            <Pencil size={14} />
+            Edit Clinic
+          </Link>
         </Button>
       </div>
 
@@ -243,7 +246,15 @@ export default async function ClinicDetailPage(props: { params: Promise<{ id: st
                   </a>
                 ) : <p className="text-sm text-slate-400">N/A</p>}
               </div>
-              
+              <div>
+                <p className="text-slate-500 text-xs mb-1 font-semibold uppercase tracking-wider">Google Maps URL</p>
+                {clinic.google_maps_url ? (
+                  <a href={clinic.google_maps_url} target="_blank" rel="noreferrer" className="text-sm text-brand-purple hover:underline break-all">
+                    {clinic.google_maps_url}
+                  </a>
+                ) : <p className="text-sm text-slate-400">N/A</p>}
+              </div>
+
               <div className="pt-2 mt-2 border-t border-slate-100 grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-slate-500 text-xs mb-1 font-semibold uppercase tracking-wider">Instagram</p>

@@ -20,13 +20,54 @@ export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const q = searchParams.get("q") || "";
   const location = searchParams.get("location") || "";
-  const sort = searchParams.get("sort") || "rating"; // rating | name | reviews
   const tier = searchParams.get("tier") || "";
+
+  // Geo / rating params
+  const latRaw = searchParams.get("lat");
+  const lngRaw = searchParams.get("lng");
+  const radiusRaw = searchParams.get("radius");
+  const ratingRaw = searchParams.get("rating");
+
+  const latNum = latRaw !== null ? Number(latRaw) : NaN;
+  const lngNum = lngRaw !== null ? Number(lngRaw) : NaN;
+  const hasOrigin = Number.isFinite(latNum) && Number.isFinite(lngNum);
+
+  const radiusNum = radiusRaw !== null && Number.isFinite(Number(radiusRaw))
+    ? Number(radiusRaw)
+    : 25; // miles, default 25
+
+  const ratingNum = ratingRaw !== null && Number.isFinite(Number(ratingRaw))
+    ? Number(ratingRaw)
+    : null;
+
+  // Default sort is 'distance' when an origin is present, else 'rating'
+  const sort = searchParams.get("sort") || (hasOrigin ? "distance" : "rating"); // distance | rating | name | reviews
 
   try {
     const conditions: string[] = ["c.is_active = TRUE", "b.is_active = TRUE"];
     const params: (string | number)[] = [];
     let paramIdx = 1;
+
+    // Haversine distance in MILES from (lat,lng) origin, computed in SQL.
+    // Only clinics with non-null lat/lng can match when an origin is given.
+    let distanceExpr = "NULL::float";
+    if (hasOrigin) {
+      const latParam = paramIdx;
+      const lngParam = paramIdx + 1;
+      // 3959 = Earth radius in miles
+      distanceExpr = `(
+        3959 * acos(
+          GREATEST(-1, LEAST(1,
+            cos(radians($${latParam})) * cos(radians(c.lat))
+            * cos(radians(c.lng) - radians($${lngParam}))
+            + sin(radians($${latParam})) * sin(radians(c.lat))
+          ))
+        )
+      )`;
+      params.push(latNum, lngNum);
+      paramIdx += 2;
+      conditions.push("c.lat IS NOT NULL AND c.lng IS NOT NULL");
+    }
 
     // Service / treatment search — checks canonical services AND raw scraped names
     if (q) {
@@ -70,14 +111,31 @@ export async function GET(request: NextRequest) {
       paramIdx++;
     }
 
-    // Sort order
+    // Rating filter — minimum avg_rating (NULLS excluded)
+    if (ratingNum !== null) {
+      conditions.push(`c.avg_rating >= $${paramIdx}`);
+      params.push(ratingNum);
+      paramIdx++;
+    }
+
+    // Radius hard-filter — only when an origin is given
+    if (hasOrigin) {
+      conditions.push(`${distanceExpr} <= $${paramIdx}`);
+      params.push(radiusNum);
+      paramIdx++;
+    }
+
+    // Sort order. DISTINCT ON (c.id) requires c.id to lead the ORDER BY, so the
+    // per-clinic tie-break ordering follows it here and JS re-sorts afterwards.
     let orderBy = "c.featured DESC, c.avg_rating DESC NULLS LAST, c.review_count DESC";
     if (sort === "name") orderBy = "c.name ASC";
     else if (sort === "reviews") orderBy = "c.review_count DESC, c.avg_rating DESC NULLS LAST";
+    else if (sort === "distance" && hasOrigin) orderBy = "distance_miles ASC, c.featured DESC, c.avg_rating DESC NULLS LAST";
 
     const query = `
       SELECT DISTINCT ON (c.id)
         c.id AS clinic_id,
+        ${distanceExpr} AS distance_miles,
         c.name AS clinic_name,
         c.slug AS clinic_slug,
         c.address,
@@ -107,20 +165,20 @@ export async function GET(request: NextRequest) {
           ORDER BY sort_order LIMIT 1
         ) AS logo_url,
         (
-          SELECT COALESCE(json_agg(json_build_object(
-            'name', COALESCE(sv.name, cs2.raw_name),
-            'slug', COALESCE(sv.slug, slugify(cs2.raw_name))
-          )), '[]'::json)
-          FROM clinic_services cs2
-          LEFT JOIN services sv ON sv.id = cs2.service_id
-          WHERE cs2.clinic_id = c.id AND cs2.is_active = TRUE
-          LIMIT 8
+          -- Only canonical-mapped services (skip unmatched scraped nav junk).
+          SELECT COALESCE(json_agg(t), '[]'::json) FROM (
+            SELECT DISTINCT sv.name AS name, sv.slug AS slug
+            FROM clinic_services cs2
+            JOIN services sv ON sv.id = cs2.service_id AND sv.is_active = TRUE
+            WHERE cs2.clinic_id = c.id AND cs2.is_active = TRUE
+            LIMIT 8
+          ) t
         ) AS services,
         (
           SELECT source_url FROM images
           WHERE entity_type = 'clinic' AND entity_id = c.id
-          AND role = 'cover' AND scrape_status = 'ok'
-          ORDER BY sort_order LIMIT 1
+          AND role IN ('cover', 'gallery') AND scrape_status = 'ok'
+          ORDER BY (role = 'cover') DESC, sort_order LIMIT 1
         ) AS cover_image_url,
         '[]'::json AS providers
       FROM clinics c
@@ -134,9 +192,26 @@ export async function GET(request: NextRequest) {
 
     const result = await pool.query(query, params);
 
-    // Re-sort since DISTINCT ON forces ordering by c.id first
+    // Re-sort since DISTINCT ON forces ordering by c.id first.
+    // Also round distance_miles to 1 decimal (null when no origin).
     const rows = result.rows;
-    if (sort === "name") {
+    for (const row of rows) {
+      row.distance_miles =
+        row.distance_miles === null || row.distance_miles === undefined
+          ? null
+          : Math.round(Number(row.distance_miles) * 10) / 10;
+    }
+
+    if (sort === "distance" && hasOrigin) {
+      // Nearest first, then featured, then rating
+      rows.sort((a, b) => {
+        const da = a.distance_miles ?? Infinity;
+        const db = b.distance_miles ?? Infinity;
+        if (da !== db) return da - db;
+        if (a.featured !== b.featured) return a.featured ? -1 : 1;
+        return (b.avg_rating || 0) - (a.avg_rating || 0);
+      });
+    } else if (sort === "name") {
       rows.sort((a, b) => a.clinic_name.localeCompare(b.clinic_name));
     } else if (sort === "reviews") {
       rows.sort((a, b) => (b.review_count || 0) - (a.review_count || 0));
@@ -151,7 +226,16 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       results: rows,
       total: rows.length,
-      query: { q, location, sort, tier },
+      query: {
+        q,
+        location,
+        sort,
+        tier,
+        lat: hasOrigin ? latNum : null,
+        lng: hasOrigin ? lngNum : null,
+        radius: hasOrigin ? radiusNum : null,
+        rating: ratingNum,
+      },
     });
   } catch (error) {
     console.error("Search API error:", error);

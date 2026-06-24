@@ -29,7 +29,7 @@ export interface ScrapedProvider {
 
 export interface ScrapedImage {
   source_url: string;
-  role: "cover" | "gallery" | "logo";
+  role: "cover" | "gallery" | "logo" | "before_after";
   alt_text?: string;
   sort_order?: number;
   match_score?: number;      // scoring for cover selection (higher = better match)

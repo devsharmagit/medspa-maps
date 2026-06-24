@@ -66,7 +66,7 @@ interface ClinicServiceRow {
 interface ImageRow {
   entity_type: "clinic" | "business";
   source_url: string;
-  role: "cover" | "gallery" | "logo";
+  role: "cover" | "gallery" | "logo" | "before_after";
   alt_text?: string;
   sort_order: number;
   match_score?: number;

@@ -1,51 +1,100 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { redirect } from "next/navigation";
-import { query } from "@/lib/db";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, Store } from "lucide-react";
+import Link from "next/link";
+import pool from "@/lib/db";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Store,
+  Building2,
+  Sparkles,
+  HeartPulse,
+  Star,
+  Inbox,
+  ArrowUpRight,
+  type LucideIcon,
+} from "lucide-react";
 
 export const dynamic = "force-dynamic";
+
+interface StatCard {
+  label: string;
+  value: string;
+  href: string;
+  icon: LucideIcon;
+  tint: string;
+}
 
 export default async function AdminDashboardPage() {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/admin/login");
 
-  const [businessesCount, clinicsCount] = await Promise.all([
-    query<{ count: string }>("SELECT COUNT(*) FROM businesses"),
-    query<{ count: string }>("SELECT COUNT(*) FROM clinics")
-  ]);
+  const { rows } = await pool.query<{
+    clinics: string;
+    businesses: string;
+    services: string;
+    concerns: string;
+    reviews: string;
+    unmatched: string;
+  }>(`
+    SELECT
+      (SELECT count(*) FROM clinics)    AS clinics,
+      (SELECT count(*) FROM businesses) AS businesses,
+      (SELECT count(*) FROM services)   AS services,
+      (SELECT count(*) FROM concerns)   AS concerns,
+      (SELECT count(*) FROM reviews)    AS reviews,
+      (SELECT count(DISTINCT raw_name) FROM clinic_services
+        WHERE match_status = 'unmatched' OR service_id IS NULL) AS unmatched
+  `);
 
-  const stats = [
-    { label: "Total Businesses", value: businessesCount[0].count, icon: Building2, color: "text-slate-600", bg: "bg-slate-100" },
-    { label: "Total Clinics", value: clinicsCount[0].count, icon: Store, color: "text-emerald-600", bg: "bg-emerald-50" },
+  const c = rows[0];
+
+  const stats: StatCard[] = [
+    { label: "Clinics", value: c.clinics, href: "/admin/clinics", icon: Store, tint: "from-rose-500/15 to-pink-500/15 text-rose-600" },
+    { label: "Businesses", value: c.businesses, href: "/admin/businesses", icon: Building2, tint: "from-orange-500/15 to-amber-500/15 text-orange-600" },
+    { label: "Services", value: c.services, href: "/admin/services", icon: Sparkles, tint: "from-fuchsia-500/15 to-purple-500/15 text-fuchsia-600" },
+    { label: "Concerns", value: c.concerns, href: "/admin/concerns", icon: HeartPulse, tint: "from-violet-500/15 to-purple-500/15 text-violet-600" },
+    { label: "Reviews", value: c.reviews, href: "/admin/reviews", icon: Star, tint: "from-amber-500/15 to-yellow-500/15 text-amber-600" },
+    { label: "Unmatched queue", value: c.unmatched, href: "/admin/unmatched", icon: Inbox, tint: "from-pink-500/15 to-rose-500/15 text-pink-600" },
   ];
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-7 max-w-6xl">
       <div>
-        <h2 className="text-lg font-semibold text-slate-900">Dashboard</h2>
-        <p className="text-sm text-slate-500">Overview of your MedSpa Map entities.</p>
+        <h2 className="text-xl font-semibold text-slate-900 tracking-tight">
+          Dashboard
+        </h2>
+        <p className="text-sm text-slate-500 mt-0.5">
+          Overview of your MedSpa Map catalog.
+        </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        {stats.map(({ label, value, icon: Icon, color, bg }) => (
-          <Card key={label} className="shadow-sm border-slate-200">
-            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-              <CardTitle className="text-sm font-medium text-slate-500">{label}</CardTitle>
-              <div className={`w-8 h-8 rounded-md ${bg} ${color} flex items-center justify-center shrink-0`}>
-                <Icon size={16} />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {stats.map(({ label, value, href, icon: Icon, tint }) => (
+          <Link key={label} href={href} className="group block">
+            <Card className="border-pink-100/80 ring-pink-100/60 transition-all hover:ring-purple-200 hover:shadow-[0_8px_24px_rgba(195,65,215,0.10)]">
+              <CardContent className="flex items-start justify-between gap-4">
+                <div className="flex flex-col gap-1">
+                  <span className="text-sm font-medium text-slate-500">
+                    {label}
+                  </span>
+                  <span className="text-3xl font-bold text-slate-900 tabular-nums">
+                    {value}
+                  </span>
+                </div>
+                <div
+                  className={`w-10 h-10 rounded-xl bg-gradient-to-br ${tint} flex items-center justify-center shrink-0`}
+                >
+                  <Icon size={18} />
+                </div>
+              </CardContent>
+              <div className="px-4 -mt-1 flex items-center gap-1 text-xs font-medium text-slate-400 group-hover:text-purple-600 transition-colors">
+                View
+                <ArrowUpRight size={13} className="transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
               </div>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold text-slate-900">{value}</p>
-            </CardContent>
-          </Card>
+            </Card>
+          </Link>
         ))}
-      </div>
-      
-      <div className="py-12 flex items-center justify-center text-slate-400 border border-dashed border-slate-200 rounded-lg bg-slate-50">
-        <p className="text-sm">Use the left sidebar to navigate to Businesses and Clinics.</p>
       </div>
     </div>
   );

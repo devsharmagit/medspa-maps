@@ -22,6 +22,69 @@ import { cleanText, slugify, parsePrice, parseDuration, dedupeBy } from "./utils
  *  - category = nearest ancestor menu-group label (grandparent <li>'s <a> text)
  *  - is_category = true when the link's own <li> has child sub-menu items
  */
+// Words/phrases that appear as menu links but are NOT services.
+const NON_SERVICE = new Set([
+  "about", "about us", "team", "training", "partners", "careers", "policies",
+  "services", "results", "specials", "gift card", "gift cards", "contact",
+  "contact us", "home", "reviews", "skip to content", "login", "log in",
+  "sign up", "sign in", "book", "book now", "book appointment", "appointment",
+  "blog", "blogs", "shop", "store", "menu", "search", "privacy", "privacy policy",
+  "terms", "terms and conditions", "faq", "faqs", "our story", "our team",
+  "location", "locations", "hours", "pricing", "financing", "membership",
+  "memberships", "gallery", "before & after", "before and after", "before after",
+  "before & after images", "before and after images", "specials & events",
+  "new patients", "patient portal", "portal", "events", "press", "media",
+  "instagram", "facebook", "tiktok", "youtube", "promotions", "rewards",
+  "consultation", "free consultation", "our lehi location", "skin quiz",
+  "book a consultation", "get to know me", "more services", "view all services",
+  "all services", "meet the team", "meet our team",
+  // structural / non-service page links
+  "accessibility statement", "book a visit", "model inquiry", "monthly specials",
+  "opt out of targeted ads", "our medical practice", "payment plans",
+  "vip programs", "vip program", "accessibility", "all services", "view services",
+  // RUMA section headers (categories, not services)
+  "functional wellness", "medical aesthetics", "skin health", "sexual wellness",
+  "wellness", "aesthetics", "injectables", "infusions", "injections",
+]);
+
+// street-address suffixes — anchors containing these + a number aren't services
+const ADDRESS_RE = /\b(ste|suite|blvd|ave|avenue|rd|road|dr|drive|ln|lane|hwy|pkwy)\b/i;
+
+/**
+ * Harvest service names from menu/nav anchor *text* (not just URL patterns).
+ * Many sites (e.g. WordPress mega-menus) list their full catalogue as anchor
+ * text without a /services/ URL pattern, so extractServicesFromNav misses them.
+ * Filtered against a non-service stoplist.
+ */
+export function extractServiceAnchors($: CheerioAPI, _baseUrl: string): ScrapedService[] {
+  const out: ScrapedService[] = [];
+  const seen = new Set<string>();
+  $("a").each((_, el) => {
+    const text = cleanText($(el).text());
+    if (!text) return;
+    const lower = text.toLowerCase();
+    if (text.length < 3 || text.length > 60) return;
+    if (!/[a-zA-Z]/.test(text)) return;
+    if (NON_SERVICE.has(lower)) return;
+    // skip nav toggles like "Open Services" / "Close Results"
+    if (/^(open|close)\s/i.test(text)) return;
+    // skip obvious sentences / CTAs
+    if (/[.!?]$/.test(text) || /\b(learn more|read more|view all|see all|get started|click here)\b/i.test(lower)) return;
+    if (lower.includes("schedule") || lower.includes("call ")) return;
+    // skip emails, phone numbers, and street addresses
+    if (lower.includes("@")) return;
+    if (/\d{4,}/.test(text)) return; // zip / street number / phone
+    if (ADDRESS_RE.test(text) && /\d/.test(text)) return;
+    // skip "Our X" / "The X" structural labels
+    if (/^(our|the)\s/i.test(text) && !/therapy|treatment|facial|peel|laser/i.test(lower)) return;
+    const slug = slugify(text);
+    if (!slug || seen.has(slug)) return;
+    seen.add(slug);
+    out.push({ name: text, slug });
+  });
+  return out;
+}
+
 export function extractServicesFromNav($: CheerioAPI, baseUrl: string): ScrapedService[] {
   let baseDomain: string;
   try {

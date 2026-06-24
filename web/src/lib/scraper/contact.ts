@@ -19,7 +19,20 @@ const BOOKING_PLATFORMS = [
   "patientpop.com",
   "healthgrades.com",
   "zocdoc.com",
+  "bizzflo.com",
+  "setmore.com",
+  "calendly.com",
+  "appointlet.com",
+  "simplybook.me",
 ];
+
+// Text that signals a "Book / Schedule / Appointment" CTA.
+const BOOKING_TEXT_RE =
+  /\b(book\s*(?:now|online|appointment|a\s+free\s+consult\w*|consultation|today)?|schedule\s*(?:online|now|an?\s+appointment|a\s+consult\w*)?|request\s+(?:an?\s+)?appointment|make\s+an?\s+appointment|reserve)\b/i;
+// Commerce / account links that frequently sit next to a booking button and
+// must never be mistaken for it (gift cards, payment plans, portals, shops).
+const BOOKING_NEGATIVE_RE =
+  /(gift\s*-?\s*cards?|giftcard|payment|financing|finance|pay\s+(?:my\s+)?bill|sign[\s-]?in|log[\s-]?in|account|shop|store|membership|patient[\s-]?portal)/i;
 
 const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
 const DAY_ABBR: Record<string, string> = {
@@ -204,6 +217,44 @@ export function collectMapsLinks($: CheerioAPI): MapsLink[] {
   return links;
 }
 
+/**
+ * Reject "broken" Google Maps URLs whose query is bare coordinates (optionally a
+ * zoom level), e.g. `/maps/search/?api=1&query=39.75,-105.0,15.7`. Sites emit
+ * these in JSON-LD `hasMap`, and they open a blank map with no pin. Returns the
+ * URL unchanged when it's usable, else null.
+ */
+export function sanitizeMapsUrl(href?: string | null): string | null {
+  if (!href) return null;
+  // Decode HTML entities first — sites emit `&amp;` inside JSON-LD `hasMap` and
+  // href values; without decoding, `?api=1&amp;query=…` parses the param as
+  // `amp;query` and the coordinate check below silently misses it.
+  const h = href.trim().replace(/&amp;/gi, "&");
+  if (!/^https?:\/\//i.test(h)) return null;
+  try {
+    const u = new URL(h);
+    const q = (u.searchParams.get("query") ?? u.searchParams.get("q") ?? "").trim();
+    // A query that is only numbers/commas/dots/spaces is lat,lng[,zoom] — no place.
+    if (q && /,/.test(q) && /^[\d.,\s+-]+$/.test(q)) return null;
+  } catch {
+    return null;
+  }
+  return h;
+}
+
+/**
+ * Rank a Maps URL by how reliably it resolves to a real place pin:
+ *   4 = short link (maps.app.goo.gl / goo.gl/maps) — preferred, kept verbatim
+ *   3 = a /maps/place/… URL
+ *   1 = textual address search (?query= / ?q=)
+ *   0 = anything else
+ */
+export function mapsUrlQuality(href: string): number {
+  if (/maps\.app\.goo\.gl|goo\.gl\/maps/i.test(href)) return 4;
+  if (/\/maps\/place\//i.test(href)) return 3;
+  if (/[?&](?:query|q)=/i.test(href)) return 1;
+  return 0;
+}
+
 /** Extract address from footer, schema.org, or address tags */
 export function extractAddress(
   $: CheerioAPI
@@ -362,37 +413,42 @@ export function extractAbout($: CheerioAPI): string | null {
   return null;
 }
 
-/** Extract booking URL */
+/**
+ * Extract the booking URL — the "Book Now / Schedule / Request Appointment" CTA.
+ *
+ * Scores every anchor and returns the strongest candidate:
+ *   +10  href points at a known scheduling platform (Vagaro, Bizzflo, …)
+ *    +6  visible text / aria-label reads like a booking CTA
+ *    +3  it's explicitly "Book Now / Book Online / Book a Free Consult"
+ *   −20  it's actually a gift-card / payment / portal / shop link
+ *
+ * This catches Elementor "Book Now" buttons that link to an unlisted platform
+ * (e.g. bizzflo.com) — the previous text branch was dead code (`!href.includes("")`
+ * is always false) so only the hardcoded platform list ever matched.
+ */
 export function extractBookingUrl($: CheerioAPI): string | null {
-  let bookingUrl: string | null = null;
+  const candidates: { href: string; score: number }[] = [];
 
   $("a[href]").each((_, el) => {
-    if (bookingUrl) return;
-    const href = $(el).attr("href") ?? "";
-    for (const platform of BOOKING_PLATFORMS) {
-      if (href.includes(platform)) {
-        bookingUrl = href;
-        return;
-      }
-    }
-    // Button text patterns
-    const text = $(el).text().toLowerCase().trim();
-    if (
-      (text.includes("book") || text.includes("schedule") || text.includes("appointment")) &&
-      href.startsWith("http") &&
-      !href.includes(new URL(href).hostname === "" ? "" : "")
-    ) {
-      // Only use external booking links (not internal /book pages)
-      try {
-        // We'll catch the booking URL from link text that points externally
-        bookingUrl = href;
-      } catch {
-        // ignore
-      }
-    }
+    const href = ($(el).attr("href") ?? "").trim();
+    if (!href || href.startsWith("#") || /^(tel:|mailto:|javascript:)/i.test(href)) return;
+
+    const label = `${cleanText($(el).text())} ${$(el).attr("aria-label") ?? ""}`
+      .toLowerCase()
+      .trim();
+
+    let score = 0;
+    if (BOOKING_PLATFORMS.some((p) => href.includes(p))) score += 10;
+    if (BOOKING_TEXT_RE.test(label)) score += 6;
+    if (/\bbook\s*(?:now|online)\b|\bbook\s+a\s+free\s+consult/i.test(label)) score += 3;
+    if (BOOKING_NEGATIVE_RE.test(label) || BOOKING_NEGATIVE_RE.test(href)) score -= 20;
+
+    if (score > 0) candidates.push({ href, score });
   });
 
-  return bookingUrl;
+  if (candidates.length === 0) return null;
+  candidates.sort((a, b) => b.score - a.score);
+  return candidates[0].href;
 }
 
 /** Extract social media URLs */

@@ -3,11 +3,13 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import {
-  ArrowUpDown,
   BadgeCheck,
-  Clock,
+  CalendarDays,
+  ChevronDown,
   Crown,
+  LocateFixed,
   MapPin,
+  Phone,
   Search,
   Sparkles,
   Star,
@@ -19,21 +21,89 @@ import {
   SearchableDropdown,
   type DropdownOption,
 } from "@/components/ui/searchable-dropdown";
-import { US_STATES } from "@/lib/constants";
 import { cn } from "@/lib/utils";
+
+// ─── Constants ──────────────────────────────────────────────────────────────
+
+/** All 50 US states. */
+const STATES: { abbr: string; name: string }[] = [
+  { abbr: "AL", name: "Alabama" },
+  { abbr: "AK", name: "Alaska" },
+  { abbr: "AZ", name: "Arizona" },
+  { abbr: "AR", name: "Arkansas" },
+  { abbr: "CA", name: "California" },
+  { abbr: "CO", name: "Colorado" },
+  { abbr: "CT", name: "Connecticut" },
+  { abbr: "DE", name: "Delaware" },
+  { abbr: "FL", name: "Florida" },
+  { abbr: "GA", name: "Georgia" },
+  { abbr: "HI", name: "Hawaii" },
+  { abbr: "ID", name: "Idaho" },
+  { abbr: "IL", name: "Illinois" },
+  { abbr: "IN", name: "Indiana" },
+  { abbr: "IA", name: "Iowa" },
+  { abbr: "KS", name: "Kansas" },
+  { abbr: "KY", name: "Kentucky" },
+  { abbr: "LA", name: "Louisiana" },
+  { abbr: "ME", name: "Maine" },
+  { abbr: "MD", name: "Maryland" },
+  { abbr: "MA", name: "Massachusetts" },
+  { abbr: "MI", name: "Michigan" },
+  { abbr: "MN", name: "Minnesota" },
+  { abbr: "MS", name: "Mississippi" },
+  { abbr: "MO", name: "Missouri" },
+  { abbr: "MT", name: "Montana" },
+  { abbr: "NE", name: "Nebraska" },
+  { abbr: "NV", name: "Nevada" },
+  { abbr: "NH", name: "New Hampshire" },
+  { abbr: "NJ", name: "New Jersey" },
+  { abbr: "NM", name: "New Mexico" },
+  { abbr: "NY", name: "New York" },
+  { abbr: "NC", name: "North Carolina" },
+  { abbr: "ND", name: "North Dakota" },
+  { abbr: "OH", name: "Ohio" },
+  { abbr: "OK", name: "Oklahoma" },
+  { abbr: "OR", name: "Oregon" },
+  { abbr: "PA", name: "Pennsylvania" },
+  { abbr: "RI", name: "Rhode Island" },
+  { abbr: "SC", name: "South Carolina" },
+  { abbr: "SD", name: "South Dakota" },
+  { abbr: "TN", name: "Tennessee" },
+  { abbr: "TX", name: "Texas" },
+  { abbr: "UT", name: "Utah" },
+  { abbr: "VT", name: "Vermont" },
+  { abbr: "VA", name: "Virginia" },
+  { abbr: "WA", name: "Washington" },
+  { abbr: "WV", name: "West Virginia" },
+  { abbr: "WI", name: "Wisconsin" },
+  { abbr: "WY", name: "Wyoming" },
+];
+
+const STATE_OPTIONS: DropdownOption[] = STATES.map((s) => ({
+  label: s.name,
+  value: s.abbr,
+}));
+
+const RADIUS_OPTIONS = [10, 25, 50, 100];
+
+/** Distance-band radio options → upper-bound radius value. */
+const DISTANCE_BANDS: { label: string; radius: number }[] = [
+  { label: "10 - 20 miles", radius: 20 },
+  { label: "20 - 40 miles", radius: 40 },
+  { label: "40 - 80 miles", radius: 80 },
+  { label: "80 - 120 miles", radius: 120 },
+];
+
+const RATING_BANDS: { label: string; value: string }[] = [
+  { label: "4.5 & up", value: "4.5" },
+  { label: "4.0 & up", value: "4.0" },
+  { label: "5.0 only", value: "5.0" },
+];
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface ClinicService {
   name: string;
-  slug: string;
-  price_from: number | null;
-  price_to: number | null;
-}
-
-interface ClinicProvider {
-  name: string;
-  title: string;
   slug: string;
 }
 
@@ -54,18 +124,11 @@ interface ClinicResult {
   featured: boolean;
   tier: string;
   verified: boolean;
-  about: string;
-  hours: Record<string, { open: string; close: string; is_open: boolean }> | null;
   booking_url: string | null;
-  google_place_id: string | null;
-  instagram_url: string | null;
-  business_id: string;
-  business_name: string;
-  business_slug: string;
   logo_url: string | null;
   services: ClinicService[];
   cover_image_url: string | null;
-  providers: ClinicProvider[];
+  distance_miles: number | null;
 }
 
 // ─── Search Results Component ─────────────────────────────────────────────────
@@ -76,17 +139,23 @@ export function SearchResults() {
 
   const q = searchParams.get("q") || "";
   const location = searchParams.get("location") || "";
-  const sort = searchParams.get("sort") || "rating";
-  const tier = searchParams.get("tier") || "";
+  const radius = searchParams.get("radius") || "";
+  const rating = searchParams.get("rating") || "";
+  const lat = searchParams.get("lat") || "";
+  const lng = searchParams.get("lng") || "";
+  const hasOrigin = Boolean(lat && lng);
+  const sort = searchParams.get("sort") || (hasOrigin ? "distance" : "rating");
 
   const [results, setResults] = useState<ClinicResult[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [geoError, setGeoError] = useState("");
 
-  // Search bar state
+  // Search-bar state
   const [searchService, setSearchService] = useState(q);
-  const [searchLocation, setSearchLocation] = useState(location);
+  const [searchState, setSearchState] = useState(location);
+  const [searchRadius, setSearchRadius] = useState(radius || "25");
   const [serviceOptions, setServiceOptions] = useState<DropdownOption[]>([]);
 
   // Fetch service options for the dropdown
@@ -114,7 +183,12 @@ export function SearchResults() {
       if (q) params.set("q", q);
       if (location) params.set("location", location);
       if (sort) params.set("sort", sort);
-      if (tier) params.set("tier", tier);
+      if (radius) params.set("radius", radius);
+      if (rating) params.set("rating", rating);
+      if (lat && lng) {
+        params.set("lat", lat);
+        params.set("lng", lng);
+      }
 
       const res = await fetch(`/api/search?${params.toString()}`);
       if (!res.ok) throw new Error("Search failed");
@@ -126,7 +200,7 @@ export function SearchResults() {
     } finally {
       setLoading(false);
     }
-  }, [q, location, sort, tier]);
+  }, [q, location, sort, radius, rating, lat, lng]);
 
   useEffect(() => {
     fetchResults();
@@ -135,219 +209,337 @@ export function SearchResults() {
   // Sync search fields when URL params change
   useEffect(() => {
     setSearchService(q);
-    setSearchLocation(location);
-  }, [q, location]);
+    setSearchState(location);
+    setSearchRadius(radius || "25");
+  }, [q, location, radius]);
+
+  // Push a new set of params to the URL (which triggers refetch).
+  const pushParams = useCallback(
+    (next: Record<string, string | null>) => {
+      const params = new URLSearchParams(searchParams.toString());
+      for (const [key, value] of Object.entries(next)) {
+        if (value) params.set(key, value);
+        else params.delete(key);
+      }
+      router.push(`/search?${params.toString()}`);
+    },
+    [router, searchParams]
+  );
+
+  const updateParam = (key: string, value: string) => {
+    pushParams({ [key]: value || null });
+  };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    const params = new URLSearchParams();
-    if (searchService.trim()) params.set("q", searchService.trim());
-    if (searchLocation.trim()) params.set("location", searchLocation.trim());
-    if (sort !== "rating") params.set("sort", sort);
-    if (tier) params.set("tier", tier);
-    router.push(`/search?${params.toString()}`);
+    pushParams({
+      q: searchService.trim() || null,
+      location: searchState.trim() || null,
+      radius: searchRadius || null,
+    });
   };
 
-  const updateParam = (key: string, value: string) => {
-    const params = new URLSearchParams(searchParams.toString());
-    if (value) params.set(key, value);
-    else params.delete(key);
-    router.push(`/search?${params.toString()}`);
+  const handleNearMe = () => {
+    setGeoError("");
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setGeoError("Geolocation is not available.");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        pushParams({
+          lat: pos.coords.latitude.toFixed(6),
+          lng: pos.coords.longitude.toFixed(6),
+          radius: searchRadius || "25",
+          sort: "distance",
+        });
+      },
+      () => {
+        // Denied/unavailable — continue without distance.
+        setGeoError("Location unavailable. Showing results without distance.");
+      }
+    );
+  };
+
+  const clearLocation = () => {
+    pushParams({ lat: null, lng: null, sort: null });
   };
 
   const clearFilters = () => {
     setSearchService("");
-    setSearchLocation("");
+    setSearchState("");
+    setSearchRadius("25");
     router.push("/search");
   };
 
-  // Determine if today is open
-  const getOpenStatus = (
-    hours: Record<string, { open: string; close: string; is_open: boolean }> | null
-  ) => {
-    if (!hours) return null;
-    const days = ["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"];
-    const today = days[new Date().getDay()];
-    const todayHours = hours[today];
-    if (!todayHours || !todayHours.is_open) return { isOpen: false, text: "Closed Today" };
-    return { isOpen: true, text: `Open · ${todayHours.open} – ${todayHours.close}` };
-  };
+  const hasActiveFilters = q || location || rating || radius || hasOrigin;
 
-  const hasActiveFilters = q || location || tier;
+  // Resolve display label for the title
+  const stateName =
+    STATES.find((s) => s.abbr.toLowerCase() === location.toLowerCase())?.name ||
+    location;
+  const serviceName =
+    serviceOptions.find((s) => s.value === q)?.label || q || "Treatments";
 
-  // Resolve abbreviation/slug → display name
-  const displayLocation = US_STATES.find((s) => s.value.toLowerCase() === location.toLowerCase())?.label || location;
-  const displayService = serviceOptions.find((s) => s.value === q)?.label || q;
+  // Which distance band (if any) is currently selected
+  const activeBandRadius = radius ? Number(radius) : null;
 
   return (
     <div className="mx-auto flex w-full max-w-[1380px] flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8">
-      {/* ── Search Bar ──────────────────────────────────────────────────── */}
-      <form
-        onSubmit={handleSearch}
-        className="relative flex w-full flex-col rounded-2xl border border-[#e8e0e8] bg-white shadow-[0_4px_24px_rgba(170,78,179,0.08)] sm:flex-row sm:items-stretch sm:h-[68px]"
-      >
-        {/* Service dropdown */}
-        <div className="flex flex-1 items-center gap-3 px-5 py-3 sm:py-0 sm:pl-6">
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-magenta/10">
-            <Sparkles className="size-4 text-brand-magenta" aria-hidden />
-          </span>
-          <SearchableDropdown
-            options={serviceOptions}
-            value={searchService}
-            onChange={setSearchService}
-            placeholder="Treatment, condition, or clinic name…"
-            className="flex-1"
-            allowFreeText
-          />
-        </div>
+      {/* ── Top Search Card ─────────────────────────────────────────────── */}
+      <div className="rounded-2xl border border-[#e8e0e8] bg-white p-6 shadow-[0_4px_24px_rgba(170,78,179,0.08)] sm:p-7">
+        <h1 className="text-2xl font-semibold tracking-tight text-[#1a1a1a] sm:text-3xl">
+          {serviceName}{" "}
+          {location ? (
+            <>
+              in{" "}
+              <span className="font-fraunces font-normal italic text-brand-magenta">
+                {stateName}
+              </span>
+            </>
+          ) : (
+            <span className="font-fraunces font-normal italic text-brand-magenta">
+              Near Me
+            </span>
+          )}
+        </h1>
 
-        {/* Divider */}
-        <div className="hidden sm:flex items-center">
-          <div className="h-[36px] w-px bg-[#e1e1e1]" />
-        </div>
+        <form
+          onSubmit={handleSearch}
+          className="mt-5 flex flex-col gap-3 lg:flex-row lg:items-stretch"
+        >
+          {/* Treatment dropdown */}
+          <div className="flex flex-1 items-center gap-3 rounded-xl border border-[#e8e0e8] px-4 py-2.5">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-magenta/10">
+              <Sparkles className="size-4 text-brand-magenta" aria-hidden />
+            </span>
+            <SearchableDropdown
+              options={serviceOptions}
+              value={searchService}
+              onChange={setSearchService}
+              placeholder="Treatment or clinic…"
+              className="flex-1"
+              allowFreeText
+            />
+          </div>
 
-        {/* Location dropdown */}
-        <div className="flex flex-1 items-center gap-3 border-t border-[#e1e1e1] px-5 py-3 sm:border-t-0 sm:py-0 sm:pl-5">
-          <MapPin className="size-5 shrink-0 text-brand-magenta" aria-hidden />
-          <SearchableDropdown
-            options={US_STATES}
-            value={searchLocation}
-            onChange={setSearchLocation}
-            placeholder="Select a state…"
-            className="flex-1"
-          />
-        </div>
+          {/* State dropdown */}
+          <div className="flex flex-1 items-center gap-3 rounded-xl border border-[#e8e0e8] px-4 py-2.5">
+            <MapPin className="size-5 shrink-0 text-brand-magenta" aria-hidden />
+            <SearchableDropdown
+              options={STATE_OPTIONS}
+              value={searchState}
+              onChange={setSearchState}
+              placeholder="Select a state…"
+              className="flex-1"
+            />
+          </div>
 
-        {/* Search button */}
-        <div className="flex items-center px-3 pb-3 sm:px-3.5 sm:pb-0">
+          {/* Radius dropdown */}
+          <div className="flex items-center gap-2 rounded-xl border border-[#e8e0e8] px-4 py-2.5">
+            <div className="relative flex items-center">
+              <select
+                value={searchRadius}
+                onChange={(e) => setSearchRadius(e.target.value)}
+                className="appearance-none bg-transparent pr-6 text-sm font-medium text-[#4a4a4a] focus:outline-none"
+                aria-label="Radius"
+              >
+                {RADIUS_OPTIONS.map((r) => (
+                  <option key={r} value={String(r)}>
+                    {r} miles
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-0 size-3.5 text-brand-muted/60" />
+            </div>
+          </div>
+
+          {/* Near-me button */}
+          <button
+            type="button"
+            onClick={handleNearMe}
+            className={cn(
+              "flex items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors",
+              hasOrigin
+                ? "border-brand-magenta/40 bg-brand-magenta/10 text-brand-magenta"
+                : "border-[#e8e0e8] text-[#4a4a4a] hover:border-brand-magenta/40 hover:text-brand-magenta"
+            )}
+            aria-label="Use my location"
+          >
+            <LocateFixed className="size-4" aria-hidden />
+            Near Me
+          </button>
+
+          {/* Search button */}
           <Button
             type="submit"
             variant="gradient"
-            className="h-[44px] gap-2 rounded-xl px-6 text-sm font-semibold"
+            className="h-auto gap-2 rounded-xl px-6 py-3 text-sm font-semibold"
           >
             <Search className="size-4" aria-hidden />
             Search
           </Button>
-        </div>
-      </form>
+        </form>
 
-      {/* ── Results Header ──────────────────────────────────────────────── */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-semibold tracking-tight text-[#1a1a1a] sm:text-3xl">
-            {q && location
-              ? <>
-                  <span className="bg-gradient-to-r from-brand-coral to-brand-purple bg-clip-text text-transparent">{displayService}</span>
-                  {" "}in{" "}
-                  <span className="bg-gradient-to-r from-brand-purple to-brand-coral bg-clip-text text-transparent">{displayLocation}</span>
-                </>
-              : q
-                ? <>Results for <span className="bg-gradient-to-r from-brand-coral to-brand-purple bg-clip-text text-transparent">&ldquo;{displayService}&rdquo;</span></>
-                : location
-                  ? <>Clinics in <span className="bg-gradient-to-r from-brand-coral to-brand-purple bg-clip-text text-transparent">{displayLocation}</span></>
-                  : "All Clinics"
-            }
-          </h1>
-          {!loading && (
-            <p className="text-sm text-brand-muted">
-              {total} {total === 1 ? "result" : "results"} found
-            </p>
-          )}
-        </div>
-
-        {/* Sort & filter controls */}
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Tier filter pills */}
-          {(["elite", "featured", "free"] as const).map((t) => (
+        {/* Location status / errors */}
+        {hasOrigin && (
+          <div className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-brand-magenta">
+            <LocateFixed className="size-3.5" />
+            Using your location
             <button
-              key={t}
-              onClick={() => updateParam("tier", tier === t ? "" : t)}
-              className={cn(
-                "flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider transition-all",
-                tier === t
-                  ? "bg-brand-magenta text-white shadow-md shadow-brand-magenta/20"
-                  : "border border-[#e1e1e1] bg-white text-brand-muted hover:border-brand-magenta/40 hover:text-brand-magenta"
-              )}
+              type="button"
+              onClick={clearLocation}
+              className="ml-1 text-brand-muted hover:text-brand-magenta"
+              aria-label="Stop using location"
             >
-              {t === "elite" && <Crown className="size-3" />}
-              {t}
+              <X className="size-3.5" />
             </button>
-          ))}
+          </div>
+        )}
+        {!hasOrigin && geoError && (
+          <p className="mt-3 text-xs text-brand-muted">{geoError}</p>
+        )}
+      </div>
 
-          {/* Sort dropdown */}
-          <div className="relative ml-2">
-            <select
-              value={sort}
-              onChange={(e) => updateParam("sort", e.target.value)}
-              className="appearance-none rounded-full border border-[#e1e1e1] bg-white py-1.5 pl-3.5 pr-8 text-xs font-semibold uppercase tracking-wider text-brand-muted transition-colors hover:border-brand-magenta/40 focus:outline-none focus:ring-2 focus:ring-brand-magenta/20"
+      {/* ── Body: sidebar + results ─────────────────────────────────────── */}
+      <div className="flex flex-col gap-8 lg:flex-row">
+        {/* ── Filter Sidebar ─────────────────────────────────────────────── */}
+        <aside className="w-full shrink-0 lg:w-[260px]">
+          <div className="flex flex-col gap-6 rounded-2xl border border-[#ece6ec] bg-white p-5 shadow-sm">
+            {/* Distance / Radius */}
+            <div>
+              <h3 className="text-sm font-semibold text-[#1a1a1a]">
+                Distance / Radius
+              </h3>
+              <div className="mt-3 flex flex-col gap-2.5">
+                {DISTANCE_BANDS.map((band) => {
+                  const checked = activeBandRadius === band.radius;
+                  return (
+                    <label
+                      key={band.radius}
+                      className="flex cursor-pointer items-center gap-2.5 text-sm text-[#4a4a4a]"
+                    >
+                      <input
+                        type="radio"
+                        name="distance"
+                        checked={checked}
+                        onChange={() =>
+                          updateParam("radius", String(band.radius))
+                        }
+                        className="size-4 accent-brand-magenta"
+                      />
+                      {band.label}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="h-px bg-[#ece6ec]" />
+
+            {/* Rating */}
+            <div>
+              <h3 className="text-sm font-semibold text-[#1a1a1a]">Rating</h3>
+              <div className="mt-3 flex flex-col gap-2.5">
+                {RATING_BANDS.map((band) => {
+                  const checked = rating === band.value;
+                  return (
+                    <label
+                      key={band.value}
+                      className="flex cursor-pointer items-center gap-2.5 text-sm text-[#4a4a4a]"
+                    >
+                      <input
+                        type="radio"
+                        name="rating"
+                        checked={checked}
+                        onChange={() => updateParam("rating", band.value)}
+                        className="size-4 accent-brand-magenta"
+                      />
+                      <span className="inline-flex items-center gap-1">
+                        <Star className="size-3.5 fill-[#FFBA19] text-[#FFBA19]" />
+                        {band.label}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="h-px bg-[#ece6ec]" />
+
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="flex items-center justify-center gap-1.5 rounded-xl border border-[#e8e0e8] px-4 py-2.5 text-sm font-medium text-brand-magenta transition-colors hover:bg-brand-magenta/5"
             >
-              <option value="rating">Top Rated</option>
-              <option value="reviews">Most Reviews</option>
-              <option value="name">A → Z</option>
-            </select>
-            <ArrowUpDown className="pointer-events-none absolute right-2.5 top-1/2 size-3 -translate-y-1/2 text-brand-muted" />
+              <X className="size-3.5" />
+              Clear All Filters
+            </button>
+          </div>
+        </aside>
+
+        {/* ── Results column ─────────────────────────────────────────────── */}
+        <div className="min-w-0 flex-1">
+          {/* Results header */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="text-lg font-semibold text-[#1a1a1a]">
+              {loading ? "Searching…" : `${total} Clinics Found`}
+            </h2>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-brand-muted">Sorted By:</span>
+              <div className="relative flex items-center">
+                <select
+                  value={sort}
+                  onChange={(e) => updateParam("sort", e.target.value)}
+                  className="appearance-none rounded-xl border border-[#e1e1e1] bg-white py-2 pl-3.5 pr-9 text-sm font-medium text-[#4a4a4a] transition-colors hover:border-brand-magenta/40 focus:outline-none focus:ring-2 focus:ring-brand-magenta/20"
+                >
+                  <option value="distance">Distance</option>
+                  <option value="rating">Rating</option>
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3 size-3.5 text-brand-muted" />
+              </div>
+            </div>
           </div>
 
-          {/* Clear all */}
-          {hasActiveFilters && (
-            <button
-              onClick={clearFilters}
-              className="flex items-center gap-1 text-xs font-medium text-brand-magenta transition-opacity hover:opacity-70"
-            >
-              <X className="size-3" />
-              Clear all
-            </button>
-          )}
+          {/* Results list */}
+          <div className="mt-6">
+            {loading ? (
+              <div className="flex flex-col gap-5">
+                {[...Array(4)].map((_, i) => (
+                  <SkeletonCard key={i} />
+                ))}
+              </div>
+            ) : error ? (
+              <div className="flex flex-col items-center justify-center gap-4 py-20">
+                <div className="flex size-16 items-center justify-center rounded-full bg-red-50">
+                  <X className="size-8 text-red-400" />
+                </div>
+                <p className="text-lg font-medium text-[#1a1a1a]">{error}</p>
+                <Button variant="gradient" onClick={fetchResults}>
+                  Try Again
+                </Button>
+              </div>
+            ) : results.length === 0 ? (
+              <EmptyState q={q} location={location} onClear={clearFilters} />
+            ) : (
+              <div className="flex flex-col gap-5">
+                {results.map((clinic) => (
+                  <ClinicCard key={clinic.clinic_id} clinic={clinic} />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* ── Active filter tags ──────────────────────────────────────────── */}
-      {hasActiveFilters && (
-        <div className="flex flex-wrap items-center gap-2 -mt-4">
-          {q && (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-magenta/10 px-3 py-1 text-xs font-medium text-brand-magenta">
-              <Sparkles className="size-3" /> {displayService}
-              <button onClick={() => updateParam("q", "")} className="ml-1 hover:opacity-70"><X className="size-3" /></button>
-            </span>
-          )}
-          {location && (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-coral/10 px-3 py-1 text-xs font-medium text-brand-coral">
-              <MapPin className="size-3" /> {displayLocation}
-              <button onClick={() => updateParam("location", "")} className="ml-1 hover:opacity-70"><X className="size-3" /></button>
-            </span>
-          )}
-        </div>
-      )}
-
-      {/* ── Results Grid ────────────────────────────────────────────────── */}
-      {loading ? (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {[...Array(6)].map((_, i) => (
-            <SkeletonCard key={i} />
-          ))}
-        </div>
-      ) : error ? (
-        <div className="flex flex-col items-center justify-center gap-4 py-20">
-          <div className="flex size-16 items-center justify-center rounded-full bg-red-50">
-            <X className="size-8 text-red-400" />
-          </div>
-          <p className="text-lg font-medium text-[#1a1a1a]">{error}</p>
-          <Button variant="gradient" onClick={fetchResults}>
-            Try Again
-          </Button>
-        </div>
-      ) : results.length === 0 ? (
-        <EmptyState q={q} location={location} onClear={clearFilters} />
-      ) : (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {results.map((clinic) => (
-            <ClinicCard
-              key={clinic.clinic_id}
-              clinic={clinic}
-              openStatus={getOpenStatus(clinic.hours)}
-            />
-          ))}
-        </div>
+      {/* Active-filters clear shortcut (mobile convenience) */}
+      {hasActiveFilters && !loading && (
+        <button
+          onClick={clearFilters}
+          className="self-center text-xs font-medium text-brand-magenta hover:opacity-70 lg:hidden"
+        >
+          Clear all filters
+        </button>
       )}
     </div>
   );
@@ -355,202 +547,148 @@ export function SearchResults() {
 
 // ─── Clinic Card ──────────────────────────────────────────────────────────────
 
-function buildMapsUrl(clinic: ClinicResult): string {
-  if (clinic.google_place_id) {
-    return `https://www.google.com/maps/place/?q=place_id:${clinic.google_place_id}`;
-  }
-  const parts = [clinic.address, clinic.city, clinic.state, clinic.zip].filter(Boolean);
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(parts.join(", "))}`;
-}
-
-function ClinicCard({
-  clinic,
-  openStatus,
-}: {
-  clinic: ClinicResult;
-  openStatus: { isOpen: boolean; text: string } | null;
-}) {
+function ClinicCard({ clinic }: { clinic: ClinicResult }) {
   const uniqueServices = Array.from(
     new Map(clinic.services.map((s) => [s.slug, s])).values()
   );
 
-  const uniqueProviders = Array.from(
-    new Map(clinic.providers.map((p) => [p.slug, p])).values()
-  );
+  const gallery = clinic.cover_image_url ? [clinic.cover_image_url] : [];
+  // Thumbnails: reuse the cover for now (gallery endpoint not wired) — show up
+  // to 4 small thumbs with a +N overlay when more would exist.
+  const thumbs = gallery.slice(0, 4);
+  const extraThumbs = Math.max(0, gallery.length - 4);
 
-  const lowestPrice = uniqueServices
-    .map((s) => s.price_from)
-    .filter((p): p is number => p !== null)
-    .sort((a, b) => a - b)[0];
-
-  const mapsUrl = buildMapsUrl(clinic);
+  const profileUrl = `/clinics/${clinic.clinic_slug}`;
+  const bookUrl = clinic.booking_url || clinic.website || profileUrl;
+  const isFeatured = clinic.featured || clinic.verified;
 
   return (
-    <div
-      className={cn(
-        "group relative flex flex-col overflow-hidden rounded-2xl border bg-white transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_40px_rgba(170,78,179,0.12)]",
-        clinic.featured
-          ? "border-brand-magenta/30 shadow-[0_4px_20px_rgba(170,78,179,0.08)]"
-          : "border-[#ece6ec] shadow-sm"
-      )}
-    >
-      {/* Cover image area */}
-      <div className="relative h-[200px] w-full overflow-hidden bg-gradient-to-br from-brand-coral/20 to-brand-purple/20">
-        {clinic.cover_image_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={clinic.cover_image_url}
-            alt={clinic.clinic_name}
-            className="size-full object-cover transition-transform duration-500 group-hover:scale-105"
-          />
-        ) : (
-          <div className="flex size-full items-center justify-center">
-            <span className="text-5xl font-bold text-white/60">
-              {clinic.clinic_name
-                .split(" ")
-                .map((w) => w[0])
-                .join("")
-                .slice(0, 2)}
-            </span>
-          </div>
-        )}
-
-        {/* Badges overlay */}
-        <div className="absolute left-3 top-3 flex flex-col gap-1.5">
-          {clinic.featured && (
-            <span className="inline-flex items-center gap-1 rounded-md bg-[#D3A845] px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-white shadow-lg">
+    <div className="flex flex-col gap-5 overflow-hidden rounded-2xl border border-[#ece6ec] bg-white p-4 shadow-sm transition-shadow hover:shadow-[0_8px_30px_rgba(170,78,179,0.10)] sm:flex-row sm:p-5">
+      {/* Left: cover + thumbnails */}
+      <div className="w-full shrink-0 sm:w-[220px]">
+        <a
+          href={profileUrl}
+          className="relative block h-[160px] w-full overflow-hidden rounded-xl bg-gradient-to-br from-brand-coral/20 to-brand-purple/20"
+        >
+          {clinic.cover_image_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={clinic.cover_image_url}
+              alt={clinic.clinic_name}
+              className="size-full object-cover"
+            />
+          ) : (
+            <div className="flex size-full items-center justify-center">
+              <span className="text-4xl font-bold text-white/60">
+                {clinic.clinic_name
+                  .split(" ")
+                  .map((w) => w[0])
+                  .join("")
+                  .slice(0, 2)}
+              </span>
+            </div>
+          )}
+          {isFeatured && (
+            <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-md bg-[#D3A845] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white shadow-lg">
               <Crown className="size-3" />
               Featured
             </span>
           )}
-          {clinic.tier === "elite" && !clinic.featured && (
-            <span className="inline-flex items-center gap-1 rounded-md bg-brand-purple px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-white shadow-lg">
-              <Crown className="size-3" />
-              Elite
-            </span>
-          )}
-        </div>
+        </a>
 
-        {/* Verified badge */}
-        {clinic.verified && (
-          <div className="absolute right-3 top-3 flex size-8 items-center justify-center rounded-full bg-white/90 shadow-md backdrop-blur-sm">
-            <BadgeCheck className="size-5 text-brand-magenta" />
-          </div>
-        )}
-
-        {/* Logo */}
-        {clinic.logo_url && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={clinic.logo_url}
-            alt={`${clinic.clinic_name} logo`}
-            className="absolute bottom-3 left-3 size-10 rounded-lg border-2 border-white bg-white object-contain p-0.5 shadow-md"
-          />
-        )}
-
-        {/* Rating overlay pill */}
-        {clinic.avg_rating && (
-          <div className="absolute bottom-3 right-3 flex items-center gap-1 rounded-full bg-black/60 px-2.5 py-1 backdrop-blur-sm">
-            <Star className="size-3.5 fill-[#FFBA19] text-[#FFBA19]" />
-            <span className="text-xs font-bold text-white">{Number(clinic.avg_rating).toFixed(1)}</span>
-            <span className="text-[10px] text-white/70">({clinic.review_count})</span>
+        {thumbs.length > 0 && (
+          <div className="mt-2 grid grid-cols-4 gap-2">
+            {thumbs.map((src, i) => {
+              const isLast = i === thumbs.length - 1;
+              return (
+                <div
+                  key={i}
+                  className="relative h-[44px] overflow-hidden rounded-md bg-[#f5f0f5]"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={src}
+                    alt=""
+                    className="size-full object-cover"
+                  />
+                  {isLast && extraThumbs > 0 && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/50 text-xs font-semibold text-white">
+                      +{extraThumbs}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
 
-      {/* Card body */}
-      <div className="flex flex-1 flex-col gap-3 p-5">
-        {/* Name + location */}
-        <div>
-          <h3 className="line-clamp-1 text-[17px] font-semibold leading-tight text-[#1a1a1a] group-hover:text-brand-magenta transition-colors">
+      {/* Middle: details */}
+      <div className="flex min-w-0 flex-1 flex-col gap-2">
+        <a href={profileUrl} className="flex items-center gap-1.5">
+          <h3 className="line-clamp-1 text-lg font-semibold text-[#1a1a1a] transition-colors hover:text-brand-magenta">
             {clinic.clinic_name}
           </h3>
-          <div className="mt-1 flex items-center gap-1.5 text-xs text-[#727272]">
-            <MapPin className="size-3.5 shrink-0 text-brand-magenta/60" />
-            <span className="line-clamp-1">
-              {clinic.city}, {clinic.state}
-              {clinic.address && ` · ${clinic.address}`}
-            </span>
-          </div>
+          {clinic.verified && (
+            <BadgeCheck className="size-4 shrink-0 fill-brand-magenta text-white" />
+          )}
+        </a>
+
+        <div className="flex items-center gap-1.5 text-sm text-[#727272]">
+          <MapPin className="size-3.5 shrink-0 text-brand-magenta/60" />
+          <span className="line-clamp-1">
+            {clinic.city}, {clinic.state}
+            {clinic.distance_miles != null &&
+              `  ·  ${clinic.distance_miles} Miles Away`}
+          </span>
         </div>
 
-        {/* Open status */}
-        {openStatus && (
-          <div className="flex items-center gap-1.5 text-xs">
-            <Clock className="size-3.5" />
-            <span className={openStatus.isOpen ? "text-emerald-600 font-medium" : "text-red-400 font-medium"}>
-              {openStatus.text}
+        {clinic.avg_rating != null && (
+          <div className="flex items-center gap-1 text-sm">
+            <Star className="size-4 fill-[#FFBA19] text-[#FFBA19]" />
+            <span className="font-semibold text-[#1a1a1a]">
+              {Number(clinic.avg_rating).toFixed(1)}
             </span>
+            <span className="text-[#727272]">({clinic.review_count})</span>
           </div>
         )}
 
-        {/* Services tags */}
-        <div className="flex flex-wrap gap-1.5">
-          {uniqueServices.slice(0, 4).map((svc) => (
-            <span
-              key={svc.slug}
-              className="rounded-md border border-[#ece6ec] bg-[#faf7fa] px-2 py-0.5 text-[11px] font-medium text-[#8a6f8a] transition-colors hover:border-brand-magenta/30 hover:bg-brand-magenta/5"
-            >
-              {svc.name}
-            </span>
-          ))}
-          {uniqueServices.length > 4 && (
-            <span className="rounded-md bg-brand-magenta/8 px-2 py-0.5 text-[11px] font-medium text-brand-magenta">
-              +{uniqueServices.length - 4} more
-            </span>
-          )}
-        </div>
-
-        {/* Price */}
-        <div className="mt-auto flex items-center justify-between pt-2">
-          <div className="flex flex-col">
-            {lowestPrice && (
-              <span className="text-sm font-semibold text-[#1a1a1a]">
-                From <span className="text-brand-magenta">${lowestPrice}</span>
+        {uniqueServices.length > 0 && (
+          <div className="mt-1 flex flex-wrap gap-1.5">
+            {uniqueServices.slice(0, 3).map((svc) => (
+              <span
+                key={svc.slug}
+                className="rounded-md border border-[#ece6ec] bg-[#faf7fa] px-2 py-0.5 text-[11px] font-medium text-[#8a6f8a]"
+              >
+                {svc.name}
               </span>
-            )}
+            ))}
           </div>
+        )}
+      </div>
 
-          {/* Providers badges */}
-          {uniqueProviders.length > 0 && (
-            <div className="flex items-center">
-              {uniqueProviders.slice(0, 2).map((prov, i) => (
-                <div
-                  key={prov.slug}
-                  className={cn(
-                    "flex size-8 items-center justify-center rounded-full border-2 border-white bg-gradient-to-br from-brand-coral/80 to-brand-purple/80 text-[10px] font-bold text-white shadow-sm",
-                    i > 0 && "-ml-2"
-                  )}
-                  title={`${prov.name}, ${prov.title}`}
-                >
-                  {prov.name
-                    .split(" ")
-                    .map((w) => w[0])
-                    .join("")
-                    .slice(0, 2)}
-                </div>
-              ))}
-              {uniqueProviders.length > 2 && (
-                <div className="-ml-2 flex size-8 items-center justify-center rounded-full border-2 border-white bg-[#f0e6f2] text-[10px] font-bold text-brand-magenta shadow-sm">
-                  +{uniqueProviders.length - 2}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Primary CTA */}
-        <div className="flex gap-2 pt-1">
-          <Button
-            variant="gradient"
-            className="flex-1 h-[38px] rounded-xl text-xs font-semibold"
-            asChild
-          >
-            <a href={`/clinics/${clinic.clinic_slug}`}>
-              View Profile
-            </a>
-          </Button>
-        </div>
+      {/* Right: CTAs */}
+      <div className="flex shrink-0 flex-col justify-center gap-2.5 sm:w-[180px]">
+        <Button
+          variant="gradient"
+          className="h-[42px] gap-2 rounded-xl text-sm font-semibold"
+          asChild
+        >
+          <a href={bookUrl} target="_blank" rel="noreferrer">
+            <CalendarDays className="size-4" />
+            Book Appointment
+          </a>
+        </Button>
+        <Button
+          variant="outline"
+          className="h-[42px] gap-2 rounded-xl text-sm font-semibold"
+          asChild
+        >
+          <a href={`tel:${clinic.phone}`}>
+            <Phone className="size-4" />
+            Call Clinic
+          </a>
+        </Button>
       </div>
     </div>
   );
@@ -560,20 +698,30 @@ function ClinicCard({
 
 function SkeletonCard() {
   return (
-    <div className="flex flex-col overflow-hidden rounded-2xl border border-[#ece6ec] bg-white shadow-sm">
-      <div className="h-[200px] animate-pulse bg-gradient-to-br from-[#f5f0f5] to-[#ece6ec]" />
-      <div className="flex flex-col gap-3 p-5">
-        <div className="h-5 w-3/4 animate-pulse rounded-md bg-[#f0eaf0]" />
-        <div className="h-3 w-1/2 animate-pulse rounded-md bg-[#f5f0f5]" />
+    <div className="flex flex-col gap-5 rounded-2xl border border-[#ece6ec] bg-white p-4 shadow-sm sm:flex-row sm:p-5">
+      <div className="w-full shrink-0 sm:w-[220px]">
+        <div className="h-[160px] w-full animate-pulse rounded-xl bg-gradient-to-br from-[#f5f0f5] to-[#ece6ec]" />
+        <div className="mt-2 grid grid-cols-4 gap-2">
+          {[...Array(4)].map((_, i) => (
+            <div
+              key={i}
+              className="h-[44px] animate-pulse rounded-md bg-[#f5f0f5]"
+            />
+          ))}
+        </div>
+      </div>
+      <div className="flex flex-1 flex-col gap-3">
+        <div className="h-6 w-3/4 animate-pulse rounded-md bg-[#f0eaf0]" />
+        <div className="h-4 w-1/2 animate-pulse rounded-md bg-[#f5f0f5]" />
+        <div className="h-4 w-1/3 animate-pulse rounded-md bg-[#f5f0f5]" />
         <div className="flex gap-1.5">
           <div className="h-5 w-14 animate-pulse rounded-md bg-[#f5f0f5]" />
           <div className="h-5 w-12 animate-pulse rounded-md bg-[#f5f0f5]" />
-          <div className="h-5 w-16 animate-pulse rounded-md bg-[#f5f0f5]" />
         </div>
-        <div className="flex gap-2 pt-4">
-          <div className="h-[38px] flex-1 animate-pulse rounded-xl bg-[#f5f0f5]" />
-          <div className="h-[38px] flex-1 animate-pulse rounded-xl bg-[#f0eaf0]" />
-        </div>
+      </div>
+      <div className="flex shrink-0 flex-col gap-2.5 sm:w-[180px]">
+        <div className="h-[42px] animate-pulse rounded-xl bg-[#f0eaf0]" />
+        <div className="h-[42px] animate-pulse rounded-xl bg-[#f5f0f5]" />
       </div>
     </div>
   );
@@ -601,23 +749,28 @@ function EmptyState({
         </div>
       </div>
       <div className="text-center">
-        <h2 className="text-xl font-semibold text-[#1a1a1a]">No clinics found</h2>
+        <h2 className="text-xl font-semibold text-[#1a1a1a]">
+          No clinics found
+        </h2>
         <p className="mt-2 max-w-md text-sm text-brand-muted">
           {q && location
             ? `We couldn't find any clinics matching "${q}" in "${location}". Try broadening your search.`
             : q
               ? `We couldn't find any clinics matching "${q}". Try a different treatment or service name.`
               : location
-                ? `We couldn't find any clinics in "${location}". Try a different city or zip code.`
-                : "Try searching for a treatment or location to find clinics near you."
-          }
+                ? `We couldn't find any clinics in "${location}". Try a different state.`
+                : "Try searching for a treatment or location to find clinics near you."}
         </p>
       </div>
       <div className="flex gap-3">
         <Button variant="outline" onClick={onClear} className="rounded-xl">
           Clear Search
         </Button>
-        <Button variant="gradient" onClick={() => window.location.href = "/"} className="rounded-xl">
+        <Button
+          variant="gradient"
+          onClick={() => (window.location.href = "/")}
+          className="rounded-xl"
+        >
           Back to Home
         </Button>
       </div>

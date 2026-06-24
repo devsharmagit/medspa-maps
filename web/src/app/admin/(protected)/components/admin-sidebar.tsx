@@ -2,56 +2,87 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Building2, Store } from "lucide-react";
+import {
+  LayoutDashboard,
+  PlusCircle,
+  Store,
+  Building2,
+  Sparkles,
+  HeartPulse,
+  Star,
+  Inbox,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Separator } from "@/components/ui/separator";
 
 const navItems = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/businesses", label: "Businesses", icon: Building2 },
+  { href: "/admin/clinics/new", label: "Add Clinic", icon: PlusCircle },
   { href: "/admin/clinics", label: "Clinics", icon: Store },
+  { href: "/admin/businesses", label: "Businesses", icon: Building2 },
+  { href: "/admin/services", label: "Treatments", icon: Sparkles },
+  { href: "/admin/concerns", label: "Concerns", icon: HeartPulse },
+  { href: "/admin/reviews", label: "Reviews", icon: Star },
+  { href: "/admin/unmatched", label: "Unmatched", icon: Inbox },
 ];
 
 export default function AdminSidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="w-56 shrink-0 bg-white border-r border-slate-200 flex flex-col sticky top-0 h-screen overflow-y-auto">
+    <aside className="w-60 shrink-0 bg-white border-r border-pink-100/80 flex flex-col sticky top-0 h-screen overflow-y-auto">
       {/* Wordmark */}
-      <div className="flex items-center gap-2.5 px-5 h-14 border-b border-slate-200">
-        <div className="w-7 h-7 rounded-md bg-slate-900 flex items-center justify-center text-white font-bold text-sm shrink-0">
+      <div className="flex items-center gap-2.5 px-5 h-16 border-b border-pink-100/80">
+        <div className="w-8 h-8 rounded-lg bg-[linear-gradient(135deg,#DE7F4C_0%,#C341D7_100%)] flex items-center justify-center text-white font-bold text-sm shrink-0 shadow-[0_4px_12px_rgba(195,65,215,0.25)]">
           M
         </div>
-        <span className="text-sm font-semibold text-slate-800 tracking-tight">MedSpa Admin</span>
+        <span className="text-sm font-semibold text-slate-800 tracking-tight">
+          MedSpa Admin
+        </span>
       </div>
 
       {/* Nav */}
       <nav className="flex flex-col gap-0.5 p-3 flex-1">
-        <p className="px-2.5 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-widest text-slate-400">
+        <p className="px-2.5 pt-2 pb-1.5 text-[11px] font-semibold uppercase tracking-widest text-slate-400">
           Menu
         </p>
         {navItems.map(({ href, label, icon: Icon }) => {
-          const isActive = pathname === href;
+          // Exact match for /clinics/new; prefix match otherwise (but never let
+          // /clinics light up while on /clinics/new).
+          const isActive =
+            href === "/admin/clinics"
+              ? pathname === href ||
+                (pathname.startsWith("/admin/clinics") &&
+                  pathname !== "/admin/clinics/new")
+              : pathname === href ||
+                (href !== "/admin/dashboard" && pathname.startsWith(`${href}/`));
+
           return (
             <Link
               key={href}
               href={href}
               className={cn(
-                "flex items-center gap-2.5 px-2.5 py-2 rounded-md text-sm font-medium transition-colors",
+                "group flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
                 isActive
-                  ? "bg-slate-50 text-slate-900"
-                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                  ? "bg-[linear-gradient(90deg,rgba(222,127,76,0.12)_0%,rgba(195,65,215,0.12)_100%)] text-purple-700"
+                  : "text-slate-600 hover:bg-pink-50/70 hover:text-purple-700"
               )}
             >
-              <Icon size={16} />
+              <Icon
+                size={17}
+                className={cn(
+                  "shrink-0 transition-colors",
+                  isActive
+                    ? "text-purple-600"
+                    : "text-slate-400 group-hover:text-purple-500"
+                )}
+              />
               {label}
             </Link>
           );
         })}
       </nav>
 
-      <Separator />
-      <div className="px-5 py-3">
+      <div className="px-5 py-4 border-t border-pink-100/80">
         <span className="text-xs text-slate-400">v1.0</span>
       </div>
     </aside>
