@@ -1,5 +1,19 @@
 import pool from "@/lib/db";
 
+export interface ClinicLocation {
+  id: string;
+  label: string | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+  phone: string | null;
+  booking_url: string | null;
+  google_maps_url: string | null;
+  hours: unknown;
+  is_primary: boolean;
+}
+
 export interface ClinicPageData {
   clinic: {
     id: string;
@@ -28,6 +42,7 @@ export interface ClinicPageData {
     featured: boolean;
     logo_url: string | null;
   };
+  locations: ClinicLocation[];
   treatments: { name: string; slug: string | null }[];
   gallery: { source_url: string; alt_text: string | null }[];
   gallery_total: number;
@@ -70,7 +85,7 @@ export async function getClinicData(slug: string): Promise<ClinicPageData | null
   if (clinic.rows.length === 0) return null;
   const c = clinic.rows[0];
 
-  const [gallery, galleryCount, beforeAfter, beforeAfterCount, treatments, reviews] = await Promise.all([
+  const [gallery, galleryCount, beforeAfter, beforeAfterCount, treatments, reviews, locationsResult] = await Promise.all([
     pool.query(
       `SELECT source_url, alt_text
        FROM images
@@ -121,11 +136,20 @@ export async function getClinicData(slug: string): Promise<ClinicPageData | null
        LIMIT 12`,
       [c.id]
     ),
+    pool.query(
+      `SELECT id, label, address, city, state, zip, phone,
+              booking_url, google_maps_url, hours, is_primary
+         FROM clinic_locations
+        WHERE clinic_id = $1 AND is_active = true
+        ORDER BY sort_order, created_at`,
+      [c.id]
+    ),
   ]);
 
   const treatments_count = treatments.rows.length;
 
   return {
+    locations: locationsResult.rows as ClinicLocation[],
     clinic: {
       id: c.id,
       slug: c.slug,

@@ -83,21 +83,31 @@ export async function GET(request: NextRequest) {
       paramIdx += 2;
     }
 
-    // Location search — dropdown sends 2-letter abbreviations; DB stores abbreviations
+    // Location search — checks both clinics table AND clinic_locations for multi-location clinics
     if (location) {
       const upper = location.toUpperCase();
       const fullName = STATE_ABBR_TO_NAME[upper];
       if (fullName) {
-        // Known state abbreviation — match abbreviation OR legacy full-name records
-        conditions.push(`(c.state = $${paramIdx} OR c.state ILIKE $${paramIdx + 1})`);
+        conditions.push(`(
+          c.state = $${paramIdx} OR c.state ILIKE $${paramIdx + 1}
+          OR EXISTS (
+            SELECT 1 FROM clinic_locations cl
+            WHERE cl.clinic_id = c.id AND cl.is_active = true
+              AND (cl.state = $${paramIdx} OR cl.state ILIKE $${paramIdx + 1})
+          )
+        )`);
         params.push(upper, fullName);
         paramIdx += 2;
       } else {
-        // Free-text fallback: city, state name/abbr, zip
         conditions.push(`(
           c.city ILIKE $${paramIdx}
           OR c.state ILIKE $${paramIdx}
           OR c.zip ILIKE $${paramIdx}
+          OR EXISTS (
+            SELECT 1 FROM clinic_locations cl
+            WHERE cl.clinic_id = c.id AND cl.is_active = true
+              AND (cl.city ILIKE $${paramIdx} OR cl.state ILIKE $${paramIdx} OR cl.zip ILIKE $${paramIdx})
+          )
         )`);
         params.push(`%${location}%`);
         paramIdx++;
@@ -180,7 +190,16 @@ export async function GET(request: NextRequest) {
           AND role IN ('cover', 'gallery') AND scrape_status = 'ok'
           ORDER BY (role = 'cover') DESC, sort_order LIMIT 1
         ) AS cover_image_url,
-        '[]'::json AS providers
+        '[]'::json AS providers,
+        (
+          SELECT COALESCE(json_agg(loc ORDER BY loc.sort_order), '[]'::json) FROM (
+            SELECT cl.id, cl.label, cl.address, cl.city, cl.state, cl.zip,
+                   cl.lat, cl.lng, cl.phone, cl.booking_url, cl.google_maps_url,
+                   cl.is_primary, cl.sort_order
+            FROM clinic_locations cl
+            WHERE cl.clinic_id = c.id AND cl.is_active = true
+          ) loc
+        ) AS locations
       FROM clinics c
       JOIN businesses b ON b.id = c.business_id
       LEFT JOIN clinic_services cs ON cs.clinic_id = c.id AND cs.is_active = TRUE

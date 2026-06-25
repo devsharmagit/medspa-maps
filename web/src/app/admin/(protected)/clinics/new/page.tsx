@@ -18,6 +18,8 @@ import {
   Building2,
   ExternalLink,
   ArrowLeft,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import {
   Card,
@@ -26,6 +28,14 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -191,7 +201,6 @@ function emptyLocation(): SaveLocation {
     phone: "",
     booking_url: "",
     about: "",
-    tagline: "",
     maps_url: "",
     lat: null,
     lng: null,
@@ -199,14 +208,29 @@ function emptyLocation(): SaveLocation {
   };
 }
 
-// hours is a free-form jsonb map; show/edit it as JSON text for fidelity.
-function hoursToText(hours: Record<string, unknown> | null | undefined): string {
-  if (!hours) return "";
-  try {
-    return JSON.stringify(hours, null, 2);
-  } catch {
-    return "";
+type DayKey = 'MONDAY' | 'TUESDAY' | 'WEDNESDAY' | 'THURSDAY' | 'FRIDAY' | 'SATURDAY' | 'SUNDAY';
+interface DayHours { open: string; close: string; is_open: boolean; }
+type LocationHoursMap = Partial<Record<DayKey, DayHours>>;
+const DAYS: DayKey[] = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
+const DAY_LABELS: Record<DayKey, string> = {
+  MONDAY: 'Monday', TUESDAY: 'Tuesday', WEDNESDAY: 'Wednesday',
+  THURSDAY: 'Thursday', FRIDAY: 'Friday', SATURDAY: 'Saturday', SUNDAY: 'Sunday',
+};
+
+function parseHoursToState(hours: Record<string, unknown> | null | undefined): LocationHoursMap {
+  if (!hours) return {};
+  const result: LocationHoursMap = {};
+  for (const day of DAYS) {
+    const d = hours[day] as { open?: string; close?: string; is_open?: boolean } | undefined;
+    if (d) result[day] = { open: d.open ?? '09:00', close: d.close ?? '17:00', is_open: d.is_open ?? true };
   }
+  return result;
+}
+
+function hoursStateToJson(map: LocationHoursMap): Record<string, unknown> | null {
+  const entries = Object.entries(map);
+  if (!entries.length) return null;
+  return Object.fromEntries(entries.map(([day, dh]) => [day, dh]));
 }
 
 // ── Page ─────────────────────────────────────────────────────────────────────
@@ -226,11 +250,30 @@ export default function NewClinicPage() {
   const [gallery, setGallery] = useState<SaveImageRef[]>([]);
   const [beforeAfter, setBeforeAfter] = useState<SaveImageRef[]>([]);
   const [reviews, setReviews] = useState<SaveReview[]>([]);
-  const [hoursText, setHoursText] = useState<Record<number, string>>({});
+  const [hoursState, setHoursState] = useState<Record<number, LocationHoursMap>>({});
+
+  // business-level fields (sourced from locations[0] on scrape)
+  const [businessTagline, setBusinessTagline] = useState('');
+  const [businessAbout, setBusinessAbout] = useState('');
+  const [businessSocials, setBusinessSocials] = useState({
+    instagram_url: '', facebook_url: '', tiktok_url: '',
+    youtube_url: '', x_url: '', linkedin_url: '', yelp_url: '', google_my_business: '',
+  });
 
   // canonical services for the mapping dropdowns
   const [canonicalServices, setCanonicalServices] = useState<AdminService[]>([]);
   const [creatingIdx, setCreatingIdx] = useState<number | null>(null);
+
+  // image UI state — cover tracked by URL so index shifts don't break it
+  const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  const [logoUrlInput, setLogoUrlInput] = useState('');
+  const [galleryUrlInput, setGalleryUrlInput] = useState('');
+
+  // treatments list collapse
+  const [showAllTreatments, setShowAllTreatments] = useState(false);
+
+  // create-treatment dialog
+  const [createPrompt, setCreatePrompt] = useState<{ idx: number; name: string } | null>(null);
 
   // Live Phase-0 priority-treatment coverage, recomputed as services are
   // mapped/ignored: how many of the 15 priority treatments this clinic offers,
@@ -285,20 +328,35 @@ export default function NewClinicPage() {
           ignored: Boolean(s.is_noise),
         }))
       );
+      const scrapedGallery = data.images?.gallery ?? [];
       setLogo(data.images?.logo ?? null);
-      setGallery(data.images?.gallery ?? []);
-      setBeforeAfter(data.images?.before_after ?? []);
+      setGallery(scrapedGallery);
+      setCoverUrl(scrapedGallery[0]?.source_url ?? null);
+      setBeforeAfter([]); // before/after fetching disabled
       setReviews(data.reviews ?? []);
       setCanonicalServices(svc);
 
-      // hours -> editable JSON text per location
-      const hmap: Record<number, string> = {};
+      // business-level socials / about / tagline from first location
+      const firstLoc = (data.locations.length > 0 ? data.locations : [emptyLocation()])[0];
+      setBusinessTagline(firstLoc.tagline ?? '');
+      setBusinessAbout(firstLoc.about ?? '');
+      setBusinessSocials({
+        instagram_url: firstLoc.instagram_url ?? '',
+        facebook_url: firstLoc.facebook_url ?? '',
+        tiktok_url: firstLoc.tiktok_url ?? '',
+        youtube_url: firstLoc.youtube_url ?? '',
+        x_url: firstLoc.x_url ?? '',
+        linkedin_url: firstLoc.linkedin_url ?? '',
+        yelp_url: firstLoc.yelp_url ?? '',
+        google_my_business: firstLoc.google_my_business ?? '',
+      });
+
+      // hours -> structured day map per location
+      const hmap: Record<number, LocationHoursMap> = {};
       (data.locations.length > 0 ? data.locations : [emptyLocation()]).forEach(
-        (l, i) => {
-          hmap[i] = hoursToText(l.hours);
-        }
+        (l, i) => { hmap[i] = parseHoursToState(l.hours); }
       );
-      setHoursText(hmap);
+      setHoursState(hmap);
 
       // duplicate handling — preview only gives ids; surface a warning + flag
       if (data.duplicate?.exists) {
@@ -334,10 +392,20 @@ export default function NewClinicPage() {
   };
   const addLocation = () => {
     setLocations((prev) => [...prev, emptyLocation()]);
-    setHoursText((prev) => ({ ...prev, [locations.length]: "" }));
+    setHoursState((prev) => ({ ...prev, [locations.length]: {} }));
   };
   const removeLocation = (idx: number) => {
     setLocations((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const updateHours = (locIdx: number, day: string, patch: Partial<DayHours>) => {
+    setHoursState((prev) => ({
+      ...prev,
+      [locIdx]: {
+        ...prev[locIdx],
+        [day]: { open: '09:00', close: '17:00', is_open: true, ...prev[locIdx]?.[day as DayKey], ...patch },
+      },
+    }));
   };
 
   // ── service editing ─────────────────────────────────────────────────────────
@@ -381,8 +449,16 @@ export default function NewClinicPage() {
   };
 
   // ── image editing ─────────────────────────────────────────────────────────────
-  const removeGallery = (idx: number) =>
-    setGallery((prev) => prev.filter((_, i) => i !== idx));
+  const removeGallery = (idx: number) => {
+    setGallery((prev) => {
+      const removed = prev[idx];
+      const next = prev.filter((_, i) => i !== idx);
+      if (removed?.source_url === coverUrl) {
+        setCoverUrl(next[0]?.source_url ?? null);
+      }
+      return next;
+    });
+  };
   const removeBeforeAfter = (idx: number) =>
     setBeforeAfter((prev) => prev.filter((_, i) => i !== idx));
 
@@ -399,19 +475,13 @@ export default function NewClinicPage() {
     if (!preview) return null;
 
     const outLocations: SaveLocation[] = locations.map((l, i) => {
-      let hours: Record<string, unknown> | null = l.hours ?? null;
-      const txt = hoursText[i];
-      if (txt && txt.trim()) {
-        try {
-          hours = JSON.parse(txt) as Record<string, unknown>;
-        } catch {
-          // keep prior hours if the edited JSON is invalid
-        }
-      } else if (txt === "") {
-        hours = null;
-      }
+      const hmap = hoursState[i];
+      const hours = hmap && Object.keys(hmap).length > 0 ? hoursStateToJson(hmap) : l.hours ?? null;
       return {
         ...l,
+        ...businessSocials,
+        about: businessAbout || l.about,
+        tagline: businessTagline || l.tagline,
         lat: l.lat != null && l.lat !== ("" as unknown) ? Number(l.lat) : null,
         lng: l.lng != null && l.lng !== ("" as unknown) ? Number(l.lng) : null,
         hours,
@@ -441,6 +511,11 @@ export default function NewClinicPage() {
         source_url: r.source_url ?? null,
       }));
 
+    // Reorder gallery so the selected cover (tracked by URL) is first
+    const reorderedGallery = coverUrl
+      ? [...gallery.filter((g) => g.source_url === coverUrl), ...gallery.filter((g) => g.source_url !== coverUrl)]
+      : gallery;
+
     return {
       website: preview.website,
       business: { name: businessName.trim() || preview.business.name },
@@ -448,8 +523,8 @@ export default function NewClinicPage() {
       services: outServices,
       images: {
         logo: logo ?? null,
-        gallery,
-        before_after: beforeAfter,
+        gallery: reorderedGallery,
+        before_after: [],  // disabled
       },
       reviews: outReviews,
       ext_rating: preview.ext_rating,
@@ -458,12 +533,16 @@ export default function NewClinicPage() {
   }, [
     preview,
     locations,
-    hoursText,
+    hoursState,
     services,
     reviews,
     businessName,
+    businessTagline,
+    businessAbout,
+    businessSocials,
     logo,
     gallery,
+    coverUrl,
     beforeAfter,
   ]);
 
@@ -599,7 +678,7 @@ export default function NewClinicPage() {
             </div>
             <div className="flex flex-wrap gap-3 text-xs text-emerald-900/70">
               <span>
-                {result.servicesMatched + result.servicesAuto} services mapped
+                {result.servicesMatched + result.servicesAuto} treatments mapped
               </span>
               <span>·</span>
               <span>{result.servicesUnmatched} unmatched</span>
@@ -703,6 +782,52 @@ export default function NewClinicPage() {
         </div>
       )}
 
+      {/* Create-treatment dialog */}
+      {createPrompt && (
+        <Dialog open onOpenChange={(open) => { if (!open) setCreatePrompt(null); }}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Create new treatment</DialogTitle>
+              <DialogDescription>
+                This will add a new canonical treatment to the system.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col gap-3 py-2">
+              <Field label="Treatment name">
+                <Input
+                  value={createPrompt.name}
+                  onChange={(e) => setCreatePrompt((p) => p ? { ...p, name: e.target.value } : null)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && createPrompt.name.trim()) {
+                      createServiceForRow(createPrompt.idx, createPrompt.name);
+                      setCreatePrompt(null);
+                    }
+                  }}
+                  autoFocus
+                  className="h-9"
+                />
+              </Field>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" size="sm" onClick={() => setCreatePrompt(null)}>
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                variant="gradient"
+                disabled={!createPrompt.name.trim() || creatingIdx !== null}
+                onClick={() => {
+                  createServiceForRow(createPrompt.idx, createPrompt.name);
+                  setCreatePrompt(null);
+                }}
+              >
+                {creatingIdx !== null ? <><Loader2 size={13} className="animate-spin" /> Creating…</> : 'Create Treatment'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
       {/* Editable form */}
       {preview && !result && (
         <>
@@ -714,14 +839,59 @@ export default function NewClinicPage() {
                 Business
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-6">
+            <CardContent className="flex flex-col gap-5 p-6">
               <Field label="Business name">
-                <Input
-                  value={businessName}
-                  onChange={(e) => setBusinessName(e.target.value)}
-                  className="h-10"
-                />
+                <Input value={businessName} onChange={(e) => setBusinessName(e.target.value)} className="h-10" />
               </Field>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="sm:col-span-2">
+                  <Field label="Tagline">
+                    <Input
+                      value={businessTagline}
+                      onChange={(e) => setBusinessTagline(e.target.value)}
+                      placeholder="Short pitch shown on clinic page"
+                      className="h-9"
+                    />
+                  </Field>
+                </div>
+                <div className="sm:col-span-2">
+                  <Field label="About">
+                    <textarea
+                      value={businessAbout}
+                      onChange={(e) => setBusinessAbout(e.target.value)}
+                      rows={4}
+                      placeholder="Clinic description…"
+                      className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                    />
+                  </Field>
+                </div>
+
+                <Field label="Instagram">
+                  <Input value={businessSocials.instagram_url} onChange={(e) => setBusinessSocials(p => ({ ...p, instagram_url: e.target.value }))} className="h-9" placeholder="https://instagram.com/…" />
+                </Field>
+                <Field label="Facebook">
+                  <Input value={businessSocials.facebook_url} onChange={(e) => setBusinessSocials(p => ({ ...p, facebook_url: e.target.value }))} className="h-9" placeholder="https://facebook.com/…" />
+                </Field>
+                <Field label="TikTok">
+                  <Input value={businessSocials.tiktok_url} onChange={(e) => setBusinessSocials(p => ({ ...p, tiktok_url: e.target.value }))} className="h-9" placeholder="https://tiktok.com/@…" />
+                </Field>
+                <Field label="YouTube">
+                  <Input value={businessSocials.youtube_url} onChange={(e) => setBusinessSocials(p => ({ ...p, youtube_url: e.target.value }))} className="h-9" placeholder="https://youtube.com/…" />
+                </Field>
+                <Field label="X (Twitter)">
+                  <Input value={businessSocials.x_url} onChange={(e) => setBusinessSocials(p => ({ ...p, x_url: e.target.value }))} className="h-9" placeholder="https://x.com/…" />
+                </Field>
+                <Field label="LinkedIn">
+                  <Input value={businessSocials.linkedin_url} onChange={(e) => setBusinessSocials(p => ({ ...p, linkedin_url: e.target.value }))} className="h-9" placeholder="https://linkedin.com/…" />
+                </Field>
+                <Field label="Yelp">
+                  <Input value={businessSocials.yelp_url} onChange={(e) => setBusinessSocials(p => ({ ...p, yelp_url: e.target.value }))} className="h-9" placeholder="https://yelp.com/biz/…" />
+                </Field>
+                <Field label="Google My Business">
+                  <Input value={businessSocials.google_my_business} onChange={(e) => setBusinessSocials(p => ({ ...p, google_my_business: e.target.value }))} className="h-9" placeholder="https://maps.google.com/…" />
+                </Field>
+              </div>
             </CardContent>
           </Card>
 
@@ -763,15 +933,6 @@ export default function NewClinicPage() {
                   </div>
 
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <Field label="Location name (tagline)">
-                      <Input
-                        value={loc.tagline ?? ""}
-                        onChange={(e) =>
-                          updateLocation(idx, { tagline: e.target.value })
-                        }
-                        className="h-9"
-                      />
-                    </Field>
                     <Field label="Phone">
                       <Input
                         value={loc.phone ?? ""}
@@ -837,60 +998,6 @@ export default function NewClinicPage() {
                         className="h-9"
                       />
                     </Field>
-                    <Field label="Instagram">
-                      <Input
-                        value={loc.instagram_url ?? ""}
-                        onChange={(e) =>
-                          updateLocation(idx, { instagram_url: e.target.value })
-                        }
-                        className="h-9"
-                      />
-                    </Field>
-                    <Field label="Facebook">
-                      <Input
-                        value={loc.facebook_url ?? ""}
-                        onChange={(e) =>
-                          updateLocation(idx, { facebook_url: e.target.value })
-                        }
-                        className="h-9"
-                      />
-                    </Field>
-                    <Field label="TikTok">
-                      <Input
-                        value={loc.tiktok_url ?? ""}
-                        onChange={(e) =>
-                          updateLocation(idx, { tiktok_url: e.target.value })
-                        }
-                        className="h-9"
-                      />
-                    </Field>
-                    <Field label="X (Twitter)">
-                      <Input
-                        value={loc.x_url ?? ""}
-                        onChange={(e) =>
-                          updateLocation(idx, { x_url: e.target.value })
-                        }
-                        className="h-9"
-                      />
-                    </Field>
-                    <Field label="YouTube">
-                      <Input
-                        value={loc.youtube_url ?? ""}
-                        onChange={(e) =>
-                          updateLocation(idx, { youtube_url: e.target.value })
-                        }
-                        className="h-9"
-                      />
-                    </Field>
-                    <Field label="Yelp">
-                      <Input
-                        value={loc.yelp_url ?? ""}
-                        onChange={(e) =>
-                          updateLocation(idx, { yelp_url: e.target.value })
-                        }
-                        className="h-9"
-                      />
-                    </Field>
                     <Field label="Latitude">
                       <Input
                         value={loc.lat ?? ""}
@@ -920,42 +1027,44 @@ export default function NewClinicPage() {
                       />
                     </Field>
                     <div className="sm:col-span-2">
-                      <Field label="Tagline (short pitch)">
-                        <Input
-                          value={loc.tagline ?? ""}
-                          onChange={(e) =>
-                            updateLocation(idx, { tagline: e.target.value })
-                          }
-                          className="h-9"
-                        />
-                      </Field>
-                    </div>
-                    <div className="sm:col-span-2">
-                      <Field label="About">
-                        <textarea
-                          value={loc.about ?? ""}
-                          onChange={(e) =>
-                            updateLocation(idx, { about: e.target.value })
-                          }
-                          rows={4}
-                          className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-                        />
-                      </Field>
-                    </div>
-                    <div className="sm:col-span-2">
-                      <Field label="Hours (JSON)">
-                        <textarea
-                          value={hoursText[idx] ?? ""}
-                          onChange={(e) =>
-                            setHoursText((prev) => ({
-                              ...prev,
-                              [idx]: e.target.value,
-                            }))
-                          }
-                          rows={4}
-                          placeholder='{ "MONDAY": { "open": "09:00", "close": "17:00", "is_open": true } }'
-                          className="w-full rounded-lg border border-input bg-transparent px-3 py-2 font-mono text-xs outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-                        />
+                      <Field label="Hours">
+                        <div className="mt-1 flex flex-col gap-2 rounded-lg border border-slate-200 bg-slate-50/50 p-3">
+                          {DAYS.map((day) => {
+                            const dh = hoursState[idx]?.[day];
+                            return (
+                              <div key={day} className="flex items-center gap-3">
+                                <label className="flex w-28 shrink-0 cursor-pointer items-center gap-2">
+                                  <input
+                                    type="checkbox"
+                                    checked={dh?.is_open ?? false}
+                                    onChange={(e) => updateHours(idx, day, { is_open: e.target.checked })}
+                                    className="size-3.5 rounded border-slate-300 accent-[#9b3a9b]"
+                                  />
+                                  <span className="text-xs font-medium text-slate-700">{DAY_LABELS[day]}</span>
+                                </label>
+                                {dh?.is_open ? (
+                                  <div className="flex items-center gap-2">
+                                    <Input
+                                      type="time"
+                                      value={dh.open}
+                                      onChange={(e) => updateHours(idx, day, { open: e.target.value })}
+                                      className="h-7 w-28 text-xs"
+                                    />
+                                    <span className="text-xs text-slate-400">to</span>
+                                    <Input
+                                      type="time"
+                                      value={dh.close}
+                                      onChange={(e) => updateHours(idx, day, { close: e.target.value })}
+                                      className="h-7 w-28 text-xs"
+                                    />
+                                  </div>
+                                ) : (
+                                  <span className="text-xs italic text-slate-400">Closed</span>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
                       </Field>
                     </div>
                   </div>
@@ -1056,19 +1165,19 @@ export default function NewClinicPage() {
             </CardContent>
           </Card>
 
-          {/* Services */}
+          {/* Treatments */}
           <Card className="border-slate-200 shadow-sm">
             <CardHeader className="border-b border-slate-100 bg-slate-50/50 pb-4">
               <CardTitle className="flex items-center gap-2 text-base font-semibold text-slate-800">
                 <Stethoscope size={16} style={{ color: BRAND }} />
-                Services
+                Treatments
                 <Badge variant="secondary" className="font-normal">
                   {services.filter((s) => !s.ignored).length}
                 </Badge>
               </CardTitle>
               <CardDescription className="text-xs text-slate-500">
-                Matched services map automatically. For unmatched ones, pick a
-                canonical service or mark them ignored.
+                Matched treatments map automatically. For unmatched ones, pick a
+                canonical treatment or mark them ignored.
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
@@ -1078,103 +1187,131 @@ export default function NewClinicPage() {
                 </div>
               ) : (
                 <div className="flex flex-col divide-y divide-slate-100">
-                  {services.map((s, idx) => {
-                    const matched = Boolean(s.suggestion?.slug);
-                    // a row the admin manually mapped or just created
-                    const mappedNow = !matched && Boolean(s.mappedSlug);
-                    const resolved = matched || mappedNow;
+                  {(() => {
+                    const sortedServices = [...services].map((s, i) => ({ ...s, originalIdx: i })).sort((a, b) => {
+                      const aResolved = Boolean(a.suggestion?.slug) || Boolean(a.mappedSlug);
+                      const bResolved = Boolean(b.suggestion?.slug) || Boolean(b.mappedSlug);
+                      if (aResolved !== bResolved) return aResolved ? -1 : 1;
+                      return 0;
+                    });
+                    const visibleServices = services.length > 10 && !showAllTreatments
+                      ? sortedServices.slice(0, 10)
+                      : sortedServices;
                     return (
-                      <div
-                        key={idx}
-                        className={`flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between ${
-                          s.ignored ? "opacity-50" : ""
-                        }`}
-                      >
-                        <div className="flex min-w-0 flex-1 items-start gap-2">
-                          {resolved ? (
-                            <CheckCircle2
-                              size={16}
-                              className="mt-0.5 shrink-0 text-emerald-500"
-                            />
-                          ) : (
-                            <AlertTriangle
-                              size={16}
-                              className="mt-0.5 shrink-0 text-amber-500"
-                            />
-                          )}
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-medium text-slate-800">
-                              {s.raw_name}
-                            </p>
-                            {matched ? (
-                              <p className="text-xs text-emerald-600">
-                                → {canonicalLabel(s.suggestion!.slug)}
-                                {s.suggestion!.confidence < 1 && (
-                                  <span className="ml-1 text-slate-400">
-                                    (auto)
-                                  </span>
+                      <>
+                        {visibleServices.map((item) => {
+                          const s = item;
+                          const idx = item.originalIdx;
+                          const matched = Boolean(s.suggestion?.slug);
+                          const mappedNow = !matched && Boolean(s.mappedSlug);
+                          const resolved = matched || mappedNow;
+                          return (
+                            <div
+                              key={idx}
+                              className={`flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between ${
+                                s.ignored ? "opacity-50" : ""
+                              }`}
+                            >
+                              <div className="flex min-w-0 flex-1 items-start gap-2">
+                                {resolved ? (
+                                  <CheckCircle2
+                                    size={16}
+                                    className="mt-0.5 shrink-0 text-emerald-500"
+                                  />
+                                ) : (
+                                  <AlertTriangle
+                                    size={16}
+                                    className="mt-0.5 shrink-0 text-amber-500"
+                                  />
                                 )}
-                              </p>
-                            ) : mappedNow ? (
-                              <p className="text-xs text-emerald-600">
-                                → {canonicalLabel(s.mappedSlug)}
-                                <span className="ml-1 text-slate-400">(mapped)</span>
-                              </p>
-                            ) : (
-                              <p className="text-xs text-amber-600">
-                                Unmatched — map to a canonical service
-                              </p>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-3 sm:w-[340px] sm:shrink-0">
-                          {matched ? (
-                            <span className="flex-1 truncate rounded-md bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700">
-                              {canonicalLabel(s.suggestion!.slug)}
-                            </span>
-                          ) : (
-                            <div className="flex flex-1 flex-col gap-1.5">
-                              <div className="rounded-lg border border-slate-200 px-3 py-1.5">
-                                <SearchableDropdown
-                                  options={serviceOptions}
-                                  value={s.mappedSlug}
-                                  onChange={(v) =>
-                                    updateService(idx, { mappedSlug: v })
-                                  }
-                                  placeholder="Map to canonical…"
-                                />
+                                <div className="min-w-0">
+                                  <p className="truncate text-sm font-medium text-slate-800">
+                                    {s.raw_name}
+                                  </p>
+                                  {matched ? (
+                                    <p className="text-xs text-emerald-600">
+                                      → {canonicalLabel(s.suggestion!.slug)}
+                                      {s.suggestion!.confidence < 1 && (
+                                        <span className="ml-1 text-slate-400">
+                                          (auto)
+                                        </span>
+                                      )}
+                                    </p>
+                                  ) : mappedNow ? (
+                                    <p className="text-xs text-emerald-600">
+                                      → {canonicalLabel(s.mappedSlug)}
+                                      <span className="ml-1 text-slate-400">(mapped)</span>
+                                    </p>
+                                  ) : (
+                                    <p className="text-xs text-amber-600">
+                                      Unmatched — map to a canonical treatment
+                                    </p>
+                                  )}
+                                </div>
                               </div>
-                              <button
-                                type="button"
-                                onClick={() => createServiceForRow(idx, s.raw_name)}
-                                disabled={creatingIdx === idx}
-                                className="inline-flex w-fit items-center gap-1 text-xs font-medium text-[#9b3a9b] hover:underline disabled:opacity-50"
-                              >
-                                <Plus size={13} />
-                                {creatingIdx === idx
-                                  ? "Creating…"
-                                  : `Create “${s.raw_name}” as a new service`}
-                              </button>
+
+                              <div className="flex items-center gap-3 sm:w-[340px] sm:shrink-0">
+                                {matched ? (
+                                  <span className="flex-1 truncate rounded-md bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700">
+                                    {canonicalLabel(s.suggestion!.slug)}
+                                  </span>
+                                ) : (
+                                  <div className="flex flex-1 flex-col gap-1.5">
+                                    <div className="rounded-lg border border-slate-200 px-3 py-1.5">
+                                      <SearchableDropdown
+                                        options={serviceOptions}
+                                        value={s.mappedSlug}
+                                        onChange={(v) =>
+                                          updateService(idx, { mappedSlug: v })
+                                        }
+                                        placeholder="Map to treatment…"
+                                      />
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => setCreatePrompt({ idx, name: s.raw_name })}
+                                      className="inline-flex w-fit items-center gap-1 text-xs font-medium text-[#9b3a9b] hover:underline"
+                                    >
+                                      <Plus size={13} />
+                                      Create a new treatment for this
+                                    </button>
+                                  </div>
+                                )}
+                                <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-xs text-slate-500">
+                                  <input
+                                    type="checkbox"
+                                    checked={s.ignored}
+                                    onChange={(e) =>
+                                      updateService(idx, {
+                                        ignored: e.target.checked,
+                                      })
+                                    }
+                                    className="size-4 rounded border-slate-300 accent-[#9b3a9b]"
+                                  />
+                                  Ignore
+                                </label>
+                              </div>
                             </div>
-                          )}
-                          <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-xs text-slate-500">
-                            <input
-                              type="checkbox"
-                              checked={s.ignored}
-                              onChange={(e) =>
-                                updateService(idx, {
-                                  ignored: e.target.checked,
-                                })
-                              }
-                              className="size-4 rounded border-slate-300 accent-[#9b3a9b]"
-                            />
-                            Ignore
-                          </label>
-                        </div>
-                      </div>
+                          );
+                        })}
+                        {services.length > 10 && (
+                          <div className="flex justify-center p-3">
+                            <button
+                              type="button"
+                              onClick={() => setShowAllTreatments((v) => !v)}
+                              className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-700"
+                            >
+                              {showAllTreatments ? (
+                                <><ChevronUp size={14} /> Show less</>
+                              ) : (
+                                <><ChevronDown size={14} /> Show all {services.length} treatments</>
+                              )}
+                            </button>
+                          </div>
+                        )}
+                      </>
                     );
-                  })}
+                  })()}
                 </div>
               )}
             </CardContent>
@@ -1214,12 +1351,35 @@ export default function NewClinicPage() {
                 ) : (
                   <p className="text-sm text-slate-400">No logo.</p>
                 )}
+                <div className="mt-3 flex gap-2">
+                  <Input
+                    type="url"
+                    placeholder="Or paste logo URL…"
+                    value={logoUrlInput}
+                    onChange={(e) => setLogoUrlInput(e.target.value)}
+                    className="h-8 text-xs"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && logoUrlInput.trim()) {
+                        setLogo({ source_url: logoUrlInput.trim(), alt_text: null });
+                        setLogoUrlInput('');
+                      }
+                    }}
+                  />
+                  <Button variant="outline" size="sm" className="h-8 shrink-0 text-xs"
+                    onClick={() => { if (logoUrlInput.trim()) { setLogo({ source_url: logoUrlInput.trim(), alt_text: null }); setLogoUrlInput(''); }}}
+                  >
+                    Set Logo
+                  </Button>
+                </div>
               </div>
 
               {/* Gallery */}
               <div>
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
                   Gallery ({gallery.length})
+                </p>
+                <p className="mb-2 text-xs text-slate-400">
+                  The cover image (★) appears first on search results.
                 </p>
                 {gallery.length === 0 ? (
                   <p className="text-sm text-slate-400">No gallery images.</p>
@@ -1244,46 +1404,52 @@ export default function NewClinicPage() {
                         >
                           <Trash2 size={12} />
                         </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Before / after */}
-              <div>
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  Before / After ({beforeAfter.length})
-                </p>
-                {beforeAfter.length === 0 ? (
-                  <p className="text-sm text-slate-400">
-                    No before/after images.
-                  </p>
-                ) : (
-                  <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
-                    {beforeAfter.map((img, idx) => (
-                      <div
-                        key={idx}
-                        className="group relative aspect-square overflow-hidden rounded-lg border border-slate-200 bg-slate-100"
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={img.source_url}
-                          alt={img.alt_text || "Before/after"}
-                          className="h-full w-full object-cover"
-                        />
                         <button
                           type="button"
-                          onClick={() => removeBeforeAfter(idx)}
-                          className="absolute right-1.5 top-1.5 rounded-full bg-red-500 p-1 text-white opacity-0 shadow-sm transition-opacity group-hover:opacity-100 hover:bg-red-600"
-                          aria-label="Remove image"
+                          onClick={() => setCoverUrl(img.source_url)}
+                          className={`absolute left-1.5 bottom-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold shadow-sm transition-colors ${
+                            coverUrl === img.source_url
+                              ? 'bg-amber-400 text-white'
+                              : 'bg-black/40 text-white hover:bg-black/60'
+                          }`}
+                          title={coverUrl === img.source_url ? 'Cover image' : 'Set as cover'}
                         >
-                          <Trash2 size={12} />
+                          {coverUrl === img.source_url ? '★ Cover' : 'Set cover'}
                         </button>
                       </div>
                     ))}
                   </div>
                 )}
+                <div className="mt-3 flex gap-2">
+                  <Input
+                    type="url"
+                    placeholder="Add image by URL…"
+                    value={galleryUrlInput}
+                    onChange={(e) => setGalleryUrlInput(e.target.value)}
+                    className="h-8 text-xs"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && galleryUrlInput.trim()) {
+                        setGallery((prev) => [...prev, { source_url: galleryUrlInput.trim(), alt_text: null }]);
+                        setGalleryUrlInput('');
+                      }
+                    }}
+                  />
+                  <Button variant="outline" size="sm" className="h-8 shrink-0 text-xs"
+                    onClick={() => { if (galleryUrlInput.trim()) { setGallery(prev => [...prev, { source_url: galleryUrlInput.trim(), alt_text: null }]); setGalleryUrlInput(''); }}}
+                  >
+                    Add Image
+                  </Button>
+                </div>
+              </div>
+
+              {/* Before / after */}
+              <div>
+                <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  Before / After
+                </p>
+                <p className="text-xs text-slate-400 italic">
+                  Before/after image fetching is currently disabled. This section can be enabled in a future update.
+                </p>
               </div>
             </CardContent>
           </Card>

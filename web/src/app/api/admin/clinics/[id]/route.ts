@@ -9,6 +9,7 @@ import { successResponse, handleApiError } from "@/lib/api-response";
 const patchSchema = z
   .object({
     name: z.string().min(1).max(255),
+    slug: z.string().min(1).max(255),
     tagline: z.string().nullable(),
     about: z.string().nullable(),
     // Accept a valid URL or an empty string (cleared field) — no hard 422.
@@ -20,6 +21,8 @@ const patchSchema = z
     state: z.string().nullable(),
     zip: z.string().nullable(),
     country: z.string().nullable(),
+    lat: z.number().nullable(),
+    lng: z.number().nullable(),
     phone: z.string().nullable(),
     email: z.string().nullable(),
     hours: z.record(z.string(), z.unknown()).nullable(),
@@ -97,9 +100,30 @@ interface ImageRef {
   alt_text: string | null;
 }
 
+interface LocationRef {
+  id: string;
+  label: string | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+  country: string | null;
+  lat: string | null;
+  lng: string | null;
+  phone: string | null;
+  email: string | null;
+  booking_url: string | null;
+  google_maps_url: string | null;
+  hours: Record<string, unknown> | null;
+  is_primary: boolean;
+  sort_order: number;
+}
+
 interface TreatmentRef {
   id: string;
   service_id: string | null;
+  service_slug: string | null;
+  service_name: string | null;
   raw_name: string;
   description: string | null;
   match_status: string | null;
@@ -134,19 +158,31 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
       `SELECT id, source_url, cdn_url, role, sort_order, alt_text
          FROM images
         WHERE entity_type = 'clinic' AND entity_id = $1
-        ORDER BY role, sort_order`,
+        ORDER BY CASE role WHEN 'logo' THEN 0 WHEN 'cover' THEN 1 WHEN 'gallery' THEN 2 ELSE 3 END, sort_order`,
       [id]
     );
 
     const treatments = await query<TreatmentRef>(
-      `SELECT id, service_id, raw_name, description, match_status
-         FROM clinic_services
-        WHERE clinic_id = $1 AND is_active = true
-        ORDER BY raw_name`,
+      `SELECT cs.id, cs.service_id, s.slug AS service_slug, s.name AS service_name,
+              cs.raw_name, cs.description, cs.match_status
+         FROM clinic_services cs
+         LEFT JOIN services s ON s.id = cs.service_id
+        WHERE cs.clinic_id = $1 AND cs.is_active = true
+        ORDER BY COALESCE(s.name, cs.raw_name)`,
       [id]
     );
 
-    return successResponse({ ...clinic, images, treatments });
+    const locations = await query<LocationRef>(
+      `SELECT id, label, address, city, state, zip, country,
+              lat::text, lng::text, phone, email,
+              booking_url, google_maps_url, hours, is_primary, sort_order
+         FROM clinic_locations
+        WHERE clinic_id = $1 AND is_active = true
+        ORDER BY sort_order, created_at`,
+      [id]
+    );
+
+    return successResponse({ ...clinic, images, treatments, locations });
   } catch (err) {
     return handleApiError(err);
   }

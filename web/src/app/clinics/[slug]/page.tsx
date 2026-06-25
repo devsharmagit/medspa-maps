@@ -84,10 +84,14 @@ export default async function ClinicPage({
   const data = await getClinicData(slug);
   if (!data) notFound();
 
-  const { clinic, treatments, gallery, gallery_total, before_after, before_after_total, reviews, stats } =
+  const { clinic, locations, treatments, gallery, gallery_total, before_after, before_after_total, reviews, stats } =
     data;
 
-  const loc = [clinic.city, clinic.state].filter(Boolean).join(", ");
+  const primaryLoc = locations.find((l) => l.is_primary) ?? locations[0] ?? null;
+  const loc = primaryLoc
+    ? [primaryLoc.city, primaryLoc.state].filter(Boolean).join(", ")
+    : [clinic.city, clinic.state].filter(Boolean).join(", ");
+  const hasMultipleLocations = locations.length > 1;
   const isPremium = clinic.featured || clinic.verified;
   const todayHours = getTodayHours(clinic.hours);
   // Prefer the real maps link captured at ingestion (resolves to the actual
@@ -164,7 +168,12 @@ export default async function ClinicPage({
 
               {/* Info row */}
               <div className="grid grid-cols-1 gap-4 rounded-2xl border border-zinc-100 bg-zinc-50/60 p-4 sm:grid-cols-3">
-                {(clinic.address || loc) && (
+                {hasMultipleLocations ? (
+                  <div className="flex items-start gap-2.5 text-sm text-zinc-600">
+                    <MapPin className="mt-0.5 size-4 shrink-0 text-[#9b3a9b]" />
+                    <span>{locations.length} locations — {loc}</span>
+                  </div>
+                ) : (clinic.address || loc) ? (
                   <a
                     href={mapsUrl}
                     target="_blank"
@@ -174,7 +183,7 @@ export default async function ClinicPage({
                     <MapPin className="mt-0.5 size-4 shrink-0 text-[#9b3a9b]" />
                     <span>{clinic.address || loc}</span>
                   </a>
-                )}
+                ) : null}
                 {todayHours && (
                   <div className="flex items-start gap-2.5 text-sm text-zinc-600">
                     <Clock className="mt-0.5 size-4 shrink-0 text-[#9b3a9b]" />
@@ -265,8 +274,81 @@ export default async function ClinicPage({
           </section>
         )}
 
-        {/* Before & After */}
-        {before_after.length > 0 && (
+        {/* Locations — only shown when a clinic has 2+ locations */}
+        {hasMultipleLocations && (
+          <section className="mt-12">
+            <h2 className="text-2xl font-semibold tracking-tight text-zinc-900 sm:text-3xl">
+              Our{" "}
+              <span className="font-fraunces italic font-normal">Locations</span>
+            </h2>
+            <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {locations.map((location) => {
+                const addrLine = [location.address, location.city, location.state, location.zip]
+                  .filter(Boolean)
+                  .join(", ");
+                const mapLink =
+                  location.google_maps_url ||
+                  (addrLine
+                    ? `https://maps.google.com/?q=${encodeURIComponent(addrLine)}`
+                    : null);
+                return (
+                  <div
+                    key={location.id}
+                    className="flex flex-col gap-3 rounded-2xl border border-zinc-100 bg-white p-5 shadow-sm"
+                  >
+                    <div className="flex items-center gap-2">
+                      <MapPin className="size-4 shrink-0 text-[#9b3a9b]" />
+                      <span className="font-semibold text-sm text-zinc-900">
+                        {location.label || location.city || "Location"}
+                      </span>
+                      {location.is_primary && (
+                        <span className="ml-auto text-[10px] font-medium text-[#9b3a9b] bg-[#fdf4f9] px-2 py-0.5 rounded-full border border-[#d96f8e]/20">
+                          Main
+                        </span>
+                      )}
+                    </div>
+                    {addrLine && (
+                      <p className="text-xs text-zinc-500 leading-relaxed">{addrLine}</p>
+                    )}
+                    {location.phone && (
+                      <a
+                        href={`tel:${location.phone}`}
+                        className="text-xs text-zinc-600 hover:text-[#9b3a9b] transition"
+                      >
+                        {location.phone}
+                      </a>
+                    )}
+                    <div className="flex flex-wrap gap-2 mt-auto pt-2">
+                      {mapLink && (
+                        <a
+                          href={mapLink}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs font-medium text-[#9b3a9b] hover:underline"
+                        >
+                          View on Maps →
+                        </a>
+                      )}
+                      {location.booking_url && (
+                        <a
+                          href={location.booking_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs font-medium text-[#9b3a9b] hover:underline"
+                        >
+                          Book Here →
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* Before & After — hidden for now */}
+        {false && before_after.length > 0 && (
           <section className="mt-12">
             <h2 className="text-2xl font-semibold tracking-tight text-zinc-900 sm:text-3xl">
               Before{" "}
