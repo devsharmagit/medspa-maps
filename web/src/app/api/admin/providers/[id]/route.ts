@@ -7,6 +7,7 @@ import { successResponse, handleApiError } from "@/lib/api-response";
 import {
   getProviderById,
   getProviderServiceIds,
+  getProviderConcernIds,
   updateProvider,
   deleteProvider,
 } from "@/lib/providers/queries";
@@ -32,6 +33,7 @@ const updateProviderSchema = z.object({
   credentials: z.array(credentialSchema).optional(),
   specialties: z.array(specialtySchema).optional(),
   service_ids: z.array(z.string().uuid()).optional(),
+  concern_ids: z.array(z.string().uuid()).optional(),
 });
 
 // GET /api/admin/providers/[id] — fetch full provider
@@ -44,8 +46,11 @@ export async function GET(
     const { id } = await params;
     const provider = await getProviderById(id);
     if (!provider) throw ApiError.notFound("Provider not found");
-    const service_ids = await getProviderServiceIds(id);
-    return successResponse({ ...provider, service_ids });
+    const [service_ids, concern_ids] = await Promise.all([
+      getProviderServiceIds(id),
+      getProviderConcernIds(id),
+    ]);
+    return successResponse({ ...provider, service_ids, concern_ids });
   } catch (err) {
     return handleApiError(err);
   }
@@ -78,6 +83,22 @@ export async function PUT(
       }
     }
 
+    // Validate that all concern_ids reference existing active concerns
+    if (input.concern_ids && input.concern_ids.length > 0) {
+      const placeholders = input.concern_ids.map((_, i) => `$${i + 1}`).join(", ");
+      const existing = await query<{ id: string }>(
+        `SELECT id FROM concerns WHERE id IN (${placeholders}) AND is_active = true`,
+        input.concern_ids
+      );
+      const existingIds = new Set(existing.map((r) => r.id));
+      const invalid = input.concern_ids.filter((cid) => !existingIds.has(cid));
+      if (invalid.length > 0) {
+        throw ApiError.badRequest(
+          `The following concern IDs are invalid or inactive: ${invalid.join(", ")}`
+        );
+      }
+    }
+
     const updated = await updateProvider(id, {
       ...(input.name !== undefined && { name: input.name }),
       title: input.title ?? undefined,
@@ -89,6 +110,7 @@ export async function PUT(
       ...(input.credentials !== undefined && { credentials: input.credentials }),
       ...(input.specialties !== undefined && { specialties: input.specialties }),
       ...(input.service_ids !== undefined && { service_ids: input.service_ids }),
+      ...(input.concern_ids !== undefined && { concern_ids: input.concern_ids }),
     });
 
     if (!updated) throw ApiError.notFound("Provider not found");

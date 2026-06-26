@@ -34,7 +34,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { computePriorityCoverage } from "@/lib/treatments/coverage";
+import { computeEditableCoverage } from "@/lib/treatments/coverage";
 
 const BRAND = "#9b3a9b";
 
@@ -141,6 +141,8 @@ interface ClinicFull {
   images: ImageRef[];
   treatments: TreatmentRef[];
   locations: LocationRef[];
+  service_slugs?: string[];
+  effective_concern_slugs?: string[];
 }
 
 interface FormState {
@@ -301,6 +303,7 @@ export default function EditClinicPage(props: {
   const [saved, setSaved] = useState(false);
 
   const [selectedTreatmentSlugs, setSelectedTreatmentSlugs] = useState<string[]>([]);
+  const [selectedConcernSlugs, setSelectedConcernSlugs] = useState<string[]>([]);
   const [isActive, setIsActive] = useState(true);
   const [locations, setLocations] = useState<LocationForm[]>([]);
   const [deletedLocationIds, setDeletedLocationIds] = useState<string[]>([]);
@@ -358,6 +361,9 @@ export default function EditClinicPage(props: {
             )
           )
         );
+        setSelectedConcernSlugs(
+          Array.from(new Set(c.effective_concern_slugs ?? []))
+        );
         setIsActive(c.is_active);
         setLocations(loadedLocations);
         setDeletedLocationIds([]);
@@ -403,8 +409,8 @@ export default function EditClinicPage(props: {
   );
 
   const coverage = useMemo(
-    () => computePriorityCoverage(selectedTreatmentSlugs),
-    [selectedTreatmentSlugs]
+    () => computeEditableCoverage(selectedTreatmentSlugs, selectedConcernSlugs),
+    [selectedTreatmentSlugs, selectedConcernSlugs]
   );
 
   function markDirty() {
@@ -512,6 +518,18 @@ export default function EditClinicPage(props: {
     markDirty();
   }
 
+  function addConcern(slug: string) {
+    setSelectedConcernSlugs((prev) =>
+      prev.includes(slug) ? prev : [...prev, slug]
+    );
+    markDirty();
+  }
+
+  function removeConcern(slug: string) {
+    setSelectedConcernSlugs((prev) => prev.filter((item) => item !== slug));
+    markDirty();
+  }
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -616,6 +634,10 @@ export default function EditClinicPage(props: {
 
       await adminPut<TreatmentRef[]>(`/clinics/${id}/services`, {
         service_slugs: selectedTreatmentSlugs,
+      });
+
+      await adminPut(`/clinics/${id}/concerns`, {
+        concern_slugs: selectedConcernSlugs,
       });
 
       setSaved(true);
@@ -966,23 +988,23 @@ export default function EditClinicPage(props: {
               className="font-normal"
               style={{ backgroundColor: `${BRAND}1a`, color: BRAND }}
             >
-              {coverage.count} / {coverage.total}
+              {coverage.treatmentCount} / {coverage.treatmentTotal}
             </Badge>
           </CardTitle>
           <p className="text-xs text-slate-500">
-            How many of the {coverage.total} priority treatments this clinic offers, and the concerns those treatments can treat.
+            Which of the {coverage.treatmentTotal} priority treatments this clinic offers, and the concerns it treats. Click a chip to add or remove.
           </p>
         </CardHeader>
         <CardContent className="flex flex-col gap-5 p-6">
           <div>
             <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
-              Offered ({coverage.present.length})
+              Offered ({coverage.presentTreatments.length})
             </p>
-            {coverage.present.length === 0 ? (
+            {coverage.presentTreatments.length === 0 ? (
               <p className="text-sm text-slate-500">No priority treatments selected yet.</p>
             ) : (
               <div className="flex flex-wrap gap-2">
-                {coverage.present.map((t) => (
+                {coverage.presentTreatments.map((t) => (
                   <button
                     key={t.slug}
                     type="button"
@@ -998,13 +1020,13 @@ export default function EditClinicPage(props: {
             )}
           </div>
 
-          {coverage.missing.length > 0 && (
+          {coverage.missingTreatments.length > 0 && (
             <div>
               <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
-                Not offered ({coverage.missing.length})
+                Not offered ({coverage.missingTreatments.length})
               </p>
               <div className="flex flex-wrap gap-2">
-                {coverage.missing.map((t) => (
+                {coverage.missingTreatments.map((t) => (
                   <button
                     key={t.slug}
                     type="button"
@@ -1021,29 +1043,53 @@ export default function EditClinicPage(props: {
 
           <div>
             <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
-              Treats these concerns ({coverage.concerns.length})
+              Treats these concerns ({coverage.presentConcerns.length})
             </p>
-            {coverage.concerns.length === 0 ? (
-              <p className="text-sm text-slate-500">No priority concerns covered yet.</p>
+            {coverage.presentConcerns.length === 0 ? (
+              <p className="text-sm text-slate-500">No priority concerns selected yet.</p>
             ) : (
               <div className="flex flex-wrap gap-2">
-                {coverage.concerns.map((c) => (
-                  <span
+                {coverage.presentConcerns.map((c) => (
+                  <button
                     key={c.slug}
-                    className="flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium"
+                    type="button"
+                    onClick={() => removeConcern(c.slug)}
+                    className="flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600"
                     style={{
                       borderColor: `${BRAND}4d`,
                       backgroundColor: `${BRAND}1a`,
                       color: BRAND,
                     }}
+                    title="Remove concern"
                   >
                     <HeartPulse size={12} />
                     {c.name}
-                  </span>
+                  </button>
                 ))}
               </div>
             )}
           </div>
+
+          {coverage.missingConcerns.length > 0 && (
+            <div>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                Add a concern ({coverage.missingConcerns.length})
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {coverage.missingConcerns.map((c) => (
+                  <button
+                    key={c.slug}
+                    type="button"
+                    onClick={() => addConcern(c.slug)}
+                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-400 transition-colors hover:border-[#9b3a9b]/40 hover:bg-[#9b3a9b]/10 hover:text-[#9b3a9b]"
+                    title="Add concern"
+                  >
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

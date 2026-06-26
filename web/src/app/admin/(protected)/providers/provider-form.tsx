@@ -44,6 +44,13 @@ interface ClinicService {
   is_active: boolean;
 }
 
+interface ConcernOption {
+  id: string;
+  name: string;
+  slug: string;
+  is_active?: boolean;
+}
+
 interface ProviderData {
   id: string;
   name: string;
@@ -56,6 +63,7 @@ interface ProviderData {
   credentials: ProviderCredential[];
   specialties: ProviderSpecialty[];
   service_ids: string[];
+  concern_ids: string[];
 }
 
 interface FormState {
@@ -69,6 +77,7 @@ interface FormState {
   credentials: ProviderCredential[];
   specialties: ProviderSpecialty[];
   selected_service_ids: string[];
+  selected_concern_ids: string[];
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -88,6 +97,7 @@ function emptyForm(): FormState {
     credentials: [],
     specialties: [],
     selected_service_ids: [],
+    selected_concern_ids: [],
   };
 }
 
@@ -103,6 +113,7 @@ function formFromData(d: ProviderData): FormState {
     credentials: d.credentials ?? [],
     specialties: d.specialties ?? [],
     selected_service_ids: d.service_ids ?? [],
+    selected_concern_ids: d.concern_ids ?? [],
   };
 }
 
@@ -122,6 +133,7 @@ export function ProviderForm({
 
   const [form, setForm] = useState<FormState>(emptyForm());
   const [clinicServices, setClinicServices] = useState<ClinicService[]>([]);
+  const [concerns, setConcerns] = useState<ConcernOption[]>([]);
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -135,6 +147,13 @@ export function ProviderForm({
   useEffect(() => {
     adminGet<ClinicService[]>(`/services`)
       .then((all) => setClinicServices(all.filter((s) => s.is_active !== false)))
+      .catch(() => {/* non-fatal */});
+  }, []);
+
+  // Load concerns for the concern selector
+  useEffect(() => {
+    adminGet<ConcernOption[]>(`/concerns`)
+      .then((all) => setConcerns(all.filter((c) => c.is_active !== false)))
       .catch(() => {/* non-fatal */});
   }, []);
 
@@ -204,6 +223,15 @@ export function ProviderForm({
     );
   }
 
+  // ── Concerns multi-select ─────────────────────────────────────────────────
+  function toggleConcern(id: string) {
+    const selected = form.selected_concern_ids;
+    update(
+      "selected_concern_ids",
+      selected.includes(id) ? selected.filter((c) => c !== id) : [...selected, id]
+    );
+  }
+
   // ── Submit ────────────────────────────────────────────────────────────────
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -223,6 +251,7 @@ export function ProviderForm({
       credentials: form.credentials.filter((c) => c.title || c.institution),
       specialties: form.specialties.filter((s) => s.title || s.description),
       service_ids: form.selected_service_ids,
+      concern_ids: form.selected_concern_ids,
     };
 
     try {
@@ -668,6 +697,51 @@ export function ProviderForm({
                   </>
                 );
               })()}
+
+              {/* ── Concerns treated ──────────────────────────────────────── */}
+              {concerns.length > 0 && (
+                <>
+                  <Separator />
+                  <div className="flex flex-col gap-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <Label>Concerns Treated</Label>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          Select the concerns this provider treats. They&rsquo;ll appear under
+                          &ldquo;Doctors &amp; Providers&rdquo; on those concern pages.
+                        </p>
+                      </div>
+                      {form.selected_concern_ids.length > 0 && (
+                        <Badge className="bg-purple-50 text-purple-700 border border-purple-200 shrink-0">
+                          {form.selected_concern_ids.length} selected
+                        </Badge>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      {concerns.map((c) => {
+                        const selected = form.selected_concern_ids.includes(c.id);
+                        return (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => toggleConcern(c.id)}
+                            className={cn(
+                              "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[13px] font-medium transition-all",
+                              selected
+                                ? "border-purple-300 bg-purple-50 text-purple-800"
+                                : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                            )}
+                          >
+                            {selected && <Check size={13} strokeWidth={3} className="text-purple-600" />}
+                            {c.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </>
+              )}
 
               {/* ── Error ────────────────────────────────────────────────── */}
               {error && (

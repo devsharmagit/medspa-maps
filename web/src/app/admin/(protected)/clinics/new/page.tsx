@@ -46,7 +46,8 @@ import {
   type DropdownOption,
 } from "@/components/ui/searchable-dropdown";
 import { adminGet, adminPost } from "@/lib/admin/client";
-import { computePriorityCoverage } from "@/lib/treatments/coverage";
+import { computeEditableCoverage } from "@/lib/treatments/coverage";
+import { concernsTreatedBy } from "@/lib/taxonomy/canonical";
 
 // ── Types (mirror scrape-preview / clinic-save payload) ──────────────────────
 
@@ -272,19 +273,40 @@ export default function NewClinicPage() {
   // treatments list collapse
   const [showAllTreatments, setShowAllTreatments] = useState(false);
 
+  // Explicit, editable priority-treatment + concern selections for the coverage
+  // card. Seeded from the scraped service mappings (and the concerns those
+  // treatments derive) on fetch, then edited independently of the service rows.
+  const [selectedTreatmentSlugs, setSelectedTreatmentSlugs] = useState<string[]>([]);
+  const [selectedConcernSlugs, setSelectedConcernSlugs] = useState<string[]>([]);
+
   // create-treatment dialog
   const [createPrompt, setCreatePrompt] = useState<{ idx: number; name: string } | null>(null);
 
-  // Live Phase-0 priority-treatment coverage, recomputed as services are
-  // mapped/ignored: how many of the 15 priority treatments this clinic offers,
-  // and which priority concerns those treatments can treat.
+  // Live Phase-0 priority coverage from the admin's explicit selections.
   const coverage = useMemo(
-    () =>
-      computePriorityCoverage(
-        services.filter((s) => !s.ignored && s.mappedSlug).map((s) => s.mappedSlug)
-      ),
-    [services]
+    () => computeEditableCoverage(selectedTreatmentSlugs, selectedConcernSlugs),
+    [selectedTreatmentSlugs, selectedConcernSlugs]
   );
+
+  function addTreatment(slug: string) {
+    setSelectedTreatmentSlugs((prev) =>
+      prev.includes(slug) ? prev : [...prev, slug]
+    );
+  }
+
+  function removeTreatment(slug: string) {
+    setSelectedTreatmentSlugs((prev) => prev.filter((item) => item !== slug));
+  }
+
+  function addConcern(slug: string) {
+    setSelectedConcernSlugs((prev) =>
+      prev.includes(slug) ? prev : [...prev, slug]
+    );
+  }
+
+  function removeConcern(slug: string) {
+    setSelectedConcernSlugs((prev) => prev.filter((item) => item !== slug));
+  }
 
   // duplicate / overwrite
   const [overwrite, setOverwrite] = useState(false);
@@ -321,13 +343,24 @@ export default function NewClinicPage() {
       setLocations(
         data.locations.length > 0 ? data.locations : [emptyLocation()]
       );
-      setServices(
-        data.services.map((s) => ({
-          ...s,
-          mappedSlug: s.suggestion?.slug ?? "",
-          ignored: Boolean(s.is_noise),
-        }))
+      const initialServices = data.services.map((s) => ({
+        ...s,
+        mappedSlug: s.suggestion?.slug ?? "",
+        ignored: Boolean(s.is_noise),
+      }));
+      setServices(initialServices);
+
+      // Seed the editable coverage card from the scraped mappings: the priority
+      // treatments those services resolve to, plus the concerns they derive.
+      const seededTreatments = Array.from(
+        new Set(
+          initialServices
+            .filter((s) => !s.ignored && s.mappedSlug)
+            .map((s) => s.mappedSlug)
+        )
       );
+      setSelectedTreatmentSlugs(seededTreatments);
+      setSelectedConcernSlugs(concernsTreatedBy(seededTreatments));
       const scrapedGallery = data.images?.gallery ?? [];
       setLogo(data.images?.logo ?? null);
       setGallery(scrapedGallery);
@@ -529,6 +562,8 @@ export default function NewClinicPage() {
       reviews: outReviews,
       ext_rating: preview.ext_rating,
       ext_review_count: preview.ext_review_count,
+      treatment_slugs: selectedTreatmentSlugs,
+      concern_slugs: selectedConcernSlugs,
     };
   }, [
     preview,
@@ -544,6 +579,8 @@ export default function NewClinicPage() {
     gallery,
     coverUrl,
     beforeAfter,
+    selectedTreatmentSlugs,
+    selectedConcernSlugs,
   ]);
 
   // ── save ───────────────────────────────────────────────────────────────────────
@@ -1084,52 +1121,58 @@ export default function NewClinicPage() {
                   className="font-normal"
                   style={{ backgroundColor: `${BRAND}1a`, color: BRAND }}
                 >
-                  {coverage.count} / {coverage.total}
+                  {coverage.treatmentCount} / {coverage.treatmentTotal}
                 </Badge>
               </CardTitle>
               <CardDescription className="text-xs text-slate-500">
-                How many of the {coverage.total} priority treatments this clinic
-                offers, and the concerns those treatments can treat. Updates as
-                you map services below.
+                Which of the {coverage.treatmentTotal} priority treatments this
+                clinic offers, and the concerns it treats. Seeded from the
+                scraped mappings — click a chip to add or remove.
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-5 p-6">
               <div>
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  Offered ({coverage.present.length})
+                  Offered ({coverage.presentTreatments.length})
                 </p>
-                {coverage.present.length === 0 ? (
+                {coverage.presentTreatments.length === 0 ? (
                   <p className="text-sm text-slate-500">
-                    No priority treatments matched yet.
+                    No priority treatments selected yet.
                   </p>
                 ) : (
                   <div className="flex flex-wrap gap-2">
-                    {coverage.present.map((t) => (
-                      <span
+                    {coverage.presentTreatments.map((t) => (
+                      <button
                         key={t.slug}
-                        className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700"
+                        type="button"
+                        onClick={() => removeTreatment(t.slug)}
+                        className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                        title="Remove treatment"
                       >
                         <CheckCircle2 size={12} />
                         {t.name}
-                      </span>
+                      </button>
                     ))}
                   </div>
                 )}
               </div>
 
-              {coverage.missing.length > 0 && (
+              {coverage.missingTreatments.length > 0 && (
                 <div>
                   <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
-                    Not offered ({coverage.missing.length})
+                    Not offered ({coverage.missingTreatments.length})
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    {coverage.missing.map((t) => (
-                      <span
+                    {coverage.missingTreatments.map((t) => (
+                      <button
                         key={t.slug}
-                        className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-400"
+                        type="button"
+                        onClick={() => addTreatment(t.slug)}
+                        className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-400 transition-colors hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
+                        title="Add treatment"
                       >
                         {t.name}
-                      </span>
+                      </button>
                     ))}
                   </div>
                 </div>
@@ -1137,31 +1180,55 @@ export default function NewClinicPage() {
 
               <div>
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
-                  Treats these concerns ({coverage.concerns.length})
+                  Treats these concerns ({coverage.presentConcerns.length})
                 </p>
-                {coverage.concerns.length === 0 ? (
+                {coverage.presentConcerns.length === 0 ? (
                   <p className="text-sm text-slate-500">
-                    No priority concerns covered yet.
+                    No priority concerns selected yet.
                   </p>
                 ) : (
                   <div className="flex flex-wrap gap-2">
-                    {coverage.concerns.map((c) => (
-                      <span
+                    {coverage.presentConcerns.map((c) => (
+                      <button
                         key={c.slug}
-                        className="flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium"
+                        type="button"
+                        onClick={() => removeConcern(c.slug)}
+                        className="flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600"
                         style={{
                           borderColor: `${BRAND}4d`,
                           backgroundColor: `${BRAND}1a`,
                           color: BRAND,
                         }}
+                        title="Remove concern"
                       >
                         <HeartPulse size={12} />
                         {c.name}
-                      </span>
+                      </button>
                     ))}
                   </div>
                 )}
               </div>
+
+              {coverage.missingConcerns.length > 0 && (
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    Add a concern ({coverage.missingConcerns.length})
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {coverage.missingConcerns.map((c) => (
+                      <button
+                        key={c.slug}
+                        type="button"
+                        onClick={() => addConcern(c.slug)}
+                        className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-400 transition-colors hover:border-[#9b3a9b]/40 hover:bg-[#9b3a9b]/10 hover:text-[#9b3a9b]"
+                        title="Add concern"
+                      >
+                        {c.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 

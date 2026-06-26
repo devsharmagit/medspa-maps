@@ -12,6 +12,7 @@ interface ClinicListItem {
   state: string | null;
   review_count: number;
   is_active: boolean;
+  featured: boolean;
   created_at: string;
   location_count: number;
   location_cities: string | null;
@@ -24,7 +25,7 @@ export async function GET() {
 
     const clinics = await query<ClinicListItem>(
       `SELECT c.id, c.name, c.slug, c.business_id, b.name AS business_name,
-              c.city, c.state, c.review_count, c.is_active, c.created_at,
+              c.city, c.state, c.review_count, c.is_active, c.featured, c.created_at,
               COUNT(cl.id)::int AS location_count,
               STRING_AGG(cl.city, ', ' ORDER BY cl.sort_order) AS location_cities
          FROM clinics c

@@ -25,6 +25,7 @@ export async function GET(
         clinics: data.clinics.length,
         beforeAfter: data.beforeAfter.length,
         reviews: data.reviews.length,
+        providers: data.providers.length,
       },
     });
   } catch (err) {

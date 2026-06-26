@@ -11,9 +11,10 @@ import {
   Pencil,
   Plus,
   Search,
+  Star,
   Trash2,
 } from "lucide-react";
-import { adminGet, adminDelete } from "@/lib/admin/client";
+import { adminGet, adminDelete, adminPatch } from "@/lib/admin/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -45,6 +46,7 @@ interface ClinicListItem {
   state: string | null;
   review_count: number;
   is_active: boolean;
+  featured: boolean;
   created_at: string;
   location_count: number;
   location_cities: string | null;
@@ -58,6 +60,7 @@ export default function ClinicsPage() {
   const [search, setSearch] = useState("");
   const [pendingDelete, setPendingDelete] = useState<ClinicListItem | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [featuringId, setFeaturingId] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -91,6 +94,22 @@ export default function ClinicsPage() {
         (c.state ?? "").toLowerCase().includes(q)
     );
   }, [clinics, search]);
+
+  async function toggleFeatured(item: ClinicListItem) {
+    setFeaturingId(item.id);
+    try {
+      await adminPatch(`/clinics/${item.id}`, { featured: !item.featured });
+      setClinics((prev) =>
+        prev.map((c) =>
+          c.id === item.id ? { ...c, featured: !c.featured } : c
+        )
+      );
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setFeaturingId(null);
+    }
+  }
 
   async function confirmDelete() {
     if (!pendingDelete) return;
@@ -175,6 +194,9 @@ export default function ClinicsPage() {
                   <TableHead className="text-slate-500 font-semibold text-xs uppercase tracking-wider w-[110px]">
                     Status
                   </TableHead>
+                  <TableHead className="text-slate-500 font-semibold text-xs uppercase tracking-wider w-[120px]">
+                    Featured
+                  </TableHead>
                   <TableHead className="text-slate-500 font-semibold text-xs uppercase tracking-wider w-[200px]">
                     Actions
                   </TableHead>
@@ -243,6 +265,30 @@ export default function ClinicsPage() {
                       >
                         {item.is_active ? "Published" : "Unpublished"}
                       </Badge>
+                    </TableCell>
+
+                    <TableCell>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => toggleFeatured(item)}
+                        disabled={featuringId === item.id}
+                        className={`h-7 px-2.5 text-xs gap-1 border ${
+                          item.featured
+                            ? "border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100"
+                            : "border-slate-200 text-slate-500 hover:bg-slate-50"
+                        }`}
+                      >
+                        {featuringId === item.id ? (
+                          <Loader2 size={12} className="animate-spin" />
+                        ) : (
+                          <Star
+                            size={12}
+                            className={item.featured ? "fill-amber-400 text-amber-500" : ""}
+                          />
+                        )}
+                        {item.featured ? "Featured" : "Feature"}
+                      </Button>
                     </TableCell>
 
                     <TableCell>

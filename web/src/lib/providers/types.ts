@@ -55,6 +55,8 @@ export interface ProviderPayload {
   highlights?: string[];
   credentials?: ProviderCredential[];
   specialties?: ProviderSpecialty[];
-  /** IDs of clinic_services rows this provider performs. */
+  /** IDs of canonical services (treatments) this provider performs. */
   service_ids?: string[];
+  /** IDs of concerns this provider treats. */
+  concern_ids?: string[];
 }

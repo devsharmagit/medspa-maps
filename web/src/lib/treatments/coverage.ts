@@ -70,3 +70,68 @@ export function computePriorityCoverage(
     concerns,
   };
 }
+
+export interface EditableCoverage {
+  /** Priority treatments this clinic offers (catalog order). */
+  presentTreatments: PriorityTreatment[];
+  /** Priority treatments it doesn't offer (catalog order). */
+  missingTreatments: PriorityTreatment[];
+  /** presentTreatments.length */
+  treatmentCount: number;
+  /** total priority treatments (15) */
+  treatmentTotal: number;
+  /** Priority concerns explicitly selected (catalog order). */
+  presentConcerns: PriorityConcern[];
+  /** Priority concerns not currently selected (catalog order). */
+  missingConcerns: PriorityConcern[];
+  /** presentConcerns.length */
+  concernCount: number;
+  /** total priority concerns (10) */
+  concernTotal: number;
+}
+
+/**
+ * computeEditableCoverage(treatmentSlugs, concernSlugs) — pure. Unlike
+ * computePriorityCoverage, the concern section reflects the admin's EXPLICIT
+ * selection (concernSlugs) rather than the auto-derived treatable set, so
+ * treatments and concerns can be edited independently. Non-canonical / null
+ * slugs are ignored.
+ */
+export function computeEditableCoverage(
+  treatmentSlugs: Iterable<string | null | undefined>,
+  concernSlugs: Iterable<string | null | undefined>
+): EditableCoverage {
+  const haveTreatments = new Set(
+    [...treatmentSlugs].filter((s): s is string => Boolean(s))
+  );
+  const haveConcerns = new Set(
+    [...concernSlugs].filter((s): s is string => Boolean(s))
+  );
+
+  const presentTreatments: PriorityTreatment[] = [];
+  const missingTreatments: PriorityTreatment[] = [];
+  for (const s of CANONICAL_SERVICES) {
+    const item = { slug: s.slug, name: s.name };
+    if (haveTreatments.has(s.slug)) presentTreatments.push(item);
+    else missingTreatments.push(item);
+  }
+
+  const presentConcerns: PriorityConcern[] = [];
+  const missingConcerns: PriorityConcern[] = [];
+  for (const c of CANONICAL_CONCERNS) {
+    const item = { slug: c.slug, name: c.name };
+    if (haveConcerns.has(c.slug)) presentConcerns.push(item);
+    else missingConcerns.push(item);
+  }
+
+  return {
+    presentTreatments,
+    missingTreatments,
+    treatmentCount: presentTreatments.length,
+    treatmentTotal: CANONICAL_SERVICES.length,
+    presentConcerns,
+    missingConcerns,
+    concernCount: presentConcerns.length,
+    concernTotal: CANONICAL_CONCERNS.length,
+  };
+}

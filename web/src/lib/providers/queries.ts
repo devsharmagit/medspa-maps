@@ -17,6 +17,72 @@ export async function getProvidersByClinicId(
   );
 }
 
+/** Slim provider row used on the public concern page's provider grid. */
+export interface ConcernProvider {
+  id: string;
+  name: string;
+  title: string | null;
+  image_url: string | null;
+  years_experience: number | null;
+  is_verified: boolean;
+  clinic_slug: string;
+  clinic_name: string;
+  avg_rating: string | null;
+}
+
+/**
+ * Fetch providers at clinics that treat the given concern.
+ * Sorted (in JS) featured DESC, is_verified DESC, avg_rating DESC and capped.
+ */
+export async function getProvidersByConcernId(
+  concernId: string
+): Promise<ConcernProvider[]> {
+  type Row = ConcernProvider & { featured: boolean; verified: boolean };
+
+  // A provider shows on a concern page when ANY of these hold:
+  //  1. explicitly linked to the concern        (provider_concerns)
+  //  2. performs a treatment that treats it      (provider_services → concern_services)
+  //  3. works at a clinic that treats it         (clinic_services → concern_services)
+  // The explicit link (1) lets an admin define a provider for a concern even when
+  // their clinic doesn't otherwise cover it; (2)/(3) keep the list populated.
+  const rows = await query<Row>(
+    `SELECT DISTINCT ON (pr.id)
+       pr.id, pr.name, pr.title, pr.image_url, pr.years_experience, pr.is_verified,
+       cl.slug AS clinic_slug, cl.name AS clinic_name, cl.featured, cl.verified, cl.avg_rating
+     FROM providers pr
+     JOIN clinics cl ON cl.id = pr.clinic_id AND cl.is_active = true
+     WHERE pr.is_active = true
+       AND (
+         EXISTS (
+           SELECT 1 FROM provider_concerns pc
+            WHERE pc.provider_id = pr.id AND pc.concern_id = $1
+         )
+         OR EXISTS (
+           SELECT 1 FROM provider_services ps
+             JOIN concern_services cs ON cs.service_id = ps.service_id
+            WHERE ps.provider_id = pr.id AND cs.concern_id = $1
+         )
+         OR EXISTS (
+           SELECT 1 FROM clinic_services cls
+             JOIN concern_services cs2 ON cs2.service_id = cls.service_id
+            WHERE cls.clinic_id = pr.clinic_id AND cls.is_active = true
+              AND cs2.concern_id = $1
+         )
+       )
+     ORDER BY pr.id`,
+    [concernId]
+  );
+
+  return rows
+    .sort((a, b) => {
+      if (a.featured !== b.featured) return a.featured ? -1 : 1;
+      if (a.is_verified !== b.is_verified) return a.is_verified ? -1 : 1;
+      return (Number(b.avg_rating) || 0) - (Number(a.avg_rating) || 0);
+    })
+    .slice(0, 12)
+    .map(({ featured: _featured, verified: _verified, ...p }) => p);
+}
+
 /** Fetch a single full provider row by ID. */
 export async function getProviderById(id: string): Promise<Provider | null> {
   return queryOne<Provider>(
@@ -29,7 +95,7 @@ export async function getProviderById(id: string): Promise<Provider | null> {
   );
 }
 
-/** Fetch clinic_service IDs linked to a provider. */
+/** Fetch canonical service (treatment) IDs linked to a provider. */
 export async function getProviderServiceIds(
   providerId: string
 ): Promise<string[]> {
@@ -38,6 +104,17 @@ export async function getProviderServiceIds(
     [providerId]
   );
   return rows.map((r) => r.service_id);
+}
+
+/** Fetch concern IDs linked to a provider. */
+export async function getProviderConcernIds(
+  providerId: string
+): Promise<string[]> {
+  const rows = await query<{ concern_id: string }>(
+    `SELECT concern_id FROM provider_concerns WHERE provider_id = $1`,
+    [providerId]
+  );
+  return rows.map((r) => r.concern_id);
 }
 
 // ── WRITE ─────────────────────────────────────────────────────────────────────
@@ -58,6 +135,7 @@ export async function createProvider(
     credentials = [],
     specialties = [],
     service_ids = [],
+    concern_ids = [],
   } = payload;
 
   const rows = await query<Provider>(
@@ -88,6 +166,10 @@ export async function createProvider(
   if (service_ids.length > 0) {
     await syncProviderServices(provider.id, service_ids);
   }
+  // Link concerns
+  if (concern_ids.length > 0) {
+    await syncProviderConcerns(provider.id, concern_ids);
+  }
 
   return provider;
 }
@@ -108,6 +190,7 @@ export async function updateProvider(
     credentials,
     specialties,
     service_ids,
+    concern_ids,
   } = payload;
 
   const rows = await query<Provider>(
@@ -145,6 +228,9 @@ export async function updateProvider(
   if (service_ids !== undefined) {
     await syncProviderServices(id, service_ids);
   }
+  if (concern_ids !== undefined) {
+    await syncProviderConcerns(id, concern_ids);
+  }
 
   return rows[0];
 }
@@ -181,5 +267,27 @@ async function syncProviderServices(
     `INSERT INTO provider_services (provider_id, service_id) VALUES ${values}
      ON CONFLICT DO NOTHING`,
     [providerId, ...serviceIds]
+  );
+}
+
+/** Replace the full set of concern links for a provider. */
+async function syncProviderConcerns(
+  providerId: string,
+  concernIds: string[]
+): Promise<void> {
+  await query(
+    `DELETE FROM provider_concerns WHERE provider_id = $1`,
+    [providerId]
+  );
+
+  if (concernIds.length === 0) return;
+
+  const values = concernIds
+    .map((_, i) => `($1, $${i + 2})`)
+    .join(", ");
+  await query(
+    `INSERT INTO provider_concerns (provider_id, concern_id) VALUES ${values}
+     ON CONFLICT DO NOTHING`,
+    [providerId, ...concernIds]
   );
 }

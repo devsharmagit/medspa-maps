@@ -25,7 +25,11 @@ import { slugify } from "@/lib/scraper/utils";
 import {
   matchService,
   CANONICAL_CONCERNS,
+  CANONICAL_SERVICES,
 } from "@/lib/taxonomy/canonical";
+import { saveClinicConcerns } from "@/lib/concerns/clinic-concerns";
+
+const PRIORITY_SERVICE_SLUG_SET = new Set(CANONICAL_SERVICES.map((s) => s.slug));
 
 // ── Payload shape (also produced by scrapeClinicPreview) ─────────────────────
 
@@ -105,6 +109,17 @@ export interface ClinicBundle {
   /** aggregate rating, if known */
   ext_rating?: number | null;
   ext_review_count?: number | null;
+  /**
+   * Optional admin overrides. When present they take precedence over the
+   * auto-derive defaults:
+   *  - treatment_slugs: ensure these canonical treatments are offered (matched,
+   *    confidence 1), the same way the services PUT route does.
+   *  - concern_slugs: persist the effective concern set via saveClinicConcerns
+   *    relative to the derived set.
+   * When absent, the existing auto-derive behaviour is kept (back-compat).
+   */
+  treatment_slugs?: string[];
+  concern_slugs?: string[];
 }
 
 export interface SaveClinicResult {
@@ -451,8 +466,46 @@ export async function saveClinicBundle(
     result.reviews += res.length;
   }
 
+  // ── optional admin override: ensure canonical treatments are offered ──────
+  // Mirrors the services PUT route: each requested canonical slug becomes a
+  // matched clinic_services row (confidence 1, data_source 'manual').
+  if (payload.treatment_slugs && payload.treatment_slugs.length > 0) {
+    const wanted = [
+      ...new Set(payload.treatment_slugs.filter((s) => PRIORITY_SERVICE_SLUG_SET.has(s))),
+    ];
+    if (wanted.length > 0) {
+      const svcRows = await query<{ id: string; name: string; slug: string }>(
+        `SELECT id, name, slug FROM services WHERE slug = ANY($1::text[]) AND is_active = true`,
+        [wanted]
+      );
+      for (const svc of svcRows) {
+        await query(
+          `INSERT INTO clinic_services
+             (clinic_id, service_id, raw_name, match_status, match_confidence, data_source, last_scraped_at, is_active)
+           VALUES ($1, $2, $3, 'matched', 1, 'manual', NOW(), true)
+           ON CONFLICT (clinic_id, raw_name) DO UPDATE SET
+             service_id = EXCLUDED.service_id,
+             match_status = 'matched',
+             match_confidence = 1,
+             data_source = 'manual',
+             is_active = true,
+             updated_at = NOW()`,
+          [clinicId, svc.id, svc.name]
+        );
+      }
+    }
+  }
+
   // ── concern_services for this clinic's matched canonical services ────────
   result.concernLinks += await deriveConcernServicesForClinic(clinicId);
+
+  // ── optional admin override: persist effective concern set ────────────────
+  // When concern_slugs is provided, persist overrides relative to the derived
+  // set (additions=manual, removals=removed, deactivate stale). Otherwise the
+  // auto-derived membership above is the default.
+  if (payload.concern_slugs) {
+    await saveClinicConcerns(clinicId, payload.concern_slugs);
+  }
 
   return result;
 }
