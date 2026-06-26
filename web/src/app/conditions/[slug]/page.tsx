@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { ChevronRight, CalendarDays, Star } from "lucide-react";
 import { HeroHeader } from "@/components/hero/hero-header";
 import { Footer } from "@/components/footer";
+import { FaqAccordion } from "@/components/faq-accordion";
 import { getConcernData } from "@/lib/concerns/queries";
 import { ConcernTabs } from "./concern-tabs";
 
@@ -70,30 +71,7 @@ export default async function ConditionPage({
           <ConcernTabs data={data} />
         </div>
 
-        {/* Before & After */}
-        {beforeAfter.length > 0 && (
-          <section className="mt-12">
-            <h2 className="text-2xl font-semibold tracking-tight text-zinc-900">
-              Before &amp; After Results
-            </h2>
-            <div className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-              {beforeAfter.map((img, i) => (
-                <div
-                  key={i}
-                  className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm"
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={img.cdn_url || img.source_url}
-                    alt={img.alt_text || `${concern.name} before and after`}
-                    className="aspect-[4/3] w-full object-cover"
-                    loading="lazy"
-                  />
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
+        {/* Before & After — hidden for now */}
 
         {/* Reviews */}
         {reviews.length > 0 && (
@@ -135,6 +113,8 @@ export default async function ConditionPage({
             </div>
           </section>
         )}
+        {/* FAQs */}
+        <FaqAccordion faqs={concern.faqs} entityName={concern.name} />
       </div>
 
       <Footer />

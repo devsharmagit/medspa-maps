@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { HeroHeader } from "@/components/hero/hero-header";
 import { Footer } from "@/components/footer";
+import { FaqAccordion } from "@/components/faq-accordion";
 import { getTreatmentData } from "@/lib/treatments/queries";
 
 export const dynamic = "force-dynamic";
@@ -268,6 +269,8 @@ export default async function TreatmentPage({
             </div>
           </section>
         )}
+        {/* FAQs */}
+        <FaqAccordion faqs={service.faqs} entityName={service.name} />
       </div>
 
       <Footer />

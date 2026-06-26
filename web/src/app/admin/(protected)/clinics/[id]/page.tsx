@@ -5,7 +5,7 @@ import { query, queryOne } from "@/lib/db";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Store, ArrowLeft, Pencil, Building2, MapPin, Globe, CheckCircle2, Clock } from "lucide-react";
+import { Store, ArrowLeft, Pencil, Building2, UserCircle2, MapPin } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 
@@ -55,6 +55,30 @@ interface ServiceRow {
   is_active: boolean;
 }
 
+interface ProviderRow {
+  id: string;
+  name: string;
+  title: string | null;
+  image_url: string | null;
+  is_verified: boolean;
+  years_experience: number | null;
+  is_active: boolean;
+}
+
+interface LocationRow {
+  id: string;
+  label: string | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+  phone: string | null;
+  booking_url: string | null;
+  google_maps_url: string | null;
+  is_primary: boolean;
+  sort_order: number;
+}
+
 export default async function ClinicDetailPage(props: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/admin/login");
@@ -75,10 +99,12 @@ export default async function ClinicDetailPage(props: { params: Promise<{ id: st
     );
   }
 
-  const [business, images, services] = await Promise.all([
+  const [business, images, services, providers, locations] = await Promise.all([
     queryOne<{ name: string }>("SELECT name FROM businesses WHERE id = $1", [clinic.business_id]),
     query<ImageRow>("SELECT * FROM images WHERE entity_type = 'clinic' AND entity_id = $1 ORDER BY sort_order ASC", [id]),
-    query<ServiceRow>("SELECT id, raw_name, description, is_active FROM clinic_services WHERE clinic_id = $1 ORDER BY created_at ASC", [id])
+    query<ServiceRow>("SELECT id, raw_name, description, is_active FROM clinic_services WHERE clinic_id = $1 ORDER BY created_at ASC", [id]),
+    query<ProviderRow>("SELECT id, name, title, image_url, is_verified, years_experience, is_active FROM providers WHERE clinic_id = $1 ORDER BY created_at ASC", [id]),
+    query<LocationRow>("SELECT id, label, address, city, state, zip, phone, booking_url, google_maps_url, is_primary, sort_order FROM clinic_locations WHERE clinic_id = $1 AND is_active = true ORDER BY sort_order, created_at ASC", [id]),
   ]);
 
   return (
@@ -136,6 +162,55 @@ export default async function ClinicDetailPage(props: { params: Promise<{ id: st
                   <p className="text-slate-700 whitespace-pre-wrap">{clinic.about || "No description provided."}</p>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Providers */}
+          <Card className="shadow-sm border-slate-200">
+            <CardHeader className="border-b border-slate-100 bg-slate-50/50 pb-4 flex flex-row items-center justify-between">
+              <CardTitle className="text-base font-semibold text-slate-800 flex items-center gap-2">
+                Providers
+                <Badge variant="secondary" className="font-normal">{providers.length}</Badge>
+              </CardTitle>
+              <Button asChild size="sm" className="h-7 gap-1 text-xs bg-brand-purple hover:bg-brand-magenta text-white">
+                <Link href={`/admin/clinics/${id}/providers/new`}>
+                  <UserCircle2 size={13} /> Add Provider
+                </Link>
+              </Button>
+            </CardHeader>
+            <CardContent className="p-0">
+              {providers.length === 0 ? (
+                <div className="p-6 text-center text-sm text-slate-500">No providers added yet.</div>
+              ) : (
+                <div className="flex flex-col divide-y divide-slate-100">
+                  {providers.map((provider) => (
+                    <div key={provider.id} className="p-4 flex items-center gap-4">
+                      <div className="h-10 w-10 rounded-full overflow-hidden bg-slate-100 border border-slate-200 shrink-0 flex items-center justify-center">
+                        {provider.image_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={provider.image_url} alt={provider.name} className="h-full w-full object-cover" />
+                        ) : (
+                          <UserCircle2 size={20} className="text-slate-400" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <p className="font-medium text-sm text-slate-800 truncate">{provider.name}</p>
+                          {provider.is_verified && (
+                            <span className="text-blue-500 text-xs font-semibold">✓ Verified</span>
+                          )}
+                          {!provider.is_active && <Badge variant="outline" className="text-[10px]">Inactive</Badge>}
+                        </div>
+                        {provider.title && <p className="text-xs text-slate-500 truncate">{provider.title}</p>}
+                        {provider.years_experience && <p className="text-xs text-slate-400">{provider.years_experience}+ yrs experience</p>}
+                      </div>
+                      <Button asChild variant="ghost" size="sm" className="shrink-0 text-xs h-7">
+                        <Link href={`/admin/providers/${provider.id}/edit`}>Edit</Link>
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -200,28 +275,60 @@ export default async function ClinicDetailPage(props: { params: Promise<{ id: st
 
         {/* Sidebar Data */}
         <div className="flex flex-col gap-6">
+          {/* Locations */}
           <Card className="shadow-sm border-slate-200">
-            <CardHeader className="border-b border-slate-100 bg-slate-50/50 pb-4">
-              <CardTitle className="text-base font-semibold text-slate-800">Contact & Location</CardTitle>
+            <CardHeader className="border-b border-slate-100 bg-slate-50/50 pb-4 flex flex-row items-center justify-between">
+              <CardTitle className="text-base font-semibold text-slate-800 flex items-center gap-2">
+                Locations
+                <Badge variant="secondary" className="font-normal">{locations.length}</Badge>
+              </CardTitle>
+              <Button asChild size="sm" className="h-7 gap-1 text-xs bg-brand-purple hover:bg-brand-magenta text-white">
+                <Link href={`/admin/clinics/${id}/edit`}>
+                  <Pencil size={12} /> Manage
+                </Link>
+              </Button>
             </CardHeader>
-            <CardContent className="p-6 flex flex-col gap-4">
-              <div>
-                <p className="text-slate-500 text-xs mb-1 font-semibold uppercase tracking-wider">Address</p>
-                <p className="text-sm text-slate-800">
-                  {clinic.address ? clinic.address : "No street address"}<br />
-                  {clinic.city || "Unknown City"}, {clinic.state || ""} {clinic.zip || ""}
-                </p>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-slate-500 text-xs mb-1 font-semibold uppercase tracking-wider">Phone</p>
-                  <p className="text-sm text-slate-800">{clinic.phone || "N/A"}</p>
+            <CardContent className="p-0">
+              {locations.length === 0 ? (
+                <div className="p-6 text-center text-sm text-slate-500">No locations added yet.</div>
+              ) : (
+                <div className="flex flex-col divide-y divide-slate-100">
+                  {locations.map((loc) => (
+                    <div key={loc.id} className="p-4 flex flex-col gap-1">
+                      <div className="flex items-center gap-2">
+                        <MapPin size={13} className="text-brand-purple shrink-0" />
+                        <span className="text-sm font-medium text-slate-800">
+                          {loc.label || loc.city || "Unnamed location"}
+                        </span>
+                        {loc.is_primary && (
+                          <Badge variant="outline" className="text-[10px] h-4 px-1 text-brand-purple border-brand-purple/30">
+                            Primary
+                          </Badge>
+                        )}
+                      </div>
+                      {loc.address && (
+                        <p className="text-xs text-slate-500 ml-5">{loc.address}</p>
+                      )}
+                      <p className="text-xs text-slate-500 ml-5">
+                        {[loc.city, loc.state, loc.zip].filter(Boolean).join(", ")}
+                      </p>
+                      {loc.phone && (
+                        <p className="text-xs text-slate-400 ml-5">{loc.phone}</p>
+                      )}
+                      {loc.google_maps_url && (
+                        <a
+                          href={loc.google_maps_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs text-brand-purple hover:underline ml-5"
+                        >
+                          View on Maps
+                        </a>
+                      )}
+                    </div>
+                  ))}
                 </div>
-                <div>
-                  <p className="text-slate-500 text-xs mb-1 font-semibold uppercase tracking-wider">Email</p>
-                  <p className="text-sm text-slate-800 truncate" title={clinic.email || ""}>{clinic.email || "N/A"}</p>
-                </div>
-              </div>
+              )}
             </CardContent>
           </Card>
 

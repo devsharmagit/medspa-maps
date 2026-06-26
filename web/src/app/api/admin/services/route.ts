@@ -16,6 +16,7 @@ const createServiceSchema = z.object({
   results_timeline: z.string().max(255).nullish(),
   results_duration: z.string().max(255).nullish(),
   recovery_time: z.string().max(255).nullish(),
+  faqs: z.array(z.unknown()).nullish(),
   is_published: z.boolean().optional(),
   review_status: z.string().max(50).nullish(),
 });
@@ -73,14 +74,14 @@ export async function POST(req: NextRequest) {
       `INSERT INTO services
          (name, slug, category, aliases, summary, description,
           treatment_time, results_timeline, results_duration, recovery_time,
-          is_published, review_status)
+          faqs, is_published, review_status)
        VALUES
          ($1, COALESCE($2, slugify($1)), $3, $4, $5, $6,
           $7, $8, $9, $10,
-          COALESCE($11, false), $12)
+          $11, COALESCE($12, false), $13)
        RETURNING id, name, slug, category, aliases, summary, description,
                  treatment_time, results_timeline, results_duration, recovery_time,
-                 is_published, review_status, is_active, created_at, updated_at`,
+                 faqs, is_published, review_status, is_active, created_at, updated_at`,
       [
         input.name,
         input.slug ?? null,
@@ -92,6 +93,7 @@ export async function POST(req: NextRequest) {
         input.results_timeline ?? null,
         input.results_duration ?? null,
         input.recovery_time ?? null,
+        input.faqs ? JSON.stringify(input.faqs) : '[]',
         input.is_published ?? null,
         input.review_status ?? null,
       ]

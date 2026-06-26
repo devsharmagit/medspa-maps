@@ -24,6 +24,10 @@ import type {
 } from "@/lib/scraper/types";
 import { matchService, isLikelyNoise } from "@/lib/taxonomy/canonical";
 import {
+  computePriorityCoverage,
+  type PriorityCoverage,
+} from "@/lib/treatments/coverage";
+import {
   websiteDomain,
   findClinicsByDomain,
   type SaveLocation,
@@ -43,7 +47,10 @@ export interface ClinicPreview {
   business: { name: string };
   locations: SaveLocation[];
   services: SaveService[];
+  /** concern slugs the clinic's mapped priority treatments can treat */
   concerns: string[];
+  /** how many of the 15 Phase-0 priority treatments this clinic offers */
+  coverage: PriorityCoverage;
   images: SaveImages;
   reviews: SaveReview[];
   ext_rating: number | null;
@@ -273,9 +280,15 @@ export async function scrapeClinicPreview(url: string): Promise<ClinicPreview> {
     };
   });
 
-  // ── concerns: distinct canonical concern keywords matched by these services ─
-  // (advisory list for the UI; saveClinicBundle derives the real links)
-  const concerns = deriveConcernSlugs(services);
+  // ── priority-treatment coverage + treatable concerns ───────────────────────
+  // Phase 0: only services that resolve to one of the 15 priority treatments
+  // count. The concerns surfaced are exactly those the mapped treatments can
+  // treat (per the curated concern↔service map).
+  const matchedSlugs = services
+    .filter((s) => !s.is_noise && s.suggestion?.slug)
+    .map((s) => s.suggestion!.slug);
+  const coverage = computePriorityCoverage(matchedSlugs);
+  const concerns = coverage.concerns.map((c) => c.slug);
 
   // ── images ─────────────────────────────────────────────────────────────────
   const logoImg = scrape.images.find((i) => i.role === "logo");
@@ -335,6 +348,7 @@ export async function scrapeClinicPreview(url: string): Promise<ClinicPreview> {
     locations,
     services,
     concerns,
+    coverage,
     images,
     reviews,
     ext_rating: aggregate ? Math.min(5, Math.max(0, aggregate.rating)) : null,
@@ -398,15 +412,3 @@ function dedupeLocations(
   return out;
 }
 
-/** Distinct canonical concern slugs implied by the matched services (advisory). */
-function deriveConcernSlugs(services: SaveService[]): string[] {
-  // Concern derivation in save is keyword-based on the canonical service NAME,
-  // so here we simply surface the matched canonical slugs as the concern hint
-  // source. We return the unique matched canonical service slugs; the UI can
-  // group them. Keeping this lightweight avoids duplicating the keyword table.
-  const slugs = new Set<string>();
-  for (const s of services) {
-    if (s.suggestion?.slug) slugs.add(s.suggestion.slug);
-  }
-  return [...slugs];
-}

@@ -6,9 +6,15 @@
  * phrasing) are mapped onto this curated set via the alias map below and the
  * matchService() resolver.
  *
+ * PHASE 0: the catalog is intentionally restricted to the 15 priority
+ * treatments and 10 priority conditions that cover the bulk of medspa search
+ * volume. No additional services or concerns are part of the launch set —
+ * scraped services that don't resolve to one of the 15 stay unmatched.
+ *
  * Seeded into the `services` (and `concerns`) tables by
- * scripts/seed-canonical.ts. Each CANONICAL_SERVICES entry UPSERTs into
- * `services` (ON CONFLICT (slug)). Aliases are stored as a TEXT[] column.
+ * scripts/reconcile-taxonomy.ts. Each CANONICAL_SERVICES entry UPSERTs into
+ * `services` (ON CONFLICT (slug)); anything outside this set is deleted.
+ * Aliases are stored as a TEXT[] column.
  *
  * Conventions mirror src/lib/treatments/catalog.ts and
  * src/lib/concerns/catalog.ts.
@@ -41,15 +47,21 @@ export interface CanonicalConcern {
   name: string;
   slug: string;
   aliases: string[];
-  /** service-name keywords used to link scraped services to this concern */
-  serviceKeywords: string[];
+  /**
+   * Curated mapping: the canonical service slugs that treat this concern.
+   * This is the authoritative concern↔service map used to seed
+   * concern_services and to derive treatable concerns in the add-clinic flow.
+   * Every slug here MUST exist in CANONICAL_SERVICES.
+   */
+  serviceSlugs: string[];
 }
 
 /**
- * CANONICAL_SERVICES — the clean public catalog.
+ * CANONICAL_SERVICES — the 15 Phase-0 priority treatments.
  *
- * Aliases (lowercased, ®/™ stripped) collectively cover every one of the 56
- * current messy scraped names so each resolves to exactly one canonical slug.
+ * Aliases (lowercased, ®/™ stripped) fold the common brand names and scraped
+ * variants of each treatment onto its canonical slug so matchService() keeps
+ * resolving real-world service names even though the catalog is now narrow.
  */
 export const CANONICAL_SERVICES: CanonicalService[] = [
   // ── Injectables ──────────────────────────────────────────────────────────
@@ -57,27 +69,30 @@ export const CANONICAL_SERVICES: CanonicalService[] = [
     name: "Botox",
     slug: "botox",
     category: "Injectables",
-    aliases: ["tox", "botox", "botulinum", "botulinum toxin", "onabotulinumtoxina", "wrinkle relaxer"],
+    aliases: [
+      "botox",
+      "tox",
+      "neuromodulator",
+      "neuromodulators",
+      "neurotoxin",
+      "botulinum",
+      "botulinum toxin",
+      "onabotulinumtoxina",
+      "wrinkle relaxer",
+      "anti-wrinkle injections",
+      "dysport",
+      "abobotulinumtoxina",
+      "xeomin",
+      "jeuveau",
+      "daxxify",
+      "newtox",
+    ],
     summary:
       "Smooths dynamic wrinkles by relaxing the facial muscles responsible for fine lines.",
     description:
-      "Botox is a non-surgical injectable that temporarily relaxes targeted facial muscles to soften the appearance of fine lines and wrinkles. It is most commonly used on forehead lines, frown lines, and crow's feet while preserving natural, expressive movement.",
+      "Botox and other neuromodulators are non-surgical injectables that temporarily relax targeted facial muscles to soften the appearance of fine lines and wrinkles. They are most commonly used on forehead lines, frown lines, and crow's feet while preserving natural, expressive movement.",
     treatment_time: "20-30 mins",
     results_timeline: "Within 1 week",
-    results_duration: "3-4 Months",
-    is_published: true,
-  },
-  {
-    name: "Dysport",
-    slug: "dysport",
-    category: "Injectables",
-    aliases: ["dysport", "abobotulinumtoxin", "abobotulinumtoxina"],
-    summary:
-      "A fast-acting neuromodulator that softens frown lines and other dynamic wrinkles.",
-    description:
-      "Dysport is a non-surgical injectable neuromodulator that temporarily relaxes the muscles that cause moderate to severe frown lines and other dynamic wrinkles. Known for its smooth, natural diffusion, it is often favored for larger areas such as the forehead while preserving authentic expression.",
-    treatment_time: "20-30 mins",
-    results_timeline: "2-3 days",
     results_duration: "3-4 Months",
     is_published: true,
   },
@@ -90,9 +105,17 @@ export const CANONICAL_SERVICES: CanonicalService[] = [
       "dermal filler",
       "filler",
       "fillers",
+      "lip filler",
+      "lip fillers",
+      "cheek filler",
+      "under eye filler",
+      "under-eye filler",
+      "tear trough filler",
       "hyaluronic acid",
       "juvederm",
       "restylane",
+      "rha",
+      "versa",
       "skinvive",
       "dermal fillers & biostimulators",
       "dermal fillers and biostimulators",
@@ -100,23 +123,6 @@ export const CANONICAL_SERVICES: CanonicalService[] = [
       "renuva",
       "full facial balancing",
       "facial balancing",
-    ],
-    summary:
-      "Restores lost volume and smooths folds using injectable hyaluronic acid and volumizing gels.",
-    description:
-      "Dermal fillers are injectable gels, most often hyaluronic acid based, used to restore lost facial volume, smooth deep folds, and refine the contours of the cheeks, lips, jawline, and beyond. Treatments such as full facial balancing and volumizing approaches deliver immediate, customizable results without surgery.",
-    treatment_time: "30-45 mins",
-    results_timeline: "Immediately",
-    results_duration: "6-18 Months",
-    is_published: true,
-  },
-  {
-    name: "Sculptra & Radiesse",
-    slug: "sculptra-radiesse",
-    category: "Injectables",
-    aliases: [
-      "sculptra & radiesse",
-      "sculptra and radiesse",
       "sculptra",
       "radiesse",
       "biostimulator",
@@ -125,12 +131,12 @@ export const CANONICAL_SERVICES: CanonicalService[] = [
       "collagen stimulator",
     ],
     summary:
-      "Collagen-stimulating injectables that gradually restore volume and firmness.",
+      "Restores lost volume and smooths folds using injectable hyaluronic acid and volumizing gels.",
     description:
-      "Sculptra and Radiesse are injectable biostimulators that work with the body to rebuild lost collagen, restoring volume and firmness over time. Unlike traditional fillers, they deliver subtle, progressive improvement in facial fullness and skin quality that can last up to two years.",
+      "Dermal fillers are injectable gels, most often hyaluronic acid based, used to restore lost facial volume, smooth deep folds, and refine the contours of the cheeks, lips, under-eyes, and jawline. Collagen-stimulating options such as Sculptra and Radiesse deliver gradual, longer-lasting volume restoration without surgery.",
     treatment_time: "30-45 mins",
-    results_timeline: "4-6 weeks",
-    results_duration: "Up to 2 Years",
+    results_timeline: "Immediately",
+    results_duration: "6-18 Months",
     is_published: true,
   },
   {
@@ -143,7 +149,8 @@ export const CANONICAL_SERVICES: CanonicalService[] = [
       "kybella and liquid lipo",
       "liquid lipo",
       "deoxycholic acid",
-      "double chin",
+      "fat dissolving injections",
+      "submental fat reduction",
     ],
     summary:
       "An injectable that permanently dissolves fat under the chin without surgery.",
@@ -158,7 +165,15 @@ export const CANONICAL_SERVICES: CanonicalService[] = [
     name: "PDO Threads",
     slug: "pdo-threads",
     category: "Injectables",
-    aliases: ["pdo threads", "pdo thread", "thread lift", "thread lifts", "threads", "pdo"],
+    aliases: [
+      "pdo threads",
+      "pdo thread",
+      "thread lift",
+      "thread lifts",
+      "threads",
+      "pdo",
+      "pdo thread lift",
+    ],
     summary:
       "Dissolvable sutures that lift loose skin and stimulate new collagen.",
     description:
@@ -169,23 +184,29 @@ export const CANONICAL_SERVICES: CanonicalService[] = [
     is_published: true,
   },
   {
-    name: "Regenerative Aesthetics (PRP/PRF)",
+    name: "PRP (Platelet-Rich Plasma)",
     slug: "prp-prf",
     category: "Injectables",
     aliases: [
-      "regenerative aesthetics (prp/prf)",
-      "regenerative aesthetics",
       "prp",
       "prf",
       "prp/prf",
       "platelet rich plasma",
       "platelet-rich plasma",
       "platelet rich fibrin",
+      "platelet-rich fibrin",
+      "regenerative aesthetics (prp/prf)",
+      "regenerative aesthetics",
+      "vampire facial",
+      "vampire facelift",
+      "prp facial",
+      "prp hair restoration",
+      "prp microneedling",
     ],
     summary:
       "Uses the body's own platelets to rejuvenate skin, restore volume, and boost healing.",
     description:
-      "Regenerative aesthetics with PRP and PRF concentrate the growth factors in your own blood to stimulate collagen, improve skin texture and tone, and support natural healing. Commonly used for facial rejuvenation, under-eye revitalization, and hair restoration with little downtime.",
+      "PRP and PRF concentrate the growth factors in your own blood to stimulate collagen, improve skin texture and tone, and support natural healing. Commonly used for facial rejuvenation, under-eye revitalization, and hair restoration with little downtime.",
     treatment_time: "45-60 mins",
     results_timeline: "3-6 weeks",
     results_duration: "6-12 Months",
@@ -197,21 +218,13 @@ export const CANONICAL_SERVICES: CanonicalService[] = [
     name: "Microneedling",
     slug: "microneedling",
     category: "Skin",
-    aliases: ["microneedling", "micro-needling", "micro needling", "collagen induction", "skinpen"],
-    summary:
-      "Stimulates collagen with fine micro-channels to refine skin texture and tone.",
-    description:
-      "Microneedling is a minimally invasive treatment that uses fine needles to create controlled micro-channels in the skin, triggering natural collagen and elastin production. Over a series of sessions it improves texture, fine lines, acne scarring, and overall radiance with little downtime.",
-    treatment_time: "45-60 mins",
-    results_timeline: "1-2 weeks",
-    results_duration: "6-12 Months",
-    is_published: true,
-  },
-  {
-    name: "RF Microneedling",
-    slug: "rf-microneedling",
-    category: "Skin",
     aliases: [
+      "microneedling",
+      "micro-needling",
+      "micro needling",
+      "collagen induction",
+      "collagen induction therapy",
+      "skinpen",
       "rf microneedling",
       "radiofrequency microneedling",
       "rf microneedling and microneedling",
@@ -223,24 +236,36 @@ export const CANONICAL_SERVICES: CanonicalService[] = [
       "sylfirm x",
       "sylfirm x rf microneedling",
       "sylfirm",
+      "vivace",
+      "secret rf",
       "ruma gold microchannel treatment",
       "ruma gold microchannel",
       "ruma gold",
     ],
     summary:
-      "Combines microneedling with radiofrequency energy to tighten and remodel deeper tissue.",
+      "Stimulates collagen with fine micro-channels to refine skin texture, scars, and tone.",
     description:
-      "RF microneedling delivers radiofrequency heat deep into the dermis through fine needles to remodel collagen and tighten skin. Platforms such as Morpheus8 and Sylfirm X address laxity, wrinkles, scarring, and uneven texture on the face and body, producing firmer, smoother skin with minimal downtime.",
+      "Microneedling uses fine needles to create controlled micro-channels in the skin, triggering natural collagen and elastin production. RF microneedling platforms such as Morpheus8 and Sylfirm X add radiofrequency heat to remodel deeper tissue. Over a series of sessions it improves texture, fine lines, acne scarring, and overall radiance with little downtime.",
     treatment_time: "45-60 mins",
-    results_timeline: "3-4 weeks",
-    results_duration: "1-3 Years",
+    results_timeline: "1-2 weeks",
+    results_duration: "6-12 Months",
     is_published: true,
   },
   {
     name: "Chemical Peels",
     slug: "chemical-peels",
     category: "Skin",
-    aliases: ["chemical peels", "chemical peel", "peel", "peels"],
+    aliases: [
+      "chemical peels",
+      "chemical peel",
+      "peel",
+      "peels",
+      "vi peel",
+      "perfect derma peel",
+      "jessner peel",
+      "tca peel",
+      "glycolic peel",
+    ],
     summary:
       "Resurfaces dull, damaged skin with exfoliating acid solutions for a fresh glow.",
     description:
@@ -251,52 +276,83 @@ export const CANONICAL_SERVICES: CanonicalService[] = [
     is_published: true,
   },
   {
-    name: "Facial Treatments",
-    slug: "facial-treatments",
+    name: "HydraFacial",
+    slug: "hydrafacial",
     category: "Skin",
-    aliases: ["facial treatments", "facial treatment", "facial", "facials", "hydrafacial", "medical facial"],
+    aliases: [
+      "hydrafacial",
+      "hydra facial",
+      "hydro facial",
+      "hydrodermabrasion",
+      "facial",
+      "facials",
+      "facial treatment",
+      "facial treatments",
+      "medical facial",
+      "medical-grade facial",
+      "signature facial",
+      "dermaplaning facial",
+    ],
     summary:
-      "Customized medical-grade facials that cleanse, exfoliate, and rejuvenate the skin.",
+      "A medical-grade facial that cleanses, exfoliates, extracts, and hydrates in one session.",
     description:
-      "Facial treatments are customized, medical-grade skincare sessions that cleanse, exfoliate, extract, and hydrate the skin to improve tone, clarity, and radiance. Tailored to each patient's concerns, they support overall skin health with relaxing, no-downtime care.",
-    treatment_time: "45-60 mins",
+      "HydraFacial is a multi-step, medical-grade facial that cleanses, gently exfoliates, extracts impurities, and infuses the skin with hydrating serums and antioxidants. It improves tone, clarity, and radiance with no downtime, making it a popular maintenance treatment for nearly every skin type.",
+    treatment_time: "30-45 mins",
     results_timeline: "Immediately",
     results_duration: "2-4 Weeks",
     is_published: true,
   },
   {
-    name: "Skin Tightening",
-    slug: "skin-tightening",
+    name: "RF Skin Tightening",
+    slug: "rf-skin-tightening",
     category: "Skin",
     aliases: [
+      "rf skin tightening",
+      "radiofrequency skin tightening",
       "skin tightening",
+      "non-surgical skin tightening",
+      "skin firming",
+      "thermage",
+      "exilis",
+      "evoke",
+      "evolve",
+      "forma",
+      "votiva",
       "everesse skin tightening",
       "everesse",
       "xerf",
-      "skin firming",
-      "non-surgical skin tightening",
     ],
     summary:
-      "Energy-based treatments that firm and lift lax skin without surgery.",
+      "Radiofrequency energy that firms and lifts lax skin without surgery or needles.",
     description:
-      "Skin tightening treatments use focused energy to heat the deeper layers of the skin, contracting existing collagen and stimulating new collagen production. The result is gradual firming and lifting of lax skin on the face, neck, and body with little to no downtime.",
+      "RF skin tightening uses radiofrequency energy to heat the deeper layers of the skin, contracting existing collagen and stimulating new collagen production. Devices such as Thermage and Exilis gradually firm and lift lax skin on the face, neck, and body with little to no downtime.",
     treatment_time: "30-60 mins",
     results_timeline: "3-6 weeks",
     results_duration: "1-2 Years",
     is_published: true,
   },
   {
-    name: "Medical-Grade Skincare",
-    slug: "medical-grade-skincare",
+    name: "Ultherapy",
+    slug: "ultherapy",
     category: "Skin",
-    aliases: ["medical-grade skincare", "medical grade skincare", "medical skincare", "skincare", "skin care"],
+    aliases: [
+      "ultherapy",
+      "ulthera",
+      "ultrasound skin tightening",
+      "ultrasound therapy",
+      "ultrasound lift",
+      "micro-focused ultrasound",
+      "sofwave",
+      "high intensity focused ultrasound",
+      "hifu",
+    ],
     summary:
-      "Professional-strength skincare products and regimens prescribed for real results.",
+      "Focused ultrasound that lifts and tightens the skin from deep within, non-surgically.",
     description:
-      "Medical-grade skincare uses higher concentrations of clinically proven active ingredients than over-the-counter products, prescribed and tailored by a provider. A personalized regimen supports skin health and amplifies and maintains the results of in-office treatments.",
-    treatment_time: "Consultation",
-    results_timeline: "4-12 weeks",
-    results_duration: "Ongoing",
+      "Ultherapy uses micro-focused ultrasound energy to reach the deep foundational layers of the skin, stimulating collagen to lift and tighten the brow, neck, and under-chin. As the only FDA-cleared ultrasound lift, it delivers gradual, natural-looking firming over two to three months with no downtime.",
+    treatment_time: "30-90 mins",
+    results_timeline: "2-3 months",
+    results_duration: "1-2 Years",
     is_published: true,
   },
 
@@ -308,6 +364,11 @@ export const CANONICAL_SERVICES: CanonicalService[] = [
     aliases: [
       "laser skin resurfacing",
       "laser resurfacing",
+      "co2 laser",
+      "fractional laser",
+      "fraxel",
+      "halo laser",
+      "erbium laser",
       "laser peels",
       "laser peel",
       "laser treatments",
@@ -316,7 +377,6 @@ export const CANONICAL_SERVICES: CanonicalService[] = [
       "laser skin treatment",
       "nightlase",
       "endolift",
-      "fractional laser",
     ],
     summary:
       "Resurfaces and rejuvenates skin with laser energy to smooth texture, tone, and lines.",
@@ -331,7 +391,13 @@ export const CANONICAL_SERVICES: CanonicalService[] = [
     name: "Laser Hair Removal",
     slug: "laser-hair-removal",
     category: "Laser",
-    aliases: ["laser hair removal", "lhr", "laser hair", "hair removal"],
+    aliases: [
+      "laser hair removal",
+      "lhr",
+      "laser hair",
+      "hair removal",
+      "diode laser hair removal",
+    ],
     summary:
       "Targets hair follicles with light energy for long-lasting, smooth skin.",
     description:
@@ -342,380 +408,167 @@ export const CANONICAL_SERVICES: CanonicalService[] = [
     is_published: true,
   },
   {
-    name: "Tattoo Removal",
-    slug: "tattoo-removal",
+    name: "IPL / Photofacial",
+    slug: "ipl-photofacial",
     category: "Laser",
-    aliases: ["tattoo removal", "laser tattoo removal", "ink removal"],
+    aliases: [
+      "ipl",
+      "ipl photofacial",
+      "photofacial",
+      "photo facial",
+      "intense pulsed light",
+      "bbl",
+      "broadband light",
+      "forever young bbl",
+      "photorejuvenation",
+    ],
     summary:
-      "Laser energy breaks down ink particles to gradually fade unwanted tattoos.",
+      "Pulsed light that clears sun spots, redness, and uneven tone for clearer skin.",
     description:
-      "Laser tattoo removal uses targeted, high-intensity light pulses to shatter tattoo ink into tiny particles that the body naturally clears over time. Performed across multiple sessions, it progressively fades unwanted tattoos of varying colors and sizes with minimal risk to surrounding skin.",
-    treatment_time: "15-30 mins",
-    results_timeline: "After several sessions",
-    results_duration: "Permanent",
+      "IPL photofacials use broadband intense pulsed light to target pigment and visible blood vessels, fading sun spots, redness, and uneven tone while boosting overall clarity. A series of quick, no-downtime sessions leaves the skin brighter and more even.",
+    treatment_time: "20-40 mins",
+    results_timeline: "1-2 weeks",
+    results_duration: "6-12 Months",
     is_published: true,
   },
 
   // ── Body ─────────────────────────────────────────────────────────────────
   {
-    name: "Medical Weight Loss",
-    slug: "medical-weight-loss",
+    name: "CoolSculpting",
+    slug: "coolsculpting",
     category: "Body",
     aliases: [
-      "medical weight loss",
-      "medical weight loss program",
-      "weight loss",
-      "weight loss program",
-      "semaglutide",
-      "tirzepatide",
-      "glp-1",
+      "coolsculpting",
+      "cool sculpting",
+      "coolsculpting elite",
+      "cryolipolysis",
+      "fat freezing",
+      "fat-freezing",
     ],
     summary:
-      "Physician-supervised weight loss plans combining medication, nutrition, and support.",
+      "Freezes and permanently eliminates stubborn fat without surgery or downtime.",
     description:
-      "Medical weight loss is a physician-supervised program that combines prescription medications, nutrition guidance, and ongoing monitoring to help patients lose weight safely and sustainably. Plans are tailored to each individual's health profile and goals.",
-    treatment_time: "Ongoing program",
-    results_timeline: "Weeks to months",
-    results_duration: "Long-term with maintenance",
+      "CoolSculpting (cryolipolysis) uses controlled cooling to freeze and permanently destroy stubborn fat cells in areas that resist diet and exercise, such as the abdomen, flanks, and under the chin. The body naturally clears the treated cells over the following weeks for a more contoured shape with no surgery or downtime.",
+    treatment_time: "35-60 mins",
+    results_timeline: "1-3 months",
+    results_duration: "Long-term",
     is_published: true,
   },
   {
-    name: "Body Sculpting",
-    slug: "body-sculpting",
+    name: "Body Contouring",
+    slug: "body-contouring",
     category: "Body",
-    aliases: ["body sculpting", "body contouring", "fat reduction"],
+    aliases: [
+      "body contouring",
+      "body sculpting",
+      "fat reduction",
+      "emsculpt",
+      "emsculpt neo",
+      "trusculpt",
+      "trusculpt id",
+      "sculpsure",
+      "body fx",
+      "muscle toning",
+    ],
     summary:
-      "Non-surgical contouring that reduces stubborn fat and refines body shape.",
+      "Non-surgical contouring that reduces fat and tones muscle to refine body shape.",
     description:
-      "Body sculpting treatments target stubborn pockets of fat and lax tissue that resist diet and exercise, refining the contours of the abdomen, flanks, arms, and more. Non-surgical approaches reduce fat and tighten skin with little to no downtime.",
+      "Body contouring treatments target stubborn fat and lax tissue while toning underlying muscle to refine the contours of the abdomen, flanks, arms, and more. Non-surgical platforms such as EmSculpt and truSculpt reduce fat and build muscle definition with little to no downtime.",
     treatment_time: "30-60 mins",
     results_timeline: "3-12 weeks",
     results_duration: "Long-term",
     is_published: true,
   },
-  {
-    name: "MiraDry",
-    slug: "miradry",
-    category: "Body",
-    aliases: ["miradry", "mira dry", "sweat reduction", "hyperhidrosis treatment"],
-    summary:
-      "A non-invasive treatment that permanently reduces underarm sweat and odor.",
-    description:
-      "MiraDry is a non-invasive, FDA-cleared treatment that uses targeted electromagnetic energy to permanently eliminate underarm sweat and odor glands. Most patients see a dramatic, lasting reduction in sweat after one or two sessions with minimal downtime.",
-    treatment_time: "45-60 mins",
-    results_timeline: "Immediately",
-    results_duration: "Permanent",
-    is_published: true,
-  },
-
-  // ── Hair ─────────────────────────────────────────────────────────────────
-  {
-    name: "Hair Restoration",
-    slug: "hair-restoration",
-    category: "Hair",
-    aliases: ["hair restoration", "hair loss treatment", "hair regrowth", "prp hair restoration"],
-    summary:
-      "Treatments that stimulate dormant follicles to restore thicker, fuller hair.",
-    description:
-      "Hair restoration treatments use regenerative therapies such as PRP, along with prescription protocols, to stimulate dormant follicles and slow hair loss. A personalized plan supports thicker, fuller, healthier hair growth over a series of sessions.",
-    treatment_time: "45-60 mins",
-    results_timeline: "3-6 months",
-    results_duration: "Ongoing with maintenance",
-    is_published: true,
-  },
-
-  // ── Wellness ───────────────────────────────────────────────────────────
-  {
-    name: "Hormone Therapy",
-    slug: "hormone-therapy",
-    category: "Wellness",
-    aliases: ["hormone therapy", "hrt", "bhrt", "bioidentical hormone", "hormone replacement", "hormone optimization"],
-    summary:
-      "Restores hormonal balance to improve energy, mood, sleep, and overall vitality.",
-    description:
-      "Hormone therapy restores balance to declining or imbalanced hormones using personalized, physician-supervised protocols. By optimizing levels, it can improve energy, mood, sleep, libido, and overall well-being for both men and women.",
-    treatment_time: "Consultation + ongoing",
-    results_timeline: "2-6 weeks",
-    results_duration: "Ongoing with maintenance",
-    is_published: true,
-  },
-  {
-    name: "IV Therapy",
-    slug: "iv-therapy",
-    category: "Wellness",
-    aliases: [
-      "iv therapy",
-      "iv hydration",
-      "vitamin iv therapy",
-      "vitamin iv",
-      "iv drip",
-      "hydration therapy",
-      "iv vitamin therapy",
-    ],
-    summary:
-      "Delivers fluids, vitamins, and nutrients directly into the bloodstream for fast replenishment.",
-    description:
-      "IV therapy delivers a customized blend of fluids, electrolytes, vitamins, and antioxidants directly into the bloodstream for rapid absorption. It supports hydration, energy, immunity, recovery, and overall wellness, with effects felt quickly and no recovery time required.",
-    treatment_time: "30-60 mins",
-    results_timeline: "Within hours",
-    results_duration: "Several days",
-    is_published: true,
-  },
-  {
-    name: "Peptide Therapy",
-    slug: "peptide-therapy",
-    category: "Wellness",
-    aliases: ["peptide therapy", "peptides", "peptide", "peptide injections"],
-    summary:
-      "Targeted peptides that support recovery, performance, and healthy aging.",
-    description:
-      "Peptide therapy uses short chains of amino acids to signal specific functions in the body, supporting recovery, metabolism, immune health, and healthy aging. Protocols are personalized and physician-supervised to align with each patient's wellness goals.",
-    treatment_time: "Consultation + ongoing",
-    results_timeline: "2-8 weeks",
-    results_duration: "Ongoing with maintenance",
-    is_published: true,
-  },
-  {
-    name: "Biological Age Testing",
-    slug: "biological-age-testing",
-    category: "Wellness",
-    aliases: ["biological age testing", "biological age", "epigenetic age testing", "longevity testing"],
-    summary:
-      "Advanced testing that measures how your body is aging at the cellular level.",
-    description:
-      "Biological age testing analyzes biomarkers to estimate how your body is aging at the cellular level, independent of your chronological age. The insights guide personalized longevity and wellness plans aimed at slowing the aging process.",
-    treatment_time: "Sample collection",
-    results_timeline: "1-3 weeks for results",
-    results_duration: "Baseline + retesting",
-    is_published: true,
-  },
-  {
-    name: "DEXA Body Scan",
-    slug: "dexa-body-scan",
-    category: "Wellness",
-    aliases: ["dexa body scan", "dexa scan", "dexa", "body composition scan", "dxa scan"],
-    summary:
-      "A precise scan measuring body fat, lean mass, and bone density.",
-    description:
-      "A DEXA body scan uses low-dose imaging to precisely measure body fat, lean muscle mass, and bone density. The detailed breakdown provides a baseline for fitness, weight management, and longevity goals and tracks progress over time.",
-    treatment_time: "10-20 mins",
-    results_timeline: "Same day",
-    results_duration: "Baseline + retesting",
-    is_published: true,
-  },
-  {
-    name: "Multi-Cancer Early Detection Screening",
-    slug: "multi-cancer-early-detection-screening",
-    category: "Wellness",
-    aliases: [
-      "multi-cancer early detection screening",
-      "multi cancer early detection screening",
-      "multi-cancer early detection",
-      "cancer screening",
-      "early cancer detection",
-    ],
-    summary:
-      "A blood-based screening that looks for early signals of multiple cancers.",
-    description:
-      "Multi-cancer early detection screening is a blood test that looks for shared signals associated with many types of cancer, often before symptoms appear. It complements standard screenings to support earlier detection and proactive care.",
-    treatment_time: "Blood draw",
-    results_timeline: "1-3 weeks for results",
-    results_duration: "Annual screening",
-    is_published: true,
-  },
-  {
-    name: "EBOO / Ozone Therapy",
-    slug: "eboo-ozone-therapy",
-    category: "Wellness",
-    aliases: [
-      "eboo / ozone therapy",
-      "eboo/ozone therapy",
-      "eboo & ozone therapy",
-      "eboo and ozone therapy",
-      "eboo",
-      "ozone therapy",
-      "ozone",
-    ],
-    summary:
-      "Blood ozonation and filtration therapy aimed at detoxification and circulation.",
-    description:
-      "EBOO (extracorporeal blood oxygenation and ozonation) and ozone therapy filter and oxygenate the blood with the goal of supporting circulation, detoxification, immune function, and inflammation. Sessions are physician-supervised and tailored to wellness goals.",
-    treatment_time: "60-90 mins",
-    results_timeline: "After several sessions",
-    results_duration: "Ongoing with maintenance",
-    is_published: true,
-  },
-  {
-    name: "Gut Health & Allergy Testing",
-    slug: "gut-health-allergy-testing",
-    category: "Wellness",
-    aliases: [
-      "gut health / allergy testing",
-      "gut health allergy testing",
-      "gut health and allergy testing",
-      "gut health",
-      "allergy testing",
-      "food sensitivity testing",
-    ],
-    summary:
-      "Comprehensive testing to uncover gut imbalances and allergy or sensitivity triggers.",
-    description:
-      "Gut health and allergy testing analyze the microbiome and immune responses to identify imbalances, sensitivities, and triggers behind digestion, inflammation, and overall wellness issues. Results guide a personalized nutrition and treatment plan.",
-    treatment_time: "Sample collection",
-    results_timeline: "1-3 weeks for results",
-    results_duration: "Baseline + retesting",
-    is_published: true,
-  },
-  {
-    name: "NeuroWellness",
-    slug: "neurowellness",
-    category: "Wellness",
-    aliases: ["neurowellness", "neuro wellness", "exomind", "cognitive wellness", "brain health"],
-    summary:
-      "Treatments supporting mental clarity, mood, focus, and cognitive resilience.",
-    description:
-      "NeuroWellness encompasses treatments such as Exomind that support brain health, mood, focus, and mental resilience through non-invasive neuromodulation and targeted protocols. Care is personalized to help patients feel sharper and more balanced.",
-    treatment_time: "20-45 mins",
-    results_timeline: "After several sessions",
-    results_duration: "Ongoing with maintenance",
-    is_published: true,
-  },
-  {
-    name: "Regenerative & Joint Therapy",
-    slug: "regenerative-joint-therapy",
-    category: "Wellness",
-    aliases: [
-      "regenerative medicine / joint therapy",
-      "regenerative medicine joint therapy",
-      "regenerative medicine",
-      "joint therapy",
-      "joint injections",
-      "regenerative joint therapy",
-    ],
-    summary:
-      "Regenerative treatments that relieve joint pain and support healing without surgery.",
-    description:
-      "Regenerative medicine and joint therapy use the body's own healing capacity through treatments such as PRP and biologic injections to relieve joint pain, reduce inflammation, and support tissue repair. These non-surgical options target the underlying source of discomfort.",
-    treatment_time: "30-60 mins",
-    results_timeline: "2-6 weeks",
-    results_duration: "Long-lasting",
-    is_published: true,
-  },
-  {
-    name: "Cosmetic Dentistry",
-    slug: "cosmetic-dentistry",
-    category: "Wellness",
-    aliases: ["cosmetic dentistry", "teeth whitening", "smile makeover", "veneers"],
-    summary:
-      "Treatments that enhance the appearance of your smile, teeth, and gums.",
-    description:
-      "Cosmetic dentistry improves the look of your smile through treatments such as whitening, veneers, and contouring. A tailored plan addresses color, shape, and alignment to create a brighter, more confident smile.",
-    treatment_time: "30-90 mins",
-    results_timeline: "Immediately to weeks",
-    results_duration: "Years",
-    is_published: true,
-  },
-
-  // ── Women's & Men's Health ────────────────────────────────────────────────
-  {
-    name: "Women's Health",
-    slug: "womens-health",
-    category: "Wellness",
-    aliases: ["women's health", "womens health", "women health", "feminine wellness"],
-    summary:
-      "Personalized wellness care addressing women's hormonal, sexual, and intimate health.",
-    description:
-      "Women's health services provide personalized, physician-supervised care for hormonal balance, sexual wellness, intimate health, and overall vitality. Treatments are tailored to each stage of life to help women feel their best.",
-    treatment_time: "Consultation + treatment",
-    results_timeline: "Varies by treatment",
-    results_duration: "Ongoing with maintenance",
-    is_published: true,
-  },
-  {
-    name: "Men's Sexual Health",
-    slug: "mens-sexual-health",
-    category: "Wellness",
-    aliases: ["men's sexual health", "mens sexual health", "men sexual health", "ed treatment", "erectile dysfunction treatment"],
-    summary:
-      "Discreet, physician-supervised treatments for men's sexual wellness and vitality.",
-    description:
-      "Men's sexual health services offer discreet, physician-supervised treatments for erectile function, performance, and overall vitality. Options including regenerative therapies and hormone optimization are tailored to restore confidence and wellness.",
-    treatment_time: "Consultation + treatment",
-    results_timeline: "Varies by treatment",
-    results_duration: "Ongoing with maintenance",
-    is_published: true,
-  },
-  {
-    name: "Vaginal Rejuvenation",
-    slug: "vaginal-rejuvenation",
-    category: "Wellness",
-    aliases: [
-      "vaginal tightening",
-      "vaginal rejuvenation",
-      "incontilase",
-      "prolaplase",
-      "lichenlase",
-      "feminine rejuvenation",
-      "vaginal laser",
-    ],
-    summary:
-      "Non-surgical laser treatments addressing intimate laxity, incontinence, and comfort.",
-    description:
-      "Vaginal rejuvenation uses gentle, non-surgical laser treatments to address intimate laxity, mild incontinence, dryness, and related discomfort. Protocols such as IncontiLase and ProlapLase stimulate collagen to restore comfort and function with no downtime.",
-    treatment_time: "20-30 mins",
-    results_timeline: "After 1-3 sessions",
-    results_duration: "12-18 Months",
-    is_published: true,
-  },
 ];
 
 /**
- * CANONICAL_CONCERNS — reuse of the 7 existing concerns (see
- * src/lib/concerns/catalog.ts). serviceKeywords mirror the catalog so scraped
- * services can be linked to the concerns they treat.
+ * CANONICAL_CONCERNS — the 10 Phase-0 priority conditions.
+ *
+ * serviceSlugs is the curated concern↔service map: the canonical treatments
+ * that address each concern. It seeds concern_services and powers the
+ * "treatable concerns" view in the add-clinic flow.
  */
 export const CANONICAL_CONCERNS: CanonicalConcern[] = [
   {
-    name: "Fine Lines & Wrinkles",
+    name: "Wrinkles & Fine Lines",
     slug: "fine-lines-wrinkles",
-    aliases: ["wrinkle", "fine line", "anti-aging", "anti aging", "botox", "tox", "dysport", "xeomin", "filler", "facial balancing", "thread", "pdo"],
-    serviceKeywords: ["tox", "botox", "dysport", "xeomin", "filler", "biostimulator", "facial balancing", "thread", "pdo", "endolift", "rf microneedling", "microneedling"],
+    aliases: ["wrinkle", "wrinkles", "fine line", "fine lines", "anti-aging", "anti aging"],
+    serviceSlugs: [
+      "botox",
+      "dermal-fillers",
+      "microneedling",
+      "rf-skin-tightening",
+      "laser-skin-resurfacing",
+    ],
   },
   {
-    name: "Acne & Acne Scars",
-    slug: "acne-acne-scars",
-    aliases: ["acne", "scar", "chemical peel", "microneedling", "skinpen", "laser peel", "rf microneedling", "facial"],
-    serviceKeywords: ["chemical peel", "laser peel", "microneedling", "skinpen", "rf microneedling", "facial treatment", "prp", "prf"],
+    name: "Acne Scars",
+    slug: "acne-scars",
+    aliases: ["acne scar", "acne scars", "scarring", "pitted scars", "textured skin"],
+    serviceSlugs: [
+      "microneedling",
+      "chemical-peels",
+      "laser-skin-resurfacing",
+      "rf-skin-tightening",
+    ],
   },
   {
-    name: "Volume Loss & Facial Hollows",
-    slug: "volume-loss-facial-hollows",
-    aliases: ["filler", "volume", "cheek", "lip", "facial balancing", "biostimulator", "sculptra", "restylane", "juvederm", "bbl"],
-    serviceKeywords: ["filler", "biostimulator", "facial balancing", "liquid bbl", "restylane", "juvederm", "sculptra", "skinvive", "radiesse", "renuva"],
+    name: "Hyperpigmentation",
+    slug: "hyperpigmentation",
+    aliases: ["hyperpigmentation", "uneven skin tone", "discoloration", "post-inflammatory hyperpigmentation"],
+    serviceSlugs: [
+      "chemical-peels",
+      "ipl-photofacial",
+      "laser-skin-resurfacing",
+      "microneedling",
+    ],
   },
   {
-    name: "Sun Damage & Pigmentation",
-    slug: "sun-damage-pigmentation",
-    aliases: ["pigment", "sun damage", "dark spot", "melasma", "hyperpigment", "chemical peel", "laser peel", "ipl", "photofacial", "bbl"],
-    serviceKeywords: ["chemical peel", "laser peel", "laser skin", "ipl", "photofacial", "peel", "skincare", "sylfirm"],
-  },
-  {
-    name: "Skin Laxity & Sagging",
+    name: "Loose & Sagging Skin",
     slug: "skin-laxity-sagging",
-    aliases: ["laxity", "sagging", "tighten", "lift", "rf microneedling", "endolift", "thread", "pdo", "nightlase", "tightening"],
-    serviceKeywords: ["rf microneedling", "endolift", "thread", "pdo", "nightlase", "skin tightening", "everesse", "morpheus", "sculptra", "microneedling"],
+    aliases: ["laxity", "sagging", "loose skin", "skin laxity", "jowls", "tightening"],
+    serviceSlugs: [
+      "ultherapy",
+      "rf-skin-tightening",
+      "pdo-threads",
+      "microneedling",
+    ],
   },
   {
-    name: "Unwanted Hair",
-    slug: "unwanted-hair",
-    aliases: ["hair removal", "laser hair", "unwanted hair"],
-    serviceKeywords: ["laser hair removal", "hair removal"],
-  },
-  {
-    name: "Double Chin & Submental Fullness",
+    name: "Double Chin",
     slug: "double-chin-submental-fullness",
-    aliases: ["kybella", "double chin", "submental", "chin fat"],
-    serviceKeywords: ["kybella", "liquid lipo"],
+    aliases: ["double chin", "submental fullness", "submental fat", "chin fat"],
+    serviceSlugs: ["kybella", "coolsculpting", "rf-skin-tightening"],
+  },
+  {
+    name: "Sun Damage",
+    slug: "sun-damage",
+    aliases: ["sun damage", "sun spots", "photodamage", "sun-damaged skin"],
+    serviceSlugs: ["ipl-photofacial", "chemical-peels", "laser-skin-resurfacing"],
+  },
+  {
+    name: "Rosacea",
+    slug: "rosacea",
+    aliases: ["rosacea", "facial redness", "flushing", "broken capillaries"],
+    serviceSlugs: ["ipl-photofacial", "laser-skin-resurfacing"],
+  },
+  {
+    name: "Stretch Marks",
+    slug: "stretch-marks",
+    aliases: ["stretch marks", "striae", "stretch mark"],
+    serviceSlugs: ["microneedling", "laser-skin-resurfacing", "rf-skin-tightening"],
+  },
+  {
+    name: "Dark Spots & Melasma",
+    slug: "dark-spots-melasma",
+    aliases: ["dark spots", "melasma", "age spots", "brown spots", "pigment"],
+    serviceSlugs: ["chemical-peels", "ipl-photofacial", "laser-skin-resurfacing"],
+  },
+  {
+    name: "Stubborn Body Fat",
+    slug: "stubborn-body-fat",
+    aliases: ["stubborn fat", "body fat", "unwanted fat", "fat reduction", "contouring"],
+    serviceSlugs: ["coolsculpting", "body-contouring", "kybella"],
   },
 ];
 
@@ -892,4 +745,26 @@ export function matchService(rawName: string): MatchResult {
     return { slug: bestSlug, confidence: bestScore };
   }
   return { slug: null, confidence: bestScore };
+}
+
+/** All canonical (Phase-0 priority) service slugs, in catalog order. */
+export const PRIORITY_SERVICE_SLUGS: string[] = CANONICAL_SERVICES.map(
+  (s) => s.slug
+);
+
+/** concern slug → curated service slugs (the authoritative concern↔service map). */
+export const CONCERN_SERVICE_MAP: Record<string, string[]> = Object.fromEntries(
+  CANONICAL_CONCERNS.map((c) => [c.slug, c.serviceSlugs])
+);
+
+/**
+ * concernsTreatedBy(serviceSlugs) — given a set of canonical service slugs,
+ * return the concern slugs those services can treat (per CONCERN_SERVICE_MAP),
+ * in CANONICAL_CONCERNS order.
+ */
+export function concernsTreatedBy(serviceSlugs: Iterable<string>): string[] {
+  const have = new Set(serviceSlugs);
+  return CANONICAL_CONCERNS.filter((c) =>
+    c.serviceSlugs.some((s) => have.has(s))
+  ).map((c) => c.slug);
 }

@@ -1,4 +1,5 @@
 import pool from "@/lib/db";
+import { getProvidersByConcernId, type ConcernProvider } from "@/lib/providers/queries";
 
 export interface ConcernPageData {
   concern: {
@@ -25,6 +26,7 @@ export interface ConcernPageData {
     avg_rating: string | null;
     review_count: number;
     verified: boolean;
+    featured: boolean;
     cover_image: string | null;
   }[];
   reviews: {
@@ -34,6 +36,7 @@ export interface ConcernPageData {
     source: string;
     clinic_name: string;
   }[];
+  providers: ConcernProvider[];
 }
 
 /** Shared loader used by both the concern page (SSR) and the API route. */
@@ -65,35 +68,73 @@ export async function getConcernData(slug: string): Promise<ConcernPageData | nu
       [c.id]
     ),
     pool.query(
+      // EFFECTIVE membership: a clinic appears for a concern when it is DERIVED
+      // (offers a service curated for this concern via concern_services) OR has
+      // an active manual override (clinic_concerns source='manual'), and is NOT
+      // suppressed by an active removed override (source='removed').
       `SELECT DISTINCT ON (cl.id)
          cl.id, cl.name, cl.slug, cl.city, cl.state, cl.website,
-         cl.booking_url, cl.avg_rating, cl.review_count, cl.verified,
+         cl.booking_url, cl.avg_rating, cl.review_count, cl.verified, cl.featured,
          (SELECT source_url FROM images i
             WHERE i.entity_type = 'clinic' AND i.entity_id = cl.id
             ORDER BY (i.role='cover') DESC, i.sort_order LIMIT 1) AS cover_image
-       FROM concern_services cs
-       JOIN clinic_services cls ON cls.service_id = cs.service_id AND cls.is_active = true
-       JOIN clinics cl ON cl.id = cls.clinic_id AND cl.is_active = true
-       WHERE cs.concern_id = $1
+       FROM clinics cl
+       WHERE cl.is_active = true
+         AND (
+           EXISTS (
+             SELECT 1 FROM concern_services cs
+             JOIN clinic_services cls ON cls.service_id = cs.service_id AND cls.is_active = true
+             WHERE cs.concern_id = $1 AND cls.clinic_id = cl.id
+           )
+           OR EXISTS (
+             SELECT 1 FROM clinic_concerns cc
+             WHERE cc.clinic_id = cl.id AND cc.concern_id = $1
+               AND cc.source = 'manual' AND cc.is_active = true
+           )
+         )
+         AND NOT EXISTS (
+           SELECT 1 FROM clinic_concerns cc
+           WHERE cc.clinic_id = cl.id AND cc.concern_id = $1
+             AND cc.source = 'removed' AND cc.is_active = true
+         )
        ORDER BY cl.id`,
       [c.id]
     ),
     pool.query(
+      // Reviews for the same EFFECTIVE clinic set (derived ∪ manual − removed).
       `SELECT DISTINCT ON (r.id) r.rating, r.body, r.reviewer_name, r.source, cl.name AS clinic_name
-       FROM concern_services cs
-       JOIN clinic_services cls ON cls.service_id = cs.service_id AND cls.is_active = true
-       JOIN clinics cl ON cl.id = cls.clinic_id AND cl.is_active = true
+       FROM clinics cl
        JOIN reviews r ON r.clinic_id = cl.id AND r.is_approved = true AND r.is_active = true
-       WHERE cs.concern_id = $1
+       WHERE cl.is_active = true
+         AND (
+           EXISTS (
+             SELECT 1 FROM concern_services cs
+             JOIN clinic_services cls ON cls.service_id = cs.service_id AND cls.is_active = true
+             WHERE cs.concern_id = $1 AND cls.clinic_id = cl.id
+           )
+           OR EXISTS (
+             SELECT 1 FROM clinic_concerns cc
+             WHERE cc.clinic_id = cl.id AND cc.concern_id = $1
+               AND cc.source = 'manual' AND cc.is_active = true
+           )
+         )
+         AND NOT EXISTS (
+           SELECT 1 FROM clinic_concerns cc
+           WHERE cc.clinic_id = cl.id AND cc.concern_id = $1
+             AND cc.source = 'removed' AND cc.is_active = true
+         )
        ORDER BY r.id, r.rating DESC NULLS LAST LIMIT 12`,
       [c.id]
     ),
   ]);
 
   const clinicRows = clinics.rows.sort((a, b) => {
+    if (a.featured !== b.featured) return a.featured ? -1 : 1;
     if (a.verified !== b.verified) return a.verified ? -1 : 1;
     return (Number(b.avg_rating) || 0) - (Number(a.avg_rating) || 0);
   });
+
+  const providers = await getProvidersByConcernId(c.id);
 
   return {
     concern: {
@@ -111,6 +152,7 @@ export async function getConcernData(slug: string): Promise<ConcernPageData | nu
     beforeAfter: beforeAfter.rows,
     clinics: clinicRows,
     reviews: reviews.rows,
+    providers,
   } as ConcernPageData;
 }
 

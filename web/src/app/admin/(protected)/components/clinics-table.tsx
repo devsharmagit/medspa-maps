@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, Globe, Loader2, MapPin, ToggleLeft, ToggleRight, Trash2, ExternalLink, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Building2, Globe, Loader2, MapPin, Star, ToggleLeft, ToggleRight, Trash2, ExternalLink, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import type { ApiResponse } from "@/lib/api-response";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +24,7 @@ export interface Clinic {
   about: string | null;
   is_active: boolean;
   verified: boolean;
+  featured: boolean;
   tier: string;
   created_at: string;
   g99_clinic_id: string | null;
@@ -48,6 +49,7 @@ export default function ClinicsTable({ initialData, searchQuery, currentPage, to
   const [data, setData] = useState<Clinic[]>(initialData);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [featuringId, setFeaturingId] = useState<string | null>(null);
   const [search, setSearch] = useState(searchQuery);
 
   function handleSearch(e: React.FormEvent) {
@@ -68,12 +70,30 @@ export default function ClinicsTable({ initialData, searchQuery, currentPage, to
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ is_active: !clinic.is_active }),
       });
-      const json: ApiResponse<any> = await res.json();
+      const json: ApiResponse = await res.json();
       if (json.success) {
         setData((prev) => prev.map((item) => (item.id === clinic.id ? { ...item, is_active: !item.is_active } : item)));
       }
     } finally {
       setTogglingId(null);
+    }
+  }
+
+  async function handleFeature(clinic: Clinic, e: React.MouseEvent) {
+    e.stopPropagation();
+    setFeaturingId(clinic.id);
+    try {
+      const res = await fetch(`/api/admin/clinics/${clinic.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ featured: !clinic.featured }),
+      });
+      const json: ApiResponse = await res.json();
+      if (json.success) {
+        setData((prev) => prev.map((item) => (item.id === clinic.id ? { ...item, featured: !item.featured } : item)));
+      }
+    } finally {
+      setFeaturingId(null);
     }
   }
 
@@ -119,6 +139,7 @@ export default function ClinicsTable({ initialData, searchQuery, currentPage, to
                 <TableHead className="text-slate-500 font-semibold text-xs uppercase tracking-wider">Location</TableHead>
                 <TableHead className="text-slate-500 font-semibold text-xs uppercase tracking-wider">Website</TableHead>
                 <TableHead className="text-slate-500 font-semibold text-xs uppercase tracking-wider w-[100px]">Status</TableHead>
+                <TableHead className="text-slate-500 font-semibold text-xs uppercase tracking-wider w-[110px]">Featured</TableHead>
                 <TableHead className="text-slate-500 font-semibold text-xs uppercase tracking-wider w-[130px]">Added</TableHead>
                 <TableHead className="text-slate-500 font-semibold text-xs uppercase tracking-wider w-[160px]">Actions</TableHead>
               </TableRow>
@@ -178,6 +199,18 @@ export default function ClinicsTable({ initialData, searchQuery, currentPage, to
                     >
                       {item.is_active ? "Active" : "Disabled"}
                     </Badge>
+                  </TableCell>
+
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <Button
+                      variant="outline" size="sm"
+                      onClick={(e) => handleFeature(item, e)}
+                      disabled={featuringId === item.id || deletingId === item.id}
+                      className={`h-7 px-2.5 text-xs gap-1 border ${item.featured ? "border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100" : "border-slate-200 text-slate-500 hover:bg-slate-50"}`}
+                    >
+                      {featuringId === item.id ? <Loader2 size={12} className="animate-spin" /> : <Star size={12} className={item.featured ? "fill-amber-400 text-amber-500" : ""} />}
+                      {item.featured ? "Featured" : "Feature"}
+                    </Button>
                   </TableCell>
 
                   <TableCell className="text-[13px] text-slate-500 whitespace-nowrap">

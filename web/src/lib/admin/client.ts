@@ -19,7 +19,7 @@ function buildPath(path: string): string {
 }
 
 async function request<T>(
-  method: "GET" | "POST" | "PATCH" | "DELETE",
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
   path: string,
   body?: unknown
 ): Promise<T> {
@@ -57,6 +57,10 @@ export function adminPost<T>(path: string, body?: unknown): Promise<T> {
 
 export function adminPatch<T>(path: string, body?: unknown): Promise<T> {
   return request<T>("PATCH", path, body);
+}
+
+export function adminPut<T>(path: string, body?: unknown): Promise<T> {
+  return request<T>("PUT", path, body);
 }
 
 export function adminDelete<T>(path: string, body?: unknown): Promise<T> {

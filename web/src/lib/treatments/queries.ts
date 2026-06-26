@@ -14,6 +14,7 @@ export interface TreatmentPageData {
     results_duration: string | null;
     hero_rating: string | null;
     hero_review_count: number | null;
+    faqs: { q: string; a: string }[];
   };
   clinics: {
     id: string;
@@ -26,6 +27,7 @@ export interface TreatmentPageData {
     avg_rating: string | null;
     review_count: number;
     verified: boolean;
+    featured: boolean;
     lat: string | null;
     lng: string | null;
     cover_image: string | null;
@@ -61,7 +63,7 @@ export async function getTreatmentData(
   const service = await pool.query(
     `SELECT id, name, slug, summary, description, price_from, price_unit,
             treatment_time, results_timeline, results_duration,
-            hero_rating, hero_review_count, aliases
+            hero_rating, hero_review_count, aliases, faqs
      FROM services
      WHERE slug = $1 AND is_active = true`,
     [slug]
@@ -78,7 +80,7 @@ export async function getTreatmentData(
     pool.query(
       `SELECT DISTINCT ON (cl.id)
          cl.id, cl.name, cl.slug, cl.city, cl.state, cl.website,
-         cl.booking_url, cl.avg_rating, cl.review_count, cl.verified,
+         cl.booking_url, cl.avg_rating, cl.review_count, cl.verified, cl.featured,
          cl.lat, cl.lng,
          (SELECT source_url FROM images i
             WHERE i.entity_type = 'clinic' AND i.entity_id = cl.id
@@ -140,11 +142,13 @@ export async function getTreatmentData(
         if (bd === null) return -1;
         return ad - bd;
       }
+      if (a.featured !== b.featured) return a.featured ? -1 : 1;
       if (a.verified !== b.verified) return a.verified ? -1 : 1;
       return (Number(b.avg_rating) || 0) - (Number(a.avg_rating) || 0);
     });
   } else {
     clinicRows = clinicRows.sort((a, b) => {
+      if (a.featured !== b.featured) return a.featured ? -1 : 1;
       if (a.verified !== b.verified) return a.verified ? -1 : 1;
       const ar = Number(a.avg_rating) || 0;
       const br = Number(b.avg_rating) || 0;
@@ -167,6 +171,7 @@ export async function getTreatmentData(
       results_duration: s.results_duration,
       hero_rating: s.hero_rating,
       hero_review_count: s.hero_review_count,
+      faqs: s.faqs ?? [],
     },
     clinics: clinicRows,
     reviews: reviews.rows,
