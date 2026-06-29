@@ -55,6 +55,13 @@ export interface ClinicPageData {
     rating: string | null;
     city: string | null;
   };
+  providers: {
+    id: string;
+    name: string;
+    title: string | null;
+    image_url: string | null;
+    is_verified: boolean;
+  }[];
 }
 
 /** Shared loader used by both the clinic page (SSR) and the API route. */
@@ -85,7 +92,7 @@ export async function getClinicData(slug: string): Promise<ClinicPageData | null
   if (clinic.rows.length === 0) return null;
   const c = clinic.rows[0];
 
-  const [gallery, galleryCount, beforeAfter, beforeAfterCount, treatments, reviews, locationsResult] = await Promise.all([
+  const [gallery, galleryCount, beforeAfter, beforeAfterCount, treatments, reviews, locationsResult, providersResult] = await Promise.all([
     pool.query(
       `SELECT source_url, alt_text
        FROM images
@@ -144,6 +151,13 @@ export async function getClinicData(slug: string): Promise<ClinicPageData | null
         ORDER BY sort_order, created_at`,
       [c.id]
     ),
+    pool.query(
+      `SELECT id, name, title, image_url, is_verified
+       FROM providers
+       WHERE clinic_id = $1 AND is_active = true
+       ORDER BY name`,
+      [c.id]
+    ),
   ]);
 
   const treatments_count = treatments.rows.length;
@@ -189,5 +203,6 @@ export async function getClinicData(slug: string): Promise<ClinicPageData | null
       rating: c.ext_rating ?? c.avg_rating,
       city: c.city,
     },
+    providers: providersResult.rows,
   } as ClinicPageData;
 }

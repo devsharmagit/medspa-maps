@@ -43,37 +43,49 @@ export function FaqAccordion({ faqs, entityName }: FaqAccordionProps) {
   };
 
   return (
-    <section className="mt-12">
-      <h2 className="text-2xl font-semibold tracking-tight text-zinc-900 sm:text-3xl">
-        Frequently Asked{" "}
-        <span className="font-fraunces italic font-normal">Questions</span>
-      </h2>
-      <p className="mt-1.5 text-sm text-zinc-500">
-        Common questions about {entityName}
-      </p>
+    <section>
+      <div className="mb-8">
+        <h2 className="text-[34px] font-normal leading-[116%] tracking-[-0.04em] text-[#373634]">
+          Frequently Asked{" "}
+          <span className="font-fraunces italic font-normal">Questions</span>
+        </h2>
+        <p className="mt-2 text-[16px] leading-[150%] tracking-[0.02em] text-[#727272]">
+          Common questions about {entityName}
+        </p>
+      </div>
 
-      <div className="mt-6 flex flex-col gap-3">
+      <div className="flex flex-col gap-4">
         {faqs.map((faq, idx) => {
           const isOpen = openIndex === idx;
           return (
             <div
               key={idx}
-              className="group overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm transition-all hover:shadow-md"
+              className={`group overflow-hidden rounded-[16px] border transition-all duration-300 ${
+                isOpen 
+                  ? "border-[#CF5D9A]/30 bg-gradient-to-b from-[#FFF5FA] to-white shadow-[0px_4px_12px_rgba(207,93,154,0.08)]" 
+                  : "border-[#EFEFEF] bg-white hover:border-[#DDC3DF] hover:shadow-sm"
+              }`}
             >
               <button
                 type="button"
                 onClick={() => toggle(idx)}
-                className="flex w-full items-center justify-between px-6 py-5 text-left transition-colors hover:bg-zinc-50"
+                className="flex w-full items-center justify-between px-7 py-5 text-left"
                 aria-expanded={isOpen}
               >
-                <span className="text-base font-medium text-zinc-900 pr-6">
+                <span className={`text-[16px] pr-6 transition-colors duration-300 ${
+                  isOpen ? "font-semibold text-[#CF5D9A]" : "font-medium text-[#383838]"
+                }`}>
                   {faq.q}
                 </span>
-                <ChevronDown
-                  className={`size-5 shrink-0 text-zinc-400 transition-transform duration-300 ${
-                    isOpen ? "rotate-180" : ""
-                  }`}
-                />
+                <div className={`flex shrink-0 items-center justify-center w-8 h-8 rounded-full transition-all duration-300 ${
+                  isOpen ? "bg-[#CF5D9A] text-white shadow-md shadow-[#CF5D9A]/20" : "bg-[#F7F7F7] text-[#9A9A9A] group-hover:bg-[#F0E6F1] group-hover:text-[#CF5D9A]"
+                }`}>
+                  <ChevronDown
+                    className={`size-4 transition-transform duration-300 ${
+                      isOpen ? "rotate-180" : ""
+                    }`}
+                  />
+                </div>
               </button>
 
               {/* Answer panel with animated height */}
@@ -84,8 +96,8 @@ export function FaqAccordion({ faqs, entityName }: FaqAccordionProps) {
                 }}
               >
                 <div className="overflow-hidden">
-                  <div className="px-6 pb-5 pt-1">
-                    <div className="text-sm leading-relaxed text-zinc-600">
+                  <div className="px-7 pb-6 pt-1">
+                    <div className="text-[15px] leading-[160%] tracking-[0.01em] text-[#616161]">
                       {faq.a}
                     </div>
                   </div>

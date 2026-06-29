@@ -91,7 +91,7 @@ function TreatmentCard({
   );
 }
 
-export function PopularTreatments() {
+export function PopularTreatments({ titleNode }: { titleNode?: React.ReactNode }) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const scroll = (direction: "left" | "right") => {
@@ -112,7 +112,11 @@ export function PopularTreatments() {
       <div className="mb-[38px] flex h-[39px] w-full max-w-[1342px] items-center gap-[40px] px-4">
         <div className="h-0 flex-1 border-t border-[rgba(193,121,165,0.4)]" />
         <h2 className="whitespace-nowrap text-center font-montserrat text-[34px] font-normal leading-[116.02%] tracking-[-0.04em] text-[#373634]">
-          Popular <span className="font-heading">Treatments</span>
+          {titleNode || (
+            <>
+              Popular <span className="font-heading">Treatments</span>
+            </>
+          )}
         </h2>
         <div className="h-0 flex-1 border-t border-[rgba(193,121,165,0.4)]" />
       </div>

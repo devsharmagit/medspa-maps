@@ -1,6 +1,9 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
+import { ClinicsCarousel } from "@/components/shared/clinics-carousel";
+import { ProvidersCarousel } from "@/components/shared/providers-carousel";
+import { Breadcrumbs } from "@/components/shared/breadcrumbs";
 import {
   ChevronRight,
   CalendarDays,
@@ -8,6 +11,9 @@ import {
   Clock,
   Sparkles,
   BadgeCheck,
+  ChevronDown,
+  ArrowLeft,
+  ArrowRight
 } from "lucide-react";
 import { HeroHeader } from "@/components/hero/hero-header";
 import { Footer } from "@/components/footer";
@@ -50,7 +56,7 @@ export default async function TreatmentPage({
   const data = await getTreatmentData(slug, opts);
   if (!data) notFound();
 
-  const { service, clinics, reviews } = data;
+  const { service, clinics, reviews, providers } = data;
 
   const hasStats =
     service.treatment_time != null ||
@@ -58,209 +64,150 @@ export default async function TreatmentPage({
     service.results_duration != null;
 
   return (
-    <main className="flex min-h-screen flex-col bg-[#faf7fb] text-zinc-950">
+    <main 
+      className="flex min-h-screen flex-col bg-[#faf7fb] text-zinc-950 font-sans"
+      style={{ fontFamily: 'var(--font-montserrat), sans-serif' }}
+    >
       {/* Banner + nav */}
       <div className="bg-gradient-to-r from-[#7b2d6b] via-[#9b3a6e] to-[#b6663f]">
         <HeroHeader />
       </div>
 
-      <div className="mx-auto w-full max-w-[1200px] flex-1 px-4 py-8 sm:px-6">
+      <div className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-8 sm:px-6">
         {/* Breadcrumb */}
-        <nav className="flex items-center gap-1.5 text-sm text-zinc-500">
-          <Link href="/" className="hover:text-zinc-800">
-            Home
-          </Link>
-          <ChevronRight className="size-3.5" />
-          <Link href="/treatments" className="hover:text-zinc-800">
-            Treatments
-          </Link>
-          <ChevronRight className="size-3.5" />
-          <span className="text-zinc-700">{service.name}</span>
-        </nav>
+        <Breadcrumbs items={[
+          { label: "Home", href: "/" },
+          { label: "Treatments", href: "/treatments" },
+          { label: service.name }
+        ]} />
 
         {/* Hero card */}
-        <section className="mt-6 rounded-3xl bg-gradient-to-br from-[#d96f8e] to-[#9b3a9b] p-7 text-white shadow-sm sm:p-10">
-          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-            {service.name}{" "}
-            <span className="font-fraunces italic font-normal">Treatment</span>
-          </h1>
+        <section 
+          className="relative mt-6 rounded-[18px] border border-[#DEDEDE] shadow-[0px_9px_11.1px_rgba(240,223,241,0.6)] px-12 py-10 text-white min-h-[400px] flex flex-col justify-center overflow-hidden"
+          style={{
+            background: `url('/images/treatment/treatment-bg-removed.png') right center / 50% auto no-repeat, linear-gradient(245.89deg, rgba(219, 120, 94, 0.8) 11.55%, rgba(196, 68, 207, 0.8) 113.3%), #FFFFFF`,
+            backgroundBlendMode: 'multiply, normal, normal'
+          }}
+        >
+          <div className="max-w-[700px] relative z-10">
+            <h1 className="text-[48px] font-normal leading-[116%] tracking-[-0.04em] mb-6">
+              {service.name}{" "}
+              <span className="font-fraunces italic font-normal">Treatment</span>
+            </h1>
 
-          {service.hero_rating != null && (
-            <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-1.5 text-sm font-medium backdrop-blur-sm">
-              <span className="inline-flex items-center gap-1">
-                {service.hero_rating} <Star className="size-3.5 fill-white" />
-                {service.hero_review_count != null && (
-                  <span>({service.hero_review_count})</span>
+            {service.hero_rating && (
+              <div className="inline-flex items-center gap-3 rounded-full bg-black/20 px-4 py-2 backdrop-blur-sm mb-6">
+                <span className="flex items-center gap-1.5 text-xs font-normal tracking-[-0.02em]">
+                  {service.hero_rating}
+                  <Star className="size-4 fill-[#FFBA19] text-[#FFBA19]" />
+                  <span className="opacity-90">({service.hero_review_count})</span>
+                </span>
+              </div>
+            )}
+
+            {service.description && (
+              <p className="text-[14px] leading-[150%] tracking-[0.02em] max-w-[547px] mb-8">
+                {service.description}
+              </p>
+            )}
+
+            {/* Stats bar */}
+            {hasStats && (
+              <div className="flex flex-row items-center justify-between rounded-[16px] bg-white px-8 py-4 shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)] w-full max-w-[665px]">
+                {service.treatment_time != null && (
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-[28px] w-[28px] items-center justify-center rounded bg-[#EE97C6]/20 relative">
+                      <Clock className="size-4 text-[#EE97C6] absolute" />
+                    </div>
+                    <div>
+                      <p className="text-[12px] font-medium uppercase tracking-[0.04em] text-[#CF5D9A]">
+                        Treatment Time
+                      </p>
+                      <p className="text-[12px] font-medium tracking-[0.02em] text-[#616161] mt-0.5">
+                        {service.treatment_time}
+                      </p>
+                    </div>
+                  </div>
                 )}
-              </span>
-            </div>
-          )}
-
-          {service.description && (
-            <p className="mt-5 max-w-3xl text-base leading-relaxed text-white/85">
-              {service.description}
-            </p>
-          )}
-
-          {/* Stats bar */}
-          {hasStats && (
-            <div className="mt-7 grid grid-cols-1 divide-y divide-zinc-200 rounded-2xl bg-white text-zinc-900 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-              {service.treatment_time != null && (
-                <div className="flex items-center gap-3 px-5 py-4">
-                  <Clock className="size-5 text-[#9b3a9b]" />
-                  <div>
-                    <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                      Treatment Time
-                    </p>
-                    <p className="text-sm font-semibold text-zinc-900">
-                      {service.treatment_time}
-                    </p>
-                  </div>
-                </div>
-              )}
-              {service.results_timeline != null && (
-                <div className="flex items-center gap-3 px-5 py-4">
-                  <Sparkles className="size-5 text-[#9b3a9b]" />
-                  <div>
-                    <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                      Results
-                    </p>
-                    <p className="text-sm font-semibold text-zinc-900">
-                      {service.results_timeline}
-                    </p>
-                  </div>
-                </div>
-              )}
-              {service.results_duration != null && (
-                <div className="flex items-center gap-3 px-5 py-4">
-                  <Clock className="size-5 text-[#9b3a9b]" />
-                  <div>
-                    <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                      Duration
-                    </p>
-                    <p className="text-sm font-semibold text-zinc-900">
-                      {service.results_duration}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </section>
-
-        {/* Best Clinics Near You */}
-        <section id="clinics" className="mt-12">
-          <h2 className="text-2xl font-semibold tracking-tight text-zinc-900 sm:text-3xl">
-            Best Clinics{" "}
-            <span className="font-fraunces italic font-normal">Near You</span>
-          </h2>
-          <p className="mt-1.5 text-sm text-zinc-500">
-            {clinics.length} Clinics Found
-          </p>
-
-          <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {clinics.map((c) => {
-              const bookUrl = c.booking_url || c.website;
-              return (
-                <div
-                  key={c.id}
-                  className="flex flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm"
-                >
-                  <div className="relative h-44 w-full bg-zinc-100">
-                    {c.cover_image ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={c.cover_image}
-                        alt={c.name}
-                        className="h-44 w-full object-cover"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="h-44 w-full bg-zinc-200" />
-                    )}
-                    {c.verified && (
-                      <span className="absolute left-3 top-3 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-[#9b3a9b] shadow-sm backdrop-blur-sm">
-                        FEATURED
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex flex-1 flex-col p-5">
-                    <div className="flex items-center gap-1.5">
-                      <h3 className="text-base font-semibold text-zinc-900">
-                        {c.name}
-                      </h3>
-                      {c.verified && (
-                        <BadgeCheck className="size-4 shrink-0 fill-[#d96f8e] text-white" />
-                      )}
+                
+                {service.results_timeline != null && (
+                  <>
+                    <div className="h-[49px] border-l border-[#E5C7DA]/40"></div>
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-[28px] w-[28px] items-center justify-center rounded bg-[#EE97C6]/20 relative">
+                        <Sparkles className="size-4 text-[#EE97C6] absolute" />
+                      </div>
+                      <div>
+                        <p className="text-[12px] font-medium uppercase tracking-[0.04em] text-[#CF5D9A]">
+                          Results
+                        </p>
+                        <p className="text-[12px] font-medium tracking-[0.02em] text-[#616161] mt-0.5">
+                          {service.results_timeline}
+                        </p>
+                      </div>
                     </div>
+                  </>
+                )}
 
-                    <div className="mt-1.5 text-sm text-zinc-500">
-                      {c.review_count > 0 ? (
-                        <span className="inline-flex items-center gap-1">
-                          <Star className="size-3.5 fill-amber-400 text-amber-400" />
-                          {c.avg_rating} ({c.review_count})
-                        </span>
-                      ) : (
-                        "No reviews yet"
-                      )}
+                {service.results_duration != null && (
+                  <>
+                    <div className="h-[49px] border-l border-[#E5C7DA]/40"></div>
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-[28px] w-[28px] items-center justify-center rounded bg-[#EE97C6]/20 relative">
+                        <CalendarDays className="size-4 text-[#EE97C6] absolute" />
+                      </div>
+                      <div>
+                        <p className="text-[12px] font-medium uppercase tracking-[0.04em] text-[#CF5D9A]">
+                          Duration
+                        </p>
+                        <p className="text-[12px] font-medium tracking-[0.02em] text-[#616161] mt-0.5">
+                          {service.results_duration}
+                        </p>
+                      </div>
                     </div>
-
-                    <div className="mt-5 border-t border-zinc-100 pt-4">
-                      {bookUrl ? (
-                        <a
-                          href={bookUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#e08a4f] to-[#d96f8e] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-95"
-                        >
-                          <CalendarDays className="size-4" /> Book Appointment
-                        </a>
-                      ) : (
-                        <span className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-zinc-100 px-4 py-2.5 text-sm font-semibold text-zinc-400">
-                          <CalendarDays className="size-4" /> Book Appointment
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+                  </>
+                )}
+              </div>
+            )}
           </div>
         </section>
 
+        <ClinicsCarousel clinics={clinics} />
+
+        <ProvidersCarousel providers={providers} />
+
         {/* Reviews */}
         {reviews.length > 0 && (
-          <section className="mt-12">
-            <h2 className="text-2xl font-semibold tracking-tight text-zinc-900">
+          <section className="mt-[100px]">
+            <h2 className="text-[34px] font-normal leading-[116%] tracking-[-0.04em] text-[#373634]">
               What Our Clients Say
             </h2>
-            <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-8 grid gap-8 md:grid-cols-2 lg:grid-cols-3">
               {reviews.map((r, i) => (
                 <div
                   key={i}
-                  className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm"
+                  className="rounded-[22px] border border-[#DEDEDE] bg-white p-6 shadow-[0px_9px_11.1px_rgba(240,223,241,0.6)]"
                 >
                   {r.rating != null && (
-                    <div className="flex gap-0.5">
+                    <div className="flex gap-1 mb-4">
                       {Array.from({ length: 5 }).map((_, s) => (
                         <Star
                           key={s}
                           className={`size-4 ${
                             s < r.rating!
-                              ? "fill-amber-400 text-amber-400"
+                              ? "fill-[#FFBA19] text-[#FFBA19]"
                               : "text-zinc-200"
                           }`}
                         />
                       ))}
                     </div>
                   )}
-                  <p className="mt-3 text-sm leading-relaxed text-zinc-600">
+                  <p className="mt-3 text-[14px] leading-[150%] text-[#727272]">
                     “{r.body}”
                   </p>
-                  <div className="mt-4 text-sm font-medium text-zinc-800">
+                  <div className="mt-6 border-t border-[#DDC3DF] pt-4 text-[14px] font-medium text-[#383838]">
                     — {r.reviewer_name || "Verified Patient"}
-                    <span className="ml-1 font-normal text-zinc-400">
+                    <span className="ml-1 font-normal text-[#9A9A9A]">
                       · {r.clinic_name}
                     </span>
                   </div>
@@ -269,8 +216,11 @@ export default async function TreatmentPage({
             </div>
           </section>
         )}
+        
         {/* FAQs */}
-        <FaqAccordion faqs={service.faqs} entityName={service.name} />
+        <div className="mt-[100px] mb-20">
+          <FaqAccordion faqs={service.faqs} entityName={service.name} />
+        </div>
       </div>
 
       <Footer />

@@ -178,27 +178,29 @@ export function ClinicGallery({
 
   return (
     <>
-      <div className="flex h-full flex-col gap-3">
+      <div className="flex flex-col gap-[19px] w-[644px]">
         <button
           type="button"
           onClick={() => openAt(0)}
-          className="group relative block overflow-hidden rounded-2xl shadow-sm"
+          className="group relative flex w-full h-[335px] overflow-hidden rounded-[18px]"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={primary.source_url}
             alt={primary.alt_text || name}
-            className="aspect-[4/3] w-full object-cover transition duration-300 group-hover:scale-[1.03]"
+            className="w-full h-full object-cover transition duration-300 group-hover:scale-[1.03]"
             loading="lazy"
           />
-          <span className="absolute right-3 bottom-3 inline-flex items-center gap-1.5 rounded-full bg-black/55 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-sm transition group-hover:bg-black/70">
-            <Images className="size-3.5" />
-            {total > 1 ? `View all ${total} photos` : "View photo"}
-          </span>
+          {/* Play Button Overlay (Mock) */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="flex h-[80px] w-[80px] items-center justify-center rounded-full bg-white shadow-md transition group-hover:scale-110">
+              <div className="ml-1 h-0 w-0 border-y-[12px] border-l-[18px] border-y-transparent border-l-[#C5B39A]" />
+            </div>
+          </div>
         </button>
 
         {thumbs.length > 0 && (
-          <div className="grid grid-cols-4 gap-3">
+          <div className="flex flex-row gap-[20px] w-full h-[87px]">
             {thumbs.map((img, i) => {
               const isLast = i === thumbs.length - 1;
               const showOverlay = isLast && remaining > 0;
@@ -207,19 +209,19 @@ export function ClinicGallery({
                   type="button"
                   key={i}
                   onClick={() => openAt(i + 1)}
-                  className="group relative overflow-hidden rounded-xl"
+                  className="group relative h-[87px] w-[146px] overflow-hidden rounded-[10px]"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={img.source_url}
                     alt={img.alt_text || name}
-                    className="aspect-square w-full object-cover transition duration-300 group-hover:scale-[1.06]"
+                    className="w-full h-full object-cover transition duration-300 group-hover:scale-[1.06]"
                     loading="lazy"
                   />
                   {showOverlay && (
-                    <span className="absolute inset-0 flex flex-col items-center justify-center bg-black/55 text-center text-xs font-semibold text-white backdrop-blur-[1px] transition group-hover:bg-black/65">
-                      <span className="text-base leading-none">+{remaining}</span>
-                      View All
+                    <span className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-[1px] transition group-hover:bg-black/50">
+                      <span className="font-montserrat text-[26px] font-medium leading-[116.02%] tracking-[0.04em] text-white">+{remaining}</span>
+                      <span className="font-montserrat text-[10px] font-medium leading-[116.02%] tracking-[0.04em] text-white">View All</span>
                     </span>
                   )}
                 </button>
