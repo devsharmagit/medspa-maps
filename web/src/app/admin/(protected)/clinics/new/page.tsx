@@ -13,6 +13,7 @@ import {
   MapPin,
   ImageIcon,
   MessageSquareQuote,
+  Star,
   Stethoscope,
   HeartPulse,
   Building2,
@@ -251,6 +252,9 @@ export default function NewClinicPage() {
   const [gallery, setGallery] = useState<SaveImageRef[]>([]);
   const [beforeAfter, setBeforeAfter] = useState<SaveImageRef[]>([]);
   const [reviews, setReviews] = useState<SaveReview[]>([]);
+  // Displayed rating / review-count override (→ clinics.ext_rating / ext_review_count).
+  const [extRating, setExtRating] = useState<string>("");
+  const [extReviewCount, setExtReviewCount] = useState<string>("");
   const [hoursState, setHoursState] = useState<Record<number, LocationHoursMap>>({});
 
   // business-level fields (sourced from locations[0] on scrape)
@@ -367,6 +371,10 @@ export default function NewClinicPage() {
       setCoverUrl(scrapedGallery[0]?.source_url ?? null);
       setBeforeAfter([]); // before/after fetching disabled
       setReviews(data.reviews ?? []);
+      setExtRating(data.ext_rating != null ? String(data.ext_rating) : "");
+      setExtReviewCount(
+        data.ext_review_count != null ? String(data.ext_review_count) : ""
+      );
       setCanonicalServices(svc);
 
       // business-level socials / about / tagline from first location
@@ -502,6 +510,11 @@ export default function NewClinicPage() {
     );
   const removeReview = (idx: number) =>
     setReviews((prev) => prev.filter((_, i) => i !== idx));
+  const addReview = () =>
+    setReviews((prev) => [
+      ...prev,
+      { reviewer_name: "", rating: 5, body: "", source_url: null },
+    ]);
 
   // ── build the save payload from the user's edits ──────────────────────────────
   const buildPayload = useCallback(() => {
@@ -560,8 +573,9 @@ export default function NewClinicPage() {
         before_after: [],  // disabled
       },
       reviews: outReviews,
-      ext_rating: preview.ext_rating,
-      ext_review_count: preview.ext_review_count,
+      ext_rating: extRating.trim() === "" ? null : Number(extRating),
+      ext_review_count:
+        extReviewCount.trim() === "" ? null : parseInt(extReviewCount, 10),
       treatment_slugs: selectedTreatmentSlugs,
       concern_slugs: selectedConcernSlugs,
     };
@@ -571,6 +585,8 @@ export default function NewClinicPage() {
     hoursState,
     services,
     reviews,
+    extRating,
+    extReviewCount,
     businessName,
     businessTagline,
     businessAbout,
@@ -1523,7 +1539,7 @@ export default function NewClinicPage() {
 
           {/* Reviews */}
           <Card className="border-slate-200 shadow-sm">
-            <CardHeader className="border-b border-slate-100 bg-slate-50/50 pb-4">
+            <CardHeader className="flex flex-row items-center justify-between border-b border-slate-100 bg-slate-50/50 pb-4">
               <CardTitle className="flex items-center gap-2 text-base font-semibold text-slate-800">
                 <MessageSquareQuote size={16} style={{ color: BRAND }} />
                 Reviews
@@ -1531,10 +1547,57 @@ export default function NewClinicPage() {
                   {reviews.length}
                 </Badge>
               </CardTitle>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addReview}
+              >
+                <Plus size={14} /> Add review
+              </Button>
             </CardHeader>
             <CardContent className="flex flex-col gap-4 p-6">
+              {/* Displayed rating & review-count override */}
+              <div className="rounded-xl border border-slate-200 bg-slate-50/40 p-4">
+                <div className="mb-1 flex items-center gap-2 text-sm font-semibold text-slate-700">
+                  <Star size={14} style={{ color: BRAND }} />
+                  Displayed rating &amp; review count
+                </div>
+                <p className="mb-3 text-xs text-slate-500">
+                  Shown on the public clinic page. Prefilled from the scrape —
+                  edit as needed. Leave blank to use the value computed from the
+                  reviews below.
+                </p>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="ext-rating">Rating (0–5)</Label>
+                    <Input
+                      id="ext-rating"
+                      inputMode="decimal"
+                      value={extRating}
+                      onChange={(e) => setExtRating(e.target.value)}
+                      placeholder="e.g. 4.8"
+                      className="h-9"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="ext-count">Review count</Label>
+                    <Input
+                      id="ext-count"
+                      inputMode="numeric"
+                      value={extReviewCount}
+                      onChange={(e) => setExtReviewCount(e.target.value)}
+                      placeholder="e.g. 312"
+                      className="h-9"
+                    />
+                  </div>
+                </div>
+              </div>
+
               {reviews.length === 0 ? (
-                <p className="text-sm text-slate-400">No reviews scraped.</p>
+                <p className="text-sm text-slate-400">
+                  No reviews yet. Click “Add review” to create one.
+                </p>
               ) : (
                 reviews.map((r, idx) => (
                   <div

@@ -6,7 +6,6 @@ import { HeroHeader } from "@/components/hero/hero-header";
 import { Footer } from "@/components/footer";
 import { FaqAccordion } from "@/components/faq-accordion";
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
-import { ReviewsCarousel } from "@/components/shared/reviews-carousel";
 import { getConcernData } from "@/lib/concerns/queries";
 import { ConcernTabs } from "./concern-tabs";
 
@@ -36,7 +35,7 @@ export default async function ConditionPage({
   const data = await getConcernData(slug);
   if (!data) notFound();
 
-  const { concern, beforeAfter, reviews } = data;
+  const { concern } = data;
 
   return (
     <main 
@@ -75,9 +74,6 @@ export default async function ConditionPage({
 
         {/* Before & After — hidden for now */}
 
-        {/* Reviews */}
-        <ReviewsCarousel reviews={reviews} />
-        
         {/* FAQs */}
         <div className="mt-12 mb-20">
           <FaqAccordion faqs={concern.faqs} entityName={concern.name} />

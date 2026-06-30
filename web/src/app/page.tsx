@@ -10,7 +10,6 @@ import { Newsletter } from "@/components/hero/newsletter";
 import { TopCities } from "@/components/hero/top-cities";
 import { ArticleSection } from "@/components/hero/article-section";
 import StatsSection from "@/components/hero/stat-section";
-import { Testimonials } from "@/components/hero/testimonials";
 import Image from "next/image";
 
 export default function Home() {
@@ -34,7 +33,6 @@ export default function Home() {
       <FindClinicSection />
       <ProvidersSpotlight />
       <HowItWorks />
-      <Testimonials />
       <ResourcesSection />
       <TopCities />
       <ArticleSection />
