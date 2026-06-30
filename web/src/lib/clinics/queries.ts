@@ -43,7 +43,7 @@ export interface ClinicPageData {
     logo_url: string | null;
   };
   locations: ClinicLocation[];
-  treatments: { name: string; slug: string | null }[];
+  treatments: { name: string; slug: string | null; price_from: number | null; price_unit: string | null }[];
   gallery: { source_url: string; alt_text: string | null }[];
   gallery_total: number;
   before_after: { source_url: string; alt_text: string | null }[];
@@ -128,11 +128,17 @@ export async function getClinicData(slug: string): Promise<ClinicPageData | null
     pool.query(
       // Only treatments mapped to a canonical service — unmatched scraped rows
       // (nav junk like "Press Release", "View More Testimonials") are excluded.
-      `SELECT DISTINCT s.name AS name, s.slug AS slug
-       FROM clinic_services cls
-       JOIN services s ON s.id = cls.service_id AND s.is_active = true
-       WHERE cls.clinic_id = $1 AND cls.is_active = true
-       ORDER BY name`,
+      // Use DISTINCT ON to pick the lowest price_from per service.
+      `SELECT t.name, t.slug, t.price_from, t.price_unit
+       FROM (
+         SELECT DISTINCT ON (s.id)
+           s.name, s.slug, cls.price_from, cls.price_unit
+         FROM clinic_services cls
+         JOIN services s ON s.id = cls.service_id AND s.is_active = true
+         WHERE cls.clinic_id = $1 AND cls.is_active = true
+         ORDER BY s.id, cls.price_from ASC NULLS LAST
+       ) t
+       ORDER BY t.name`,
       [c.id]
     ),
     pool.query(
