@@ -27,7 +27,7 @@ export interface ConcernPageData {
     review_count: number;
     verified: boolean;
     featured: boolean;
-    cover_image: string | null;
+    images: { source_url: string; role: string; sort_order: number }[];
   }[];
   reviews: {
     rating: number | null;
@@ -75,9 +75,13 @@ export async function getConcernData(slug: string): Promise<ConcernPageData | nu
       `SELECT DISTINCT ON (cl.id)
          cl.id, cl.name, cl.slug, cl.city, cl.state, cl.website,
          cl.booking_url, cl.avg_rating, cl.review_count, cl.verified, cl.featured,
-         (SELECT source_url FROM images i
-            WHERE i.entity_type = 'clinic' AND i.entity_id = cl.id
-            ORDER BY (i.role='cover') DESC, i.sort_order LIMIT 1) AS cover_image
+         (SELECT COALESCE(json_agg(
+            json_build_object('source_url', i.source_url, 'role', i.role, 'sort_order', i.sort_order)
+            ORDER BY (i.role='cover') DESC, i.sort_order
+          ), '[]'::json)
+          FROM images i
+          WHERE i.entity_type = 'clinic' AND i.entity_id = cl.id
+         ) AS images
        FROM clinics cl
        WHERE cl.is_active = true
          AND (

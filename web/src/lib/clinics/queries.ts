@@ -43,7 +43,7 @@ export interface ClinicPageData {
     logo_url: string | null;
   };
   locations: ClinicLocation[];
-  treatments: { name: string; slug: string | null }[];
+  treatments: { name: string; slug: string | null; price_from: number | null; price_unit: string | null }[];
   gallery: { source_url: string; alt_text: string | null }[];
   gallery_total: number;
   before_after: { source_url: string; alt_text: string | null }[];
@@ -55,6 +55,13 @@ export interface ClinicPageData {
     rating: string | null;
     city: string | null;
   };
+  providers: {
+    id: string;
+    name: string;
+    title: string | null;
+    image_url: string | null;
+    is_verified: boolean;
+  }[];
 }
 
 /** Shared loader used by both the clinic page (SSR) and the API route. */
@@ -85,7 +92,7 @@ export async function getClinicData(slug: string): Promise<ClinicPageData | null
   if (clinic.rows.length === 0) return null;
   const c = clinic.rows[0];
 
-  const [gallery, galleryCount, beforeAfter, beforeAfterCount, treatments, reviews, locationsResult] = await Promise.all([
+  const [gallery, galleryCount, beforeAfter, beforeAfterCount, treatments, reviews, locationsResult, providersResult] = await Promise.all([
     pool.query(
       `SELECT source_url, alt_text
        FROM images
@@ -121,11 +128,17 @@ export async function getClinicData(slug: string): Promise<ClinicPageData | null
     pool.query(
       // Only treatments mapped to a canonical service — unmatched scraped rows
       // (nav junk like "Press Release", "View More Testimonials") are excluded.
-      `SELECT DISTINCT s.name AS name, s.slug AS slug
-       FROM clinic_services cls
-       JOIN services s ON s.id = cls.service_id AND s.is_active = true
-       WHERE cls.clinic_id = $1 AND cls.is_active = true
-       ORDER BY name`,
+      // Use DISTINCT ON to pick the lowest price_from per service.
+      `SELECT t.name, t.slug, t.price_from, t.price_unit
+       FROM (
+         SELECT DISTINCT ON (s.id)
+           s.name, s.slug, cls.price_from, cls.price_unit
+         FROM clinic_services cls
+         JOIN services s ON s.id = cls.service_id AND s.is_active = true
+         WHERE cls.clinic_id = $1 AND cls.is_active = true
+         ORDER BY s.id, cls.price_from ASC NULLS LAST
+       ) t
+       ORDER BY t.name`,
       [c.id]
     ),
     pool.query(
@@ -142,6 +155,13 @@ export async function getClinicData(slug: string): Promise<ClinicPageData | null
          FROM clinic_locations
         WHERE clinic_id = $1 AND is_active = true
         ORDER BY sort_order, created_at`,
+      [c.id]
+    ),
+    pool.query(
+      `SELECT id, name, title, image_url, is_verified
+       FROM providers
+       WHERE clinic_id = $1 AND is_active = true
+       ORDER BY name`,
       [c.id]
     ),
   ]);
@@ -189,5 +209,6 @@ export async function getClinicData(slug: string): Promise<ClinicPageData | null
       rating: c.ext_rating ?? c.avg_rating,
       city: c.city,
     },
+    providers: providersResult.rows,
   } as ClinicPageData;
 }

@@ -30,7 +30,7 @@ export interface TreatmentPageData {
     featured: boolean;
     lat: string | null;
     lng: string | null;
-    cover_image: string | null;
+    images: { source_url: string; role: string; sort_order: number }[];
     price_from: string | null;
     price_unit: string | null;
     distance_km: number | null;
@@ -40,6 +40,23 @@ export interface TreatmentPageData {
     body: string;
     reviewer_name: string | null;
     clinic_name: string;
+  }[];
+  providers: {
+    id: string;
+    clinic_id: string;
+    name: string;
+    title: string | null;
+    bio: string | null;
+    image_url: string | null;
+    years_experience: number | null;
+    highlights: any;
+    specialties: any;
+    clinic_name: string;
+    avg_rating: string | null;
+    review_count: number;
+    lat: string | null;
+    lng: string | null;
+    distance_km: number | null;
   }[];
 }
 
@@ -76,15 +93,19 @@ export async function getTreatmentData(
     (a: string) => `%${a}%`
   );
 
-  const [clinics, reviews] = await Promise.all([
+  const [clinics, reviews, providers] = await Promise.all([
     pool.query(
       `SELECT DISTINCT ON (cl.id)
          cl.id, cl.name, cl.slug, cl.city, cl.state, cl.website,
          cl.booking_url, cl.avg_rating, cl.review_count, cl.verified, cl.featured,
          cl.lat, cl.lng,
-         (SELECT source_url FROM images i
-            WHERE i.entity_type = 'clinic' AND i.entity_id = cl.id
-            ORDER BY (i.role='cover') DESC, i.sort_order LIMIT 1) AS cover_image,
+         (SELECT COALESCE(json_agg(
+            json_build_object('source_url', i.source_url, 'role', i.role, 'sort_order', i.sort_order)
+            ORDER BY (i.role='cover') DESC, i.sort_order
+          ), '[]'::json)
+          FROM images i
+          WHERE i.entity_type = 'clinic' AND i.entity_id = cl.id
+         ) AS images,
          COALESCE(cls.price_from, $2) AS price_from,
          COALESCE(cls.price_unit, $3) AS price_unit
        FROM clinic_services cls
@@ -110,6 +131,24 @@ export async function getTreatmentData(
            OR cls.raw_name ILIKE ANY($3)
          )
        ORDER BY r.id, r.rating DESC NULLS LAST LIMIT 12`,
+      [s.id, s.name, aliasPatterns]
+    ),
+    pool.query(
+      `SELECT DISTINCT ON (p.id)
+         p.id, p.clinic_id, p.name, p.title, p.bio, p.image_url, p.years_experience,
+         p.highlights, p.specialties,
+         cl.name AS clinic_name, cl.avg_rating, cl.review_count, cl.lat, cl.lng
+       FROM provider_services ps
+       JOIN providers p ON p.id = ps.provider_id AND p.is_active = true
+       JOIN clinics cl ON cl.id = p.clinic_id AND cl.is_active = true
+       JOIN clinic_services cls ON cls.clinic_id = cl.id AND cls.is_active = true
+       WHERE (
+         ps.service_id = $1
+         OR cls.service_id = $1
+         OR cls.raw_name ILIKE '%' || $2 || '%'
+         OR cls.raw_name ILIKE ANY($3)
+       )
+       ORDER BY p.id`,
       [s.id, s.name, aliasPatterns]
     ),
   ]);
@@ -157,6 +196,35 @@ export async function getTreatmentData(
     });
   }
 
+  let providerRows = providers.rows.map((p) => {
+    let distance_km: number | null = null;
+    if (hasLocation && p.lat !== null && p.lng !== null) {
+      distance_km = haversineKm(
+        opts!.lat!,
+        opts!.lng!,
+        Number(p.lat),
+        Number(p.lng)
+      );
+    }
+    return { ...p, distance_km };
+  });
+
+  if (hasLocation) {
+    providerRows = providerRows.sort((a, b) => {
+      if (a.distance_km !== null && b.distance_km !== null) {
+        return a.distance_km - b.distance_km;
+      }
+      return 0;
+    });
+  } else {
+    providerRows = providerRows.sort((a, b) => {
+      const ar = Number(a.avg_rating) || 0;
+      const br = Number(b.avg_rating) || 0;
+      if (ar !== br) return br - ar;
+      return (b.review_count || 0) - (a.review_count || 0);
+    });
+  }
+
   return {
     service: {
       id: s.id,
@@ -174,6 +242,7 @@ export async function getTreatmentData(
       faqs: s.faqs ?? [],
     },
     clinics: clinicRows,
+    providers: providerRows,
     reviews: reviews.rows,
   } as TreatmentPageData;
 }
