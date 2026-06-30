@@ -35,6 +35,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { computeEditableCoverage } from "@/lib/treatments/coverage";
+import { ClinicReviewsManager } from "@/components/admin/clinic-reviews-manager";
 
 const BRAND = "#9b3a9b";
 
@@ -1092,6 +1093,8 @@ export default function EditClinicPage(props: {
           )}
         </CardContent>
       </Card>
+
+      <ClinicReviewsManager clinicId={id} />
 
       <div className="sticky bottom-0 z-10 flex flex-col gap-3 rounded-xl border border-slate-200 bg-white/95 p-4 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] backdrop-blur">
         {error && (

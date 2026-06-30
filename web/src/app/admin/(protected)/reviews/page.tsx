@@ -2,353 +2,128 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Star,
   Loader2,
-  Trash2,
-  Pencil,
+  Search,
+  ChevronRight,
+  ArrowLeft,
+  Star,
+  Building2,
+  MapPin,
   CheckCircle2,
-  XCircle,
-  Plus,
-  MessageSquareQuote,
 } from "lucide-react";
-import {
-  adminGet,
-  adminPost,
-  adminPatch,
-  adminDelete,
-} from "@/lib/admin/client";
+import { adminGet, adminPatch } from "@/lib/admin/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
   CardHeader,
+  CardTitle,
 } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
-import { StarRating } from "@/components/ui/star-rating";
-import {
-  SearchableDropdown,
-  type DropdownOption,
-} from "@/components/ui/searchable-dropdown";
+import { ClinicReviewsManager } from "@/components/admin/clinic-reviews-manager";
 
-interface Review {
-  id: string;
-  clinic_id: string | null;
-  rating: number | null;
-  body: string | null;
-  reviewer_name: string | null;
-  source: string;
-  source_url: string | null;
-  is_approved: boolean;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-}
+const BRAND = "#9b3a9b";
 
 interface ClinicListItem {
   id: string;
   name: string;
+  slug: string;
+  business_name: string;
   city: string | null;
   state: string | null;
+  review_count: number;
+  is_active: boolean;
+  location_cities: string | null;
 }
 
-// ── A small interactive star picker for the create/edit forms ────────────────
-function StarPicker({
-  value,
-  onChange,
-}: {
-  value: number | null;
-  onChange: (n: number | null) => void;
-}) {
-  const [hover, setHover] = useState<number | null>(null);
-  const active = hover ?? value ?? 0;
-
-  return (
-    <div className="flex items-center gap-1">
-      {[1, 2, 3, 4, 5].map((n) => (
-        <button
-          key={n}
-          type="button"
-          onClick={() => onChange(value === n ? null : n)}
-          onMouseEnter={() => setHover(n)}
-          onMouseLeave={() => setHover(null)}
-          className="rounded p-0.5 transition-transform hover:scale-110 focus:outline-none"
-          aria-label={`${n} star${n > 1 ? "s" : ""}`}
-        >
-          <Star
-            size={22}
-            className={
-              n <= active
-                ? "fill-brand-star text-brand-star"
-                : "text-brand-star/30"
-            }
-          />
-        </button>
-      ))}
-      {value != null && (
-        <button
-          type="button"
-          onClick={() => onChange(null)}
-          className="ml-2 text-xs text-slate-400 hover:text-slate-600"
-        >
-          Clear
-        </button>
-      )}
-    </div>
-  );
+// Subset of the full clinic record we need for the rating/count override editor.
+interface ClinicAggregates {
+  avg_rating: string | null;
+  review_count: number;
+  ext_rating: string | null;
+  ext_review_count: number | null;
 }
 
-interface FormState {
-  clinic_id: string;
-  rating: number | null;
-  body: string;
-  reviewer_name: string;
+function clinicLocation(c: ClinicListItem): string {
+  if (c.city && c.state) return `${c.city}, ${c.state}`;
+  if (c.location_cities) return c.location_cities;
+  return c.city ?? c.state ?? "—";
 }
-
-const EMPTY_FORM: FormState = {
-  clinic_id: "",
-  rating: 5,
-  body: "",
-  reviewer_name: "",
-};
 
 export default function ReviewsPage() {
-  const [reviews, setReviews] = useState<Review[]>([]);
   const [clinics, setClinics] = useState<ClinicListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState<ClinicListItem | null>(null);
 
-  const [clinicFilter, setClinicFilter] = useState("");
-
-  const [togglingId, setTogglingId] = useState<string | null>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-
-  // Add dialog
-  const [addOpen, setAddOpen] = useState(false);
-  const [addForm, setAddForm] = useState<FormState>(EMPTY_FORM);
-  const [addSaving, setAddSaving] = useState(false);
-  const [addError, setAddError] = useState<string | null>(null);
-
-  // Edit dialog
-  const [editTarget, setEditTarget] = useState<Review | null>(null);
-  const [editForm, setEditForm] = useState<FormState>(EMPTY_FORM);
-  const [editSaving, setEditSaving] = useState(false);
-  const [editError, setEditError] = useState<string | null>(null);
-
-  const clinicNameById = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const c of clinics) map.set(c.id, c.name);
-    return map;
-  }, [clinics]);
-
-  const clinicOptions: DropdownOption[] = useMemo(
-    () =>
-      clinics.map((c) => ({
-        value: c.id,
-        label:
-          c.city && c.state ? `${c.name} — ${c.city}, ${c.state}` : c.name,
-      })),
-    [clinics]
-  );
-
-  const loadReviews = useCallback(async (clinicId: string) => {
+  const loadClinics = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const path = clinicId
-        ? `/reviews?clinicId=${encodeURIComponent(clinicId)}`
-        : "/reviews";
-      const data = await adminGet<Review[]>(path);
-      setReviews(data);
+      const data = await adminGet<ClinicListItem[]>("/clinics");
+      setClinics(data);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load reviews.");
+      setError(e instanceof Error ? e.message : "Failed to load clinics.");
     } finally {
       setLoading(false);
     }
   }, []);
 
-  // Initial load: clinics (for filter + form) and reviews.
   useEffect(() => {
-    adminGet<ClinicListItem[]>("/clinics")
-      .then(setClinics)
-      .catch(() => {
-        /* clinic dropdown is optional; ignore */
-      });
-  }, []);
+    loadClinics();
+  }, [loadClinics]);
 
-  useEffect(() => {
-    loadReviews(clinicFilter);
-  }, [clinicFilter, loadReviews]);
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return clinics;
+    return clinics.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        (c.business_name ?? "").toLowerCase().includes(q) ||
+        clinicLocation(c).toLowerCase().includes(q)
+    );
+  }, [clinics, search]);
 
-  // Only show active reviews (soft-deleted ones are is_active = false).
-  const visible = useMemo(
-    () => reviews.filter((r) => r.is_active),
-    [reviews]
-  );
-
-  async function handleToggleApprove(review: Review) {
-    setTogglingId(review.id);
-    try {
-      const updated = await adminPatch<Review>(`/reviews/${review.id}`, {
-        is_approved: !review.is_approved,
-      });
-      setReviews((prev) =>
-        prev.map((r) => (r.id === review.id ? updated : r))
-      );
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to update review.");
-    } finally {
-      setTogglingId(null);
-    }
+  // ── Detail view: a single clinic's reviews + rating/count override ──────────
+  if (selected) {
+    return (
+      <ClinicReviewsDetail
+        clinic={selected}
+        onBack={() => {
+          setSelected(null);
+          // refresh counts in the list when returning
+          loadClinics();
+        }}
+      />
+    );
   }
 
-  async function handleDelete(review: Review) {
-    if (
-      !confirm(
-        "Delete this review? It will be removed from the site and the clinic rating will recompute."
-      )
-    )
-      return;
-    setDeletingId(review.id);
-    try {
-      await adminDelete(`/reviews/${review.id}`);
-      setReviews((prev) => prev.filter((r) => r.id !== review.id));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to delete review.");
-    } finally {
-      setDeletingId(null);
-    }
-  }
-
-  function openAdd() {
-    setAddForm({
-      ...EMPTY_FORM,
-      clinic_id: clinicFilter || "",
-    });
-    setAddError(null);
-    setAddOpen(true);
-  }
-
-  async function handleAddSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setAddError(null);
-    if (!addForm.clinic_id) {
-      setAddError("Please select a clinic.");
-      return;
-    }
-    if (!addForm.body.trim()) {
-      setAddError("Review body is required.");
-      return;
-    }
-    setAddSaving(true);
-    try {
-      const created = await adminPost<Review>("/reviews", {
-        clinic_id: addForm.clinic_id,
-        rating: addForm.rating,
-        body: addForm.body.trim(),
-        reviewer_name: addForm.reviewer_name.trim() || null,
-        // source defaults to "internal" server-side.
-      });
-      setAddOpen(false);
-      // If the new review matches the current filter (or no filter), show it.
-      if (!clinicFilter || clinicFilter === created.clinic_id) {
-        setReviews((prev) => [created, ...prev]);
-      }
-    } catch (e) {
-      setAddError(e instanceof Error ? e.message : "Failed to add review.");
-    } finally {
-      setAddSaving(false);
-    }
-  }
-
-  function openEdit(review: Review) {
-    setEditTarget(review);
-    setEditForm({
-      clinic_id: review.clinic_id ?? "",
-      rating: review.rating,
-      body: review.body ?? "",
-      reviewer_name: review.reviewer_name ?? "",
-    });
-    setEditError(null);
-  }
-
-  async function handleEditSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!editTarget) return;
-    setEditError(null);
-    if (!editForm.body.trim()) {
-      setEditError("Review body cannot be empty.");
-      return;
-    }
-    setEditSaving(true);
-    try {
-      const updated = await adminPatch<Review>(`/reviews/${editTarget.id}`, {
-        rating: editForm.rating,
-        body: editForm.body.trim(),
-        reviewer_name: editForm.reviewer_name.trim() || null,
-      });
-      setReviews((prev) =>
-        prev.map((r) => (r.id === editTarget.id ? updated : r))
-      );
-      setEditTarget(null);
-    } catch (e) {
-      setEditError(e instanceof Error ? e.message : "Failed to save review.");
-    } finally {
-      setEditSaving(false);
-    }
-  }
-
+  // ── List view: all clinics ─────────────────────────────────────────────────
   return (
     <div className="flex flex-col gap-6">
-      {/* Header */}
-      <div className="flex items-end justify-between gap-4">
-        <div>
-          <h2 className="text-lg font-semibold text-slate-900">Reviews</h2>
-          <p className="text-sm text-slate-500">
-            Moderate, edit, and publish clinic reviews.
-          </p>
-        </div>
-        <Button
-          onClick={openAdd}
-          className="gap-1.5 bg-[linear-gradient(135deg,#DE7F4C_0%,#C341D7_100%)] text-white shadow-[0_4px_12px_rgba(195,65,215,0.25)] hover:opacity-90"
-        >
-          <Plus size={16} /> Add Review
-        </Button>
+      <div>
+        <h2 className="text-lg font-semibold text-slate-900">Reviews</h2>
+        <p className="text-sm text-slate-500">
+          Select a clinic to manage its reviews, rating, and review count.
+        </p>
       </div>
 
       <Card className="shadow-sm border-slate-200">
         <CardHeader className="p-4 border-b border-slate-100 bg-slate-50/50">
-          <div className="flex items-center gap-3 max-w-sm">
-            <div className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2">
-              <SearchableDropdown
-                options={[
-                  { value: "", label: "All clinics" },
-                  ...clinicOptions,
-                ]}
-                value={clinicFilter}
-                onChange={setClinicFilter}
-                placeholder="Filter by clinic…"
-                label="Clinic"
-              />
-            </div>
+          <div className="relative max-w-sm">
+            <Search
+              size={16}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+            />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search clinics…"
+              className="h-9 pl-9"
+            />
           </div>
         </CardHeader>
 
@@ -362,335 +137,270 @@ export default function ReviewsPage() {
           {loading ? (
             <div className="flex flex-col items-center justify-center gap-2 py-16 text-slate-400 text-sm">
               <Loader2 size={28} className="animate-spin opacity-50" />
-              <p>Loading reviews…</p>
+              <p>Loading clinics…</p>
             </div>
-          ) : visible.length === 0 ? (
+          ) : filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 py-16 text-slate-400 text-sm">
-              <MessageSquareQuote size={36} className="opacity-30" />
-              <p>No reviews found.</p>
+              <Building2 size={36} className="opacity-30" />
+              <p>No clinics found.</p>
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow className="border-slate-200 bg-slate-50 hover:bg-slate-50">
-                  <TableHead className="text-slate-500 font-semibold text-xs uppercase tracking-wider">
-                    Clinic
-                  </TableHead>
-                  <TableHead className="text-slate-500 font-semibold text-xs uppercase tracking-wider w-[140px]">
-                    Rating
-                  </TableHead>
-                  <TableHead className="text-slate-500 font-semibold text-xs uppercase tracking-wider">
-                    Review
-                  </TableHead>
-                  <TableHead className="text-slate-500 font-semibold text-xs uppercase tracking-wider w-[150px]">
-                    Reviewer
-                  </TableHead>
-                  <TableHead className="text-slate-500 font-semibold text-xs uppercase tracking-wider w-[110px]">
-                    Source
-                  </TableHead>
-                  <TableHead className="text-slate-500 font-semibold text-xs uppercase tracking-wider w-[110px]">
-                    Status
-                  </TableHead>
-                  <TableHead className="text-slate-500 font-semibold text-xs uppercase tracking-wider w-[200px]">
-                    Actions
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {visible.map((review) => {
-                  const clinicName = review.clinic_id
-                    ? clinicNameById.get(review.clinic_id) ?? "Unknown clinic"
-                    : "—";
-                  const busy =
-                    togglingId === review.id || deletingId === review.id;
-                  return (
-                    <TableRow
-                      key={review.id}
-                      className="border-slate-100 hover:bg-slate-50/50 transition-colors"
-                    >
-                      <TableCell>
-                        <span className="font-semibold text-slate-900 text-sm">
-                          {clinicName}
-                        </span>
-                      </TableCell>
-
-                      <TableCell>
-                        {review.rating != null ? (
-                          <StarRating
-                            rating={review.rating}
-                            className="gap-0.5"
-                            starClassName="size-4"
-                          />
-                        ) : (
-                          <span className="text-xs text-slate-400 italic">
-                            No rating
-                          </span>
+            <ul className="divide-y divide-slate-100">
+              {filtered.map((c) => (
+                <li key={c.id}>
+                  <button
+                    type="button"
+                    onClick={() => setSelected(c)}
+                    className="flex w-full items-center justify-between gap-4 px-4 py-3.5 text-left transition-colors hover:bg-slate-50/70"
+                  >
+                    <div className="flex min-w-0 flex-col">
+                      <span className="truncate text-sm font-semibold text-slate-900">
+                        {c.name}
+                        {!c.is_active && (
+                          <Badge
+                            variant="secondary"
+                            className="ml-2 bg-slate-100 text-slate-500 border border-slate-200 hover:bg-slate-100"
+                          >
+                            Unpublished
+                          </Badge>
                         )}
-                      </TableCell>
+                      </span>
+                      <span className="flex items-center gap-1 text-xs text-slate-500">
+                        <MapPin size={12} className="shrink-0" />
+                        {clinicLocation(c)}
+                      </span>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-3">
+                      <Badge
+                        variant="secondary"
+                        className="gap-1 bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-100"
+                      >
+                        <Star size={12} className="text-brand-star" />
+                        {c.review_count}{" "}
+                        {c.review_count === 1 ? "review" : "reviews"}
+                      </Badge>
+                      <ChevronRight size={16} className="text-slate-400" />
+                    </div>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
 
-                      <TableCell>
-                        <p className="text-[13px] text-slate-600 line-clamp-2 max-w-[360px]">
-                          {review.body || (
-                            <span className="italic text-slate-400">
-                              (empty)
-                            </span>
-                          )}
-                        </p>
-                      </TableCell>
+// ── Per-clinic detail: rating/count override editor + the reviews manager ─────
+function ClinicReviewsDetail({
+  clinic,
+  onBack,
+}: {
+  clinic: ClinicListItem;
+  onBack: () => void;
+}) {
+  const [agg, setAgg] = useState<ClinicAggregates | null>(null);
+  const [ratingInput, setRatingInput] = useState("");
+  const [countInput, setCountInput] = useState("");
+  const [loadingAgg, setLoadingAgg] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [aggError, setAggError] = useState<string | null>(null);
 
-                      <TableCell>
-                        <span className="text-[13px] text-slate-700">
-                          {review.reviewer_name || (
-                            <span className="italic text-slate-400">
-                              Anonymous
-                            </span>
-                          )}
-                        </span>
-                      </TableCell>
+  useEffect(() => {
+    let active = true;
+    setLoadingAgg(true);
+    setAggError(null);
+    adminGet<ClinicAggregates>(`/clinics/${clinic.id}`)
+      .then((c) => {
+        if (!active) return;
+        setAgg(c);
+        setRatingInput(c.ext_rating ?? "");
+        setCountInput(c.ext_review_count != null ? String(c.ext_review_count) : "");
+      })
+      .catch((e: Error) => {
+        if (active) setAggError(e.message);
+      })
+      .finally(() => {
+        if (active) setLoadingAgg(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [clinic.id]);
 
-                      <TableCell>
-                        <Badge
-                          variant="secondary"
-                          className="bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-100 capitalize"
-                        >
-                          {review.source}
-                        </Badge>
-                      </TableCell>
+  async function handleSaveAggregates(e: React.FormEvent) {
+    e.preventDefault();
+    setAggError(null);
+    setSaved(false);
 
-                      <TableCell>
-                        <Badge
-                          variant={review.is_approved ? "default" : "secondary"}
-                          className={
-                            review.is_approved
-                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-50"
-                              : "bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-50"
-                          }
-                        >
-                          {review.is_approved ? "Approved" : "Pending"}
-                        </Badge>
-                      </TableCell>
+    const ratingStr = ratingInput.trim();
+    const countStr = countInput.trim();
 
-                      <TableCell>
-                        <div className="flex items-center gap-1.5">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleToggleApprove(review)}
-                            disabled={busy}
-                            className={`h-7 px-2.5 text-xs gap-1 border ${
-                              review.is_approved
-                                ? "border-amber-200 text-amber-700 hover:bg-amber-50"
-                                : "border-emerald-200 text-emerald-700 hover:bg-emerald-50"
-                            }`}
-                          >
-                            {togglingId === review.id ? (
-                              <Loader2 size={12} className="animate-spin" />
-                            ) : review.is_approved ? (
-                              <XCircle size={12} />
-                            ) : (
-                              <CheckCircle2 size={12} />
-                            )}
-                            {review.is_approved ? "Unapprove" : "Approve"}
-                          </Button>
+    let ext_rating: number | null = null;
+    if (ratingStr !== "") {
+      const n = Number(ratingStr);
+      if (!Number.isFinite(n) || n < 0 || n > 5) {
+        setAggError("Rating must be a number between 0 and 5.");
+        return;
+      }
+      ext_rating = n;
+    }
 
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openEdit(review)}
-                            disabled={busy}
-                            className="h-7 px-2.5 text-xs gap-1 border-slate-200 text-slate-600 hover:bg-slate-50"
-                          >
-                            <Pencil size={12} />
-                          </Button>
+    let ext_review_count: number | null = null;
+    if (countStr !== "") {
+      const n = parseInt(countStr, 10);
+      if (!Number.isInteger(n) || n < 0) {
+        setAggError("Review count must be a whole number ≥ 0.");
+        return;
+      }
+      ext_review_count = n;
+    }
 
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleDelete(review)}
-                            disabled={busy}
-                            className="h-7 px-2.5 text-xs gap-1 border-red-200 text-red-600 hover:bg-red-50"
-                          >
-                            {deletingId === review.id ? (
-                              <Loader2 size={12} className="animate-spin" />
-                            ) : (
-                              <Trash2 size={12} />
-                            )}
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+    setSaving(true);
+    try {
+      const updated = await adminPatch<ClinicAggregates>(`/clinics/${clinic.id}`, {
+        ext_rating,
+        ext_review_count,
+      });
+      setAgg(updated);
+      setRatingInput(updated.ext_rating ?? "");
+      setCountInput(
+        updated.ext_review_count != null ? String(updated.ext_review_count) : ""
+      );
+      setSaved(true);
+    } catch (err) {
+      setAggError(err instanceof Error ? err.message : "Failed to save.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-slate-500 hover:text-slate-900"
+          onClick={onBack}
+        >
+          <ArrowLeft size={16} />
+        </Button>
+        <div>
+          <h2 className="text-lg font-semibold text-slate-900">
+            {clinic.name}
+          </h2>
+          <p className="flex items-center gap-1 text-sm text-slate-500">
+            <MapPin size={12} /> {clinicLocation(clinic)}
+          </p>
+        </div>
+      </div>
+
+      {/* Rating & review-count override editor */}
+      <Card className="border-slate-200 shadow-sm">
+        <CardHeader className="border-b border-slate-100 bg-slate-50/50 pb-4">
+          <CardTitle className="flex items-center gap-2 text-base font-semibold text-slate-800">
+            <Star size={16} style={{ color: BRAND }} />
+            Displayed rating &amp; review count
+          </CardTitle>
+          <p className="text-xs text-slate-500">
+            These override what shows on the public clinic page. Leave a field
+            blank to fall back to the value auto-calculated from the reviews
+            below.
+          </p>
+        </CardHeader>
+        <CardContent className="p-6">
+          {loadingAgg ? (
+            <div className="flex items-center gap-2 py-4 text-sm text-slate-400">
+              <Loader2 size={16} className="animate-spin" /> Loading…
+            </div>
+          ) : (
+            <form
+              onSubmit={handleSaveAggregates}
+              className="flex flex-col gap-4"
+            >
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="ext-rating">Rating (0–5)</Label>
+                  <Input
+                    id="ext-rating"
+                    inputMode="decimal"
+                    value={ratingInput}
+                    onChange={(e) => {
+                      setRatingInput(e.target.value);
+                      setSaved(false);
+                    }}
+                    placeholder={
+                      agg?.avg_rating
+                        ? `Auto: ${agg.avg_rating}`
+                        : "e.g. 4.8"
+                    }
+                    className="h-9"
+                  />
+                  <span className="text-xs text-slate-400">
+                    Auto from reviews:{" "}
+                    {agg?.avg_rating != null ? agg.avg_rating : "—"}
+                  </span>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="ext-count">Review count</Label>
+                  <Input
+                    id="ext-count"
+                    inputMode="numeric"
+                    value={countInput}
+                    onChange={(e) => {
+                      setCountInput(e.target.value);
+                      setSaved(false);
+                    }}
+                    placeholder={
+                      agg ? `Auto: ${agg.review_count}` : "e.g. 312"
+                    }
+                    className="h-9"
+                  />
+                  <span className="text-xs text-slate-400">
+                    Auto from reviews: {agg?.review_count ?? "—"}
+                  </span>
+                </div>
+              </div>
+
+              {aggError && (
+                <p className="text-sm text-red-600">{aggError}</p>
+              )}
+
+              <div className="flex items-center gap-3">
+                <Button
+                  type="submit"
+                  variant="gradient"
+                  className="h-9 px-6"
+                  disabled={saving}
+                >
+                  {saving ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" /> Saving…
+                    </>
+                  ) : saved ? (
+                    <>
+                      <CheckCircle2 size={14} /> Saved
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 size={14} /> Save rating &amp; count
+                    </>
+                  )}
+                </Button>
+              </div>
+            </form>
           )}
         </CardContent>
       </Card>
 
-      {/* ── Add Review dialog ── */}
-      <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Add Review</DialogTitle>
-            <DialogDescription>
-              Create an internal review for a clinic. The clinic rating
-              recomputes automatically.
-            </DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={handleAddSubmit} className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
-              <Label>Clinic</Label>
-              <div className="rounded-lg border border-slate-200 bg-white px-3 py-2">
-                <SearchableDropdown
-                  options={clinicOptions}
-                  value={addForm.clinic_id}
-                  onChange={(v) =>
-                    setAddForm((f) => ({ ...f, clinic_id: v }))
-                  }
-                  placeholder="Select a clinic…"
-                />
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <Label>Rating</Label>
-              <StarPicker
-                value={addForm.rating}
-                onChange={(n) => setAddForm((f) => ({ ...f, rating: n }))}
-              />
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="add-reviewer">Reviewer name</Label>
-              <Input
-                id="add-reviewer"
-                value={addForm.reviewer_name}
-                onChange={(e) =>
-                  setAddForm((f) => ({ ...f, reviewer_name: e.target.value }))
-                }
-                placeholder="Optional"
-              />
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="add-body">Review</Label>
-              <textarea
-                id="add-body"
-                value={addForm.body}
-                onChange={(e) =>
-                  setAddForm((f) => ({ ...f, body: e.target.value }))
-                }
-                rows={4}
-                placeholder="Write the review…"
-                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:border-brand-magenta focus:outline-none focus:ring-2 focus:ring-brand-magenta/20"
-              />
-            </div>
-
-            {addError && (
-              <p className="text-sm text-red-600">{addError}</p>
-            )}
-
-            <Separator />
-
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setAddOpen(false)}
-                disabled={addSaving}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={addSaving}
-                className="gap-1.5 bg-[linear-gradient(135deg,#DE7F4C_0%,#C341D7_100%)] text-white hover:opacity-90"
-              >
-                {addSaving && <Loader2 size={14} className="animate-spin" />}
-                Add Review
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── Edit Review dialog ── */}
-      <Dialog
-        open={editTarget !== null}
-        onOpenChange={(open) => {
-          if (!open) setEditTarget(null);
-        }}
-      >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Edit Review</DialogTitle>
-            <DialogDescription>
-              Update the rating, reviewer name, or body of this review.
-            </DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={handleEditSubmit} className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
-              <Label>Rating</Label>
-              <StarPicker
-                value={editForm.rating}
-                onChange={(n) => setEditForm((f) => ({ ...f, rating: n }))}
-              />
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="edit-reviewer">Reviewer name</Label>
-              <Input
-                id="edit-reviewer"
-                value={editForm.reviewer_name}
-                onChange={(e) =>
-                  setEditForm((f) => ({ ...f, reviewer_name: e.target.value }))
-                }
-                placeholder="Optional"
-              />
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="edit-body">Review</Label>
-              <textarea
-                id="edit-body"
-                value={editForm.body}
-                onChange={(e) =>
-                  setEditForm((f) => ({ ...f, body: e.target.value }))
-                }
-                rows={4}
-                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:border-brand-magenta focus:outline-none focus:ring-2 focus:ring-brand-magenta/20"
-              />
-            </div>
-
-            {editError && (
-              <p className="text-sm text-red-600">{editError}</p>
-            )}
-
-            <Separator />
-
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setEditTarget(null)}
-                disabled={editSaving}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={editSaving}
-                className="gap-1.5 bg-[linear-gradient(135deg,#DE7F4C_0%,#C341D7_100%)] text-white hover:opacity-90"
-              >
-                {editSaving && <Loader2 size={14} className="animate-spin" />}
-                Save Changes
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      {/* The clinic's reviews — add / edit / approve / delete */}
+      <ClinicReviewsManager clinicId={clinic.id} />
     </div>
   );
 }

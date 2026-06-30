@@ -22,7 +22,6 @@ import {
   Activity,
 } from "lucide-react";
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
-import { ReviewsCarousel } from "@/components/shared/reviews-carousel";
 import { TreatmentsCarousel } from "@/components/shared/treatments-carousel";
 import { OtherProvidersCarousel } from "@/components/shared/other-providers-carousel";
 import { HeroHeader } from "@/components/hero/hero-header";
@@ -215,16 +214,6 @@ export default async function ProviderPage({
       WHERE clinic_id = $1 AND id != $2 AND is_active = TRUE
       LIMIT 4`,
     [provider.clinic_id, id]
-  );
-
-  // Retrieve reviews for the clinic
-  const reviews = await query<{ rating: number | null; body: string; reviewer_name: string | null }>(
-    `SELECT rating, body, reviewer_name
-       FROM reviews
-      WHERE clinic_id = $1
-      ORDER BY rating DESC NULLS LAST
-      LIMIT 10`,
-    [provider.clinic_id]
   );
 
   const loc = [provider.clinic_city, provider.clinic_state].filter(Boolean).join(", ");
@@ -450,9 +439,6 @@ export default async function ProviderPage({
 
         {/* ── Treatment Offered By Provider ── */}
         <TreatmentsCarousel providerName={provider.name} services={services} />
-
-        {/* ── Client Reviews ── */}
-        <ReviewsCarousel reviews={reviews} />
 
         {/* ── Other Clinic Providers ── */}
         <OtherProvidersCarousel 
