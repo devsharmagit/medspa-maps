@@ -2,6 +2,7 @@
 
 import { ChevronDown, Heart, MapPin, Play, Star } from "lucide-react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -407,9 +408,46 @@ function StarOutlineIcon() {
 
 // ─── FindClinicSection ────────────────────────────────────────────────────────
 
+const TREATMENT_OPTIONS = [
+  { value: "botox", label: "Botox" },
+  { value: "dermal-fillers", label: "Dermal Fillers" },
+  { value: "kybella", label: "Kybella" },
+  { value: "pdo-threads", label: "PDO Threads" },
+  { value: "prp-prf", label: "PRP / PRF" },
+  { value: "microneedling", label: "Microneedling" },
+  { value: "chemical-peels", label: "Chemical Peels" },
+  { value: "hydrafacial", label: "HydraFacial" },
+  { value: "rf-skin-tightening", label: "RF Skin Tightening" },
+  { value: "ultherapy", label: "Ultherapy" },
+  { value: "laser-skin-resurfacing", label: "Laser Resurfacing" },
+  { value: "laser-hair-removal", label: "Laser Hair Removal" },
+  { value: "ipl-photofacial", label: "IPL / Photofacial" },
+  { value: "coolsculpting", label: "CoolSculpting" },
+  { value: "body-contouring", label: "Body Contouring" },
+];
+
+const DISTANCE_OPTIONS = [
+  { value: "10", label: "10 Miles Away" },
+  { value: "25", label: "25 Miles Away" },
+  { value: "50", label: "50 Miles Away" },
+  { value: "100", label: "100 Miles Away" },
+];
+
+const RATING_OPTIONS = [
+  { value: "4.0", label: "4.0+ and More Rating" },
+  { value: "4.5", label: "4.5+ and More Rating" },
+  { value: "5.0", label: "5.0 Only" },
+];
+
 export function FindClinicSection() {
+  const router = useRouter();
   const [current, setCurrent] = useState(0);
   const total = clinicData.length;
+
+  // Filter states
+  const [selectedTreatment, setSelectedTreatment] = useState("");
+  const [selectedDistance, setSelectedDistance] = useState("25");
+  const [selectedRating, setSelectedRating] = useState("");
 
   const dragStart = useRef<number | null>(null);
   const isDragging = useRef(false);
@@ -447,6 +485,30 @@ export function FindClinicSection() {
     dragStart.current = null;
   };
 
+  const handleApplyFilters = () => {
+    const params = new URLSearchParams();
+    
+    if (selectedTreatment) {
+      params.set("q", selectedTreatment);
+    }
+    
+    if (selectedDistance) {
+      params.set("radius", selectedDistance);
+    }
+    
+    if (selectedRating) {
+      params.set("rating", selectedRating);
+    }
+    
+    router.push(`/search?${params.toString()}`);
+  };
+
+  const handleClearFilters = () => {
+    setSelectedTreatment("");
+    setSelectedDistance("25");
+    setSelectedRating("");
+  };
+
   return (
     <section className="flex w-full flex-col items-center gap-[27px] overflow-hidden pb-16 pt-0">
       {/* ── Title ── */}
@@ -463,9 +525,20 @@ export function FindClinicSection() {
             <div className="flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-full bg-[#CF5D9A]">
               <SearchIcon />
             </div>
-            <div className="flex h-[50px] w-[280px] cursor-pointer items-center justify-between rounded-[4px] border border-[#D2C3D3] bg-white px-[22px]">
-              <span className="font-montserrat text-[16px] leading-[140%] text-[#727272]">Treatments</span>
-              <ChevronDown className="h-4 w-4 text-[#353535]" />
+            <div className="relative">
+              <select
+                value={selectedTreatment}
+                onChange={(e) => setSelectedTreatment(e.target.value)}
+                className="flex h-[50px] w-[280px] cursor-pointer appearance-none items-center justify-between rounded-[4px] border border-[#D2C3D3] bg-white px-[22px] font-montserrat text-[16px] leading-[140%] text-[#727272] focus:outline-none focus:ring-2 focus:ring-[#CF5D9A]"
+              >
+                <option value="">Treatments</option>
+                {TREATMENT_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-[22px] top-1/2 h-4 w-4 -translate-y-1/2 text-[#353535]" />
             </div>
           </div>
 
@@ -474,9 +547,19 @@ export function FindClinicSection() {
             <div className="flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-full bg-[#CF5D9A]">
               <LocationIcon />
             </div>
-            <div className="flex h-[50px] w-[280px] cursor-pointer items-center justify-between rounded-[4px] border border-[#D2C3D3] bg-white px-[22px]">
-              <span className="font-montserrat text-[16px] leading-[140%] text-[#727272]">25 Miles Away</span>
-              <ChevronDown className="h-4 w-4 text-[#353535]" />
+            <div className="relative">
+              <select
+                value={selectedDistance}
+                onChange={(e) => setSelectedDistance(e.target.value)}
+                className="flex h-[50px] w-[280px] cursor-pointer appearance-none items-center justify-between rounded-[4px] border border-[#D2C3D3] bg-white px-[22px] font-montserrat text-[16px] leading-[140%] text-[#727272] focus:outline-none focus:ring-2 focus:ring-[#CF5D9A]"
+              >
+                {DISTANCE_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-[22px] top-1/2 h-4 w-4 -translate-y-1/2 text-[#353535]" />
             </div>
           </div>
 
@@ -485,9 +568,20 @@ export function FindClinicSection() {
             <div className="flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-full bg-[#CF5D9A]">
               <StarOutlineIcon />
             </div>
-            <div className="flex h-[50px] w-[280px] cursor-pointer items-center justify-between rounded-[4px] border border-[#D2C3D3] bg-white px-[22px]">
-              <span className="font-montserrat text-[16px] leading-[140%] text-[#727272]">4.0+ and More Rating</span>
-              <ChevronDown className="h-4 w-4 text-[#353535]" />
+            <div className="relative">
+              <select
+                value={selectedRating}
+                onChange={(e) => setSelectedRating(e.target.value)}
+                className="flex h-[50px] w-[280px] cursor-pointer appearance-none items-center justify-between rounded-[4px] border border-[#D2C3D3] bg-white px-[22px] font-montserrat text-[16px] leading-[140%] text-[#727272] focus:outline-none focus:ring-2 focus:ring-[#CF5D9A]"
+              >
+                <option value="">All Ratings</option>
+                {RATING_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-[22px] top-1/2 h-4 w-4 -translate-y-1/2 text-[#353535]" />
             </div>
           </div>
         </div>
@@ -495,10 +589,16 @@ export function FindClinicSection() {
         {/* Divider + actions */}
         <div className="flex items-center gap-[20px]">
           <div className="h-[50px] w-px bg-[#D2D2D2]" />
-          <button className="whitespace-nowrap font-montserrat text-[16px] font-medium text-[#CF5D9A] transition-opacity hover:opacity-70">
+          <button
+            onClick={handleClearFilters}
+            className="whitespace-nowrap font-montserrat text-[16px] font-medium text-[#CF5D9A] transition-opacity hover:opacity-70"
+          >
             Clear Filters
           </button>
-          <button className="flex h-[47px] w-[127px] shrink-0 items-center justify-center rounded-[8px] bg-[linear-gradient(90deg,#DE7F4C_0%,#C341D7_100%)] font-montserrat text-[14px] font-semibold text-white transition-opacity hover:opacity-90">
+          <button
+            onClick={handleApplyFilters}
+            className="flex h-[47px] w-[127px] shrink-0 items-center justify-center rounded-[8px] bg-[linear-gradient(90deg,#DE7F4C_0%,#C341D7_100%)] font-montserrat text-[14px] font-semibold text-white transition-opacity hover:opacity-90"
+          >
             Apply Filters
           </button>
         </div>

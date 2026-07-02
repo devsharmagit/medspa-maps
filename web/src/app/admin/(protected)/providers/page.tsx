@@ -10,12 +10,14 @@ import {
   Plus,
   Search,
   Trash2,
+  ToggleLeft,
+  ToggleRight,
   UserCircle2,
   Building2,
   ArrowRight,
   ExternalLink,
 } from "lucide-react";
-import { adminGet, adminDelete } from "@/lib/admin/client";
+import { adminGet, adminDelete, adminPatch } from "@/lib/admin/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -54,6 +56,7 @@ interface ProviderListItem {
 interface ClinicListItem {
   id: string;
   name: string;
+  is_active: boolean;
 }
 
 function slugify(text: string): string {
@@ -84,6 +87,10 @@ export default function ProvidersPage() {
   // Delete modal states
   const [pendingDelete, setPendingDelete] = useState<ProviderListItem | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Enable/disable modal states
+  const [pendingToggle, setPendingToggle] = useState<ProviderListItem | null>(null);
+  const [toggling, setToggling] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -124,6 +131,11 @@ export default function ProvidersPage() {
     setLoadingClinics(true);
     try {
       const data = await adminGet<ClinicListItem[]>("/clinics");
+      // Published clinics first, then alphabetical — easier to pick a live one.
+      data.sort(
+        (a, b) =>
+          Number(b.is_active) - Number(a.is_active) || a.name.localeCompare(b.name)
+      );
       setClinics(data);
     } catch (err) {
       console.error("Failed to load clinics", err);
@@ -149,6 +161,23 @@ export default function ProvidersPage() {
       setError((err as Error).message);
     } finally {
       setDeleting(false);
+    }
+  }
+
+  async function confirmToggle() {
+    if (!pendingToggle) return;
+    const next = !pendingToggle.is_active;
+    setToggling(true);
+    try {
+      await adminPatch(`/providers/${pendingToggle.id}`, { is_active: next });
+      setProviders((prev) =>
+        prev.map((p) => (p.id === pendingToggle.id ? { ...p, is_active: next } : p))
+      );
+      setPendingToggle(null);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setToggling(false);
     }
   }
 
@@ -209,7 +238,7 @@ export default function ProvidersPage() {
                   <TableHead className="text-slate-500 font-semibold text-xs uppercase tracking-wider w-[110px]">
                     Status
                   </TableHead>
-                  <TableHead className="text-slate-500 font-semibold text-xs uppercase tracking-wider w-[220px]">
+                  <TableHead className="text-slate-500 font-semibold text-xs uppercase tracking-wider w-[340px]">
                     Actions
                   </TableHead>
                 </TableRow>
@@ -256,13 +285,10 @@ export default function ProvidersPage() {
                     </TableCell>
 
                     <TableCell>
-                      <Link
-                        href={`/admin/clinics/${item.clinic_id}`}
-                        className="text-[13px] text-slate-600 hover:text-brand-purple transition-colors inline-flex items-center gap-1"
-                      >
+                      <span className="text-[13px] text-slate-600 inline-flex items-center gap-1">
                         <Building2 size={13} className="text-slate-400" />
                         {item.clinic_name}
-                      </Link>
+                      </span>
                     </TableCell>
 
                     <TableCell>
@@ -274,7 +300,7 @@ export default function ProvidersPage() {
                             : "bg-slate-100 text-slate-500 border border-slate-200"
                         }
                       >
-                        {item.is_active ? "Active" : "Inactive"}
+                        {item.is_active ? "Active" : "Disabled"}
                       </Badge>
                     </TableCell>
 
@@ -303,6 +329,19 @@ export default function ProvidersPage() {
                           <Link href={`/admin/providers/${item.id}/edit?backUrl=/admin/providers`}>
                             <Pencil size={12} /> Edit
                           </Link>
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setPendingToggle(item)}
+                          className={`h-7 px-2.5 text-xs gap-1 border ${
+                            item.is_active
+                              ? "border-amber-200 text-amber-700 hover:bg-amber-50"
+                              : "border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                          }`}
+                        >
+                          {item.is_active ? <ToggleRight size={12} /> : <ToggleLeft size={12} />}
+                          {item.is_active ? "Disable" : "Enable"}
                         </Button>
                         <Button
                           variant="outline"
@@ -348,7 +387,7 @@ export default function ProvidersPage() {
                 <option value="">-- Choose a clinic --</option>
                 {clinics.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.name}
+                    {c.name} — {c.is_active ? "Published" : "Unpublished"}
                   </option>
                 ))}
               </select>
@@ -408,6 +447,67 @@ export default function ProvidersPage() {
                 <Trash2 size={14} />
               )}
               Delete Profile
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Enable / Disable Confirmation Dialog */}
+      <Dialog
+        open={pendingToggle !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingToggle(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {pendingToggle?.is_active ? "Disable provider?" : "Enable provider?"}
+            </DialogTitle>
+            <DialogDescription>
+              {pendingToggle?.is_active ? (
+                <>
+                  <span className="font-medium text-slate-900">
+                    {pendingToggle?.name}
+                  </span>{" "}
+                  will be hidden from the public site and any concern/clinic pages
+                  they appear on. You can re-enable them at any time.
+                </>
+              ) : (
+                <>
+                  <span className="font-medium text-slate-900">
+                    {pendingToggle?.name}
+                  </span>{" "}
+                  will become visible on the public site again.
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setPendingToggle(null)}
+              disabled={toggling}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmToggle}
+              disabled={toggling}
+              className={
+                pendingToggle?.is_active
+                  ? "gap-1.5 bg-amber-600 text-white hover:bg-amber-700"
+                  : "gap-1.5 bg-emerald-600 text-white hover:bg-emerald-700"
+              }
+            >
+              {toggling ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : pendingToggle?.is_active ? (
+                <ToggleLeft size={14} />
+              ) : (
+                <ToggleRight size={14} />
+              )}
+              {pendingToggle?.is_active ? "Disable" : "Enable"}
             </Button>
           </DialogFooter>
         </DialogContent>

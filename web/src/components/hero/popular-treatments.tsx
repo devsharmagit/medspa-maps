@@ -2,78 +2,50 @@
 
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import Image from "next/image";
-import { useRef } from "react";
+import Link from "next/link";
+import { useRef, useState } from "react";
 
-const treatments = [
-  {
-    name: "Fillers",
-    clinics: 842,
-    startingPrice: 199,
-    icon: "/images/landingpage/fillers.png",
-  },
-  {
-    name: "Botox",
-    clinics: 1254,
-    startingPrice: 122,
-    icon: "/images/landingpage/botox.png",
-  },
-  {
-    name: "Laser",
-    clinics: 536,
-    startingPrice: 99,
-    icon: "/images/landingpage/laser.png",
-  },
-  {
-    name: "Microneedling",
-    clinics: 368,
-    startingPrice: 299,
-    icon: "/images/landingpage/microneedling.png",
-  },
-  {
-    name: "Chemical Peel",
-    clinics: 788,
-    startingPrice: 69,
-    icon: "/images/landingpage/checmical-peel.png",
-  },
-  {
-    name: "Skin Resurfacing",
-    clinics: 218,
-    startingPrice: 299,
-    icon: "/images/landingpage/skin-resurfacing.png",
-  },
-  {
-    name: "IV Therapy",
-    clinics: 524,
-    startingPrice: 89,
-    icon: "/images/landingpage/iv-therapy.png",
-  },
-  {
-    name: "Body Contouring",
-    clinics: 189,
-    startingPrice: 199,
-    icon: "/images/landingpage/body-countring.png",
-  },
-];
+interface Treatment {
+  slug: string;
+  name: string;
+  clinicCount: number;
+  icon: string;
+}
+
+interface PopularTreatmentsProps {
+  treatments: Treatment[];
+  titleNode?: React.ReactNode;
+}
+
+const DEFAULT_FALLBACK_ICON = "/images/landingpage/diamond.png";
 
 function TreatmentCard({
+  slug,
   name,
-  clinics,
+  clinicCount,
   icon,
 }: {
+  slug: string;
   name: string;
-  clinics: number;
+  clinicCount: number;
   icon: string;
 }) {
+  const [imgSrc, setImgSrc] = useState(icon);
+
   return (
-    <div className="box-border flex h-[201px] w-[161px] shrink-0 flex-col items-center justify-center gap-2 rounded-2xl bg-white px-[10px] pt-[3px] shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)]">
+    <Link
+      href={`/treatments/${slug}`}
+      className="box-border flex h-[201px] w-[161px] shrink-0 flex-col items-center justify-center gap-2 rounded-2xl bg-white px-[10px] pt-[3px] shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)] transition-transform hover:scale-105 hover:shadow-lg"
+    >
       <div className="flex h-[62px] w-[66px] items-center justify-center rounded-[10px] border border-[#F5DEE8] bg-[linear-gradient(144.23deg,#F5F0F7_-33.1%,#FFFFFF_48.72%)]">
         <div className="relative h-[32px] w-[32px]">
           <Image
-            src={icon}
+            src={imgSrc}
             alt={name}
             fill
             sizes="32px"
             className="object-contain"
+            onError={() => setImgSrc(DEFAULT_FALLBACK_ICON)}
           />
         </div>
       </div>
@@ -85,13 +57,13 @@ function TreatmentCard({
 
       {/* Clinics */}
       <p className="flex items-center justify-center text-center font-inter text-[12px] font-normal leading-[100%] text-[#9A9A9A]">
-        {clinics} clinics
+        {clinicCount} clinics
       </p>
-    </div>
+    </Link>
   );
 }
 
-export function PopularTreatments({ titleNode }: { titleNode?: React.ReactNode }) {
+export function PopularTreatments({ treatments, titleNode }: PopularTreatmentsProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const scroll = (direction: "left" | "right") => {
@@ -141,7 +113,7 @@ export function PopularTreatments({ titleNode }: { titleNode?: React.ReactNode }
           className="flex w-full gap-2 overflow-x-auto px-2 py-[38px] scrollbar-none"
         >
           {treatments.map((treatment) => (
-            <TreatmentCard key={treatment.name} {...treatment} />
+            <TreatmentCard key={treatment.slug} {...treatment} />
           ))}
         </div>
 

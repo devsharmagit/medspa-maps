@@ -41,6 +41,13 @@ export interface ClinicPageData {
     verified: boolean;
     featured: boolean;
     logo_url: string | null;
+    // Admin-editable hero stat overrides (display strings, e.g. "20+", "10k+").
+    // NULL → the clinic page falls back to its computed/default value.
+    stat_experts: string | null;
+    stat_cities: string | null;
+    stat_treatments: string | null;
+    stat_rating: string | null;
+    stat_patients: string | null;
   };
   locations: ClinicLocation[];
   treatments: { name: string; slug: string | null; price_from: number | null; price_unit: string | null }[];
@@ -72,6 +79,7 @@ export async function getClinicData(slug: string): Promise<ClinicPageData | null
        c.zip, c.phone, c.website, c.booking_url, c.google_maps_url, c.hours, c.instagram_url,
        c.facebook_url, c.youtube_url, c.founded_year, c.avg_rating,
        c.review_count, c.ext_rating, c.ext_review_count, c.verified, c.featured,
+       c.stat_experts, c.stat_cities, c.stat_treatments, c.stat_rating, c.stat_patients,
        c.business_id,
        -- Logo: scraped logos live at the clinic level; fall back to the
        -- business-level logo for synced records.
@@ -196,6 +204,11 @@ export async function getClinicData(slug: string): Promise<ClinicPageData | null
       verified: c.verified,
       featured: c.featured,
       logo_url: c.logo_url,
+      stat_experts: c.stat_experts,
+      stat_cities: c.stat_cities,
+      stat_treatments: c.stat_treatments,
+      stat_rating: c.stat_rating,
+      stat_patients: c.stat_patients,
     },
     treatments: treatments.rows,
     gallery: gallery.rows,

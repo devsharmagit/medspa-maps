@@ -2,13 +2,21 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, Loader2, ToggleLeft, ToggleRight, Trash2, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { AlertTriangle, Building2, Loader2, ToggleLeft, ToggleRight, Trash2, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import type { ApiResponse } from "@/lib/api-response";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export interface Business {
   id: string;
@@ -35,6 +43,8 @@ export default function BusinessesTable({ initialData, searchQuery, currentPage,
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [search, setSearch] = useState(searchQuery);
+  const [pendingDelete, setPendingDelete] = useState<Business | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -63,20 +73,29 @@ export default function BusinessesTable({ initialData, searchQuery, currentPage,
     }
   }
 
-  async function handleDelete(id: string, e: React.MouseEvent) {
-    e.stopPropagation();
-    if (!confirm("Delete this business? This cannot be undone.")) return;
+  async function confirmDelete() {
+    if (!pendingDelete) return;
+    const { id } = pendingDelete;
     setDeletingId(id);
+    setDeleteError(null);
     try {
       const res = await fetch(`/api/admin/businesses/${id}`, { method: "DELETE" });
       const json: ApiResponse = await res.json();
-      if (json.success) setData((prev) => prev.filter((item) => item.id !== id));
+      if (json.success) {
+        setData((prev) => prev.filter((item) => item.id !== id));
+        setPendingDelete(null);
+      } else {
+        setDeleteError(json.error);
+      }
+    } catch {
+      setDeleteError("Something went wrong. Please try again.");
     } finally {
       setDeletingId(null);
     }
   }
 
   return (
+    <>
     <Card className="shadow-sm border-slate-200">
       <CardHeader className="p-4 border-b border-slate-100 bg-slate-50/50">
         <form onSubmit={handleSearch} className="flex gap-2 max-w-sm relative">
@@ -162,7 +181,11 @@ export default function BusinessesTable({ initialData, searchQuery, currentPage,
                       </Button>
                       <Button
                         variant="outline" size="sm"
-                        onClick={(e) => handleDelete(item.id, e)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteError(null);
+                          setPendingDelete(item);
+                        }}
                         disabled={deletingId === item.id || togglingId === item.id}
                         className="h-7 px-2.5 text-xs gap-1 border-red-200 text-red-600 hover:bg-red-50"
                       >
@@ -203,5 +226,56 @@ export default function BusinessesTable({ initialData, searchQuery, currentPage,
         </div>
       )}
     </Card>
+
+    <Dialog
+      open={pendingDelete !== null}
+      onOpenChange={(open) => {
+        if (!open) {
+          setPendingDelete(null);
+          setDeleteError(null);
+        }
+      }}
+    >
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Delete business?</DialogTitle>
+          <DialogDescription>
+            This permanently deletes{" "}
+            <span className="font-medium text-foreground">{pendingDelete?.name}</span>.
+            This action cannot be undone.
+          </DialogDescription>
+        </DialogHeader>
+
+        {deleteError && (
+          <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-800">
+            <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+            <span>{deleteError}</span>
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setPendingDelete(null);
+              setDeleteError(null);
+            }}
+            disabled={deletingId !== null}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={confirmDelete}
+            disabled={deletingId !== null}
+            className="gap-1.5"
+          >
+            {deletingId !== null ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+            Delete
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

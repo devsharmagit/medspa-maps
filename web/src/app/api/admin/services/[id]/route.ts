@@ -18,7 +18,6 @@ const patchSchema = z
     results_duration: z.string().max(255).nullable(),
     recovery_time: z.string().max(255).nullable(),
     faqs: z.array(z.unknown()).nullable(),
-    is_published: z.boolean(),
     review_status: z.string().max(50).nullable(),
     is_active: z.boolean(),
   })
@@ -40,7 +39,6 @@ interface Service {
   results_duration: string | null;
   recovery_time: string | null;
   faqs: unknown[] | null;
-  is_published: boolean;
   review_status: string | null;
   is_active: boolean;
   created_at: string;
@@ -49,7 +47,7 @@ interface Service {
 
 const SERVICE_COLUMNS = `id, name, slug, category, aliases, summary, description,
   treatment_time, results_timeline, results_duration, recovery_time,
-  faqs, is_published, review_status, is_active, created_at, updated_at`;
+  faqs, review_status, is_active, created_at, updated_at`;
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -115,7 +113,9 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
   }
 }
 
-// DELETE /api/admin/services/[id] — soft delete (is_active = false)
+// DELETE /api/admin/services/[id] — permanent delete.
+// clinic_services / reviews links are nulled (ON DELETE SET NULL) and
+// concern_services / provider_services links cascade away.
 export async function DELETE(_req: NextRequest, { params }: RouteContext) {
   try {
     await requireAdmin();
@@ -123,9 +123,7 @@ export async function DELETE(_req: NextRequest, { params }: RouteContext) {
     const { id } = await params;
 
     const rows = await query<{ id: string; name: string }>(
-      `UPDATE services SET is_active = false, updated_at = now()
-       WHERE id = $1
-       RETURNING id, name`,
+      `DELETE FROM services WHERE id = $1 RETURNING id, name`,
       [id]
     );
 

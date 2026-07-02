@@ -1,6 +1,9 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import { ChevronDown } from "lucide-react";
+import { useState, useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -14,14 +17,39 @@ const navLinks = [
   { label: "Resources", href: "#", hasDropdown: true },
 ] as const;
 
+const scrollToListYourMedspa = () => {
+  const element = document.getElementById("list-your-medspa");
+  if (element) {
+    element.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+};
+
 export function HeroHeader({ className }: { className?: string }) {
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 20);
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
   return (
-    <header
-      className={cn(
-        "relative z-10 w-full bg-gradient-to-r from-transparent to-black/60",
-        className,
-      )}
-    >
+    <>
+      {/* Spacer to maintain layout flow since header is fixed */}
+      <div className="h-[94px] w-full shrink-0" aria-hidden="true" />
+      <header
+        className={cn(
+          "fixed top-0 left-0 right-0 z-[100] w-full transition-colors duration-300",
+          isScrolled 
+            ? "bg-gradient-to-r from-[#7b2d6b] via-[#9b3a6e] to-[#b6663f] shadow-md" 
+            : "bg-transparent",
+          className,
+        )}
+      >
+        {/* Dark overlay that is always present to keep the shade consistent */}
+        <div className="absolute inset-0 pointer-events-none -z-10 bg-gradient-to-r from-transparent to-black/60" />
       <div className="mx-auto flex h-[94px] max-w-[1338px] items-center justify-between px-4 sm:px-6 lg:px-[18px]">
         <Link
           href="/"
@@ -55,20 +83,14 @@ export function HeroHeader({ className }: { className?: string }) {
         <div className="flex items-center gap-2 sm:gap-[9px]">
           <Button
             variant="outline"
-            className="hidden h-auto rounded-lg border-[#c8c8c8] bg-transparent px-6 py-2.5 text-sm font-semibold text-white shadow-none hover:bg-white/10 hover:text-white sm:inline-flex"
-            asChild
+            onClick={scrollToListYourMedspa}
+            className="hidden h-auto rounded-lg border-[#c8c8c8] bg-transparent px-6 py-2.5 text-sm font-semibold text-white shadow-none hover:bg-white/10 hover:text-white sm:inline-flex cursor-pointer"
           >
-            <Link href="#">List Your Medspa</Link>
-          </Button>
-          <Button
-          variant={"gradient"}
-            className="h-auto rounded-lg border-0  px-6 py-2.5 text-sm font-semibold text-white shadow-none hover:opacity-90"
-            asChild
-          >
-            <Link href="#">Login / Signup</Link>
+            List Your Medspa
           </Button>
         </div>
       </div>
     </header>
+    </>
   );
 }

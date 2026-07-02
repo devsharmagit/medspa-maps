@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/admin/auth";
-import { query, queryOne } from "@/lib/db";
+import { query, queryOne, withTransaction } from "@/lib/db";
 import { ApiError } from "@/lib/errors";
 import { successResponse, handleApiError } from "@/lib/api-response";
 import { getEffectiveConcernSlugs } from "@/lib/concerns/clinic-concerns";
@@ -39,6 +39,12 @@ const patchSchema = z
     ext_rating: z.number().min(0).max(5).nullable(),
     ext_review_count: z.number().int().min(0).nullable(),
     founded_year: z.number().int().nullable(),
+    // Hero stat overrides — free-text display strings ("20+", "10k+", "5.0").
+    stat_experts: z.string().max(24).nullable(),
+    stat_cities: z.string().max(24).nullable(),
+    stat_treatments: z.string().max(24).nullable(),
+    stat_rating: z.string().max(24).nullable(),
+    stat_patients: z.string().max(24).nullable(),
     is_active: z.boolean(),
     featured: z.boolean().optional(),
   })
@@ -84,6 +90,11 @@ interface ClinicRow {
   ext_rating: string | null;
   ext_review_count: number | null;
   founded_year: number | null;
+  stat_experts: string | null;
+  stat_cities: string | null;
+  stat_treatments: string | null;
+  stat_rating: string | null;
+  stat_patients: string | null;
   tier: string;
   verified: boolean;
   featured: boolean;
@@ -139,7 +150,9 @@ const CLINIC_COLS = `id, business_id, name, slug, tagline, about, website, booki
   address, city, state, zip, country, lat, lng, phone, email, hours,
   instagram_url, facebook_url, tiktok_url, youtube_url, x_url, linkedin_url,
   yelp_url, google_my_business, google_maps_url, google_place_id, avg_rating, review_count,
-  ext_rating, ext_review_count, founded_year, tier, verified, featured,
+  ext_rating, ext_review_count, founded_year,
+  stat_experts, stat_cities, stat_treatments, stat_rating, stat_patients,
+  tier, verified, featured,
   data_source, is_active, created_at, updated_at`;
 
 // GET /api/admin/clinics/[id] — full editable record + images + treatments offered
@@ -260,17 +273,27 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
   }
 }
 
-// DELETE /api/admin/clinics/[id] — soft delete (is_active = false)
+// DELETE /api/admin/clinics/[id] — permanent delete.
+// Child rows (locations, services, providers, reviews, concerns, scrape_jobs)
+// are removed by ON DELETE CASCADE; polymorphic images have no FK so we clean
+// them up explicitly, all inside one transaction.
 export async function DELETE(_req: NextRequest, { params }: RouteContext) {
   try {
     await requireAdmin();
 
     const { id } = await params;
 
-    const deleted = await queryOne<{ id: string; name: string }>(
-      "UPDATE clinics SET is_active = false WHERE id = $1 RETURNING id, name",
-      [id]
-    );
+    const deleted = await withTransaction(async (client) => {
+      await client.query(
+        "DELETE FROM images WHERE entity_type = 'clinic' AND entity_id = $1",
+        [id]
+      );
+      const res = await client.query<{ id: string; name: string }>(
+        "DELETE FROM clinics WHERE id = $1 RETURNING id, name",
+        [id]
+      );
+      return res.rows[0] ?? null;
+    });
 
     if (!deleted) throw ApiError.notFound("Clinic not found");
 

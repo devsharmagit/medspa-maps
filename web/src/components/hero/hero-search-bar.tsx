@@ -10,13 +10,23 @@ import {
   type DropdownOption,
 } from "@/components/ui/searchable-dropdown";
 import { US_STATES } from "@/lib/constants";
+import { useLocation } from "@/lib/location/location-context";
 import { cn } from "@/lib/utils";
 
 export function HeroSearchBar({ className }: { className?: string }) {
   const router = useRouter();
+  const { location: userLocation } = useLocation();
   const [service, setService] = useState("");
   const [location, setLocation] = useState("");
   const [serviceOptions, setServiceOptions] = useState<DropdownOption[]>([]);
+
+  // Prefill the state field once we detect the visitor's US state (unless they've
+  // already picked one). Never overrides a manual choice.
+  useEffect(() => {
+    if (userLocation?.stateCode) {
+      setLocation((prev) => prev || userLocation.stateCode!);
+    }
+  }, [userLocation?.stateCode]);
 
   // Fetch services from DB
   useEffect(() => {
@@ -57,13 +67,13 @@ export function HeroSearchBar({ className }: { className?: string }) {
           options={serviceOptions}
           value={service}
           onChange={setService}
-          placeholder="Search treatment, condition or services..."
+          placeholder="Search treatments…"
           icon={
             <span className="flex size-5 items-center justify-center rounded-full bg-brand-magenta text-white">
               <Sparkles className="size-3" aria-hidden />
             </span>
           }
-          label="Services"
+          label="Treatment"
           allowFreeText
         />
       </div>

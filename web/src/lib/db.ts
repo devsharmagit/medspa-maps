@@ -1,4 +1,4 @@
-import { Pool } from "pg";
+import { Pool, PoolClient } from "pg";
 
 // Singleton pool — reused across hot-reloads in dev via global cache
 declare global {
@@ -40,10 +40,23 @@ function createG99Pool(): Pool {
   });
 }
 
-export const g99Pool: Pool =
-  process.env.NODE_ENV === "production"
-    ? createG99Pool()
-    : (globalThis.__g99PgPool ??= createG99Pool());
+// The G99 pool is created LAZILY (see getG99Pool) — never at module load.
+let g99PoolSingleton: Pool | undefined;
+
+/**
+ * Lazily create/reuse the G99 read-replica pool. Unlike the primary `pool`,
+ * the G99 DB is an OPTIONAL, tunnel-gated dependency used only by the admin
+ * G99-import feature. Creating it eagerly meant a missing G99_DATABASE_URL
+ * threw at `@/lib/db` import time and took down EVERY DB-backed route (public
+ * site, search, all of admin). Deferring creation to first use means that
+ * throw can only ever surface inside an actual G99 query — nothing else.
+ */
+export function getG99Pool(): Pool {
+  if (process.env.NODE_ENV === "production") {
+    return (g99PoolSingleton ??= createG99Pool());
+  }
+  return (globalThis.__g99PgPool ??= createG99Pool());
+}
 
 export default pool;
 
@@ -65,12 +78,34 @@ export async function queryOne<T = Record<string, unknown>>(
   return rows[0] ?? null;
 }
 
+/**
+ * Run `fn` inside a single transaction on a dedicated pooled client.
+ * Commits on success, rolls back on any thrown error, and always releases
+ * the client. Use for multi-statement writes that must be atomic.
+ */
+export async function withTransaction<T>(
+  fn: (client: PoolClient) => Promise<T>
+): Promise<T> {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const result = await fn(client);
+    await client.query("COMMIT");
+    return result;
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 /** Convenience helper — runs a query on G99 DB and returns rows */
 export async function queryG99<T = Record<string, unknown>>(
   sql: string,
   params?: unknown[]
 ): Promise<T[]> {
-  const result = await g99Pool.query(sql, params);
+  const result = await getG99Pool().query(sql, params);
   return result.rows as T[];
 }
 

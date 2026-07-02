@@ -9,15 +9,17 @@ export interface SharedProviderData {
   name: string;
   title: string | null;
   bio?: string | null;
+  card_tagline?: string | null;
   image_url: string | null;
   years_experience: number | null;
-  is_verified: boolean;
-  clinic_slug: string;
+  is_verified?: boolean;
+  clinic_slug?: string;
   clinic_name: string;
-  featured: boolean;
-  verified: boolean;
+  featured?: boolean;
+  verified?: boolean;
   distance_km?: number | null;
   avg_rating: string | null;
+  review_rating?: string | null;
   review_count?: number;
 }
 
@@ -90,9 +92,12 @@ export function ProvidersCarousel({ providers }: { providers: SharedProviderData
 
       <div className="grid gap-8 lg:grid-cols-3">
          {currentProviders.map((p) => {
-           // Parse first sentence of bio as a fallback highlight
-           const fallbackBio = p.bio ? (p.bio.split(". ")[0] + ".") : "";
-           
+           // Prefer the editable card tagline; fall back to the first sentence of the bio.
+           const tagline = p.card_tagline?.trim()
+             || (p.bio ? p.bio.split(". ")[0] + "." : "");
+           // Prefer the provider's own rating; fall back to the clinic's average.
+           const rating = p.review_rating ?? p.avg_rating;
+
            return (
              <div
                key={p.id}
@@ -137,14 +142,17 @@ export function ProvidersCarousel({ providers }: { providers: SharedProviderData
                      </p>
                    )}
                    <p className="text-[11px] leading-[138%] tracking-[0.02em] text-[#727272] line-clamp-4">
-                     {fallbackBio}
+                     {tagline}
                    </p>
-                   
-                   {p.avg_rating && (
+
+                   {rating && (
                      <div className="flex items-center gap-1 mt-auto">
                        <span className="text-[11px] leading-[138%] tracking-[0.02em] text-[#727272]">Customer Rating</span>
                        <Star className="w-3.5 h-3.5 fill-[#FFBA19] text-[#FFBA19]" />
-                       <span className="text-[12px] font-semibold leading-[130%] tracking-[0.02em] uppercase text-[#616161]">{p.avg_rating}</span>
+                       <span className="text-[12px] font-semibold leading-[130%] tracking-[0.02em] uppercase text-[#616161]">{rating}</span>
+                       {p.review_count ? (
+                         <span className="text-[11px] leading-[138%] tracking-[0.02em] text-[#9A9A9A]">({p.review_count})</span>
+                       ) : null}
                      </div>
                    )}
                  </div>

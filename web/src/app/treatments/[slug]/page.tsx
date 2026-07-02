@@ -5,7 +5,6 @@ import { ClinicsCarousel } from "@/components/shared/clinics-carousel";
 import { ProvidersCarousel } from "@/components/shared/providers-carousel";
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
 import {
-  ChevronRight,
   CalendarDays,
   Star,
   Clock,
@@ -56,7 +55,7 @@ export default async function TreatmentPage({
   const data = await getTreatmentData(slug, opts);
   if (!data) notFound();
 
-  const { service, clinics, reviews, providers } = data;
+  const { service, clinics, providers } = data;
 
   const hasStats =
     service.treatment_time != null ||
@@ -176,46 +175,7 @@ export default async function TreatmentPage({
 
         <ProvidersCarousel providers={providers} />
 
-        {/* Reviews */}
-        {reviews.length > 0 && (
-          <section className="mt-[100px]">
-            <h2 className="text-[34px] font-normal leading-[116%] tracking-[-0.04em] text-[#373634]">
-              What Our Clients Say
-            </h2>
-            <div className="mt-8 grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-              {reviews.map((r, i) => (
-                <div
-                  key={i}
-                  className="rounded-[22px] border border-[#DEDEDE] bg-white p-6 shadow-[0px_9px_11.1px_rgba(240,223,241,0.6)]"
-                >
-                  {r.rating != null && (
-                    <div className="flex gap-1 mb-4">
-                      {Array.from({ length: 5 }).map((_, s) => (
-                        <Star
-                          key={s}
-                          className={`size-4 ${
-                            s < r.rating!
-                              ? "fill-[#FFBA19] text-[#FFBA19]"
-                              : "text-zinc-200"
-                          }`}
-                        />
-                      ))}
-                    </div>
-                  )}
-                  <p className="mt-3 text-[14px] leading-[150%] text-[#727272]">
-                    “{r.body}”
-                  </p>
-                  <div className="mt-6 border-t border-[#DDC3DF] pt-4 text-[14px] font-medium text-[#383838]">
-                    — {r.reviewer_name || "Verified Patient"}
-                    <span className="ml-1 font-normal text-[#9A9A9A]">
-                      · {r.clinic_name}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
+
         
         {/* FAQs */}
         <div className="mt-[100px] mb-20">

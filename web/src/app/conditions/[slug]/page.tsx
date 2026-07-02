@@ -43,11 +43,11 @@ export default async function ConditionPage({
       style={{ fontFamily: 'var(--font-montserrat), sans-serif' }}
     >
       {/* Banner + nav */}
-      <div className="bg-gradient-to-r from-[#7b2d6b] via-[#9b3a6e] to-[#b6663f] relative z-10">
+      <div className="bg-gradient-to-r from-[#7b2d6b] via-[#9b3a6e] to-[#b6663f]">
         <HeroHeader />
       </div>
 
-      <div className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-12 sm:px-6 relative z-10">
+      <div className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-12 sm:px-6">
         <Breadcrumbs items={[
           { label: "Home", href: "/" },
           { label: "Concerns", href: "/conditions" },

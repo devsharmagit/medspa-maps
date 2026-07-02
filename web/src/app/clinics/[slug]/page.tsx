@@ -12,6 +12,7 @@ import { HeroHeader } from "@/components/hero/hero-header";
 import { Footer } from "@/components/footer";
 import { getClinicData } from "@/lib/clinics/queries";
 import { ClinicGallery } from "./gallery";
+import { ClinicLocationsSection } from "./locations";
 import { OtherProvidersCarousel } from "@/components/shared/other-providers-carousel";
 import { ClinicTreatmentsCarousel } from "@/components/shared/clinic-treatments-carousel";
 import { ClinicReviewsSection } from "@/components/shared/clinic-reviews-section";
@@ -93,47 +94,34 @@ export default async function ClinicPage({
   const loc = primaryLoc
     ? [primaryLoc.city, primaryLoc.state].filter(Boolean).join(", ")
     : [clinic.city, clinic.state].filter(Boolean).join(", ");
-  const hasMultipleLocations = locations.length > 1;
   const isPremium = clinic.featured || clinic.verified;
   const todayHours = getTodayHours(clinic.hours);
   const mapsUrl =
     clinic.google_maps_url ||
     buildMapsUrl([clinic.address, clinic.city, clinic.state, clinic.zip]);
   const bookUrl = clinic.booking_url || clinic.website;
-  const excerpt = clinic.tagline ?? clinic.about?.slice(0, 240) ?? null;
+  // Excerpt shows the admin-provided tagline ONLY — no about-snippet fallback.
+  // (Never present derived text as if it were a curated tagline.)
+  const excerpt = clinic.tagline ?? null;
 
+  // Hero stats show ONLY values the admin explicitly entered (clinic.stat_*).
+  // Nothing is computed, defaulted, or invented: a blank stat is omitted, and
+  // if none were entered the whole stats row is hidden (see render below).
+  // Product decision — never display numbers the admin didn't actually provide.
   const statsConfig = [
-    {
-      value: data.providers.length > 0 ? `${data.providers.length}+` : "20+",
-      line1: "CERTIFIED",
-      line2: "EXPERT",
-      align: "start" as const,
-    },
-    {
-      value: hasMultipleLocations ? String(locations.length) : "8",
-      line1: "CITIES",
-      line2: "COVERED",
-      align: "center" as const,
-    },
-    {
-      value: `${stats.treatments_count}+`,
-      line1: "ADVANCED",
-      line2: "TREATMENT",
-      align: "center" as const,
-    },
-    {
-      value: stats.rating || "5.0",
-      line1: "AVERAGE",
-      line2: "RATING",
-      align: "center" as const,
-    },
-    {
-      value: "10k+",
-      line1: "PATIENT",
-      line2: "TRANSFORMED",
-      align: "center" as const,
-    },
-  ];
+    { value: clinic.stat_experts, line1: "CERTIFIED", line2: "EXPERT" },
+    { value: clinic.stat_cities, line1: "CITIES", line2: "COVERED" },
+    { value: clinic.stat_treatments, line1: "ADVANCED", line2: "TREATMENT" },
+    { value: clinic.stat_rating, line1: "AVERAGE", line2: "RATING" },
+    { value: clinic.stat_patients, line1: "PATIENT", line2: "TRANSFORMED" },
+  ]
+    .filter((s) => s.value != null && String(s.value).trim() !== "")
+    .map((s, i) => ({
+      value: String(s.value),
+      line1: s.line1,
+      line2: s.line2,
+      align: (i === 0 ? "start" : "center") as "start" | "center",
+    }));
 
   return (
     <main className="flex min-h-screen flex-col bg-[#FDFDFD] text-zinc-950">
@@ -148,7 +136,7 @@ export default async function ClinicPage({
             items={[
               { label: "Home", href: "/" },
               { label: "Clinics", href: "/clinics" },
-              { label: `${clinic.name}${loc ? `, ${loc}` : ""}` },
+              { label: clinic.name },
             ]}
           />
         </div>
@@ -308,7 +296,6 @@ export default async function ClinicPage({
         <section className="flex flex-col gap-[36px] px-[24px] pt-[36px] pb-[36px]">
           <h2 className="font-fraunces italic text-[28px] sm:text-[34px] font-normal leading-[116.02%] tracking-[-0.04em] text-[#373634]">
             About {clinic.name}
-            {loc ? `, ${loc}` : ""}
           </h2>
 
           {clinic.about && (
@@ -317,7 +304,8 @@ export default async function ClinicPage({
             </p>
           )}
 
-          {/* Stats row */}
+          {/* Stats row — rendered only when the admin entered ≥1 stat */}
+          {statsConfig.length > 0 && (
           <div className="flex flex-row flex-wrap items-center gap-y-6">
             {statsConfig.map((stat, idx) => (
               <div key={idx} className="flex items-center">
@@ -345,6 +333,7 @@ export default async function ClinicPage({
               </div>
             ))}
           </div>
+          )}
 
           {/* CTAs */}
           <div className="flex flex-row flex-wrap items-start gap-[16px]">
@@ -374,6 +363,9 @@ export default async function ClinicPage({
             )}
           </div>
         </section>
+
+        {/* ── Our Locations (multi-location clinics only) ── */}
+        <ClinicLocationsSection locations={locations} fallbackBookUrl={bookUrl} />
 
         {/* ── Meet Experts ── */}
         {data.providers && data.providers.length > 0 && (

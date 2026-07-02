@@ -59,15 +59,15 @@ export async function POST(req: NextRequest) {
 
     const created = await queryOne<Concern>(
       `INSERT INTO concerns (name, slug, overview, details, faqs, aliases, is_published)
-       VALUES ($1, COALESCE($2, slugify($1)), $3, $4, $5, COALESCE($6, '{}'::text[]), COALESCE($7, false))
+       VALUES ($1, COALESCE($2, slugify($1)), $3, $4::jsonb, $5::jsonb, COALESCE($6, '{}'::text[]), COALESCE($7, false))
        RETURNING id, name, slug, overview, details, faqs, aliases,
                  is_published, is_active, created_at, updated_at`,
       [
         input.name,
         input.slug ?? null,
         input.overview ?? null,
-        input.details ?? null,
-        input.faqs ?? null,
+        input.details ? JSON.stringify(input.details) : null,
+        input.faqs ? JSON.stringify(input.faqs) : null,
         input.aliases ?? null,
         input.is_published ?? null,
       ]

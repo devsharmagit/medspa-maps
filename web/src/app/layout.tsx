@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Fraunces, Geist_Mono, Inter, Montserrat } from "next/font/google";
 import NextAuthProvider from "@/app/_providers/session-provider";
+import ChatWidget from "@/components/chat/chat-widget";
+import { LocationProvider } from "@/lib/location/location-context";
 import "./globals.css";
 
 
@@ -49,8 +51,12 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <NextAuthProvider>
-          {children}
+          <LocationProvider>
+            {children}
+          </LocationProvider>
         </NextAuthProvider>
+        {/* AI assistant — self-hides on /admin routes */}
+        <ChatWidget />
       </body>
 
     </html>

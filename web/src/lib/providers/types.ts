@@ -17,6 +17,12 @@ export interface Provider {
   name: string;
   title: string | null;
   bio: string | null;
+  /** Short one/two-line pitch shown on the provider card. */
+  card_tagline: string | null;
+  /** Customer rating shown on the card, e.g. 4.9. */
+  review_rating: string | null;
+  /** Number of reviews shown on the card, e.g. 89. */
+  review_count: number;
   image_url: string | null;
   years_experience: number | null;
   is_verified: boolean;
@@ -49,6 +55,9 @@ export interface ProviderPayload {
   name: string;
   title?: string | null;
   bio?: string | null;
+  card_tagline?: string | null;
+  review_rating?: number | null;
+  review_count?: number | null;
   image_url?: string | null;
   years_experience?: number | null;
   is_verified?: boolean;

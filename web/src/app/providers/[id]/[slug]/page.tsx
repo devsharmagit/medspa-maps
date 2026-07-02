@@ -36,6 +36,9 @@ interface ProviderDetails {
   name: string;
   title: string | null;
   bio: string | null;
+  card_tagline: string | null;
+  review_rating: string | null;
+  review_count: number | null;
   image_url: string | null;
   years_experience: number | null;
   is_verified: boolean;
@@ -76,7 +79,10 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { id } = await params;
   const provider = await queryOne<{ name: string; title: string | null }>(
-    "SELECT name, title FROM providers WHERE id = $1",
+    `SELECT p.name, p.title
+       FROM providers p
+       JOIN clinics c ON c.id = p.clinic_id
+      WHERE p.id = $1 AND p.is_active = true AND c.is_active = true`,
     [id]
   );
   if (!provider) return { title: "Provider not found" };
@@ -190,7 +196,7 @@ export default async function ProviderPage({
             ) AS clinic_logo_url
        FROM providers p
        JOIN clinics c ON p.clinic_id = c.id
-      WHERE p.id = $1`,
+      WHERE p.id = $1 AND p.is_active = true AND c.is_active = true`,
     [id]
   );
 
@@ -217,6 +223,8 @@ export default async function ProviderPage({
   );
 
   const loc = [provider.clinic_city, provider.clinic_state].filter(Boolean).join(", ");
+  const reviewRating = provider.review_rating != null ? Number(provider.review_rating) : null;
+  const reviewCount = provider.review_count ?? 0;
   const bookUrl = provider.clinic_booking_url || "#";
   const defaultPhoto = "https://images.stockcake.com/public/1/9/d/19d13828-c999-4e2d-a191-9da4dd8bd824_large/confident-medical-professional-stockcake.jpg";
 
@@ -235,7 +243,7 @@ export default async function ProviderPage({
             items={[
               { label: "Home", href: "/" },
               { label: "Clinics", href: "/clinics" },
-              { label: `${provider.clinic_name}${loc ? `, ${loc}` : ""}`, href: `/clinics/${provider.clinic_slug}` },
+              { label: provider.clinic_name, href: `/clinics/${provider.clinic_slug}` },
               { label: provider.name }
             ]}
           />
@@ -258,11 +266,19 @@ export default async function ProviderPage({
               <div className="h-[88px] w-full bg-white rounded-b-[22px] flex flex-row items-center justify-between px-[24px]">
                 <div className="flex flex-col items-center gap-[4px]">
                   <div className="flex gap-[4px]">
-                    {Array.from({ length: 5 }).map((_, s) => (
-                      <Star key={s} className="size-[18px] fill-[#FFBA19] text-[#FFBA19]" />
-                    ))}
+                    {Array.from({ length: 5 }).map((_, s) => {
+                      const filled = reviewRating == null ? true : s < Math.round(reviewRating);
+                      return (
+                        <Star
+                          key={s}
+                          className={`size-[18px] ${filled ? "fill-[#FFBA19] text-[#FFBA19]" : "fill-[#E5C7DA]/40 text-[#E5C7DA]/40"}`}
+                        />
+                      );
+                    })}
                   </div>
-                  <span className="text-[12px] font-medium text-[#616161] tracking-[0.02em] leading-[130%]">5.0 (89 Reviews)</span>
+                  <span className="text-[12px] font-medium text-[#616161] tracking-[0.02em] leading-[130%]">
+                    {reviewRating != null ? reviewRating.toFixed(1) : "New"} ({reviewCount} {reviewCount === 1 ? "Review" : "Reviews"})
+                  </span>
                 </div>
                 <div className="w-px h-[35px] bg-[#E5C7DA]/40" />
                 <div className="flex flex-col items-center gap-[2px]">
