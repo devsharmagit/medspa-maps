@@ -53,11 +53,8 @@ export function ResourcesSection() {
     >
       {/* ── Left Card: Get Your medSpa listed ── */}
       <div
-        className="relative flex w-full lg:w-[814px] h-auto lg:h-[546px] flex-col items-start rounded-[18px] border border-[#DEC6DF] overflow-hidden p-6 sm:p-10 lg:p-0"
+        className="relative flex w-full lg:w-[814px] h-auto lg:h-[546px] flex-col items-start rounded-[18px] border border-[#DEC6DF] overflow-hidden p-6 sm:p-10 lg:p-0 bg-[linear-gradient(145deg,#F5CFFA_0%,#FAE3F9_50%,#FFFFFF_100%)] bg-no-repeat lg:bg-[url(/images/landingpage/gift-bg-whole.png)] lg:bg-[length:107%] lg:bg-center"
         style={{
-          backgroundImage: "url(/images/landingpage/gift-bg-whole.png)",
-          backgroundSize: "107%",
-          backgroundPosition: "center",
           boxShadow: "0px 8px 14px rgba(0, 0, 0, 0.02)",
         }}
       >

@@ -43,7 +43,7 @@ export function OtherProvidersCarousel({ clinicName, title, providers, bookUrl, 
     <section className="box-border flex w-full flex-col items-start justify-center gap-[16px] rounded-[18px] border border-[#DEDEDE] bg-white py-[40px] shadow-[0px_9px_11.1px_rgba(240,223,241,0.6)]">
       {/* ── Header ── */}
       <div className="flex w-full flex-row items-center justify-between px-[20px] sm:px-[48px]">
-        <h2 className="font-montserrat text-[28px] sm:text-[34px] font-normal leading-[116.02%] tracking-[-0.04em] text-[#373634]">
+        <h2 className="font-montserrat text-[22px] sm:text-[34px] font-normal leading-[116.02%] tracking-[-0.04em] text-[#373634]">
           {title ? (
             // If the custom title contains "Experts", italicize it as per design
             title.includes("Experts") ? (
@@ -125,12 +125,12 @@ export function OtherProvidersCarousel({ clinicName, title, providers, bookUrl, 
       </div>
 
       {/* ── Footer Buttons ── */}
-      <div className="flex flex-row flex-wrap items-start gap-[16px] px-[20px] sm:px-[42px]">
+      <div className="flex w-full flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-start gap-[16px] px-[20px] sm:px-[42px]">
         <a
           href={bookUrl}
           target="_blank"
           rel="noreferrer"
-          className="flex h-[48px] w-[210px] items-center justify-center gap-[10px] rounded-[8px] bg-[linear-gradient(90deg,#DE7F4C_0%,#C341D7_100%)] px-[16px] sm:px-[24px] py-[10px] transition-opacity hover:opacity-90"
+          className="flex h-[48px] w-full sm:w-[210px] items-center justify-center gap-[10px] rounded-[8px] bg-[linear-gradient(90deg,#DE7F4C_0%,#C341D7_100%)] px-[16px] sm:px-[24px] py-[10px] transition-opacity hover:opacity-90"
         >
           <span className="font-montserrat text-[14px] font-semibold leading-[17px] text-white whitespace-nowrap">
             Book Appointment
@@ -141,7 +141,7 @@ export function OtherProvidersCarousel({ clinicName, title, providers, bookUrl, 
         {clinicPhone && (
           <a
             href={`tel:${clinicPhone}`}
-            className="flex h-[48px] w-[150px] items-center justify-center gap-[10px] rounded-[8px] border-[1.5px] border-[#CF5B9D] px-[16px] sm:px-[24px] py-[10px] transition-colors hover:bg-pink-50"
+            className="flex h-[48px] w-full sm:w-[150px] items-center justify-center gap-[10px] rounded-[8px] border-[1.5px] border-[#CF5B9D] px-[16px] sm:px-[24px] py-[10px] transition-colors hover:bg-pink-50"
           >
             <span className="font-montserrat text-[14px] font-semibold leading-[17px] text-[#CF5B9D] whitespace-nowrap">
               Call Clinic

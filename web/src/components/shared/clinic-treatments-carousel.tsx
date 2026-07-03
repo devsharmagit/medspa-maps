@@ -42,9 +42,9 @@ function ClinicTreatmentCard({ treatment }: { treatment: ClinicTreatment }) {
     : DEFAULT_ICON;
 
   const inner = (
-    <div className="box-border flex h-[201px] w-[161px] shrink-0 flex-col items-center justify-center gap-2 rounded-2xl bg-white px-[10px] pt-[3px] shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)] hover:-translate-y-1 transition-transform">
-      <div className="flex h-[62px] w-[66px] items-center justify-center rounded-[10px] border border-[#F5DEE8] bg-[linear-gradient(144.23deg,#F5F0F7_-33.1%,#FFFFFF_48.72%)]">
-        <div className="relative h-[32px] w-[32px]">
+    <div className="box-border flex h-[166px] w-[130px] sm:h-[201px] sm:w-[161px] shrink-0 flex-col items-center justify-center gap-2 rounded-2xl bg-white px-[10px] pt-[3px] shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)] hover:-translate-y-1 transition-transform">
+      <div className="flex h-[52px] w-[56px] sm:h-[62px] sm:w-[66px] items-center justify-center rounded-[10px] border border-[#F5DEE8] bg-[linear-gradient(144.23deg,#F5F0F7_-33.1%,#FFFFFF_48.72%)]">
+        <div className="relative h-[26px] w-[26px] sm:h-[32px] sm:w-[32px]">
           <Image
             src={icon}
             alt={treatment.name}
@@ -54,7 +54,7 @@ function ClinicTreatmentCard({ treatment }: { treatment: ClinicTreatment }) {
           />
         </div>
       </div>
-      <p className="flex h-[30px] w-[124px] items-center justify-center text-center font-montserrat text-[14px] font-medium leading-[116.02%] text-[#383838]">
+      <p className="flex h-auto sm:h-[30px] w-[104px] sm:w-[124px] items-center justify-center text-center font-montserrat text-[13px] sm:text-[14px] font-medium leading-[116.02%] text-[#383838]">
         {treatment.name}
       </p>
       {treatment.price_from != null && (
@@ -102,8 +102,8 @@ export function ClinicTreatmentsCarousel({
   return (
     <section className="flex w-full flex-col items-center pt-[44px]">
       {/* Header */}
-      <div className="mb-[38px] flex w-full max-w-[1342px] items-center gap-[16px] px-4">
-        <h2 className="whitespace-nowrap font-montserrat text-[28px] sm:text-[34px] font-normal leading-[116.02%] tracking-[-0.04em] text-[#373634]">
+      <div className="mb-8 sm:mb-[38px] flex w-full max-w-[1342px] items-center gap-[16px] px-4">
+        <h2 className="whitespace-nowrap font-montserrat text-[19px] sm:text-[34px] font-normal leading-[116.02%] tracking-[-0.04em] text-[#373634]">
           Treatment{" "}
           <span className="font-fraunces italic font-normal">Offered</span> By{" "}
           {firstName}
@@ -116,7 +116,7 @@ export function ClinicTreatmentsCarousel({
         <button
           onClick={() => scroll("left")}
           aria-label="Previous treatments"
-          className="absolute -left-[24px] z-10 flex h-[48px] w-[56px] items-center justify-center rounded-l-[99px] rounded-r-none border border-r-0 border-[#E3CED8] shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)] hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer"
+          className="absolute -left-[24px] z-10 hidden h-[48px] w-[56px] items-center justify-center rounded-l-[99px] rounded-r-none border border-r-0 border-[#E3CED8] shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)] hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer lg:flex"
           style={{
             background: "linear-gradient(291.82deg, #FFFFFF 33.27%, #EDD8EF 159.97%)",
           }}
@@ -136,7 +136,7 @@ export function ClinicTreatmentsCarousel({
         <button
           onClick={() => scroll("right")}
           aria-label="Next treatments"
-          className="absolute -right-[24px] z-10 flex h-[48px] w-[56px] items-center justify-center rounded-r-[99px] rounded-l-none border border-l-0 border-[#E3CED8] shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)] hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer"
+          className="absolute -right-[24px] z-10 hidden h-[48px] w-[56px] items-center justify-center rounded-r-[99px] rounded-l-none border border-l-0 border-[#E3CED8] shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)] hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer lg:flex"
           style={{
             background: "linear-gradient(111.82deg, #FFFFFF 33.27%, #EDD8EF 159.97%)",
           }}

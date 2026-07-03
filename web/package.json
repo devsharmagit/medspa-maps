@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "seed": "bun scripts/seed.ts",
-    "migrate:providers": "bun scripts/migrate-providers.ts"
+    "migrate:providers": "bun scripts/migrate-providers.ts",
+    "migrate:treatment-changes": "bun scripts/migrate-treatment-changes.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

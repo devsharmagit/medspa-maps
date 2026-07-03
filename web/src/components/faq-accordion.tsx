@@ -45,7 +45,7 @@ export function FaqAccordion({ faqs, entityName }: FaqAccordionProps) {
   return (
     <section>
       <div className="mb-8">
-        <h2 className="text-[34px] font-normal leading-[116%] tracking-[-0.04em] text-[#373634]">
+        <h2 className="text-[26px] sm:text-[34px] font-normal leading-[116%] tracking-[-0.04em] text-[#373634]">
           Frequently Asked{" "}
           <span className="font-fraunces italic font-normal">Questions</span>
         </h2>
@@ -69,7 +69,7 @@ export function FaqAccordion({ faqs, entityName }: FaqAccordionProps) {
               <button
                 type="button"
                 onClick={() => toggle(idx)}
-                className="flex w-full items-center justify-between px-7 py-5 text-left"
+                className="flex w-full items-center justify-between px-5 py-4 sm:px-7 sm:py-5 text-left"
                 aria-expanded={isOpen}
               >
                 <span className={`text-[16px] pr-6 transition-colors duration-300 ${
@@ -96,7 +96,7 @@ export function FaqAccordion({ faqs, entityName }: FaqAccordionProps) {
                 }}
               >
                 <div className="overflow-hidden">
-                  <div className="px-7 pb-6 pt-1">
+                  <div className="px-5 sm:px-7 pb-6 pt-1">
                     <div className="text-[15px] leading-[160%] tracking-[0.01em] text-[#616161]">
                       {faq.a}
                     </div>

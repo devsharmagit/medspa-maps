@@ -153,8 +153,11 @@ function pickMostComplete(locs: SaveLocation[], n: number): SaveLocation[] {
 /**
  * Build the cleaned, deduped service list: scraper services + anchor services
  * from the homepage and /services/. Dedupe by lowercased name.
+ *
+ * Exported so the daily re-scrape (lib/rescrape) reuses the EXACT same
+ * service-detection path as add-a-clinic — the two must never drift.
  */
-async function buildServices(
+export async function buildServices(
   siteUrl: string,
   scraped: ScrapedService[]
 ): Promise<ScrapedService[]> {

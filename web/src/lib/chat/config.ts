@@ -8,15 +8,26 @@
 export const OPENROUTER_BASE_URL =
   "https://openrouter.ai/api/v1/chat/completions";
 
-/** Primary model id (OpenRouter slug). Free + tool-calling capable; swappable via env. */
+/**
+ * Primary model id (OpenRouter slug). Swappable via env.
+ *
+ * The assistant no longer uses tool/function-calling, so ANY instruct model
+ * works — we pick strong, well-rate-limited free instruction-followers rather
+ * than the narrow (and heavily throttled) tool-calling-capable slice.
+ *
+ * DEMO TIP: pin ONE pre-tested model here (set OPENROUTER_MODEL) so the demo
+ * never silently swaps models mid-conversation. Leave the fallback chain below
+ * as the resilient default for normal traffic.
+ */
 export const CHAT_MODEL =
   process.env.OPENROUTER_MODEL?.trim() || "openai/gpt-oss-20b:free";
 
 /**
  * Models tried in order. Free OpenRouter models get throttled (HTTP 429)
- * independently and often, so we fall back across several tool-calling-capable
- * free models. The env-configured primary is tried first; duplicates removed.
- * Set a single paid model in OPENROUTER_MODEL at launch to bypass all of this.
+ * independently, so we fall back across several free instruct models. The
+ * env-configured primary is tried first; duplicates removed. All slugs below
+ * are verified-valid on the current account (invalid slugs 404 and waste a
+ * fallback hop — re-verify with a probe before adding new ones).
  */
 export const CHAT_MODELS: string[] = [
   ...new Set(
@@ -24,8 +35,8 @@ export const CHAT_MODELS: string[] = [
       CHAT_MODEL,
       "openai/gpt-oss-20b:free",
       "meta-llama/llama-3.3-70b-instruct:free",
-      "openai/gpt-oss-120b:free",
       "qwen/qwen3-next-80b-a3b-instruct:free",
+      "openai/gpt-oss-120b:free",
     ].filter(Boolean)
   ),
 ];
@@ -54,12 +65,16 @@ export const CHAT_LIMITS = {
   maxMessages: 24,
   /** Max characters per message (server-enforced). */
   maxCharsPerMessage: 2000,
-  /** Max tool-call rounds before we force a final text answer. */
-  maxToolRounds: 4,
   /** Sampling temperature — low for grounded, factual answers. */
   temperature: 0.3,
-  /** Cap on tokens per model turn. */
-  maxTokens: 800,
+  /** Cap on tokens per model turn (headroom so the trailing MEMORY_UPDATE isn't truncated). */
+  maxTokens: 900,
+  /** Hard timeout on the single LLM call — on expiry we serve the templated fallback.
+   *  Set generously: free models are slow (10–18s is normal), and a false abort of a
+   *  good-but-slow answer is worse for a demo than a slightly longer wait. */
+  llmTimeoutMs: 18_000,
+  /** Independent timeout on backend data fetches (search); expiry → SEARCH_UNAVAILABLE. */
+  fetchTimeoutMs: 6_000,
   /** Per-IP rate limit: max requests per window. */
   rateLimitMax: 20,
   /** Per-IP rate limit window, in milliseconds. */

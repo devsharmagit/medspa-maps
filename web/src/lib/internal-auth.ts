@@ -5,7 +5,8 @@
 export function isInternalAuthorized(req: Request): boolean {
   const header = req.headers.get("x-internal-secret");
   const secret = process.env.INTERNAL_API_SECRET;
-  console.log(`[auth check] header: ${header}, env: ${secret}`);
+  // Never log the secret. Require a configured secret and a constant-ish compare.
+  if (!secret || !header) return false;
   return header === secret;
 }
 

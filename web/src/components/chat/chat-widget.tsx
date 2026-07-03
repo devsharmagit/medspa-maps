@@ -20,13 +20,46 @@ interface ChatMsg {
   content: string;
 }
 
-const STORAGE_KEY = "medspa-chat-history";
+// Session memory that round-trips through the client (server is stateless).
+type PageType =
+  | "home"
+  | "search"
+  | "treatment"
+  | "concern"
+  | "clinic"
+  | "provider"
+  | "other";
+interface PageContext {
+  type: PageType;
+  slug?: string;
+}
+interface Slots {
+  clinicInFocus?: string;
+  lastLocation?: string;
+  treatmentsDiscussed: string[];
+}
+
+const STORAGE_KEY = "medspa-chat-session";
 const MAX_HISTORY = 20;
 const SUGGESTIONS = [
   "Find Botox clinics near me",
   "What helps with acne scars?",
   "What treatments do you cover?",
 ];
+
+const EMPTY_SLOTS: Slots = { treatmentsDiscussed: [] };
+
+/** Map the current pathname to the page context the assistant is opened from. */
+function derivePage(pathname: string | null): PageContext {
+  if (!pathname || pathname === "/") return { type: "home" };
+  const seg = pathname.split("/").filter(Boolean);
+  if (seg[0] === "search") return { type: "search" };
+  if (seg[0] === "treatments" && seg[1]) return { type: "treatment", slug: seg[1] };
+  if (seg[0] === "conditions" && seg[1]) return { type: "concern", slug: seg[1] };
+  if (seg[0] === "clinics" && seg[1]) return { type: "clinic", slug: seg[1] };
+  if (seg[0] === "providers" && seg[2]) return { type: "provider", slug: seg[2] };
+  return { type: "other" };
+}
 
 export default function ChatWidget() {
   const pathname = usePathname();
@@ -36,29 +69,53 @@ export default function ChatWidget() {
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
+  const [followups, setFollowups] = useState<string[]>([]);
+
+  // Session memory (server is stateless — this travels with every request).
+  const summaryRef = useRef<string>("");
+  const slotsRef = useRef<Slots>(EMPTY_SLOTS);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Restore history (client-only to avoid hydration mismatch).
+  // Restore session (client-only to avoid hydration mismatch).
   useEffect(() => {
     setMounted(true);
     try {
       const saved = sessionStorage.getItem(STORAGE_KEY);
-      if (saved) setMessages(JSON.parse(saved));
+      if (saved) {
+        const b = JSON.parse(saved);
+        if (Array.isArray(b?.messages)) setMessages(b.messages);
+        if (typeof b?.summary === "string") summaryRef.current = b.summary;
+        if (b?.slots && Array.isArray(b.slots.treatmentsDiscussed))
+          slotsRef.current = b.slots;
+        if (Array.isArray(b?.followups)) setFollowups(b.followups);
+      }
     } catch {
       /* ignore */
     }
   }, []);
 
-  useEffect(() => {
-    if (!mounted) return;
+  function persist(nextMessages: ChatMsg[], nextFollowups: string[]) {
     try {
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+      sessionStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          messages: nextMessages,
+          summary: summaryRef.current,
+          slots: slotsRef.current,
+          followups: nextFollowups,
+        })
+      );
     } catch {
       /* ignore */
     }
-  }, [messages, mounted]);
+  }
+
+  useEffect(() => {
+    if (!mounted) return;
+    persist(messages, followups);
+  }, [messages, followups, mounted]);
 
   // Autoscroll to newest content.
   useEffect(() => {
@@ -111,6 +168,7 @@ export default function ChatWidget() {
     setInput("");
     setStreaming(true);
     setStatus(null);
+    setFollowups([]);
 
     const payload = history
       .filter((m) => m.content.trim())
@@ -121,7 +179,11 @@ export default function ChatWidget() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: payload }),
+        body: JSON.stringify({
+          messages: payload,
+          page: derivePage(pathname),
+          memory: { summary: summaryRef.current, slots: slotsRef.current },
+        }),
       });
       if (!res.ok) {
         // Surface the server's message (e.g. rate limit) instead of a generic error.
@@ -152,20 +214,30 @@ export default function ChatWidget() {
           buffer = buffer.slice(nl + 1);
           if (!line) continue;
 
-          let evt: { type: string; value?: string };
+          let evt: {
+            type: string;
+            value?: unknown;
+          };
           try {
             evt = JSON.parse(line);
           } catch {
             continue;
           }
 
-          if (evt.type === "token" && evt.value) {
+          if (evt.type === "token" && typeof evt.value === "string") {
             gotToken = true;
             setStatus(null);
             appendToLastAssistant(evt.value);
-          } else if (evt.type === "status" && evt.value) {
+          } else if (evt.type === "status" && typeof evt.value === "string") {
             setStatus(evt.value);
-          } else if (evt.type === "error" && evt.value) {
+          } else if (evt.type === "followups" && Array.isArray(evt.value)) {
+            setFollowups(evt.value.filter((v): v is string => typeof v === "string"));
+          } else if (evt.type === "memory" && evt.value && typeof evt.value === "object") {
+            const m = evt.value as { summary?: string; slots?: Slots };
+            if (typeof m.summary === "string") summaryRef.current = m.summary;
+            if (m.slots && Array.isArray(m.slots.treatmentsDiscussed))
+              slotsRef.current = m.slots;
+          } else if (evt.type === "error" && typeof evt.value === "string") {
             setStatus(null);
             appendToLastAssistant((gotToken ? "\n\n" : "") + `⚠️ ${evt.value}`);
             gotToken = true;
@@ -240,7 +312,12 @@ export default function ChatWidget() {
               {messages.length > 0 && (
                 <button
                   type="button"
-                  onClick={() => setMessages([])}
+                  onClick={() => {
+                    setMessages([]);
+                    setFollowups([]);
+                    summaryRef.current = "";
+                    slotsRef.current = EMPTY_SLOTS;
+                  }}
                   className="rounded-md px-2 py-1 text-xs font-medium text-white/90 transition hover:bg-white/15"
                 >
                   Clear
@@ -319,11 +396,29 @@ export default function ChatWidget() {
               ))
             )}
 
-            {/* Tool/status indicator */}
+            {/* Status indicator (text only — the typing dots are the loader) */}
             {status && (
-              <div className="flex items-center gap-2 px-1 text-xs text-muted-foreground">
-                <Loader2 className="size-3.5 animate-spin" />
-                {status}
+              <div className="px-1 text-xs text-muted-foreground">{status}</div>
+            )}
+
+            {/* Suggested follow-up questions */}
+            {!streaming && !isEmpty && followups.length > 0 && (
+              <div className="flex flex-col gap-1.5 pt-1">
+                <p className="px-1 text-[11px] font-medium text-muted-foreground">
+                  Suggested
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {followups.map((f) => (
+                    <button
+                      key={f}
+                      type="button"
+                      onClick={() => sendMessage(f)}
+                      className="rounded-full border border-border bg-background px-3 py-1.5 text-left text-xs font-medium text-foreground transition hover:bg-muted"
+                    >
+                      {f}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -419,9 +514,10 @@ function RenderBlock({ block }: { block: string }) {
 
 function renderInline(text: string): ReactNode[] {
   const out: ReactNode[] = [];
-  // [label](href) where href is internal (/...) or http(s), OR **bold**
+  // [label](href) internal(/...) or http(s) | **bold** | *italic* | _italic_
+  // Bold is listed before single-* so "**x**" matches bold, not italic.
   const re =
-    /\[([^\]]+)\]\((\/[^\s)]+|https?:\/\/[^\s)]+)\)|\*\*([^*]+)\*\*/g;
+    /\[([^\]]+)\]\((\/[^\s)]+|https?:\/\/[^\s)]+)\)|\*\*([^*]+)\*\*|\*([^*\n]+)\*|_([^_\n]+)_/g;
   let last = 0;
   let key = 0;
   let m: RegExpExecArray | null;
@@ -432,6 +528,10 @@ function renderInline(text: string): ReactNode[] {
       out.push(<ChatLink key={key++} href={m[2]} label={m[1]} />);
     } else if (m[3] !== undefined) {
       out.push(<strong key={key++}>{m[3]}</strong>);
+    } else if (m[4] !== undefined) {
+      out.push(<em key={key++}>{m[4]}</em>);
+    } else if (m[5] !== undefined) {
+      out.push(<em key={key++}>{m[5]}</em>);
     }
     last = re.lastIndex;
   }

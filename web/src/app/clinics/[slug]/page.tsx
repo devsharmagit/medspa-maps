@@ -124,7 +124,7 @@ export default async function ClinicPage({
     }));
 
   return (
-    <main className="flex min-h-screen flex-col bg-[#FDFDFD] text-zinc-950">
+    <main className="flex min-h-screen flex-col bg-[#FDFDFD] text-zinc-950 overflow-x-clip">
       <div className="bg-gradient-to-r from-[#7b2d6b] via-[#9b3a6e] to-[#b6663f]">
         <HeroHeader />
       </div>
@@ -143,13 +143,13 @@ export default async function ClinicPage({
 
         {/* ── Hero Card ── */}
         <section className="flex flex-col rounded-[18px] border border-[#DEDEDE] bg-white p-5 sm:p-8 shadow-[0px_9px_11.1px_rgba(240,223,241,0.6)]">
-          <div className="grid gap-[40px] lg:grid-cols-[1fr_560px]">
+          <div className="grid gap-8 lg:gap-[40px] lg:grid-cols-[1fr_560px]">
             {/* LEFT */}
             <div className="flex flex-col justify-center gap-[34px]">
               {/* Logo + name */}
-              <div className="flex items-center gap-[16px]">
+              <div className="flex items-center gap-3 sm:gap-[16px]">
                 {clinic.logo_url ? (
-                  <div className="flex h-[106px] w-[122px] shrink-0 items-center justify-center overflow-hidden rounded-[16px] border border-[#E5C7DA] bg-white p-2">
+                  <div className="flex h-[84px] w-[96px] sm:h-[106px] sm:w-[122px] shrink-0 items-center justify-center overflow-hidden rounded-[16px] border border-[#E5C7DA] bg-white p-2">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={clinic.logo_url}
@@ -158,17 +158,17 @@ export default async function ClinicPage({
                     />
                   </div>
                 ) : (
-                  <div className="flex h-[106px] w-[122px] shrink-0 items-center justify-center rounded-[16px] border border-[#E5C7DA] bg-gradient-to-br from-[#d96f8e]/15 to-[#9b3a9b]/15 text-3xl font-semibold text-[#9b3a9b]">
+                  <div className="flex h-[84px] w-[96px] sm:h-[106px] sm:w-[122px] shrink-0 items-center justify-center rounded-[16px] border border-[#E5C7DA] bg-gradient-to-br from-[#d96f8e]/15 to-[#9b3a9b]/15 text-3xl font-semibold text-[#9b3a9b]">
                     {initials(clinic.name)}
                   </div>
                 )}
-                <div className="flex flex-col gap-[10px]">
+                <div className="flex flex-col gap-[10px] min-w-0">
                   {isPremium && (
-                    <span className="inline-flex w-fit items-center rounded-[4px] bg-[linear-gradient(90deg,rgba(211,168,69,0.6)_0%,rgba(109,87,36,0.6)_100%)] px-[10px] py-[4px] font-montserrat text-[12px] font-semibold uppercase tracking-[0.1em] leading-[116.02%] text-[#FFFCF8]">
+                    <span className="inline-flex w-fit items-center rounded-[4px] bg-[linear-gradient(90deg,rgba(211,168,69,0.6)_0%,rgba(109,87,36,0.6)_100%)] px-[10px] py-[4px] font-montserrat text-[10px] sm:text-[12px] font-semibold uppercase tracking-[0.1em] leading-[116.02%] text-[#FFFCF8]">
                       FEATURED PREMIUM CLINIC
                     </span>
                   )}
-                  <h1 className="font-montserrat text-[36px] font-medium leading-[116.02%] tracking-[-0.04em] text-[#373634]">
+                  <h1 className="font-montserrat text-[26px] sm:text-[36px] font-medium leading-[116.02%] tracking-[-0.04em] text-[#373634]">
                     {clinic.name}
                   </h1>
                 </div>
@@ -233,7 +233,7 @@ export default async function ClinicPage({
 
                 if (infoItems.length === 0) return null;
                 return (
-                  <div className="flex flex-row items-center gap-[8px] rounded-[16px] bg-white px-[16px] sm:px-[40px] py-[1px] min-h-[66px] shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)] w-full max-w-[608px]">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-[8px] rounded-[16px] bg-white px-4 sm:px-[40px] py-4 sm:py-[1px] min-h-0 sm:min-h-[66px] shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)] w-full max-w-[608px]">
                     {infoItems.map((item, idx) => (
                       <React.Fragment key={idx}>
                         {idx > 0 && (
@@ -253,7 +253,7 @@ export default async function ClinicPage({
                     href={bookUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex h-[48px] w-[210px] items-center justify-center gap-[10px] rounded-[8px] bg-[linear-gradient(90deg,#DE7F4C_0%,#C341D7_100%)] px-[24px] py-[10px] transition-opacity hover:opacity-90"
+                    className="flex h-[48px] w-full sm:w-[210px] items-center justify-center gap-[10px] rounded-[8px] bg-[linear-gradient(90deg,#DE7F4C_0%,#C341D7_100%)] px-[24px] py-[10px] transition-opacity hover:opacity-90"
                   >
                     <span className="font-montserrat text-[14px] font-semibold leading-[17px] text-white whitespace-nowrap">
                       Book Appointment
@@ -264,7 +264,7 @@ export default async function ClinicPage({
                 {clinic.phone && (
                   <a
                     href={`tel:${clinic.phone}`}
-                    className="flex h-[48px] w-[150px] items-center justify-center gap-[10px] rounded-[8px] border-[1px] border-[#E5C7DA] px-[24px] py-[10px] transition-colors hover:bg-pink-50"
+                    className="flex h-[48px] w-full sm:w-[150px] items-center justify-center gap-[10px] rounded-[8px] border-[1px] border-[#E5C7DA] px-[24px] py-[10px] transition-colors hover:bg-pink-50"
                   >
                     <span className="font-montserrat text-[14px] font-semibold leading-[17px] text-[#CF5B9D] whitespace-nowrap">
                       Call Clinic
@@ -275,8 +275,8 @@ export default async function ClinicPage({
               </div>
             </div>
 
-            {/* RIGHT — gallery */}
-            <div className="flex h-full items-center justify-center p-2 sm:p-0">
+            {/* RIGHT — gallery (shown first on mobile as the hero image) */}
+            <div className="order-first flex h-full items-center justify-center p-2 sm:p-0 lg:order-none">
               <ClinicGallery
                 images={gallery}
                 total={gallery_total}
@@ -293,7 +293,7 @@ export default async function ClinicPage({
         />
 
         {/* ── About + Stats ── */}
-        <section className="flex flex-col gap-[36px] px-[24px] pt-[36px] pb-[36px]">
+        <section className="flex flex-col gap-[36px] px-0 sm:px-[24px] pt-[36px] pb-[36px]">
           <h2 className="font-fraunces italic text-[28px] sm:text-[34px] font-normal leading-[116.02%] tracking-[-0.04em] text-[#373634]">
             About {clinic.name}
           </h2>

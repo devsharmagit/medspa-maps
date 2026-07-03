@@ -19,7 +19,7 @@ export default async function Home() {
   const popularTreatments = await getPopularTreatments();
 
   return (
-    <main className="relative flex flex-1 flex-col items-center bg-[#FDFDFD] gap-10 isolate w-full">     
+    <main className="relative flex flex-1 flex-col items-center bg-[#FDFDFD] gap-10 isolate w-full overflow-x-clip">
       {/* Page-wide Background Image */}
       <div className="absolute inset-0 pointer-events-none -z-10 overflow-hidden" aria-hidden="true">
         <Image

@@ -28,10 +28,10 @@ function TreatmentItem({ slug, label }: { slug: string; label: readonly string[]
   return (
     <Link
       href={`/treatments/${slug}`}
-      className="flex shrink-0 items-center gap-2 px-1 transition-opacity hover:opacity-70"
+      className="flex shrink-0 items-center gap-1.5 sm:gap-2 px-1 transition-opacity hover:opacity-70"
     >
-      <Image src={starsvg} alt="" width={35} height={31} style={{ height: "auto" }} />
-      <div className="text-sm font-medium leading-tight tracking-wide text-brand-carousel">
+      <Image src={starsvg} alt="" width={35} height={31} className="h-auto w-6 sm:w-[35px]" />
+      <div className="text-[13px] sm:text-sm font-medium leading-tight tracking-wide text-brand-carousel">
         {label.map((line) => (
           <span key={line} className="block">
             {line}
@@ -60,27 +60,27 @@ export function TreatmentCarousel({ className }: { className?: string }) {
         className,
       )}
     >
-      <div className="flex h-[70px] items-center px-4 sm:px-6">
+      <div className="flex h-[56px] sm:h-[70px] items-center px-1.5 sm:px-6">
         {/* Left button */}
         <button
           type="button"
           onClick={() => scroll("left")}
-          className="flex h-[50px] w-16 shrink-0 cursor-pointer items-center justify-center rounded-[99px_0px_0px_99px] border-none bg-[linear-gradient(90deg,#FFE0FB_0%,#FFFFFF_100%)] transition-opacity duration-200 hover:opacity-75"
+          className="flex h-[40px] w-10 sm:h-[50px] sm:w-16 shrink-0 cursor-pointer items-center justify-center rounded-[99px_0px_0px_99px] border-none bg-[linear-gradient(90deg,#FFE0FB_0%,#FFFFFF_100%)] transition-opacity duration-200 hover:opacity-75"
           aria-label="Previous treatments"
         >
-          <ArrowLeft size={20} color="#C026D3" />
+          <ArrowLeft className="size-[18px] sm:size-5" color="#C026D3" />
         </button>
 
         {/* Scrollable treatment list */}
         <div
           ref={scrollRef}
-          className="flex min-w-0 flex-1 items-center gap-4 overflow-x-auto scrollbar-none sm:gap-6"
+          className="flex min-w-0 flex-1 items-center gap-3 overflow-x-auto scrollbar-none sm:gap-6"
         >
           {TREATMENTS.map((treatment, index) => (
-            <div key={treatment.slug} className="flex shrink-0 items-center gap-4 sm:gap-6">
+            <div key={treatment.slug} className="flex shrink-0 items-center gap-3 sm:gap-6">
               <TreatmentItem slug={treatment.slug} label={treatment.label} />
               {index < TREATMENTS.length - 1 && (
-                <div className="h-10 w-px shrink-0 bg-[#e4e4e4]" />
+                <div className="h-8 sm:h-10 w-px shrink-0 bg-[#e4e4e4]" />
               )}
             </div>
           ))}
@@ -90,10 +90,10 @@ export function TreatmentCarousel({ className }: { className?: string }) {
         <button
           type="button"
           onClick={() => scroll("right")}
-          className="flex h-[50px] w-16 shrink-0 cursor-pointer items-center justify-center rounded-[0px_99px_99px_0px] border-none bg-[linear-gradient(90deg,#FFFFFF_0%,#FFE0FB_100%)] transition-opacity duration-200 hover:opacity-75"
+          className="flex h-[40px] w-10 sm:h-[50px] sm:w-16 shrink-0 cursor-pointer items-center justify-center rounded-[0px_99px_99px_0px] border-none bg-[linear-gradient(90deg,#FFFFFF_0%,#FFE0FB_100%)] transition-opacity duration-200 hover:opacity-75"
           aria-label="Next treatments"
         >
-          <ArrowRight size={20} color="#C026D3" />
+          <ArrowRight className="size-[18px] sm:size-5" color="#C026D3" />
         </button>
       </div>
     </div>

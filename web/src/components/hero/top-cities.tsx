@@ -113,16 +113,16 @@ export function TopCities() {
       {/* States Row */}
       <div
         ref={scrollContainerRef}
-        className="flex w-full gap-[14px] overflow-x-auto pb-4 scroll-smooth scrollbar-none snap-x snap-mandatory"
+        className="flex w-full gap-2.5 sm:gap-[14px] overflow-x-auto pb-4 scroll-smooth scrollbar-none snap-x snap-mandatory"
         onScroll={checkScrollLimits}
       >
         {statesList.map((state) => (
           <button
             key={state.value}
             onClick={() => handleStateClick(state.value)}
-            className="box-sizing-border-box flex h-[63px] w-[184px] shrink-0 items-center justify-center rounded-[16px] border border-[#FCEAFE] bg-white px-2.5 py-px shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.03)] hover:border-[#CB97CE] hover:shadow-[0px_6px_12px_2px_rgba(203,151,206,0.1)] transition-all snap-start cursor-pointer"
+            className="box-sizing-border-box flex h-[50px] w-[138px] sm:h-[63px] sm:w-[184px] shrink-0 items-center justify-center rounded-[14px] sm:rounded-[16px] border border-[#FCEAFE] bg-white px-2.5 py-px shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.03)] hover:border-[#CB97CE] hover:shadow-[0px_6px_12px_2px_rgba(203,151,206,0.1)] transition-all snap-start cursor-pointer"
           >
-            <span className="font-montserrat font-medium text-[18px] leading-[116.02%] tracking-[0.02em] text-[#616161]">
+            <span className="font-montserrat font-medium text-[15px] sm:text-[18px] leading-[116.02%] tracking-[0.02em] text-[#616161]">
               {state.label}
             </span>
           </button>

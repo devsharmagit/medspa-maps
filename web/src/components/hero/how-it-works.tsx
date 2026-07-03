@@ -67,7 +67,7 @@ export function HowItWorks() {
 
       {/* ── Steps area: 994×206px on desktop, relative for absolute numbers ── */}
       <div
-        className="relative flex flex-col md:flex-row items-center justify-center gap-12 md:gap-[27px] w-full lg:w-[994px]"
+        className="relative flex flex-col lg:flex-row items-center justify-center gap-14 lg:gap-[27px] w-full lg:w-[994px]"
         style={{ minHeight: 206, isolation: "isolate" }}
       >
         {/* ── Step cards ── */}

@@ -103,6 +103,11 @@ export async function getTreatmentData(
           FROM images i
           WHERE i.entity_type = 'clinic' AND i.entity_id = cl.id
          ) AS images,
+         (SELECT COALESCE(i2.cdn_url, i2.source_url) FROM images i2
+          WHERE i2.entity_type = 'clinic' AND i2.entity_id = cl.id
+            AND i2.role IN ('cover','gallery') AND i2.scrape_status = 'ok'
+          ORDER BY (i2.role = 'cover') DESC, i2.sort_order LIMIT 1
+         ) AS cover_image,
          COALESCE(cls.price_from, $2) AS price_from,
          COALESCE(cls.price_unit, $3) AS price_unit
        FROM clinic_services cls

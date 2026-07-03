@@ -57,7 +57,7 @@ export function ClinicLocationsSection({
   if (!locations || locations.length <= 1) return null;
 
   return (
-    <section className="flex flex-col gap-[28px] px-[24px] pt-[12px] pb-[24px]">
+    <section className="flex flex-col gap-[28px] px-0 sm:px-[24px] pt-[12px] pb-[24px]">
       <div className="flex items-baseline gap-3">
         <h2 className="font-fraunces italic text-[28px] sm:text-[34px] font-normal leading-[116.02%] tracking-[-0.04em] text-[#373634]">
           Our Locations

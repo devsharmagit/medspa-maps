@@ -79,6 +79,13 @@ interface LocationRow {
   sort_order: number;
 }
 
+interface ChangeRow {
+  id: string;
+  service_name: string;
+  change_type: "added" | "removed";
+  detected_at: string;
+}
+
 export default async function ClinicDetailPage(props: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/admin/login");
@@ -99,12 +106,13 @@ export default async function ClinicDetailPage(props: { params: Promise<{ id: st
     );
   }
 
-  const [business, images, services, providers, locations] = await Promise.all([
+  const [business, images, services, providers, locations, changes] = await Promise.all([
     queryOne<{ name: string }>("SELECT name FROM businesses WHERE id = $1", [clinic.business_id]),
     query<ImageRow>("SELECT * FROM images WHERE entity_type = 'clinic' AND entity_id = $1 ORDER BY sort_order ASC", [id]),
     query<ServiceRow>("SELECT id, raw_name, description, is_active FROM clinic_services WHERE clinic_id = $1 ORDER BY created_at ASC", [id]),
     query<ProviderRow>("SELECT id, name, title, image_url, is_verified, years_experience, is_active FROM providers WHERE clinic_id = $1 ORDER BY created_at ASC", [id]),
     query<LocationRow>("SELECT id, label, address, city, state, zip, phone, booking_url, google_maps_url, is_primary, sort_order FROM clinic_locations WHERE clinic_id = $1 AND is_active = true ORDER BY sort_order, created_at ASC", [id]),
+    query<ChangeRow>("SELECT id, service_name, change_type, detected_at FROM clinic_service_changes WHERE clinic_id = $1 ORDER BY detected_at DESC LIMIT 20", [id]),
   ]);
 
   return (
@@ -234,6 +242,49 @@ export default async function ClinicDetailPage(props: { params: Promise<{ id: st
                         {!service.is_active && <Badge variant="outline" className="text-[10px]">Inactive</Badge>}
                       </div>
                       {service.description && <p className="text-xs text-slate-500 line-clamp-2">{service.description}</p>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Treatment History */}
+          <Card className="shadow-sm border-slate-200">
+            <CardHeader className="border-b border-slate-100 bg-slate-50/50 pb-4 flex flex-row items-center justify-between">
+              <CardTitle className="text-base font-semibold text-slate-800 flex items-center gap-2">
+                Treatment History
+                <Badge variant="secondary" className="font-normal">{changes.length}</Badge>
+              </CardTitle>
+              <Link href="/admin/treatment-changes" className="text-xs text-brand-purple hover:underline">
+                View all
+              </Link>
+            </CardHeader>
+            <CardContent className="p-0">
+              {changes.length === 0 ? (
+                <div className="p-6 text-center text-sm text-slate-500">
+                  No treatment changes detected yet.
+                </div>
+              ) : (
+                <div className="flex flex-col divide-y divide-slate-100">
+                  {changes.map((ch) => (
+                    <div key={ch.id} className="p-4 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Badge
+                          variant="outline"
+                          className={
+                            ch.change_type === "added"
+                              ? "text-[10px] text-green-700 border-green-200 bg-green-50"
+                              : "text-[10px] text-red-700 border-red-200 bg-red-50"
+                          }
+                        >
+                          {ch.change_type === "added" ? "Added" : "Removed"}
+                        </Badge>
+                        <span className="text-sm text-slate-800 truncate">{ch.service_name}</span>
+                      </div>
+                      <span className="text-xs text-slate-400 whitespace-nowrap">
+                        {new Date(ch.detected_at).toLocaleDateString()}
+                      </span>
                     </div>
                   ))}
                 </div>

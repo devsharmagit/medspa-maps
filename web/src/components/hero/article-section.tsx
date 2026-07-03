@@ -85,7 +85,7 @@ export function ArticleSection() {
   };
 
   return (
-    <section className="mx-auto flex w-full max-w-[1372px] pb-[120px] flex-col items-center justify-center py-6 px-4 lg:px-0">
+    <section className="mx-auto flex w-full max-w-[1372px] pb-16 lg:pb-[120px] flex-col items-center justify-center py-6 px-4 lg:px-0">
       {/* Outer Card Container */}
       <div
         className="relative flex w-full h-auto lg:h-[393px] flex-col lg:flex-row items-center justify-start rounded-[18px] border border-[#DEC6DF] overflow-hidden px-4 py-8 lg:p-0"
@@ -152,11 +152,11 @@ export function ArticleSection() {
         <div className="flex flex-col w-full lg:w-[839px] gap-4 mt-8 lg:mt-0 lg:absolute lg:left-[490px] lg:top-[26px] z-10">
           
           {/* Categories Grid (Top Row) */}
-          <div className="flex w-full gap-[11px]  pb-2 scrollbar-none snap-x snap-mandatory">
+          <div className="flex w-full gap-[11px] overflow-x-auto pb-2 scrollbar-none snap-x snap-mandatory">
             {categories.map((cat, idx) => (
               <div
                 key={idx}
-                className="relative w-[159px] h-[156px] shrink-0 snap-start"
+                className="relative w-[128px] sm:w-[159px] h-[156px] shrink-0 snap-start"
               >
                 {/* Stacked card overlays */}
                 <div className="absolute left-[6px] right-[5px] top-[11px] h-[131px] rounded-[22px] border border-[#E9E9E9]/60 bg-white/40 shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)] z-0" />
@@ -174,10 +174,10 @@ export function ArticleSection() {
                     />
                   </div>
                   <div className="flex flex-col items-center gap-[3px] w-full">
-                    <span className="font-montserrat font-medium text-[15px] leading-[116.02%] tracking-[0.02em] text-[#393939] text-center w-full truncate">
+                    <span className="font-montserrat font-medium text-[13px] sm:text-[15px] leading-[116.02%] tracking-[0.02em] text-[#393939] text-center w-full truncate">
                       {cat.name}
                     </span>
-                    <span className="font-montserrat font-normal text-[12px] leading-[138%] tracking-[0.02em] text-[#727272] text-center">
+                    <span className="font-montserrat font-normal text-[11px] sm:text-[12px] leading-[138%] tracking-[0.02em] text-[#727272] text-center">
                       {cat.count} Articles
                     </span>
                   </div>
@@ -260,13 +260,13 @@ export function ArticleSection() {
               <Link
                 href={`/blog/${art.title.toLowerCase().replace(/\s+/g, "-")}`}
                 key={index}
-                className="relative flex h-[108px] w-[267px] shrink-0 items-center justify-start rounded-[12px] border border-[#ECDDED] overflow-hidden shadow-[0px_8px_14px_rgba(0,0,0,0.02)] snap-start hover:border-[#CB97CE] hover:shadow-[0px_8px_16px_rgba(203,151,206,0.08)] transition-all"
+                className="relative flex h-[100px] w-[228px] sm:h-[108px] sm:w-[267px] shrink-0 items-center justify-start rounded-[12px] border border-[#ECDDED] overflow-hidden shadow-[0px_8px_14px_rgba(0,0,0,0.02)] snap-start hover:border-[#CB97CE] hover:shadow-[0px_8px_16px_rgba(203,151,206,0.08)] transition-all"
                 style={{
                   background: "linear-gradient(126.81deg, #FCD1FF -96.14%, #FFFFFF 49.94%)",
                 }}
               >
                 {/* Article Image Cover */}
-                <div className="relative w-[74px] h-[108px] shrink-0 rounded-l-[10px] overflow-hidden bg-[#F3E5F5]">
+                <div className="relative w-[64px] sm:w-[74px] h-full shrink-0 rounded-l-[10px] overflow-hidden bg-[#F3E5F5]">
                   <Image
                     src="/images/landingpage/artical-img.png"
                     alt={art.title}

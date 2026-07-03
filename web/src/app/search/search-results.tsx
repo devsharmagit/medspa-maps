@@ -12,6 +12,7 @@ import {
   MapPin,
   Phone,
   Search,
+  SlidersHorizontal,
   Sparkles,
   Star,
   X,
@@ -165,6 +166,8 @@ export function SearchResults() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [geoError, setGeoError] = useState("");
+  // Mobile-only: filters live in a bottom-sheet modal to keep results above the fold.
+  const [showFilters, setShowFilters] = useState(false);
 
   // Search-bar state
   const [searchService, setSearchService] = useState(q);
@@ -359,8 +362,6 @@ export function SearchResults() {
     router.push("/search");
   };
 
-  const hasActiveFilters = q || location || rating || radius || hasOrigin;
-
   // Resolve display label for the title
   const stateName =
     STATES.find((s) => s.abbr.toLowerCase() === location.toLowerCase())?.name ||
@@ -422,31 +423,32 @@ export function SearchResults() {
             />
           </div>
 
-          {/* Near-me button */}
-          <button
-            type="button"
-            onClick={handleNearMe}
-            className={cn(
-              "flex items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors",
-              hasOrigin
-                ? "border-brand-magenta/40 bg-brand-magenta/10 text-brand-magenta"
-                : "border-[#e8e0e8] text-[#4a4a4a] hover:border-brand-magenta/40 hover:text-brand-magenta"
-            )}
-            aria-label="Use my location"
-          >
-            <LocateFixed className="size-4" aria-hidden />
-            Near Me
-          </button>
+          {/* Near-me + Search — side by side on mobile, inline on desktop */}
+          <div className="flex gap-3 lg:contents">
+            <button
+              type="button"
+              onClick={handleNearMe}
+              className={cn(
+                "flex flex-1 items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors lg:flex-none",
+                hasOrigin
+                  ? "border-brand-magenta/40 bg-brand-magenta/10 text-brand-magenta"
+                  : "border-[#e8e0e8] text-[#4a4a4a] hover:border-brand-magenta/40 hover:text-brand-magenta"
+              )}
+              aria-label="Use my location"
+            >
+              <LocateFixed className="size-4" aria-hidden />
+              Near Me
+            </button>
 
-          {/* Search button */}
-          <Button
-            type="submit"
-            variant="gradient"
-            className="h-auto gap-2 rounded-xl px-6 py-3 text-sm font-semibold"
-          >
-            <Search className="size-4" aria-hidden />
-            Search
-          </Button>
+            <Button
+              type="submit"
+              variant="gradient"
+              className="h-auto flex-1 gap-2 rounded-xl px-6 py-3 text-sm font-semibold lg:flex-none"
+            >
+              <Search className="size-4" aria-hidden />
+              Search
+            </Button>
+          </div>
         </form>
 
         {/* Active location / state filter + a clear-it control */}
@@ -479,8 +481,8 @@ export function SearchResults() {
 
       {/* ── Body: sidebar + results ─────────────────────────────────────── */}
       <div className="flex flex-col gap-8 lg:flex-row">
-        {/* ── Filter Sidebar ─────────────────────────────────────────────── */}
-        <aside className="w-full shrink-0 lg:w-[260px]">
+        {/* ── Filter Sidebar (desktop only) ──────────────────────────────── */}
+        <aside className="hidden w-full shrink-0 lg:block lg:w-[260px]">
           <div className="flex flex-col gap-6 rounded-2xl border border-[#ece6ec] bg-white p-5 shadow-sm">
             {/* Distance / Radius — only meaningful with a known origin. */}
             <div>
@@ -580,11 +582,28 @@ export function SearchResults() {
         {/* ── Results column ─────────────────────────────────────────────── */}
         <div className="min-w-0 flex-1">
           {/* Results header */}
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center justify-between gap-3">
             <h2 className="text-lg font-semibold text-[#1a1a1a]">
               {loading ? "Searching…" : `${total} Clinics Found`}
             </h2>
-            <div className="flex items-center gap-2">
+
+            {/* Mobile: open filters + sort in a modal */}
+            <button
+              type="button"
+              onClick={() => setShowFilters(true)}
+              className="inline-flex items-center gap-2 rounded-xl border border-[#e1e1e1] bg-white px-4 py-2 text-sm font-medium text-[#4a4a4a] transition-colors hover:border-brand-magenta/40 hover:text-brand-magenta lg:hidden"
+            >
+              <SlidersHorizontal className="size-4" />
+              Filters &amp; Sort
+              {(rating || radius) && (
+                <span className="flex size-5 items-center justify-center rounded-full bg-brand-magenta text-[11px] font-semibold text-white">
+                  {[rating, radius].filter(Boolean).length}
+                </span>
+              )}
+            </button>
+
+            {/* Desktop: inline sort */}
+            <div className="hidden items-center gap-2 lg:flex">
               <span className="text-sm text-brand-muted">Sorted By:</span>
               <div className="relative flex items-center">
                 <select
@@ -633,14 +652,120 @@ export function SearchResults() {
         </div>
       </div>
 
-      {/* Active-filters clear shortcut (mobile convenience) */}
-      {hasActiveFilters && !loading && (
-        <button
-          onClick={clearFilters}
-          className="self-center text-xs font-medium text-brand-magenta hover:opacity-70 lg:hidden"
+      {/* ── Mobile filters & sort modal ─────────────────────────────────── */}
+      {showFilters && (
+        <div
+          className="fixed inset-0 z-[120] lg:hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Filters and sort"
         >
-          Clear all filters
-        </button>
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowFilters(false)} />
+          <div className="absolute inset-x-0 bottom-0 flex max-h-[85dvh] flex-col rounded-t-2xl bg-white shadow-2xl">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-[#ece6ec] px-5 py-4">
+              <h3 className="text-base font-semibold text-[#1a1a1a]">Filters &amp; Sort</h3>
+              <button
+                type="button"
+                onClick={() => setShowFilters(false)}
+                aria-label="Close"
+                className="rounded-full p-1.5 text-brand-muted transition-colors hover:bg-[#f5f0f5]"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+
+            {/* Scrollable body */}
+            <div className="flex flex-col gap-6 overflow-y-auto p-5">
+              {/* Sort */}
+              <div>
+                <h4 className="text-sm font-semibold text-[#1a1a1a]">Sort By</h4>
+                <div className="mt-3 flex flex-col gap-2.5">
+                  <label className={cn("flex items-center gap-2.5 text-sm", hasOrigin ? "cursor-pointer text-[#4a4a4a]" : "cursor-not-allowed opacity-50")}>
+                    <input type="radio" name="sort-modal" disabled={!hasOrigin} checked={sort === "distance"} onChange={() => updateParam("sort", "distance")} className="size-4 accent-brand-magenta" />
+                    Distance{!hasOrigin ? " (share location)" : ""}
+                  </label>
+                  <label className="flex cursor-pointer items-center gap-2.5 text-sm text-[#4a4a4a]">
+                    <input type="radio" name="sort-modal" checked={sort === "rating"} onChange={() => updateParam("sort", "rating")} className="size-4 accent-brand-magenta" />
+                    Rating
+                  </label>
+                </div>
+              </div>
+
+              <div className="h-px bg-[#ece6ec]" />
+
+              {/* Distance */}
+              <div>
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-semibold text-[#1a1a1a]">Distance / Radius</h4>
+                  {hasOrigin && activeBandRadius && (
+                    <button type="button" onClick={() => updateParam("radius", "")} className="text-xs font-medium text-brand-magenta">
+                      Reset
+                    </button>
+                  )}
+                </div>
+                {!hasOrigin ? (
+                  <button
+                    type="button"
+                    onClick={handleNearMe}
+                    className="mt-3 flex w-full items-center gap-2 rounded-xl border border-dashed border-[#e0c9e0] bg-[#faf5fa] px-3 py-2.5 text-left text-xs text-brand-muted"
+                  >
+                    <LocateFixed className="size-4 shrink-0 text-brand-magenta" />
+                    Share your location to filter by distance
+                  </button>
+                ) : (
+                  <div className="mt-3 flex flex-col gap-2.5">
+                    {DISTANCE_BANDS.map((band) => (
+                      <label key={band.radius} className="flex cursor-pointer items-center gap-2.5 text-sm text-[#4a4a4a]">
+                        <input type="radio" name="distance-modal" checked={activeBandRadius === band.radius} onChange={() => updateParam("radius", String(band.radius))} className="size-4 accent-brand-magenta" />
+                        {band.label}
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="h-px bg-[#ece6ec]" />
+
+              {/* Rating */}
+              <div>
+                <h4 className="text-sm font-semibold text-[#1a1a1a]">Rating</h4>
+                <div className="mt-3 flex flex-col gap-2.5">
+                  {RATING_BANDS.map((band) => (
+                    <label key={band.value} className="flex cursor-pointer items-center gap-2.5 text-sm text-[#4a4a4a]">
+                      <input type="radio" name="rating-modal" checked={rating === band.value} onChange={() => updateParam("rating", band.value)} className="size-4 accent-brand-magenta" />
+                      <span className="inline-flex items-center gap-1">
+                        <Star className="size-3.5 fill-[#FFBA19] text-[#FFBA19]" />
+                        {band.label}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer actions */}
+            <div className="flex items-center gap-3 border-t border-[#ece6ec] p-4">
+              <button
+                type="button"
+                onClick={() => {
+                  clearFilters();
+                  setShowFilters(false);
+                }}
+                className="flex-1 rounded-xl border border-[#e8e0e8] px-4 py-2.5 text-sm font-medium text-brand-magenta transition-colors hover:bg-brand-magenta/5"
+              >
+                Clear All
+              </button>
+              <Button
+                variant="gradient"
+                onClick={() => setShowFilters(false)}
+                className="h-auto flex-1 rounded-xl py-2.5 text-sm font-semibold"
+              >
+                Show {total} Results
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

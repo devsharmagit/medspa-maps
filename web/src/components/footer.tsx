@@ -12,7 +12,7 @@ export function Footer() {
   };
 
   return (
-    <footer className="w-full bg-[#3D2E38] pt-[187px] pb-[50px] px-4 flex justify-center items-center">
+    <footer className="w-full bg-[#3D2E38] pt-20 lg:pt-[187px] pb-[50px] px-4 flex justify-center items-center">
       {/* Inner Content Wrapper */}
       <div className="flex flex-col items-start gap-[89px] w-full max-w-[1291px]">
         

@@ -56,7 +56,7 @@ export default async function ConditionPage({
 
         {/* Title row */}
         <div className="mt-8 flex flex-wrap items-center justify-between gap-4">
-          <h1 className="text-[48px] font-normal leading-[116%] tracking-[-0.04em] text-[#373634]">
+          <h1 className="text-[32px] sm:text-[48px] font-normal leading-[116%] tracking-[-0.04em] text-[#373634]">
             {concern.name}
           </h1>
           <a
