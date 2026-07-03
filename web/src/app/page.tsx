@@ -10,11 +10,16 @@ import { Newsletter } from "@/components/hero/newsletter";
 import { TopCities } from "@/components/hero/top-cities";
 import { ArticleSection } from "@/components/hero/article-section";
 import StatsSection from "@/components/hero/stat-section";
+import { LocationHeadsUp } from "@/components/location/location-heads-up";
+import { LocationPrompt } from "@/components/location/location-prompt";
+import { getPopularTreatments } from "@/lib/treatments/popular";
 import Image from "next/image";
 
-export default function Home() {
+export default async function Home() {
+  const popularTreatments = await getPopularTreatments();
+
   return (
-    <main className="relative flex flex-1 flex-col items-center bg-[#FDFDFD] gap-10 isolate w-full">     
+    <main className="relative flex flex-1 flex-col items-center bg-[#FDFDFD] gap-10 isolate w-full overflow-x-clip">
       {/* Page-wide Background Image */}
       <div className="absolute inset-0 pointer-events-none -z-10 overflow-hidden" aria-hidden="true">
         <Image
@@ -27,9 +32,13 @@ export default function Home() {
         />
       </div>
 
+      {/* Ask for location on landing; show a heads-up if outside the USA. */}
+      <LocationPrompt />
+      <LocationHeadsUp />
+
       <HeroSection />
       <StatsSection />
-      <PopularTreatments />
+      <PopularTreatments treatments={popularTreatments} />
       <FindClinicSection />
       <ProvidersSpotlight />
       <HowItWorks />

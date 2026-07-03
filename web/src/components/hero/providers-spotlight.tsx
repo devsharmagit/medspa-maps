@@ -78,11 +78,11 @@ function ChevronArrow({ color }: { color: string }) {
 function ProviderCard({ provider }: { provider: (typeof providers)[0] }) {
   return (
     <div
-      className="flex h-[341px] w-[401px] shrink-0 overflow-hidden rounded-[22px] border border-[#DEDEDE] bg-white"
+      className="flex min-h-[341px] h-auto sm:h-[341px] w-[326px] sm:w-[401px] shrink-0 overflow-hidden rounded-[22px] border border-[#DEDEDE] bg-white"
       style={{ boxShadow: "0px 6px 10.5px 1px rgba(0,0,0,0.05)" }}
     >
       {/* ── Photo — left half ── */}
-      <div className="relative h-full w-[200.5px] shrink-0">
+      <div className="relative w-[150px] sm:w-[200.5px] shrink-0">
         <Image
           src={provider.image}
           alt={provider.name}
@@ -93,7 +93,7 @@ function ProviderCard({ provider }: { provider: (typeof providers)[0] }) {
       </div>
 
       {/* ── Info — right half ── */}
-      <div className="flex h-full w-[200.5px] flex-col items-start justify-between bg-white px-6 py-7 gap-[20px]">
+      <div className="flex h-full flex-1 sm:w-[200.5px] flex-col items-start justify-between bg-white px-4 sm:px-6 py-7 gap-[20px]">
         {/* Top block: name, specialty, divider, details */}
         <div className="flex w-full flex-col gap-[20px]">
           {/* Name + badge + specialty */}
@@ -156,17 +156,17 @@ export function ProvidersSpotlight() {
 
   return (
     /* Outer card: 1372px wide, 536px tall, white bg, border, pink shadow, 18px radius */
-    <section className="flex w-full max-w-[1372px] flex-col items-center justify-center gap-9 rounded-[18px] border border-[#DEDEDE] bg-white pt-9 pb-[5px] shadow-[0px_9px_11.1px_rgba(240,223,241,0.6)]">
+    <section className="flex w-full max-w-[1372px] flex-col items-center justify-center gap-6 lg:gap-9 rounded-[18px] border border-[#DEDEDE] bg-white pt-7 lg:pt-9 pb-[5px] shadow-[0px_9px_11.1px_rgba(240,223,241,0.6)]">
 
       {/* ── Header row ── */}
-      <div className="flex w-full items-center justify-between px-16">
+      <div className="flex w-full flex-col gap-4 px-5 sm:px-8 lg:flex-row lg:items-center lg:justify-between lg:px-16">
         {/* Title */}
-        <h2 className="font-montserrat text-[34px] font-normal leading-[116.02%] tracking-[-0.04em] text-[#373634]">
+        <h2 className="font-montserrat text-[26px] sm:text-[30px] lg:text-[34px] font-normal leading-[116.02%] tracking-[-0.04em] text-[#373634]">
           Providers <span className="font-heading italic ">Spotlight</span>
         </h2>
 
         {/* Right group: View All + nav arrows */}
-        <div className="flex items-center gap-8">
+        <div className="flex items-center justify-between gap-8 lg:justify-normal">
           {/* View All Providers link */}
           <a
             href="#"
@@ -214,7 +214,7 @@ export function ProvidersSpotlight() {
       {/* ── Provider cards row ── */}
       <div
         ref={scrollRef}
-        className="flex items-center gap-8 overflow-x-auto px-[52px] pb-[38px] scrollbar-none"
+        className="flex w-full items-center gap-5 sm:gap-8 overflow-x-auto px-5 sm:px-[52px] pb-[38px] scrollbar-none"
       >
         {providers.map((provider) => (
           <ProviderCard key={provider.id} provider={provider} />

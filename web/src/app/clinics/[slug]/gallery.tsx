@@ -178,11 +178,11 @@ export function ClinicGallery({
 
   return (
     <>
-      <div className="flex flex-col gap-[19px] w-[644px]">
+      <div className="flex flex-col gap-[19px] w-full lg:w-[644px]">
         <button
           type="button"
           onClick={() => openAt(0)}
-          className="group relative flex w-full h-[335px] overflow-hidden rounded-[18px]"
+          className="group relative flex w-full h-[240px] sm:h-[335px] overflow-hidden rounded-[18px]"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -191,8 +191,8 @@ export function ClinicGallery({
             className="w-full h-full object-cover transition duration-300 group-hover:scale-[1.03]"
             loading="lazy"
           />
-          {/* Play Button Overlay (Mock) */}
-          <div className="absolute inset-0 flex items-center justify-center">
+          {/* Play Button Overlay (Mock) — desktop only; mobile shows a clean cover image */}
+          <div className="absolute inset-0 hidden items-center justify-center lg:flex">
             <div className="flex h-[80px] w-[80px] items-center justify-center rounded-full bg-white shadow-md transition group-hover:scale-110">
               <div className="ml-1 h-0 w-0 border-y-[12px] border-l-[18px] border-y-transparent border-l-[#C5B39A]" />
             </div>
@@ -200,7 +200,7 @@ export function ClinicGallery({
         </button>
 
         {thumbs.length > 0 && (
-          <div className="flex flex-row gap-[20px] w-full h-[87px]">
+          <div className="flex flex-row gap-[10px] sm:gap-[20px] w-full h-[70px] sm:h-[87px]">
             {thumbs.map((img, i) => {
               const isLast = i === thumbs.length - 1;
               const showOverlay = isLast && remaining > 0;
@@ -209,7 +209,7 @@ export function ClinicGallery({
                   type="button"
                   key={i}
                   onClick={() => openAt(i + 1)}
-                  className="group relative h-[87px] w-[146px] overflow-hidden rounded-[10px]"
+                  className="group relative h-full flex-1 min-w-0 overflow-hidden rounded-[10px]"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img

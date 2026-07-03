@@ -41,7 +41,16 @@ async function request<T>(
     const message =
       (payload && payload.success === false && payload.error) ||
       `Request failed (${res.status})`;
-    throw new Error(message);
+    const err = new Error(message) as Error & Record<string, unknown>;
+    // Surface any extra fields the endpoint attached alongside the envelope
+    // (e.g. the /clinics/save 409 ships a `duplicate` block) so callers can
+    // react structurally, not just on the message string.
+    if (payload && typeof payload === "object") {
+      for (const [k, v] of Object.entries(payload as unknown as Record<string, unknown>)) {
+        if (k !== "success" && k !== "data" && k !== "error") err[k] = v;
+      }
+    }
+    throw err;
   }
 
   return payload.data;

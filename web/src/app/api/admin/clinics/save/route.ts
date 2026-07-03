@@ -1,9 +1,8 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/admin/auth";
-import { ApiError } from "@/lib/errors";
 import { successResponse, handleApiError } from "@/lib/api-response";
-import { query, queryOne } from "@/lib/db";
+import { query } from "@/lib/db";
 import {
   saveClinicBundle,
   websiteDomain,
@@ -21,7 +20,6 @@ const saveSchema = z.object({
       business: z.object({ name: z.string().min(1, "business name is required") }),
     })
     .passthrough(),
-  overwrite: z.boolean().optional(),
 });
 
 interface ExistingClinic {
@@ -40,25 +38,28 @@ export async function POST(req: NextRequest) {
     await requireAdmin();
 
     const body = await req.json();
-    const { payload, overwrite } = saveSchema.parse(body);
+    const { payload } = saveSchema.parse(body);
     const bundle = payload as unknown as ClinicBundle;
 
-    // ── duplicate guard ────────────────────────────────────────────────────
+    // ── hard duplicate block ─────────────────────────────────────────────────
+    // The add flow NEVER overwrites. If a clinic already exists for this website
+    // domain, return 409 with the existing rows so the UI can send the admin to
+    // edit or delete it instead of silently replacing it.
     const domain = websiteDomain(bundle.website);
     const existingIds = await findClinicsByDomain(domain);
 
-    if (existingIds.length > 0 && overwrite !== true) {
+    if (existingIds.length > 0) {
       const existing = await query<ExistingClinic>(
         `SELECT id, name, slug, website FROM clinics WHERE id = ANY($1::uuid[])`,
         [existingIds]
       );
-      // errorResponse() only carries a message; we need to ship the existing
-      // clinic rows alongside the 409 so the UI can warn, hence a custom body.
+      // errorResponse() only carries a message; we ship the existing clinic
+      // rows alongside the 409 so the UI can link to edit/view, hence a custom body.
       return buildConflict(domain, existing);
     }
 
-    // ── save ─────────────────────────────────────────────────────────────────
-    const result = await saveClinicBundle(bundle, { overwrite: overwrite === true });
+    // ── save (create-only) ───────────────────────────────────────────────────
+    const result = await saveClinicBundle(bundle, { overwrite: false });
 
     // ── refresh the public materialized view (best-effort) ────────────────────
     try {
@@ -78,7 +79,7 @@ function buildConflict(domain: string, existing: ExistingClinic[]) {
     {
       success: false,
       data: null,
-      error: `A clinic already exists for ${domain}. Re-submit with overwrite=true to replace it.`,
+      error: `A clinic already exists for ${domain}. Edit or delete the existing clinic instead of adding it again.`,
       duplicate: { exists: true, byDomain: domain, clinics: existing },
     },
     { status: 409 }

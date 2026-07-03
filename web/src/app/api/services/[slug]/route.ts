@@ -7,9 +7,8 @@ export const dynamic = "force-dynamic";
 /**
  * GET /api/services/[slug]
  *
- * Treatment page payload: the service + clinics that offer it (derived) +
- * reviews from those clinics. Accepts optional ?lat & ?lng to sort clinics
- * by distance.
+ * Treatment page payload: the service + clinics that offer it (derived).
+ * Accepts optional ?lat & ?lng to sort clinics by distance.
  */
 export async function GET(
   req: NextRequest,
@@ -32,10 +31,10 @@ export async function GET(
     return successResponse({
       service: data.service,
       clinics: data.clinics,
-      reviews: data.reviews,
+      providers: data.providers,
       counts: {
         clinics: data.clinics.length,
-        reviews: data.reviews.length,
+        providers: data.providers.length,
       },
     });
   } catch (err) {

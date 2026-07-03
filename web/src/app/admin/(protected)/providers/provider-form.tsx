@@ -56,6 +56,9 @@ interface ProviderData {
   name: string;
   title: string | null;
   bio: string | null;
+  card_tagline: string | null;
+  review_rating: string | null;
+  review_count: number | null;
   image_url: string | null;
   years_experience: number | null;
   is_verified: boolean;
@@ -70,6 +73,9 @@ interface FormState {
   name: string;
   title: string;
   bio: string;
+  card_tagline: string;
+  review_rating: string;
+  review_count: string;
   image_url: string;
   years_experience: string;
   is_verified: boolean;
@@ -90,6 +96,9 @@ function emptyForm(): FormState {
     name: "",
     title: "",
     bio: "",
+    card_tagline: "",
+    review_rating: "",
+    review_count: "",
     image_url: "",
     years_experience: "",
     is_verified: false,
@@ -106,6 +115,9 @@ function formFromData(d: ProviderData): FormState {
     name: d.name,
     title: d.title ?? "",
     bio: d.bio ?? "",
+    card_tagline: d.card_tagline ?? "",
+    review_rating: d.review_rating != null ? String(d.review_rating) : "",
+    review_count: d.review_count != null ? String(d.review_count) : "",
     image_url: d.image_url ?? "",
     years_experience: d.years_experience ? String(d.years_experience) : "",
     is_verified: d.is_verified,
@@ -244,6 +256,9 @@ export function ProviderForm({
       name: form.name.trim(),
       title: form.title.trim() || null,
       bio: form.bio.trim() || null,
+      card_tagline: form.card_tagline.trim() || null,
+      review_rating: form.review_rating ? parseFloat(form.review_rating) : null,
+      review_count: form.review_count ? parseInt(form.review_count, 10) : 0,
       image_url: form.image_url.trim() || null,
       years_experience: form.years_experience ? parseInt(form.years_experience, 10) : null,
       is_verified: form.is_verified,
@@ -364,6 +379,49 @@ export function ProviderForm({
                     onChange={(e) => update("years_experience", e.target.value)}
                     placeholder="e.g. 10"
                   />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="prov-rating">Customer Rating</Label>
+                  <Input
+                    id="prov-rating"
+                    type="number"
+                    min={0}
+                    max={5}
+                    step={0.1}
+                    value={form.review_rating}
+                    onChange={(e) => update("review_rating", e.target.value)}
+                    placeholder="e.g. 4.9"
+                  />
+                  <span className="text-xs text-slate-400">Star rating shown on the card (0–5).</span>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="prov-review-count">Review Count</Label>
+                  <Input
+                    id="prov-review-count"
+                    type="number"
+                    min={0}
+                    value={form.review_count}
+                    onChange={(e) => update("review_count", e.target.value)}
+                    placeholder="e.g. 89"
+                  />
+                  <span className="text-xs text-slate-400">Number of reviews shown beside the rating.</span>
+                </div>
+
+                <div className="col-span-2 flex flex-col gap-1.5">
+                  <Label htmlFor="prov-tagline">Card Tagline</Label>
+                  <textarea
+                    id="prov-tagline"
+                    value={form.card_tagline}
+                    onChange={(e) => update("card_tagline", e.target.value)}
+                    rows={2}
+                    placeholder="e.g. Expert in Botox, fillers and laser treatments. Provides soft and natural looking results."
+                    className={TEXTAREA}
+                  />
+                  <span className="text-xs text-slate-400">
+                    Short one/two-line pitch shown on the provider card.
+                  </span>
                 </div>
 
                 <div className="col-span-2 flex flex-col gap-1.5">

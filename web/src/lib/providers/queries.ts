@@ -22,12 +22,15 @@ export interface ConcernProvider {
   id: string;
   name: string;
   title: string | null;
+  card_tagline: string | null;
   image_url: string | null;
   years_experience: number | null;
   is_verified: boolean;
   clinic_slug: string;
   clinic_name: string;
   avg_rating: string | null;
+  review_rating: string | null;
+  review_count: number;
 }
 
 /**
@@ -47,7 +50,8 @@ export async function getProvidersByConcernId(
   // their clinic doesn't otherwise cover it; (2)/(3) keep the list populated.
   const rows = await query<Row>(
     `SELECT DISTINCT ON (pr.id)
-       pr.id, pr.name, pr.title, pr.image_url, pr.years_experience, pr.is_verified,
+       pr.id, pr.name, pr.title, pr.card_tagline, pr.image_url, pr.years_experience,
+       pr.is_verified, pr.review_rating, pr.review_count,
        cl.slug AS clinic_slug, cl.name AS clinic_name, cl.featured, cl.verified, cl.avg_rating
      FROM providers pr
      JOIN clinics cl ON cl.id = pr.clinic_id AND cl.is_active = true
@@ -86,7 +90,8 @@ export async function getProvidersByConcernId(
 /** Fetch a single full provider row by ID. */
 export async function getProviderById(id: string): Promise<Provider | null> {
   return queryOne<Provider>(
-    `SELECT id, clinic_id, name, title, bio, image_url, years_experience,
+    `SELECT id, clinic_id, name, title, bio, card_tagline, review_rating,
+            review_count, image_url, years_experience,
             is_verified, highlights, credentials, specialties,
             is_active, created_at, updated_at
        FROM providers
@@ -128,6 +133,9 @@ export async function createProvider(
     name,
     title = null,
     bio = null,
+    card_tagline = null,
+    review_rating = null,
+    review_count = 0,
     image_url = null,
     years_experience = null,
     is_verified = false,
@@ -140,10 +148,12 @@ export async function createProvider(
 
   const rows = await query<Provider>(
     `INSERT INTO providers
-       (clinic_id, name, title, bio, image_url, years_experience,
+       (clinic_id, name, title, bio, card_tagline, review_rating, review_count,
+        image_url, years_experience,
         is_verified, highlights, credentials, specialties)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-     RETURNING id, clinic_id, name, title, bio, image_url, years_experience,
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+     RETURNING id, clinic_id, name, title, bio, card_tagline, review_rating,
+               review_count, image_url, years_experience,
                is_verified, highlights, credentials, specialties,
                is_active, created_at, updated_at`,
     [
@@ -151,6 +161,9 @@ export async function createProvider(
       name,
       title,
       bio,
+      card_tagline,
+      review_rating,
+      review_count ?? 0,
       image_url,
       years_experience,
       is_verified,
@@ -183,6 +196,9 @@ export async function updateProvider(
     name,
     title,
     bio,
+    card_tagline,
+    review_rating,
+    review_count,
     image_url,
     years_experience,
     is_verified,
@@ -198,15 +214,19 @@ export async function updateProvider(
        name             = COALESCE($2, name),
        title            = COALESCE($3, title),
        bio              = COALESCE($4, bio),
-       image_url        = COALESCE($5, image_url),
-       years_experience = COALESCE($6, years_experience),
-       is_verified      = COALESCE($7, is_verified),
-       highlights       = COALESCE($8, highlights),
-       credentials      = COALESCE($9, credentials),
-       specialties      = COALESCE($10, specialties),
+       card_tagline     = COALESCE($5, card_tagline),
+       review_rating    = COALESCE($6, review_rating),
+       review_count     = COALESCE($7, review_count),
+       image_url        = COALESCE($8, image_url),
+       years_experience = COALESCE($9, years_experience),
+       is_verified      = COALESCE($10, is_verified),
+       highlights       = COALESCE($11, highlights),
+       credentials      = COALESCE($12, credentials),
+       specialties      = COALESCE($13, specialties),
        updated_at       = NOW()
      WHERE id = $1
-     RETURNING id, clinic_id, name, title, bio, image_url, years_experience,
+     RETURNING id, clinic_id, name, title, bio, card_tagline, review_rating,
+               review_count, image_url, years_experience,
                is_verified, highlights, credentials, specialties,
                is_active, created_at, updated_at`,
     [
@@ -214,6 +234,9 @@ export async function updateProvider(
       name ?? null,
       title !== undefined ? title : null,
       bio !== undefined ? bio : null,
+      card_tagline !== undefined ? card_tagline : null,
+      review_rating !== undefined ? review_rating : null,
+      review_count !== undefined ? review_count : null,
       image_url !== undefined ? image_url : null,
       years_experience !== undefined ? years_experience : null,
       is_verified !== undefined ? is_verified : null,
@@ -233,6 +256,20 @@ export async function updateProvider(
   }
 
   return rows[0];
+}
+
+/** Toggle a provider's active (public visibility) state. Returns the slim row or null. */
+export async function setProviderActive(
+  id: string,
+  isActive: boolean
+): Promise<ProviderSummary | null> {
+  return queryOne<ProviderSummary>(
+    `UPDATE providers SET is_active = $2, updated_at = NOW()
+       WHERE id = $1
+       RETURNING id, clinic_id, name, title, image_url, is_verified,
+                 years_experience, is_active, created_at`,
+    [id, isActive]
+  );
 }
 
 /** Delete a provider by ID. Returns true if a row was deleted. */

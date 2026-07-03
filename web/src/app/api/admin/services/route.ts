@@ -17,7 +17,6 @@ const createServiceSchema = z.object({
   results_duration: z.string().max(255).nullish(),
   recovery_time: z.string().max(255).nullish(),
   faqs: z.array(z.unknown()).nullish(),
-  is_published: z.boolean().optional(),
   review_status: z.string().max(50).nullish(),
 });
 
@@ -33,7 +32,6 @@ interface Service {
   results_timeline: string | null;
   results_duration: string | null;
   recovery_time: string | null;
-  is_published: boolean;
   review_status: string | null;
   is_active: boolean;
   created_at: string;
@@ -48,7 +46,7 @@ export async function GET() {
     const services = await query<Service & { clinic_count: number }>(
       `SELECT s.id, s.name, s.slug, s.category, s.aliases, s.summary, s.description,
               s.treatment_time, s.results_timeline, s.results_duration, s.recovery_time,
-              s.is_published, s.review_status, s.is_active, s.created_at, s.updated_at,
+              s.review_status, s.is_active, s.created_at, s.updated_at,
               (SELECT count(DISTINCT cls.clinic_id)::int
                  FROM clinic_services cls
                  WHERE cls.service_id = s.id AND cls.is_active = true) AS clinic_count
@@ -74,14 +72,14 @@ export async function POST(req: NextRequest) {
       `INSERT INTO services
          (name, slug, category, aliases, summary, description,
           treatment_time, results_timeline, results_duration, recovery_time,
-          faqs, is_published, review_status)
+          faqs, review_status)
        VALUES
          ($1, COALESCE($2, slugify($1)), $3, $4, $5, $6,
           $7, $8, $9, $10,
-          $11, COALESCE($12, false), $13)
+          $11, $12)
        RETURNING id, name, slug, category, aliases, summary, description,
                  treatment_time, results_timeline, results_duration, recovery_time,
-                 faqs, is_published, review_status, is_active, created_at, updated_at`,
+                 faqs, review_status, is_active, created_at, updated_at`,
       [
         input.name,
         input.slug ?? null,
@@ -94,7 +92,6 @@ export async function POST(req: NextRequest) {
         input.results_duration ?? null,
         input.recovery_time ?? null,
         input.faqs ? JSON.stringify(input.faqs) : '[]',
-        input.is_published ?? null,
         input.review_status ?? null,
       ]
     );

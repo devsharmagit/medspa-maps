@@ -5,7 +5,6 @@ import { ClinicsCarousel } from "@/components/shared/clinics-carousel";
 import { ProvidersCarousel } from "@/components/shared/providers-carousel";
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
 import {
-  ChevronRight,
   CalendarDays,
   Star,
   Clock,
@@ -56,7 +55,7 @@ export default async function TreatmentPage({
   const data = await getTreatmentData(slug, opts);
   if (!data) notFound();
 
-  const { service, clinics, reviews, providers } = data;
+  const { service, clinics, providers } = data;
 
   const hasStats =
     service.treatment_time != null ||
@@ -64,8 +63,8 @@ export default async function TreatmentPage({
     service.results_duration != null;
 
   return (
-    <main 
-      className="flex min-h-screen flex-col bg-[#faf7fb] text-zinc-950 font-sans"
+    <main
+      className="flex min-h-screen flex-col bg-[#faf7fb] text-zinc-950 font-sans overflow-x-clip"
       style={{ fontFamily: 'var(--font-montserrat), sans-serif' }}
     >
       {/* Banner + nav */}
@@ -82,15 +81,25 @@ export default async function TreatmentPage({
         ]} />
 
         {/* Hero card */}
-        <section 
-          className="relative mt-6 rounded-[18px] border border-[#DEDEDE] shadow-[0px_9px_11.1px_rgba(240,223,241,0.6)] px-12 py-10 text-white min-h-[400px] flex flex-col justify-center overflow-hidden"
-          style={{
-            background: `url('/images/treatment/treatment-bg-removed.png') right center / 50% auto no-repeat, linear-gradient(245.89deg, rgba(219, 120, 94, 0.8) 11.55%, rgba(196, 68, 207, 0.8) 113.3%), #FFFFFF`,
-            backgroundBlendMode: 'multiply, normal, normal'
-          }}
+        <section
+          className="relative mt-6 rounded-[18px] border border-[#DEDEDE] shadow-[0px_9px_11.1px_rgba(240,223,241,0.6)] px-6 py-8 sm:px-12 sm:py-10 text-white min-h-[300px] sm:min-h-[400px] flex flex-col justify-center overflow-hidden"
         >
+          {/* Mobile background — clean brand gradient with soft glows */}
+          <div className="absolute inset-0 lg:hidden bg-[linear-gradient(125deg,#DB785E_0%,#C341D7_100%)]" aria-hidden>
+            <div className="absolute -right-16 -top-20 h-56 w-56 rounded-full bg-white/15 blur-3xl" />
+            <div className="absolute -bottom-24 left-1/4 h-56 w-56 rounded-full bg-[#FFD9F5]/25 blur-3xl" />
+          </div>
+          {/* Desktop background — original artwork composite (unchanged) */}
+          <div
+            className="absolute inset-0 hidden lg:block"
+            style={{
+              background: `url('/images/treatment/treatment-bg-removed.png') right center / 50% auto no-repeat, linear-gradient(245.89deg, rgba(219, 120, 94, 0.8) 11.55%, rgba(196, 68, 207, 0.8) 113.3%), #FFFFFF`,
+              backgroundBlendMode: 'multiply, normal, normal'
+            }}
+            aria-hidden
+          />
           <div className="max-w-[700px] relative z-10">
-            <h1 className="text-[48px] font-normal leading-[116%] tracking-[-0.04em] mb-6">
+            <h1 className="text-[32px] sm:text-[48px] font-normal leading-[116%] tracking-[-0.04em] mb-6">
               {service.name}{" "}
               <span className="font-fraunces italic font-normal">Treatment</span>
             </h1>
@@ -113,7 +122,7 @@ export default async function TreatmentPage({
 
             {/* Stats bar */}
             {hasStats && (
-              <div className="flex flex-row items-center justify-between rounded-[16px] bg-white px-8 py-4 shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)] w-full max-w-[665px]">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-0 rounded-[16px] bg-white px-5 sm:px-8 py-4 shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)] w-full max-w-[665px]">
                 {service.treatment_time != null && (
                   <div className="flex items-center gap-3">
                     <div className="flex h-[28px] w-[28px] items-center justify-center rounded bg-[#EE97C6]/20 relative">
@@ -132,7 +141,7 @@ export default async function TreatmentPage({
                 
                 {service.results_timeline != null && (
                   <>
-                    <div className="h-[49px] border-l border-[#E5C7DA]/40"></div>
+                    <div className="hidden sm:block h-[49px] border-l border-[#E5C7DA]/40"></div>
                     <div className="flex items-center gap-3">
                       <div className="flex h-[28px] w-[28px] items-center justify-center rounded bg-[#EE97C6]/20 relative">
                         <Sparkles className="size-4 text-[#EE97C6] absolute" />
@@ -151,7 +160,7 @@ export default async function TreatmentPage({
 
                 {service.results_duration != null && (
                   <>
-                    <div className="h-[49px] border-l border-[#E5C7DA]/40"></div>
+                    <div className="hidden sm:block h-[49px] border-l border-[#E5C7DA]/40"></div>
                     <div className="flex items-center gap-3">
                       <div className="flex h-[28px] w-[28px] items-center justify-center rounded bg-[#EE97C6]/20 relative">
                         <CalendarDays className="size-4 text-[#EE97C6] absolute" />
@@ -176,49 +185,10 @@ export default async function TreatmentPage({
 
         <ProvidersCarousel providers={providers} />
 
-        {/* Reviews */}
-        {reviews.length > 0 && (
-          <section className="mt-[100px]">
-            <h2 className="text-[34px] font-normal leading-[116%] tracking-[-0.04em] text-[#373634]">
-              What Our Clients Say
-            </h2>
-            <div className="mt-8 grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-              {reviews.map((r, i) => (
-                <div
-                  key={i}
-                  className="rounded-[22px] border border-[#DEDEDE] bg-white p-6 shadow-[0px_9px_11.1px_rgba(240,223,241,0.6)]"
-                >
-                  {r.rating != null && (
-                    <div className="flex gap-1 mb-4">
-                      {Array.from({ length: 5 }).map((_, s) => (
-                        <Star
-                          key={s}
-                          className={`size-4 ${
-                            s < r.rating!
-                              ? "fill-[#FFBA19] text-[#FFBA19]"
-                              : "text-zinc-200"
-                          }`}
-                        />
-                      ))}
-                    </div>
-                  )}
-                  <p className="mt-3 text-[14px] leading-[150%] text-[#727272]">
-                    “{r.body}”
-                  </p>
-                  <div className="mt-6 border-t border-[#DDC3DF] pt-4 text-[14px] font-medium text-[#383838]">
-                    — {r.reviewer_name || "Verified Patient"}
-                    <span className="ml-1 font-normal text-[#9A9A9A]">
-                      · {r.clinic_name}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
+
         
         {/* FAQs */}
-        <div className="mt-[100px] mb-20">
+        <div className="mt-16 sm:mt-[100px] mb-16 sm:mb-20">
           <FaqAccordion faqs={service.faqs} entityName={service.name} />
         </div>
       </div>

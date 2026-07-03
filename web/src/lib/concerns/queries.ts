@@ -29,13 +29,7 @@ export interface ConcernPageData {
     featured: boolean;
     images: { source_url: string; role: string; sort_order: number }[];
   }[];
-  reviews: {
-    rating: number | null;
-    body: string;
-    reviewer_name: string | null;
-    source: string;
-    clinic_name: string;
-  }[];
+
   providers: ConcernProvider[];
 }
 
@@ -50,7 +44,7 @@ export async function getConcernData(slug: string): Promise<ConcernPageData | nu
   if (concern.rows.length === 0) return null;
   const c = concern.rows[0];
 
-  const [services, beforeAfter, clinics, reviews] = await Promise.all([
+  const [services, beforeAfter, clinics] = await Promise.all([
     pool.query(
       `SELECT s.id, s.name, s.slug, s.category
        FROM concern_services cs
@@ -81,7 +75,12 @@ export async function getConcernData(slug: string): Promise<ConcernPageData | nu
           ), '[]'::json)
           FROM images i
           WHERE i.entity_type = 'clinic' AND i.entity_id = cl.id
-         ) AS images
+         ) AS images,
+         (SELECT COALESCE(i2.cdn_url, i2.source_url) FROM images i2
+          WHERE i2.entity_type = 'clinic' AND i2.entity_id = cl.id
+            AND i2.role IN ('cover','gallery') AND i2.scrape_status = 'ok'
+          ORDER BY (i2.role = 'cover') DESC, i2.sort_order LIMIT 1
+         ) AS cover_image
        FROM clinics cl
        WHERE cl.is_active = true
          AND (
@@ -102,32 +101,6 @@ export async function getConcernData(slug: string): Promise<ConcernPageData | nu
              AND cc.source = 'removed' AND cc.is_active = true
          )
        ORDER BY cl.id`,
-      [c.id]
-    ),
-    pool.query(
-      // Reviews for the same EFFECTIVE clinic set (derived ∪ manual − removed).
-      `SELECT DISTINCT ON (r.id) r.rating, r.body, r.reviewer_name, r.source, cl.name AS clinic_name
-       FROM clinics cl
-       JOIN reviews r ON r.clinic_id = cl.id AND r.is_approved = true AND r.is_active = true
-       WHERE cl.is_active = true
-         AND (
-           EXISTS (
-             SELECT 1 FROM concern_services cs
-             JOIN clinic_services cls ON cls.service_id = cs.service_id AND cls.is_active = true
-             WHERE cs.concern_id = $1 AND cls.clinic_id = cl.id
-           )
-           OR EXISTS (
-             SELECT 1 FROM clinic_concerns cc
-             WHERE cc.clinic_id = cl.id AND cc.concern_id = $1
-               AND cc.source = 'manual' AND cc.is_active = true
-           )
-         )
-         AND NOT EXISTS (
-           SELECT 1 FROM clinic_concerns cc
-           WHERE cc.clinic_id = cl.id AND cc.concern_id = $1
-             AND cc.source = 'removed' AND cc.is_active = true
-         )
-       ORDER BY r.id, r.rating DESC NULLS LAST LIMIT 12`,
       [c.id]
     ),
   ]);
@@ -155,7 +128,6 @@ export async function getConcernData(slug: string): Promise<ConcernPageData | nu
     services: services.rows,
     beforeAfter: beforeAfter.rows,
     clinics: clinicRows,
-    reviews: reviews.rows,
     providers,
   } as ConcernPageData;
 }

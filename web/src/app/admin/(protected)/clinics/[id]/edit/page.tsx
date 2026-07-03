@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   AlertTriangle,
+  BarChart3,
   Building2,
   CheckCircle2,
   ExternalLink,
@@ -138,6 +139,11 @@ interface ClinicFull {
   ext_rating: string | null;
   ext_review_count: number | null;
   founded_year: number | null;
+  stat_experts: string | null;
+  stat_cities: string | null;
+  stat_treatments: string | null;
+  stat_rating: string | null;
+  stat_patients: string | null;
   is_active: boolean;
   images: ImageRef[];
   treatments: TreatmentRef[];
@@ -163,6 +169,11 @@ interface FormState {
   ext_rating: string;
   ext_review_count: string;
   founded_year: string;
+  stat_experts: string;
+  stat_cities: string;
+  stat_treatments: string;
+  stat_rating: string;
+  stat_patients: string;
 }
 
 interface LocationForm {
@@ -330,6 +341,11 @@ export default function EditClinicPage(props: {
     ext_rating: "",
     ext_review_count: "",
     founded_year: "",
+    stat_experts: "",
+    stat_cities: "",
+    stat_treatments: "",
+    stat_rating: "",
+    stat_patients: "",
   });
 
   useEffect(() => {
@@ -390,6 +406,11 @@ export default function EditClinicPage(props: {
           ext_rating: s(c.ext_rating),
           ext_review_count: s(c.ext_review_count),
           founded_year: s(c.founded_year),
+          stat_experts: s(c.stat_experts),
+          stat_cities: s(c.stat_cities),
+          stat_treatments: s(c.stat_treatments),
+          stat_rating: s(c.stat_rating),
+          stat_patients: s(c.stat_patients),
         });
         setError(null);
       })
@@ -581,6 +602,11 @@ export default function EditClinicPage(props: {
       ext_rating: ratingStr === "" ? null : Number(ratingStr),
       ext_review_count: reviewStr === "" ? null : parseInt(reviewStr, 10),
       founded_year: foundedStr === "" ? null : parseInt(foundedStr, 10),
+      stat_experts: nullable(form.stat_experts),
+      stat_cities: nullable(form.stat_cities),
+      stat_treatments: nullable(form.stat_treatments),
+      stat_rating: nullable(form.stat_rating),
+      stat_patients: nullable(form.stat_patients),
       is_active: isActive,
     };
 
@@ -759,22 +785,26 @@ export default function EditClinicPage(props: {
               </label>
             </Field>
             <div className="sm:col-span-2">
-              <Field label="Tagline">
+              <Field label="Hero card tagline">
                 <Input
                   value={form.tagline}
                   onChange={(e) => update("tagline", e.target.value)}
-                  placeholder="Short pitch shown on clinic page"
+                  placeholder="Short description shown on the hero card (top of clinic page)"
                   className="h-9"
                 />
+                <p className="text-xs text-slate-400">
+                  Shown in the hero card under the clinic name. If left blank, the
+                  hero falls back to the start of the About text below.
+                </p>
               </Field>
             </div>
             <div className="sm:col-span-2">
-              <Field label="About">
+              <Field label="About (long description)">
                 <textarea
                   value={form.about}
                   onChange={(e) => update("about", e.target.value)}
                   rows={4}
-                  placeholder="Clinic description..."
+                  placeholder="Full description shown in the About section..."
                   className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
                 />
               </Field>
@@ -805,6 +835,62 @@ export default function EditClinicPage(props: {
               <Input value={form.google_my_business} onChange={(e) => update("google_my_business", e.target.value)} className="h-9" placeholder="https://maps.google.com/..." />
             </Field>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-slate-200 shadow-sm">
+        <CardHeader className="border-b border-slate-100 bg-slate-50/50 pb-4">
+          <CardTitle className="flex items-center gap-2 text-base font-semibold text-slate-800">
+            <BarChart3 size={16} style={{ color: BRAND }} />
+            Hero stats
+          </CardTitle>
+          <p className="text-xs text-slate-500">
+            The five numbers shown in the “About + Stats” row on the clinic page.
+            Type the exact value to display (e.g. <code>20+</code>, <code>10k+</code>,{" "}
+            <code>5.0</code>). Leave a field blank to auto-calculate it.
+          </p>
+        </CardHeader>
+        <CardContent className="grid grid-cols-2 gap-4 p-6 sm:grid-cols-3">
+          <Field label="Certified experts">
+            <Input
+              value={form.stat_experts}
+              onChange={(e) => update("stat_experts", e.target.value)}
+              placeholder="auto — e.g. 20+"
+              className="h-9"
+            />
+          </Field>
+          <Field label="Cities covered">
+            <Input
+              value={form.stat_cities}
+              onChange={(e) => update("stat_cities", e.target.value)}
+              placeholder="auto — e.g. 8"
+              className="h-9"
+            />
+          </Field>
+          <Field label="Advanced treatments">
+            <Input
+              value={form.stat_treatments}
+              onChange={(e) => update("stat_treatments", e.target.value)}
+              placeholder="auto — e.g. 50+"
+              className="h-9"
+            />
+          </Field>
+          <Field label="Average rating">
+            <Input
+              value={form.stat_rating}
+              onChange={(e) => update("stat_rating", e.target.value)}
+              placeholder="auto — e.g. 5.0"
+              className="h-9"
+            />
+          </Field>
+          <Field label="Patients transformed">
+            <Input
+              value={form.stat_patients}
+              onChange={(e) => update("stat_patients", e.target.value)}
+              placeholder="auto — e.g. 10k+"
+              className="h-9"
+            />
+          </Field>
         </CardContent>
       </Card>
 

@@ -9,11 +9,13 @@ import {
   Plus,
   Pencil,
   Trash2,
+  ToggleLeft,
+  ToggleRight,
   Search,
   AlertCircle,
   Eye,
 } from "lucide-react";
-import { adminGet, adminDelete } from "@/lib/admin/client";
+import { adminGet, adminDelete, adminPatch } from "@/lib/admin/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -26,6 +28,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import type { Service } from "./service-form";
 
@@ -36,6 +46,10 @@ export default function ServicesPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Service | null>(null);
+  const [pendingToggle, setPendingToggle] = useState<Service | null>(null);
 
   const load = useCallback(async () => {
     setLoadError(null);
@@ -69,27 +83,38 @@ export default function ServicesPage() {
     return `/admin/services/${service.id}/edit`;
   }
 
-  async function handleDelete(service: Service) {
-    if (
-      !confirm(
-        `Delete "${service.name}"? This soft-deletes the treatment (it can be restored later).`
-      )
-    ) {
-      return;
-    }
-    setDeletingId(service.id);
-    const prev = services;
-    setServices((cur) =>
-      cur.map((s) => (s.id === service.id ? { ...s, is_active: false } : s))
-    );
+  async function confirmDelete() {
+    if (!pendingDelete) return;
+    const target = pendingDelete;
+    setDeletingId(target.id);
+    setActionError(null);
     try {
-      await adminDelete(`/services/${service.id}`);
-      await load();
+      await adminDelete(`/services/${target.id}`);
+      setServices((cur) => cur.filter((s) => s.id !== target.id));
+      setPendingDelete(null);
     } catch (err) {
-      setServices(prev);
-      alert(err instanceof Error ? err.message : "Failed to delete treatment");
+      setActionError(err instanceof Error ? err.message : "Failed to delete treatment");
     } finally {
       setDeletingId(null);
+    }
+  }
+
+  async function confirmToggle() {
+    if (!pendingToggle) return;
+    const target = pendingToggle;
+    const next = !target.is_active;
+    setTogglingId(target.id);
+    setActionError(null);
+    try {
+      await adminPatch(`/services/${target.id}`, { is_active: next });
+      setServices((cur) =>
+        cur.map((s) => (s.id === target.id ? { ...s, is_active: next } : s))
+      );
+      setPendingToggle(null);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Failed to update treatment");
+    } finally {
+      setTogglingId(null);
     }
   }
 
@@ -109,6 +134,12 @@ export default function ServicesPage() {
           </Link>
         </Button>
       </div>
+
+      {actionError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">
+          {actionError}
+        </div>
+      )}
 
       <Card className="shadow-sm border-slate-200">
         <CardHeader className="p-4 border-b border-slate-100 bg-slate-50/50">
@@ -159,13 +190,10 @@ export default function ServicesPage() {
                     <TableHead className="text-slate-500 font-semibold text-xs uppercase tracking-wider w-[90px]">
                       Clinics
                     </TableHead>
-                    <TableHead className="text-slate-500 font-semibold text-xs uppercase tracking-wider w-[150px]">
+                    <TableHead className="text-slate-500 font-semibold text-xs uppercase tracking-wider w-[130px]">
                       Status
                     </TableHead>
-                    <TableHead className="text-slate-500 font-semibold text-xs uppercase tracking-wider w-[120px]">
-                      Review
-                    </TableHead>
-                    <TableHead className="text-slate-500 font-semibold text-xs uppercase tracking-wider w-[110px]">
+                    <TableHead className="text-slate-500 font-semibold text-xs uppercase tracking-wider w-[280px]">
                       Actions
                     </TableHead>
                   </TableRow>
@@ -237,36 +265,15 @@ export default function ServicesPage() {
                       </TableCell>
 
                       <TableCell>
-                        <div className="flex items-center gap-1.5">
-                          <Badge
-                            className={
-                              item.is_active
-                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                : "bg-slate-100 text-slate-500 border border-slate-200"
-                            }
-                          >
-                            {item.is_active ? "Active" : "Disabled"}
-                          </Badge>
-                          <Badge
-                            className={
-                              item.is_published
-                                ? "bg-purple-50 text-purple-700 border border-purple-200"
-                                : "bg-amber-50 text-amber-700 border border-amber-200"
-                            }
-                          >
-                            {item.is_published ? "Published" : "Draft"}
-                          </Badge>
-                        </div>
-                      </TableCell>
-
-                      <TableCell>
-                        {item.review_status ? (
-                          <span className="text-[13px] text-slate-600 capitalize">
-                            {item.review_status.replace(/_/g, " ")}
-                          </span>
-                        ) : (
-                          <span className="text-slate-400 text-[13px] italic">—</span>
-                        )}
+                        <Badge
+                          className={
+                            item.is_active
+                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                              : "bg-slate-100 text-slate-500 border border-slate-200"
+                          }
+                        >
+                          {item.is_active ? "Published" : "Unpublished"}
+                        </Badge>
                       </TableCell>
 
                       <TableCell>
@@ -303,7 +310,27 @@ export default function ServicesPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => void handleDelete(item)}
+                            onClick={() => setPendingToggle(item)}
+                            disabled={togglingId === item.id}
+                            className={`h-7 px-2.5 text-xs gap-1 border ${
+                              item.is_active
+                                ? "border-amber-200 text-amber-700 hover:bg-amber-50"
+                                : "border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                            }`}
+                          >
+                            {togglingId === item.id ? (
+                              <Loader2 size={12} className="animate-spin" />
+                            ) : item.is_active ? (
+                              <ToggleRight size={12} />
+                            ) : (
+                              <ToggleLeft size={12} />
+                            )}
+                            {item.is_active ? "Unpublish" : "Publish"}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setPendingDelete(item)}
                             disabled={deletingId === item.id}
                             className="h-7 px-2 text-xs border-red-200 text-red-600 hover:bg-red-50"
                           >
@@ -323,6 +350,111 @@ export default function ServicesPage() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingDelete(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete treatment permanently?</DialogTitle>
+            <DialogDescription>
+              This permanently deletes{" "}
+              <span className="font-medium text-foreground">
+                {pendingDelete?.name}
+              </span>{" "}
+              and removes it from every clinic, provider and concern it is linked
+              to. This cannot be undone. To only hide it, use Unpublish instead.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setPendingDelete(null)}
+              disabled={deletingId !== null}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDelete}
+              disabled={deletingId !== null}
+              className="gap-1.5"
+            >
+              {deletingId !== null ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Trash2 size={14} />
+              )}
+              Delete permanently
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={pendingToggle !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingToggle(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {pendingToggle?.is_active
+                ? "Unpublish treatment?"
+                : "Publish treatment?"}
+            </DialogTitle>
+            <DialogDescription>
+              {pendingToggle?.is_active ? (
+                <>
+                  <span className="font-medium text-foreground">
+                    {pendingToggle?.name}
+                  </span>{" "}
+                  will be hidden from the public site and treatment listings.
+                  Nothing is deleted — you can re-publish anytime.
+                </>
+              ) : (
+                <>
+                  <span className="font-medium text-foreground">
+                    {pendingToggle?.name}
+                  </span>{" "}
+                  will become visible on the public site again.
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setPendingToggle(null)}
+              disabled={togglingId !== null}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmToggle}
+              disabled={togglingId !== null}
+              className={
+                pendingToggle?.is_active
+                  ? "gap-1.5 bg-amber-600 text-white hover:bg-amber-700"
+                  : "gap-1.5 bg-emerald-600 text-white hover:bg-emerald-700"
+              }
+            >
+              {togglingId !== null ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : pendingToggle?.is_active ? (
+                <ToggleLeft size={14} />
+              ) : (
+                <ToggleRight size={14} />
+              )}
+              {pendingToggle?.is_active ? "Unpublish" : "Publish"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

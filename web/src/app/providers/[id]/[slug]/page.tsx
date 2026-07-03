@@ -36,6 +36,9 @@ interface ProviderDetails {
   name: string;
   title: string | null;
   bio: string | null;
+  card_tagline: string | null;
+  review_rating: string | null;
+  review_count: number | null;
   image_url: string | null;
   years_experience: number | null;
   is_verified: boolean;
@@ -76,7 +79,10 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { id } = await params;
   const provider = await queryOne<{ name: string; title: string | null }>(
-    "SELECT name, title FROM providers WHERE id = $1",
+    `SELECT p.name, p.title
+       FROM providers p
+       JOIN clinics c ON c.id = p.clinic_id
+      WHERE p.id = $1 AND p.is_active = true AND c.is_active = true`,
     [id]
   );
   if (!provider) return { title: "Provider not found" };
@@ -190,7 +196,7 @@ export default async function ProviderPage({
             ) AS clinic_logo_url
        FROM providers p
        JOIN clinics c ON p.clinic_id = c.id
-      WHERE p.id = $1`,
+      WHERE p.id = $1 AND p.is_active = true AND c.is_active = true`,
     [id]
   );
 
@@ -217,11 +223,13 @@ export default async function ProviderPage({
   );
 
   const loc = [provider.clinic_city, provider.clinic_state].filter(Boolean).join(", ");
+  const reviewRating = provider.review_rating != null ? Number(provider.review_rating) : null;
+  const reviewCount = provider.review_count ?? 0;
   const bookUrl = provider.clinic_booking_url || "#";
   const defaultPhoto = "https://images.stockcake.com/public/1/9/d/19d13828-c999-4e2d-a191-9da4dd8bd824_large/confident-medical-professional-stockcake.jpg";
 
   return (
-    <main className="flex min-h-screen flex-col bg-[#faf7fb] text-zinc-950 font-sans">
+    <main className="flex min-h-screen flex-col bg-[#faf7fb] text-zinc-950 font-sans overflow-x-clip">
       {/* Banner + Nav Header */}
       <div className="bg-gradient-to-r from-[#7b2d6b] via-[#9b3a6e] to-[#b6663f]">
         <HeroHeader />
@@ -235,19 +243,19 @@ export default async function ProviderPage({
             items={[
               { label: "Home", href: "/" },
               { label: "Clinics", href: "/clinics" },
-              { label: `${provider.clinic_name}${loc ? `, ${loc}` : ""}`, href: `/clinics/${provider.clinic_slug}` },
+              { label: provider.clinic_name, href: `/clinics/${provider.clinic_slug}` },
               { label: provider.name }
             ]}
           />
         </div>
 
         {/* ── Main Profile Card ── */}
-        <section className="bg-white rounded-[18px] shadow-[0px_9px_11.1px_rgba(240,223,241,0.6)] py-[40px] px-[40px] sm:px-[62px]">
-          <div className="flex flex-col xl:flex-row gap-[40px] items-start">
+        <section className="bg-white rounded-[18px] shadow-[0px_9px_11.1px_rgba(240,223,241,0.6)] py-8 px-5 sm:py-[40px] sm:px-[62px]">
+          <div className="flex flex-col xl:flex-row gap-8 sm:gap-[40px] items-start">
             
             {/* Left Side: Avatar and Quick Stats */}
             <div className="flex flex-col bg-white rounded-[22px] shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)] shrink-0 w-full xl:w-[358px]">
-              <div className="relative h-[317px] w-full bg-[#E4DBD9] rounded-t-[22px] overflow-hidden">
+              <div className="relative h-[260px] sm:h-[317px] w-full bg-[#E4DBD9] rounded-t-[22px] overflow-hidden">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={provider.image_url || defaultPhoto}
@@ -258,11 +266,19 @@ export default async function ProviderPage({
               <div className="h-[88px] w-full bg-white rounded-b-[22px] flex flex-row items-center justify-between px-[24px]">
                 <div className="flex flex-col items-center gap-[4px]">
                   <div className="flex gap-[4px]">
-                    {Array.from({ length: 5 }).map((_, s) => (
-                      <Star key={s} className="size-[18px] fill-[#FFBA19] text-[#FFBA19]" />
-                    ))}
+                    {Array.from({ length: 5 }).map((_, s) => {
+                      const filled = reviewRating == null ? true : s < Math.round(reviewRating);
+                      return (
+                        <Star
+                          key={s}
+                          className={`size-[18px] ${filled ? "fill-[#FFBA19] text-[#FFBA19]" : "fill-[#E5C7DA]/40 text-[#E5C7DA]/40"}`}
+                        />
+                      );
+                    })}
                   </div>
-                  <span className="text-[12px] font-medium text-[#616161] tracking-[0.02em] leading-[130%]">5.0 (89 Reviews)</span>
+                  <span className="text-[12px] font-medium text-[#616161] tracking-[0.02em] leading-[130%]">
+                    {reviewRating != null ? reviewRating.toFixed(1) : "New"} ({reviewCount} {reviewCount === 1 ? "Review" : "Reviews"})
+                  </span>
                 </div>
                 <div className="w-px h-[35px] bg-[#E5C7DA]/40" />
                 <div className="flex flex-col items-center gap-[2px]">
@@ -278,18 +294,18 @@ export default async function ProviderPage({
             <div className="flex-1 flex flex-col gap-[34px] w-full">
               
               {/* Header Details with Logo */}
-              <div className="flex items-start justify-between gap-[24px]">
-                <div className="flex flex-col gap-[8px]">
-                  <h1 className="text-[36px] font-medium text-[#373634] tracking-[-0.04em] leading-[116%] flex items-center gap-[10px]">
+              <div className="flex items-start justify-between gap-3 sm:gap-[24px]">
+                <div className="flex flex-col gap-[8px] min-w-0">
+                  <h1 className="text-[26px] sm:text-[36px] font-medium text-[#373634] tracking-[-0.04em] leading-[116%] flex items-center gap-[10px]">
                     {provider.name}
                     {provider.is_verified && (
-                      <BadgeCheck className="size-[28px] fill-[#CF5D9A] text-white" />
+                      <BadgeCheck className="size-[22px] sm:size-[28px] shrink-0 fill-[#CF5D9A] text-white" />
                     )}
                   </h1>
                   <span className="text-[16px] font-medium text-[#CF5B9D] tracking-[0.02em] leading-[150%]">
                     {provider.title || "Aesthetic Specialist"}
                   </span>
-                  <div className="flex items-center gap-[16px]">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:gap-[16px]">
                     <span className="text-[16px] font-medium text-[#575757] tracking-[0.02em] leading-[150%]">
                       {provider.clinic_name}
                     </span>
@@ -305,12 +321,12 @@ export default async function ProviderPage({
                 </div>
                 
                 {provider.clinic_logo_url ? (
-                  <div className="w-[122px] h-[106px] shrink-0 border border-[#E5C7DA] bg-white rounded-[16px] p-2 flex items-center justify-center">
+                  <div className="w-[88px] h-[76px] sm:w-[122px] sm:h-[106px] shrink-0 border border-[#E5C7DA] bg-white rounded-[16px] p-2 flex items-center justify-center">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={provider.clinic_logo_url} alt={provider.clinic_name} className="max-h-full max-w-full object-contain" />
                   </div>
                 ) : (
-                  <div className="w-[122px] h-[106px] shrink-0 border border-[#E5C7DA] bg-white rounded-[16px] flex flex-col items-center justify-center p-3 text-center">
+                  <div className="w-[88px] h-[76px] sm:w-[122px] sm:h-[106px] shrink-0 border border-[#E5C7DA] bg-white rounded-[16px] flex flex-col items-center justify-center p-3 text-center">
                     <span className="text-[14px] font-bold text-[#cf5b9d] uppercase leading-none">{provider.clinic_name.split(/\s+/)[0]}</span>
                     <span className="text-[9px] font-medium text-slate-400 mt-1 uppercase leading-none">{provider.clinic_name.split(/\s+/).slice(1).join(" ")}</span>
                   </div>
@@ -350,14 +366,14 @@ export default async function ProviderPage({
                   href={bookUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center justify-center gap-[10px] rounded-[8px] bg-gradient-to-r from-[#DE7F4C] to-[#C341D7] px-[24px] py-[10px] h-[48px] text-[14px] font-semibold text-white transition hover:opacity-95"
+                  className="inline-flex flex-1 sm:flex-none items-center justify-center gap-[10px] rounded-[8px] bg-gradient-to-r from-[#DE7F4C] to-[#C341D7] px-[24px] py-[10px] h-[48px] text-[14px] font-semibold text-white transition hover:opacity-95"
                 >
                   Book Appointment <Calendar className="size-[20px]" />
                 </a>
                 {provider.clinic_phone && (
                   <a
                     href={`tel:${provider.clinic_phone}`}
-                    className="inline-flex items-center justify-center gap-[10px] rounded-[8px] border-[1.5px] border-[#D96F8E] bg-white px-[24px] py-[10px] h-[48px] text-[14px] font-semibold text-[#CF5B9D] transition hover:bg-pink-50/50"
+                    className="inline-flex flex-1 sm:flex-none items-center justify-center gap-[10px] rounded-[8px] border-[1.5px] border-[#D96F8E] bg-white px-[24px] py-[10px] h-[48px] text-[14px] font-semibold text-[#CF5B9D] transition hover:bg-pink-50/50"
                   >
                     Call Clinic <Phone className="size-[17px]" />
                   </a>
@@ -369,26 +385,19 @@ export default async function ProviderPage({
         </section>
 
         {/* ── Credentials and Specialties Card ── */}
-        <section className="rounded-[18px] border border-[#DEDEDE] bg-white py-[40px] px-[40px] shadow-[0px_9px_11.1px_rgba(240,223,241,0.6)] flex flex-col gap-[36px]">
-          
-          <div className="grid md:grid-cols-[1fr_1.5fr] gap-[36px]">
-            {/* Headers */}
-            <h2 className="text-[34px] font-normal text-[#373634] leading-[116%] tracking-[-0.04em]">
-              Credentials & Education
-            </h2>
-            <h2 className="text-[34px] font-normal text-[#373634] leading-[116%] tracking-[-0.04em]">
-              Specialties
-            </h2>
-          </div>
+        <section className="rounded-[18px] border border-[#DEDEDE] bg-white py-8 px-5 sm:py-[40px] sm:px-[40px] shadow-[0px_9px_11.1px_rgba(240,223,241,0.6)] flex flex-col gap-[36px]">
 
-          <div className="grid md:grid-cols-[1fr_1.5fr] gap-[36px] relative">
-            
+          <div className="grid md:grid-cols-[1fr_1.5fr] gap-x-[36px] gap-y-10 relative">
+
             {/* Credentials Column */}
-            <div className="flex flex-col gap-[24px] pr-[36px]">
+            <div className="flex flex-col gap-[24px] md:pr-[36px]">
+              <h2 className="text-[26px] sm:text-[34px] font-normal text-[#373634] leading-[116%] tracking-[-0.04em]">
+                Credentials & Education
+              </h2>
               {provider.credentials && provider.credentials.length > 0 ? (
                 <div className="flex flex-col gap-[24px]">
                   {provider.credentials.map((cred, idx) => (
-                    <div key={idx} className="flex flex-row items-center gap-[32px]">
+                    <div key={idx} className="flex flex-row items-center gap-4 sm:gap-[32px]">
                       <div className="size-[42px] rounded-full border-[1.6px] border-[#EE97C6] flex items-center justify-center shrink-0">
                         <Award className="size-[24px] text-[#EE97C6] stroke-[1.5]" />
                       </div>
@@ -409,6 +418,9 @@ export default async function ProviderPage({
 
             {/* Specialties Column */}
             <div className="flex flex-col gap-[24px]">
+              <h2 className="text-[26px] sm:text-[34px] font-normal text-[#373634] leading-[116%] tracking-[-0.04em]">
+                Specialties
+              </h2>
               {provider.specialties && provider.specialties.length > 0 ? (
                 <div className="grid sm:grid-cols-2 gap-[24px]">
                   {provider.specialties.map((spec, idx) => {
@@ -416,10 +428,10 @@ export default async function ProviderPage({
                     return (
                       <div
                         key={idx}
-                        className="py-[24px] px-[36px] rounded-[16px] bg-white flex flex-row items-center gap-[24px] shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)]"
+                        className="p-5 sm:py-[24px] sm:px-[36px] rounded-[16px] bg-white flex flex-row items-center gap-4 sm:gap-[24px] shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)]"
                       >
                         <div className="shrink-0 flex items-center justify-center text-[#EE97C6]">
-                          <SpecIcon className="size-[50px] stroke-[1]" />
+                          <SpecIcon className="size-10 sm:size-[50px] stroke-[1]" />
                         </div>
                         <div className="flex flex-col gap-[8px] justify-center">
                           <span className="font-semibold text-[18px] text-[#575757] leading-[150%] tracking-[0.02em]">{spec.title}</span>

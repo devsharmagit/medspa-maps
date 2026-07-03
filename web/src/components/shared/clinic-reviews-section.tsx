@@ -29,22 +29,20 @@ function StarRating({ rating }: { rating: number | null }) {
 
 function ReviewCard({ review }: { review: ClinicReview }) {
   return (
-    <div className="relative w-[305px] shrink-0" style={{ paddingTop: "27px" }}>
+    <div className="relative flex w-[290px] sm:w-[305px] shrink-0" style={{ paddingTop: "27px" }}>
       {/* Depth layer — furthest back */}
       <div className="absolute top-[7px] left-[5px] right-[-1px] bottom-0 rounded-[22px] bg-white/40 border border-[rgba(233,233,233,0.6)] shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)]" />
       {/* Depth layer — middle */}
       <div className="absolute top-[14px] left-[3px] right-[-1px] bottom-0 rounded-[22px] bg-white/60 border border-[rgba(233,233,233,0.8)] shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)]" />
-      {/* Main front card */}
-      <div className="relative rounded-[22px] bg-white shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)] px-[25px] py-[20px]">
-        <div className="flex flex-col gap-[16px]">
-          <StarRating rating={review.rating} />
-          <p className="font-montserrat text-[14px] font-normal leading-[138%] tracking-[0.02em] text-[#727272] line-clamp-5">
-            {review.body}
-          </p>
-          <span className="font-montserrat text-[16px] font-medium leading-[116.02%] tracking-[0.02em] text-[#393939]">
-            - {review.reviewer_name || "Verified Patient"}
-          </span>
-        </div>
+      {/* Main front card — fills the row height so short reviews don't float */}
+      <div className="relative flex w-full min-h-[186px] flex-col gap-[14px] rounded-[22px] bg-white shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)] px-[25px] py-[20px]">
+        <StarRating rating={review.rating} />
+        <p className="flex-1 font-montserrat text-[14px] font-normal leading-[138%] tracking-[0.02em] text-[#727272] line-clamp-5">
+          {review.body}
+        </p>
+        <span className="font-montserrat text-[16px] font-medium leading-[116.02%] tracking-[0.02em] text-[#393939]">
+          - {review.reviewer_name || "Verified Patient"}
+        </span>
       </div>
     </div>
   );
@@ -68,12 +66,12 @@ export function ClinicReviewsSection({
   };
 
   return (
-    <section className="box-border flex w-full flex-col items-center gap-[16px] rounded-[18px] border border-[#DEDEDE] bg-white py-[20px] shadow-[0px_9px_11.1px_rgba(240,223,241,0.6)]">
+    <section className="box-border flex w-full flex-col items-center gap-6 rounded-[18px] border border-[#DEDEDE] bg-white pt-8 sm:pt-10 pb-6 sm:pb-[24px] shadow-[0px_9px_11.1px_rgba(240,223,241,0.6)]">
       {/* Header */}
       <div className="flex w-full flex-row items-center justify-between px-[20px] sm:px-[64px]">
-        <h2 className="font-montserrat text-[28px] sm:text-[34px] font-normal leading-[116.02%] tracking-[-0.04em] text-[#373634]">
-          What our{" "}
-          <span className="font-fraunces italic font-normal">Client Says</span>
+        <h2 className="font-montserrat text-[22px] sm:text-[34px] font-normal leading-[116.02%] tracking-[-0.04em] text-[#373634]">
+          Clinic{" "}
+          <span className="font-fraunces italic font-normal">Reviews</span>
         </h2>
         <div className="flex h-[31px] items-center gap-[3px]">
           <button

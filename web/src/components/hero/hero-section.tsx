@@ -3,8 +3,6 @@ import Image from "next/image";
 import { HeroHeader } from "@/components/hero/hero-header";
 import { HeroSearchBar } from "@/components/hero/hero-search-bar";
 import { TreatmentCarousel } from "@/components/hero/treatment-carousel";
-import { StarRating } from "@/components/ui/star-rating";
-import { cn } from "@/lib/utils";
 
 const trustItems = [
   "10,000+ Verified Listings",
@@ -13,13 +11,6 @@ const trustItems = [
   "No Pay-to-Rank",
 ] as const;
 
-const avatars = [
-  "/images/hero/avatar-1.png",
-  "/images/hero/avatar-2.png",
-  "/images/hero/avatar-3.png",
-  "/images/hero/avatar-4.png",
-  "/images/hero/avatar-5.png",
-] as const;
 
 export function HeroSection() {
   return (
@@ -93,42 +84,7 @@ export function HeroSection() {
             </ul>
           </div>
 
-          {/* Social proof */}
-          <div className="flex justify-end">
-            <div className="flex items-end gap-4">
-              <div className="flex items-center">
-                {avatars.map((src, index) => (
-                  <div
-                    key={src}
-                    className={cn(
-                      "relative size-12 overflow-hidden rounded-full border-2 border-white/30 sm:size-14",
-                      index > 0 && "-ml-3",
-                    )}
-                  >
-                    <Image
-                      src={src}
-                      alt=""
-                      fill
-                      className="object-cover"
-                      sizes="56px"
-                    />
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="text-4xl font-normal leading-none text-white sm:text-[52px]">
-                  4.9
-                </span>
-                <div className="flex flex-col gap-1">
-                  <StarRating rating={4.9} />
-                  <span className="text-[15px] leading-tight text-white">
-                    4500+ Happy Clients
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
+    
         </div>
       </div>
 

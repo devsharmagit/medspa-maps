@@ -35,18 +35,15 @@ export interface TreatmentPageData {
     price_unit: string | null;
     distance_km: number | null;
   }[];
-  reviews: {
-    rating: number | null;
-    body: string;
-    reviewer_name: string | null;
-    clinic_name: string;
-  }[];
+
   providers: {
     id: string;
     clinic_id: string;
     name: string;
     title: string | null;
     bio: string | null;
+    card_tagline: string | null;
+    review_rating: string | null;
     image_url: string | null;
     years_experience: number | null;
     highlights: any;
@@ -93,7 +90,7 @@ export async function getTreatmentData(
     (a: string) => `%${a}%`
   );
 
-  const [clinics, reviews, providers] = await Promise.all([
+  const [clinics, providers] = await Promise.all([
     pool.query(
       `SELECT DISTINCT ON (cl.id)
          cl.id, cl.name, cl.slug, cl.city, cl.state, cl.website,
@@ -106,6 +103,11 @@ export async function getTreatmentData(
           FROM images i
           WHERE i.entity_type = 'clinic' AND i.entity_id = cl.id
          ) AS images,
+         (SELECT COALESCE(i2.cdn_url, i2.source_url) FROM images i2
+          WHERE i2.entity_type = 'clinic' AND i2.entity_id = cl.id
+            AND i2.role IN ('cover','gallery') AND i2.scrape_status = 'ok'
+          ORDER BY (i2.role = 'cover') DESC, i2.sort_order LIMIT 1
+         ) AS cover_image,
          COALESCE(cls.price_from, $2) AS price_from,
          COALESCE(cls.price_unit, $3) AS price_unit
        FROM clinic_services cls
@@ -120,24 +122,11 @@ export async function getTreatmentData(
       [s.id, s.price_from, s.price_unit, s.name, aliasPatterns]
     ),
     pool.query(
-      `SELECT DISTINCT ON (r.id) r.rating, r.body, r.reviewer_name, cl.name AS clinic_name
-       FROM clinic_services cls
-       JOIN clinics cl ON cl.id = cls.clinic_id AND cl.is_active = true
-       JOIN reviews r ON r.clinic_id = cl.id AND r.is_approved = true AND r.is_active = true
-       WHERE cls.is_active = true
-         AND (
-           cls.service_id = $1
-           OR cls.raw_name ILIKE '%' || $2 || '%'
-           OR cls.raw_name ILIKE ANY($3)
-         )
-       ORDER BY r.id, r.rating DESC NULLS LAST LIMIT 12`,
-      [s.id, s.name, aliasPatterns]
-    ),
-    pool.query(
       `SELECT DISTINCT ON (p.id)
-         p.id, p.clinic_id, p.name, p.title, p.bio, p.image_url, p.years_experience,
+         p.id, p.clinic_id, p.name, p.title, p.bio, p.card_tagline, p.review_rating,
+         p.review_count, p.image_url, p.years_experience,
          p.highlights, p.specialties,
-         cl.name AS clinic_name, cl.avg_rating, cl.review_count, cl.lat, cl.lng
+         cl.name AS clinic_name, cl.avg_rating, cl.lat, cl.lng
        FROM provider_services ps
        JOIN providers p ON p.id = ps.provider_id AND p.is_active = true
        JOIN clinics cl ON cl.id = p.clinic_id AND cl.is_active = true
@@ -243,7 +232,6 @@ export async function getTreatmentData(
     },
     clinics: clinicRows,
     providers: providerRows,
-    reviews: reviews.rows,
   } as TreatmentPageData;
 }
 

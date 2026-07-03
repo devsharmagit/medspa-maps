@@ -2,6 +2,7 @@
 
 import { ChevronDown, Heart, MapPin, Play, Star } from "lucide-react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -201,11 +202,11 @@ function ClinicCard({ clinic }: { clinic: Clinic }) {
 
   return (
     <div
-      className="w-[660px] overflow-hidden rounded-[18px] border-2 border-white bg-white"
+      className="w-full overflow-hidden rounded-[18px] border-2 border-white bg-white"
       style={{ boxShadow: "0px 4px 21.3px #E2D8E6" }}
     >
       {/* ── Main Image ── */}
-      <div className="relative h-[302px] w-full overflow-hidden">
+      <div className="relative h-[200px] lg:h-[302px] w-full overflow-hidden">
         <Image
           src={clinic.mainImage}
           alt={clinic.name}
@@ -258,7 +259,7 @@ function ClinicCard({ clinic }: { clinic: Clinic }) {
       </div>
 
       {/* ── Card Body ── */}
-      <div className="bg-white px-[30px] pt-[24px] pb-[24px]">
+      <div className="bg-white px-4 lg:px-[30px] pt-5 pb-5 lg:pt-[24px] lg:pb-[24px]">
 
         {/* Row 1: Logo + Name/Location  |  Thumbnails */}
         <div className="flex items-start justify-between gap-4">
@@ -305,7 +306,7 @@ function ClinicCard({ clinic }: { clinic: Clinic }) {
           </div>
 
           {/* Right: thumbnails */}
-          <div className="flex shrink-0 items-center gap-[9px]">
+          <div className="hidden lg:flex shrink-0 items-center gap-[9px]">
             {clinic.thumbnails.map((img, idx) => (
               <div
                 key={idx}
@@ -341,7 +342,7 @@ function ClinicCard({ clinic }: { clinic: Clinic }) {
           <span className="font-montserrat tracking-[-0.02em]">({clinic.reviewCount})</span>
         </div>
 
-<div className="flex justify-between ">
+<div className="flex flex-col gap-3 lg:flex-row lg:justify-between lg:gap-4">
 
         {/* Row 3: Treatment tags */}
         <div className="mt-[10px] flex flex-wrap items-center gap-[6px]">
@@ -356,11 +357,11 @@ function ClinicCard({ clinic }: { clinic: Clinic }) {
         </div>
 
         {/* Row 4: CTA buttons */}
-        <div className="mt-[20px] flex items-center gap-[9px]">
-          <button className="flex h-[43px] w-[120px] items-center justify-center rounded-lg border border-[#CF5B9D] font-montserrat text-[14px] font-semibold text-[#CF5B9D] transition-colors hover:bg-pink-50">
+        <div className="mt-1 lg:mt-[20px] flex items-center gap-[9px] shrink-0">
+          <button className="flex h-[43px] flex-1 lg:w-[120px] lg:flex-none items-center justify-center rounded-lg border border-[#CF5B9D] font-montserrat text-[14px] font-semibold text-[#CF5B9D] transition-colors hover:bg-pink-50">
             View Profile
           </button>
-          <button className="flex h-[43px] w-[127px] items-center justify-center rounded-lg bg-[linear-gradient(90deg,#DE7F4C_0%,#C341D7_100%)] font-montserrat text-[14px] font-semibold text-white transition-opacity hover:opacity-90">
+          <button className="flex h-[43px] flex-1 lg:w-[127px] lg:flex-none items-center justify-center rounded-lg bg-[linear-gradient(90deg,#DE7F4C_0%,#C341D7_100%)] font-montserrat text-[14px] font-semibold text-white transition-opacity hover:opacity-90">
             Book Now
           </button>
         </div>
@@ -407,9 +408,46 @@ function StarOutlineIcon() {
 
 // ─── FindClinicSection ────────────────────────────────────────────────────────
 
+const TREATMENT_OPTIONS = [
+  { value: "botox", label: "Botox" },
+  { value: "dermal-fillers", label: "Dermal Fillers" },
+  { value: "kybella", label: "Kybella" },
+  { value: "pdo-threads", label: "PDO Threads" },
+  { value: "prp-prf", label: "PRP / PRF" },
+  { value: "microneedling", label: "Microneedling" },
+  { value: "chemical-peels", label: "Chemical Peels" },
+  { value: "hydrafacial", label: "HydraFacial" },
+  { value: "rf-skin-tightening", label: "RF Skin Tightening" },
+  { value: "ultherapy", label: "Ultherapy" },
+  { value: "laser-skin-resurfacing", label: "Laser Resurfacing" },
+  { value: "laser-hair-removal", label: "Laser Hair Removal" },
+  { value: "ipl-photofacial", label: "IPL / Photofacial" },
+  { value: "coolsculpting", label: "CoolSculpting" },
+  { value: "body-contouring", label: "Body Contouring" },
+];
+
+const DISTANCE_OPTIONS = [
+  { value: "10", label: "10 Miles Away" },
+  { value: "25", label: "25 Miles Away" },
+  { value: "50", label: "50 Miles Away" },
+  { value: "100", label: "100 Miles Away" },
+];
+
+const RATING_OPTIONS = [
+  { value: "4.0", label: "4.0+ and More Rating" },
+  { value: "4.5", label: "4.5+ and More Rating" },
+  { value: "5.0", label: "5.0 Only" },
+];
+
 export function FindClinicSection() {
+  const router = useRouter();
   const [current, setCurrent] = useState(0);
   const total = clinicData.length;
+
+  // Filter states
+  const [selectedTreatment, setSelectedTreatment] = useState("");
+  const [selectedDistance, setSelectedDistance] = useState("25");
+  const [selectedRating, setSelectedRating] = useState("");
 
   const dragStart = useRef<number | null>(null);
   const isDragging = useRef(false);
@@ -447,66 +485,142 @@ export function FindClinicSection() {
     dragStart.current = null;
   };
 
+  const handleApplyFilters = () => {
+    const params = new URLSearchParams();
+    
+    if (selectedTreatment) {
+      params.set("q", selectedTreatment);
+    }
+    
+    if (selectedDistance) {
+      params.set("radius", selectedDistance);
+    }
+    
+    if (selectedRating) {
+      params.set("rating", selectedRating);
+    }
+    
+    router.push(`/search?${params.toString()}`);
+  };
+
+  const handleClearFilters = () => {
+    setSelectedTreatment("");
+    setSelectedDistance("25");
+    setSelectedRating("");
+  };
+
   return (
     <section className="flex w-full flex-col items-center gap-[27px] overflow-hidden pb-16 pt-0">
       {/* ── Title ── */}
-      <h2 className="w-full text-center font-montserrat text-[34px] font-normal leading-[116.02%] tracking-[-0.04em] text-[#373634]">
+      <h2 className="w-full px-4 text-center font-montserrat text-[26px] sm:text-[30px] lg:text-[34px] font-normal leading-[116.02%] tracking-[-0.04em] text-[#373634]">
         Find the <em className="font-normal font-heading" >Perfect Clinic</em>
       </h2>
 
-      {/* ── Filter Bar — single row, centred ── */}
-      <div className="flex w-full max-w-[1355px] items-center justify-center gap-[25px] px-8">
+      {/* ── Filter Bar — single row on desktop, stacked on mobile ── */}
+      <div className="flex w-full max-w-[1355px] flex-col lg:flex-row items-stretch lg:items-center justify-center gap-4 lg:gap-[25px] px-4 lg:px-8">
         {/* Filter dropdowns group */}
-        <div className="flex items-center gap-[27px]">
+        <div className="flex flex-col lg:flex-row w-full lg:w-auto items-stretch lg:items-center gap-4 lg:gap-[27px]">
           {/* Treatments */}
-          <div className="flex items-center gap-[8px]">
+          <div className="flex w-full lg:w-auto items-center gap-[8px]">
             <div className="flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-full bg-[#CF5D9A]">
               <SearchIcon />
             </div>
-            <div className="flex h-[50px] w-[280px] cursor-pointer items-center justify-between rounded-[4px] border border-[#D2C3D3] bg-white px-[22px]">
-              <span className="font-montserrat text-[16px] leading-[140%] text-[#727272]">Treatments</span>
-              <ChevronDown className="h-4 w-4 text-[#353535]" />
+            <div className="relative w-full lg:w-auto">
+              <select
+                value={selectedTreatment}
+                onChange={(e) => setSelectedTreatment(e.target.value)}
+                className="flex h-[50px] w-full lg:w-[280px] cursor-pointer appearance-none items-center justify-between rounded-[4px] border border-[#D2C3D3] bg-white px-[22px] font-montserrat text-[16px] leading-[140%] text-[#727272] focus:outline-none focus:ring-2 focus:ring-[#CF5D9A]"
+              >
+                <option value="">Treatments</option>
+                {TREATMENT_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-[22px] top-1/2 h-4 w-4 -translate-y-1/2 text-[#353535]" />
             </div>
           </div>
 
           {/* Distance */}
-          <div className="flex items-center gap-[8px]">
+          <div className="flex w-full lg:w-auto items-center gap-[8px]">
             <div className="flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-full bg-[#CF5D9A]">
               <LocationIcon />
             </div>
-            <div className="flex h-[50px] w-[280px] cursor-pointer items-center justify-between rounded-[4px] border border-[#D2C3D3] bg-white px-[22px]">
-              <span className="font-montserrat text-[16px] leading-[140%] text-[#727272]">25 Miles Away</span>
-              <ChevronDown className="h-4 w-4 text-[#353535]" />
+            <div className="relative w-full lg:w-auto">
+              <select
+                value={selectedDistance}
+                onChange={(e) => setSelectedDistance(e.target.value)}
+                className="flex h-[50px] w-full lg:w-[280px] cursor-pointer appearance-none items-center justify-between rounded-[4px] border border-[#D2C3D3] bg-white px-[22px] font-montserrat text-[16px] leading-[140%] text-[#727272] focus:outline-none focus:ring-2 focus:ring-[#CF5D9A]"
+              >
+                {DISTANCE_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-[22px] top-1/2 h-4 w-4 -translate-y-1/2 text-[#353535]" />
             </div>
           </div>
 
           {/* Rating */}
-          <div className="flex items-center gap-[8px]">
+          <div className="flex w-full lg:w-auto items-center gap-[8px]">
             <div className="flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-full bg-[#CF5D9A]">
               <StarOutlineIcon />
             </div>
-            <div className="flex h-[50px] w-[280px] cursor-pointer items-center justify-between rounded-[4px] border border-[#D2C3D3] bg-white px-[22px]">
-              <span className="font-montserrat text-[16px] leading-[140%] text-[#727272]">4.0+ and More Rating</span>
-              <ChevronDown className="h-4 w-4 text-[#353535]" />
+            <div className="relative w-full lg:w-auto">
+              <select
+                value={selectedRating}
+                onChange={(e) => setSelectedRating(e.target.value)}
+                className="flex h-[50px] w-full lg:w-[280px] cursor-pointer appearance-none items-center justify-between rounded-[4px] border border-[#D2C3D3] bg-white px-[22px] font-montserrat text-[16px] leading-[140%] text-[#727272] focus:outline-none focus:ring-2 focus:ring-[#CF5D9A]"
+              >
+                <option value="">All Ratings</option>
+                {RATING_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-[22px] top-1/2 h-4 w-4 -translate-y-1/2 text-[#353535]" />
             </div>
           </div>
         </div>
 
         {/* Divider + actions */}
-        <div className="flex items-center gap-[20px]">
-          <div className="h-[50px] w-px bg-[#D2D2D2]" />
-          <button className="whitespace-nowrap font-montserrat text-[16px] font-medium text-[#CF5D9A] transition-opacity hover:opacity-70">
+        <div className="flex items-center justify-between lg:justify-normal gap-4 lg:gap-[20px] w-full lg:w-auto">
+          <div className="hidden lg:block h-[50px] w-px bg-[#D2D2D2]" />
+          <button
+            onClick={handleClearFilters}
+            className="whitespace-nowrap font-montserrat text-[16px] font-medium text-[#CF5D9A] transition-opacity hover:opacity-70"
+          >
             Clear Filters
           </button>
-          <button className="flex h-[47px] w-[127px] shrink-0 items-center justify-center rounded-[8px] bg-[linear-gradient(90deg,#DE7F4C_0%,#C341D7_100%)] font-montserrat text-[14px] font-semibold text-white transition-opacity hover:opacity-90">
+          <button
+            onClick={handleApplyFilters}
+            className="flex h-[47px] w-[160px] lg:w-[127px] shrink-0 items-center justify-center rounded-[8px] bg-[linear-gradient(90deg,#DE7F4C_0%,#C341D7_100%)] font-montserrat text-[14px] font-semibold text-white transition-opacity hover:opacity-90"
+          >
             Apply Filters
           </button>
         </div>
       </div>
 
-      {/* ── Carousel ── */}
+      {/* ── Mobile / tablet carousel — swipeable scroll-snap row ── */}
+      <div className="w-full lg:hidden">
+        <div className="flex w-full snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth scrollbar-none px-4 pb-4">
+          {clinicData.map((clinic) => (
+            <div
+              key={clinic.id}
+              className="w-[88vw] max-w-[440px] shrink-0 snap-center py-2"
+            >
+              <ClinicCard clinic={clinic} />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Desktop carousel — 3D coverflow ── */}
       <div
-        className="relative w-full max-w-[1346px]"
+        className="relative hidden w-full max-w-[1346px] lg:block"
         style={{ height: 520, perspective: "1400px", perspectiveOrigin: "50% 50%" }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -526,6 +640,7 @@ export function FindClinicSection() {
                 position: "absolute",
                 top: "50%",
                 left: "50%",
+                width: 660,
                 transform: slot.transform,
                 opacity: slot.opacity,
                 zIndex: slot.zIndex,

@@ -54,19 +54,25 @@ export async function GET(request: NextRequest) {
     if (hasOrigin) {
       const latParam = paramIdx;
       const lngParam = paramIdx + 1;
-      // 3959 = Earth radius in miles
+      // 3959 = Earth radius in miles. Guard null coords explicitly: GREATEST/
+      // LEAST ignore NULLs in Postgres, so without this a null-coordinate clinic
+      // would collapse to acos(1)=0 and masquerade as "0 miles / nearest".
       distanceExpr = `(
+        CASE WHEN c.lat IS NULL OR c.lng IS NULL THEN NULL ELSE
         3959 * acos(
           GREATEST(-1, LEAST(1,
             cos(radians($${latParam})) * cos(radians(c.lat))
             * cos(radians(c.lng) - radians($${lngParam}))
             + sin(radians($${latParam})) * sin(radians(c.lat))
           ))
-        )
+        ) END
       )`;
       params.push(latNum, lngNum);
       paramIdx += 2;
-      conditions.push("c.lat IS NOT NULL AND c.lng IS NOT NULL");
+      // NOTE: we intentionally do NOT require lat/lng here. A clinic without
+      // coordinates simply gets distance_miles = NULL (sorted last within its
+      // group) rather than disappearing the moment a user shares their location.
+      // The radius hard-filter below naturally excludes null-coordinate clinics.
     }
 
     // Service / treatment search — checks canonical services AND raw scraped names
@@ -121,15 +127,17 @@ export async function GET(request: NextRequest) {
       paramIdx++;
     }
 
-    // Rating filter — minimum avg_rating (NULLS excluded)
+    // Rating filter — minimum rating (internal avg, else external/Google).
     if (ratingNum !== null) {
-      conditions.push(`c.avg_rating >= $${paramIdx}`);
+      conditions.push(`COALESCE(c.avg_rating, c.ext_rating) >= $${paramIdx}`);
       params.push(ratingNum);
       paramIdx++;
     }
 
-    // Radius hard-filter — only when an origin is given
-    if (hasOrigin) {
+    // Radius hard-filter — ONLY when the user explicitly picks a distance band.
+    // Having an origin alone just enables distance display + distance sorting; it
+    // must never silently hide clinics that fall outside a default radius.
+    if (hasOrigin && radiusRaw !== null && Number.isFinite(Number(radiusRaw))) {
       conditions.push(`${distanceExpr} <= $${paramIdx}`);
       params.push(radiusNum);
       paramIdx++;
@@ -137,10 +145,13 @@ export async function GET(request: NextRequest) {
 
     // Sort order. DISTINCT ON (c.id) requires c.id to lead the ORDER BY, so the
     // per-clinic tie-break ordering follows it here and JS re-sorts afterwards.
-    let orderBy = "c.featured DESC, c.avg_rating DESC NULLS LAST, c.review_count DESC";
-    if (sort === "name") orderBy = "c.name ASC";
-    else if (sort === "reviews") orderBy = "c.review_count DESC, c.avg_rating DESC NULLS LAST";
-    else if (sort === "distance" && hasOrigin) orderBy = "distance_miles ASC, c.featured DESC, c.avg_rating DESC NULLS LAST";
+    // Featured clinics are ALWAYS pinned on top; the chosen sort only orders
+    // within the featured and non-featured groups.
+    let orderBy =
+      "c.featured DESC, COALESCE(c.avg_rating, c.ext_rating) DESC NULLS LAST, c.review_count DESC";
+    if (sort === "name") orderBy = "c.featured DESC, c.name ASC";
+    else if (sort === "reviews") orderBy = "c.featured DESC, c.review_count DESC NULLS LAST";
+    else if (sort === "distance" && hasOrigin) orderBy = "c.featured DESC, distance_miles ASC NULLS LAST";
 
     const query = `
       SELECT DISTINCT ON (c.id)
@@ -158,6 +169,8 @@ export async function GET(request: NextRequest) {
         c.lng,
         c.avg_rating,
         c.review_count,
+        c.ext_rating,
+        c.ext_review_count,
         c.featured,
         c.tier,
         c.verified,
@@ -185,11 +198,29 @@ export async function GET(request: NextRequest) {
           ) t
         ) AS services,
         (
-          SELECT source_url FROM images
+          SELECT COALESCE(cdn_url, source_url) FROM images
           WHERE entity_type = 'clinic' AND entity_id = c.id
           AND role IN ('cover', 'gallery') AND scrape_status = 'ok'
           ORDER BY (role = 'cover') DESC, sort_order LIMIT 1
         ) AS cover_image_url,
+        (
+          -- Photo strip for the card: cover first, then gallery, then before/after.
+          SELECT COALESCE(json_agg(url ORDER BY ord, so), '[]'::json) FROM (
+            SELECT COALESCE(cdn_url, source_url) AS url,
+              CASE role WHEN 'cover' THEN 0 WHEN 'gallery' THEN 1 ELSE 2 END AS ord,
+              sort_order AS so
+            FROM images
+            WHERE entity_type = 'clinic' AND entity_id = c.id
+              AND role IN ('cover', 'gallery', 'before_after')
+              AND scrape_status = 'ok'
+            ORDER BY ord, so
+            LIMIT 12
+          ) g
+        ) AS gallery_images,
+        (
+          SELECT count(*)::int FROM clinic_locations cl
+          WHERE cl.clinic_id = c.id AND cl.is_active = true
+        ) AS location_count,
         '[]'::json AS providers,
         (
           SELECT COALESCE(json_agg(loc ORDER BY loc.sort_order), '[]'::json) FROM (
@@ -221,26 +252,29 @@ export async function GET(request: NextRequest) {
           : Math.round(Number(row.distance_miles) * 10) / 10;
     }
 
-    if (sort === "distance" && hasOrigin) {
-      // Nearest first, then featured, then rating
-      rows.sort((a, b) => {
+    // Rating for display/sort: internal average, falling back to external/Google.
+    const ratingOf = (r: { avg_rating: unknown; ext_rating: unknown }) =>
+      Number(r.avg_rating ?? r.ext_rating ?? 0);
+
+    rows.sort((a, b) => {
+      // Featured clinics are ALWAYS on top, regardless of the chosen sort.
+      if (a.featured !== b.featured) return a.featured ? -1 : 1;
+
+      // Then order within each group by the selected sort.
+      if (sort === "distance" && hasOrigin) {
         const da = a.distance_miles ?? Infinity;
         const db = b.distance_miles ?? Infinity;
         if (da !== db) return da - db;
-        if (a.featured !== b.featured) return a.featured ? -1 : 1;
-        return (b.avg_rating || 0) - (a.avg_rating || 0);
-      });
-    } else if (sort === "name") {
-      rows.sort((a, b) => a.clinic_name.localeCompare(b.clinic_name));
-    } else if (sort === "reviews") {
-      rows.sort((a, b) => (b.review_count || 0) - (a.review_count || 0));
-    } else {
-      // Default: featured first, then by rating
-      rows.sort((a, b) => {
-        if (a.featured !== b.featured) return a.featured ? -1 : 1;
-        return (b.avg_rating || 0) - (a.avg_rating || 0);
-      });
-    }
+        return ratingOf(b) - ratingOf(a);
+      }
+      if (sort === "name") return a.clinic_name.localeCompare(b.clinic_name);
+      if (sort === "reviews") return (b.review_count || 0) - (a.review_count || 0);
+
+      // Default: rating (internal → external), then review volume.
+      const byRating = ratingOf(b) - ratingOf(a);
+      if (byRating !== 0) return byRating;
+      return (b.review_count || 0) - (a.review_count || 0);
+    });
 
     return NextResponse.json({
       results: rows,

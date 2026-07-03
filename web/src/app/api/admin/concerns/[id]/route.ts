@@ -136,7 +136,9 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
   }
 }
 
-// DELETE /api/admin/concerns/[id] — soft delete (is_active = false)
+// DELETE /api/admin/concerns/[id] — permanent delete.
+// clinic_concerns / concern_services / provider_concerns links cascade away;
+// reviews are nulled (ON DELETE SET NULL).
 export async function DELETE(_req: NextRequest, { params }: RouteContext) {
   try {
     await requireAdmin();
@@ -144,9 +146,7 @@ export async function DELETE(_req: NextRequest, { params }: RouteContext) {
     const { id } = await params;
 
     const rows = await query<{ id: string; name: string }>(
-      `UPDATE concerns SET is_active = false, updated_at = now()
-       WHERE id = $1
-       RETURNING id, name`,
+      `DELETE FROM concerns WHERE id = $1 RETURNING id, name`,
       [id]
     );
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Star, ArrowLeft, ArrowRight } from "lucide-react";
 
 export interface SharedReviewData {
@@ -12,7 +12,24 @@ export interface SharedReviewData {
 
 export function ReviewsCarousel({ reviews }: { reviews: SharedReviewData[] }) {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const itemsPerPage = 4; // Depending on screen size, could be responsive, but let's default to 4 on large screens.
+  // Cards visible per page adapts to the viewport so the paging math (below)
+  // matches how many cards actually fit: 1 on phones, 2 on tablets, 4 on desktop.
+  const [itemsPerPage, setItemsPerPage] = useState(4);
+
+  useEffect(() => {
+    const update = () => {
+      const w = window.innerWidth;
+      setItemsPerPage(w < 640 ? 1 : w < 1024 ? 2 : 4);
+    };
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+
+  // Keep the current position valid when the page size changes.
+  useEffect(() => {
+    setCurrentIndex((ci) => Math.floor(ci / itemsPerPage) * itemsPerPage);
+  }, [itemsPerPage]);
 
   if (!reviews || reviews.length === 0) return null;
 
@@ -25,9 +42,9 @@ export function ReviewsCarousel({ reviews }: { reviews: SharedReviewData[] }) {
   };
 
   return (
-    <section className="mt-[100px] mb-20 relative">
+    <section className="mt-16 sm:mt-[100px] mb-12 sm:mb-20 relative">
       <div className="flex items-center justify-between mb-8">
-        <h2 className="text-[34px] font-normal leading-[116%] tracking-[-0.04em] text-[#373634]">
+        <h2 className="text-[26px] sm:text-[34px] font-normal leading-[116%] tracking-[-0.04em] text-[#373634]">
           What our <span className="font-fraunces italic font-normal">Client Says</span>
         </h2>
       </div>
@@ -72,18 +89,18 @@ export function ReviewsCarousel({ reviews }: { reviews: SharedReviewData[] }) {
 
         {/* Navigation Arrows */}
         {currentIndex > 0 && (
-          <button 
+          <button
             onClick={handlePrev}
-            className="absolute left-[-20px] top-1/2 -translate-y-1/2 flex h-[50px] w-[50px] items-center justify-center rounded-full bg-white shadow-[0px_4px_12px_rgba(0,0,0,0.1)] text-[#A8698A] hover:bg-zinc-50 z-10 transition"
+            className="absolute left-1 sm:left-[-20px] top-1/2 -translate-y-1/2 flex h-[44px] w-[44px] sm:h-[50px] sm:w-[50px] items-center justify-center rounded-full bg-white shadow-[0px_4px_12px_rgba(0,0,0,0.1)] text-[#A8698A] hover:bg-zinc-50 z-10 transition"
           >
             <ArrowLeft className="size-5" />
           </button>
         )}
         
         {currentIndex + itemsPerPage < reviews.length && (
-          <button 
+          <button
             onClick={handleNext}
-            className="absolute right-[-20px] top-1/2 -translate-y-1/2 flex h-[50px] w-[50px] items-center justify-center rounded-full bg-white shadow-[0px_4px_12px_rgba(0,0,0,0.1)] text-[#A8698A] hover:bg-zinc-50 z-10 transition"
+            className="absolute right-1 sm:right-[-20px] top-1/2 -translate-y-1/2 flex h-[44px] w-[44px] sm:h-[50px] sm:w-[50px] items-center justify-center rounded-full bg-white shadow-[0px_4px_12px_rgba(0,0,0,0.1)] text-[#A8698A] hover:bg-zinc-50 z-10 transition"
           >
             <ArrowRight className="size-5" />
           </button>

@@ -1,19 +1,60 @@
 "use client";
 
 import { Gem, Star, LifeBuoy } from "lucide-react";
+import { useState, FormEvent } from "react";
 
 // ─── ResourcesSection ─────────────────────────────────────────────────────────
 
 export function ResourcesSection() {
+  const [formData, setFormData] = useState({
+    full_name: "",
+    business_email: "",
+    business_name: "",
+  });
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    setSuccess(false);
+
+    try {
+      const response = await fetch("/api/leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to submit form");
+      }
+
+      setSuccess(true);
+      setFormData({ full_name: "", business_email: "", business_name: "" });
+      
+      // Reset success message after 5 seconds
+      setTimeout(() => setSuccess(false), 5000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <section className="mx-auto flex w-full max-w-[1372px] flex-col lg:flex-row items-center justify-between gap-6 overflow-visible py-8 px-4 lg:px-0">
+    <section 
+      id="list-your-medspa"
+      className="mx-auto flex w-full max-w-[1372px] flex-col lg:flex-row items-center justify-between gap-6 overflow-visible py-8 px-4 lg:px-0"
+    >
       {/* ── Left Card: Get Your medSpa listed ── */}
       <div
-        className="relative flex w-full lg:w-[814px] h-auto lg:h-[546px] flex-col items-start rounded-[18px] border border-[#DEC6DF] overflow-hidden p-6 sm:p-10 lg:p-0"
+        className="relative flex w-full lg:w-[814px] h-auto lg:h-[546px] flex-col items-start rounded-[18px] border border-[#DEC6DF] overflow-hidden p-6 sm:p-10 lg:p-0 bg-[linear-gradient(145deg,#F5CFFA_0%,#FAE3F9_50%,#FFFFFF_100%)] bg-no-repeat lg:bg-[url(/images/landingpage/gift-bg-whole.png)] lg:bg-[length:107%] lg:bg-center"
         style={{
-          backgroundImage: "url(/images/landingpage/gift-bg-whole.png)",
-          backgroundSize: "107%",
-          backgroundPosition: "center",
           boxShadow: "0px 8px 14px rgba(0, 0, 0, 0.02)",
         }}
       >
@@ -114,14 +155,21 @@ export function ResourcesSection() {
         </div>
 
         {/* Form Inputs (Desktop absolute, mobile mt-8) */}
-        <form className="flex flex-col gap-[13px] w-full lg:max-w-[422px] mt-8 lg:mt-0 lg:absolute lg:left-[54px] lg:top-[170px] z-30">
+        <form 
+          onSubmit={handleSubmit}
+          className="flex flex-col gap-[13px] w-full lg:max-w-[422px] mt-8 lg:mt-0 lg:absolute lg:left-[54px] lg:top-[170px] z-30"
+        >
           {/* Full Name */}
           <div className="flex h-[50px] w-full items-center rounded-[4px] border border-[#D2C3D3] bg-white px-[15px]">
             <input
               type="text"
+              name="full_name"
+              value={formData.full_name}
+              onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
               placeholder="Full Name"
               className="w-full font-montserrat text-[16px] leading-[140%] text-[#353535] placeholder-[#B5A4B6] bg-transparent border-none outline-none focus:ring-0"
               required
+              disabled={loading}
             />
           </div>
 
@@ -129,9 +177,13 @@ export function ResourcesSection() {
           <div className="flex h-[50px] w-full items-center rounded-[4px] border border-[#D2C3D3] bg-white px-[15px]">
             <input
               type="email"
+              name="business_email"
+              value={formData.business_email}
+              onChange={(e) => setFormData({ ...formData, business_email: e.target.value })}
               placeholder="Business Email"
               className="w-full font-montserrat text-[16px] leading-[140%] text-[#353535] placeholder-[#B5A4B6] bg-transparent border-none outline-none focus:ring-0"
               required
+              disabled={loading}
             />
           </div>
 
@@ -139,21 +191,43 @@ export function ResourcesSection() {
           <div className="flex h-[50px] w-full items-center rounded-[4px] border border-[#D2C3D3] bg-white px-[15px]">
             <input
               type="text"
+              name="business_name"
+              value={formData.business_name}
+              onChange={(e) => setFormData({ ...formData, business_name: e.target.value })}
               placeholder="Business Name"
               className="w-full font-montserrat text-[16px] leading-[140%] text-[#353535] placeholder-[#B5A4B6] bg-transparent border-none outline-none focus:ring-0"
               required
+              disabled={loading}
             />
           </div>
+
+          {/* Success/Error Messages */}
+          {success && (
+            <div className="rounded-[4px] bg-green-50 border border-green-200 p-3 text-center">
+              <p className="text-sm font-medium text-green-800">
+                ✓ Thank you! We'll contact you soon.
+              </p>
+            </div>
+          )}
+          
+          {error && (
+            <div className="rounded-[4px] bg-red-50 border border-red-200 p-3 text-center">
+              <p className="text-sm font-medium text-red-800">
+                {error}
+              </p>
+            </div>
+          )}
 
           {/* Submit Button */}
           <button
             type="submit"
-            className="flex h-[53px] w-full items-center justify-center rounded-[8px] mt-4 font-montserrat font-semibold text-[18px] text-white cursor-pointer hover:opacity-90 active:scale-[0.99] transition-all"
+            disabled={loading}
+            className="flex h-[53px] w-full items-center justify-center rounded-[8px] mt-4 font-montserrat font-semibold text-[18px] text-white cursor-pointer hover:opacity-90 active:scale-[0.99] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
             style={{
               background: "linear-gradient(90deg, #DE7F4C 0%, #C341D7 100%)",
             }}
           >
-           Submit
+            {loading ? "Submitting..." : "Submit"}
           </button>
         </form>
       </div>

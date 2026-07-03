@@ -110,6 +110,16 @@ export interface ClinicBundle {
   ext_rating?: number | null;
   ext_review_count?: number | null;
   /**
+   * Admin-editable hero stat overrides (display strings, e.g. "20+", "10k+").
+   * When provided they are written to the clinic; when omitted the clinic page
+   * falls back to its computed/default value.
+   */
+  stat_experts?: string | null;
+  stat_cities?: string | null;
+  stat_treatments?: string | null;
+  stat_rating?: string | null;
+  stat_patients?: string | null;
+  /**
    * Optional admin overrides. When present they take precedence over the
    * auto-derive defaults:
    *  - treatment_slugs: ensure these canonical treatments are offered (matched,
@@ -120,6 +130,16 @@ export interface ClinicBundle {
    */
   treatment_slugs?: string[];
   concern_slugs?: string[];
+  /**
+   * Optional G99 provenance. When importing from the G99 source DB, these stamp
+   * the hard link used by the imported-status cross-reference and dedup the
+   * business by g99_business_id.
+   */
+  g99_clinic_id?: string | number | null;
+  g99_business_id?: string | number | null;
+  g99_tenant_id?: string | number | null;
+  /** Google Place ID carried over from G99 (clinics.google_place_id). */
+  google_place_id?: string | null;
 }
 
 export interface SaveClinicResult {
@@ -156,6 +176,29 @@ export async function findClinicsByDomain(domain: string): Promise<string[]> {
   return rows.map((r) => r.id);
 }
 
+export interface ExistingClinicRef {
+  id: string;
+  name: string;
+  slug: string;
+  website: string | null;
+}
+
+/**
+ * Like findClinicsByDomain but returns identifying details (name/slug/website)
+ * for the duplicate-block UI, so the admin can jump straight to editing or
+ * deleting the clinic that already occupies this domain.
+ */
+export async function findExistingClinicsByDomain(
+  domain: string
+): Promise<ExistingClinicRef[]> {
+  return query<ExistingClinicRef>(
+    `SELECT id, name, slug, website FROM clinics
+      WHERE lower(regexp_replace(regexp_replace(website, '^https?://', ''), '^www\\.', '')) LIKE $1
+      ORDER BY created_at`,
+    [`${domain}%`]
+  );
+}
+
 /** Unique clinic slug within a business (the natural key clinics(business_id, slug)). */
 async function uniqueClinicSlug(base: string, businessId: string): Promise<string> {
   let slug = base || "clinic";
@@ -190,20 +233,36 @@ export async function saveClinicBundle(
     : `https://${payload.website}`;
   const bizName = payload.business.name?.trim() || domain;
 
-  // ── business (one per bundle; dedupe by name) ──────────────────────────────
+  // ── business (one per bundle) ──────────────────────────────────────────────
+  // Dedup priority: G99 business id (hard link) → name.
+  const g99BusinessId = payload.g99_business_id != null ? String(payload.g99_business_id) : null;
+  const g99TenantId = payload.g99_tenant_id != null ? String(payload.g99_tenant_id) : null;
   let businessId: string;
   let businessCreated = false;
   const existingBiz = await queryOne<{ id: string }>(
-    `SELECT id FROM businesses WHERE name = $1 ORDER BY created_at LIMIT 1`,
-    [bizName]
+    g99BusinessId
+      ? `SELECT id FROM businesses WHERE g99_business_id = $1::bigint
+         UNION ALL SELECT id FROM businesses WHERE name = $2 ORDER BY 1 LIMIT 1`
+      : `SELECT id FROM businesses WHERE name = $1 ORDER BY created_at LIMIT 1`,
+    g99BusinessId ? [g99BusinessId, bizName] : [bizName]
   );
   if (existingBiz) {
     businessId = existingBiz.id;
+    if (g99BusinessId) {
+      await query(
+        `UPDATE businesses SET
+            g99_business_id = COALESCE($2::bigint, g99_business_id),
+            g99_tenant_id   = COALESCE($3::bigint, g99_tenant_id),
+            last_synced_at  = NOW()
+          WHERE id = $1`,
+        [businessId, g99BusinessId, g99TenantId]
+      );
+    }
   } else {
     const ins = await queryOne<{ id: string }>(
-      `INSERT INTO businesses (name, tier, verified, data_source, last_synced_at)
-       VALUES ($1, 'free', false, 'scraped', NOW()) RETURNING id`,
-      [bizName]
+      `INSERT INTO businesses (name, tier, verified, data_source, g99_business_id, g99_tenant_id, last_synced_at)
+       VALUES ($1, 'free', false, 'scraped', $2::bigint, $3::bigint, NOW()) RETURNING id`,
+      [bizName, g99BusinessId, g99TenantId]
     );
     businessId = ins!.id;
     businessCreated = true;
@@ -309,6 +368,19 @@ export async function saveClinicBundle(
 
   result.clinics.push({ id: clinicId, slug, created });
 
+  // ── G99 link stamp (hard link + place id) ──────────────────────────────────
+  const g99ClinicId = payload.g99_clinic_id != null ? String(payload.g99_clinic_id) : null;
+  if (g99ClinicId || payload.google_place_id) {
+    await query(
+      `UPDATE clinics SET
+          g99_clinic_id   = COALESCE($2::bigint, g99_clinic_id),
+          google_place_id = COALESCE($3, google_place_id),
+          last_synced_at  = NOW()
+        WHERE id = $1`,
+      [clinicId, g99ClinicId, payload.google_place_id ?? null]
+    );
+  }
+
   // geo from primary location
   if (primaryLoc.lat != null && primaryLoc.lng != null) {
     await query(
@@ -328,6 +400,40 @@ export async function saveClinicBundle(
     await query(
       `UPDATE clinics SET ext_rating = $2, ext_review_count = $3 WHERE id = $1`,
       [clinicId, Math.min(5, Math.max(0, payload.ext_rating)), payload.ext_review_count ?? null]
+    );
+  }
+
+  // hero stat overrides (display strings) — only fill the ones provided.
+  const statFields = [
+    payload.stat_experts,
+    payload.stat_cities,
+    payload.stat_treatments,
+    payload.stat_rating,
+    payload.stat_patients,
+  ];
+  if (statFields.some((v) => v !== undefined)) {
+    const norm = (v: string | null | undefined) => {
+      if (v === undefined) return undefined; // leave column untouched
+      const t = (v ?? "").trim();
+      return t.length > 0 ? t : null; // empty string clears the override
+    };
+    await query(
+      `UPDATE clinics SET
+          stat_experts    = COALESCE($2, stat_experts),
+          stat_cities     = COALESCE($3, stat_cities),
+          stat_treatments = COALESCE($4, stat_treatments),
+          stat_rating     = COALESCE($5, stat_rating),
+          stat_patients   = COALESCE($6, stat_patients),
+          updated_at = NOW()
+        WHERE id = $1`,
+      [
+        clinicId,
+        norm(payload.stat_experts) ?? null,
+        norm(payload.stat_cities) ?? null,
+        norm(payload.stat_treatments) ?? null,
+        norm(payload.stat_rating) ?? null,
+        norm(payload.stat_patients) ?? null,
+      ]
     );
   }
 

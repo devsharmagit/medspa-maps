@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import Link from "next/link";
 import {
   Globe,
@@ -17,10 +17,13 @@ import {
   Stethoscope,
   HeartPulse,
   Building2,
+  BarChart3,
   ExternalLink,
   ArrowLeft,
   ChevronDown,
   ChevronUp,
+  DatabaseZap,
+  Pencil,
 } from "lucide-react";
 import {
   Card,
@@ -173,6 +176,13 @@ interface ConflictError extends Error {
   duplicate?: { exists: boolean; byDomain: string; clinics: DuplicateClinic[] };
 }
 
+// The preview endpoints (scrape / G99 import) return this shape INSTEAD of a
+// preview when a clinic already exists for the domain — the add is blocked.
+interface BlockedResponse {
+  blocked: true;
+  duplicate: { byDomain: string; clinics: DuplicateClinic[] };
+}
+
 const BRAND = "#9b3a9b";
 
 // ── Small field helpers ──────────────────────────────────────────────────────
@@ -241,6 +251,21 @@ export default function NewClinicPage() {
   const [url, setUrl] = useState("");
   const [fetching, setFetching] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  // Manual entry mode (no scrape): the admin fills the empty form from scratch.
+  const [manualMode, setManualMode] = useState(false);
+  const [websiteInput, setWebsiteInput] = useState("");
+
+  // G99 import provenance — set when the page is opened as /clinics/new?g99ClinicId=…
+  const [g99Meta, setG99Meta] = useState<{
+    clinicId: string;
+    businessId: string;
+    tenantId: string;
+    googlePlaceId: string | null;
+  } | null>(null);
+  const [g99Source, setG99Source] = useState<{
+    businessName: string | null;
+    clinicName: string | null;
+  } | null>(null);
 
   const [preview, setPreview] = useState<ClinicPreview | null>(null);
 
@@ -256,6 +281,14 @@ export default function NewClinicPage() {
   const [extRating, setExtRating] = useState<string>("");
   const [extReviewCount, setExtReviewCount] = useState<string>("");
   const [hoursState, setHoursState] = useState<Record<number, LocationHoursMap>>({});
+  // Hero stat overrides (display strings). Blank → auto-computed on the page.
+  const [heroStats, setHeroStats] = useState({
+    experts: "",
+    cities: "",
+    treatments: "",
+    rating: "",
+    patients: "",
+  });
 
   // business-level fields (sourced from locations[0] on scrape)
   const [businessTagline, setBusinessTagline] = useState('');
@@ -312,36 +345,23 @@ export default function NewClinicPage() {
     setSelectedConcernSlugs((prev) => prev.filter((item) => item !== slug));
   }
 
-  // duplicate / overwrite
-  const [overwrite, setOverwrite] = useState(false);
-  const [duplicateClinics, setDuplicateClinics] = useState<DuplicateClinic[]>(
-    []
-  );
+  // duplicate block — set when a clinic already exists for this domain (any add
+  // flow). When set, the editable form is hidden and the admin is pointed at the
+  // existing clinic to edit or delete. The add flow never overwrites.
+  const [blocked, setBlocked] = useState<{
+    byDomain: string;
+    clinics: DuplicateClinic[];
+  } | null>(null);
 
   // save flow
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [conflict, setConflict] = useState<DuplicateClinic[] | null>(null);
   const [result, setResult] = useState<SaveResult | null>(null);
 
-  // ── fetch / scrape ────────────────────────────────────────────────────────
-  const handleFetch = useCallback(async () => {
-    if (!url.trim()) return;
-    setFetching(true);
-    setFetchError(null);
-    setPreview(null);
-    setResult(null);
-    setConflict(null);
-    setSaveError(null);
-
-    try {
-      const [data, svc] = await Promise.all([
-        adminPost<ClinicPreview>("/clinics/scrape-preview", {
-          url: url.trim(),
-        }),
-        adminGet<AdminService[]>("/services").catch(() => [] as AdminService[]),
-      ]);
-
+  // ── apply a preview payload to the editable form state ──────────────────────
+  // Shared by the URL-scrape path (handleFetch) and the G99 import path so both
+  // seed the form identically.
+  const applyPreview = useCallback((data: ClinicPreview, svc: AdminService[]) => {
       setPreview(data);
       setBusinessName(data.business?.name ?? "");
       setLocations(
@@ -399,20 +419,35 @@ export default function NewClinicPage() {
       );
       setHoursState(hmap);
 
-      // duplicate handling — preview only gives ids; surface a warning + flag
-      if (data.duplicate?.exists) {
-        setOverwrite(true);
-        setDuplicateClinics(
-          data.duplicate.clinicIds.map((id) => ({
-            id,
-            name: "Existing clinic",
-            slug: "",
-            website: data.website,
-          }))
-        );
+      // Duplicates are handled UPSTREAM now: the preview endpoints block before
+      // returning a preview, so anything that reaches applyPreview is a brand-new
+      // clinic. (There is no overwrite path.)
+  }, []);
+
+  // ── fetch / scrape (manual URL path) ────────────────────────────────────────
+  const handleFetch = useCallback(async () => {
+    if (!url.trim()) return;
+    setFetching(true);
+    setFetchError(null);
+    setPreview(null);
+    setResult(null);
+    setBlocked(null);
+    setSaveError(null);
+    setG99Meta(null);
+    setG99Source(null);
+    setManualMode(false);
+
+    try {
+      const [data, svc] = await Promise.all([
+        adminPost<ClinicPreview | BlockedResponse>("/clinics/scrape-preview", {
+          url: url.trim(),
+        }),
+        adminGet<AdminService[]>("/services").catch(() => [] as AdminService[]),
+      ]);
+      if ("blocked" in data) {
+        setBlocked(data.duplicate);
       } else {
-        setOverwrite(false);
-        setDuplicateClinics([]);
+        applyPreview(data, svc);
       }
     } catch (err) {
       setFetchError(
@@ -423,7 +458,104 @@ export default function NewClinicPage() {
     } finally {
       setFetching(false);
     }
-  }, [url]);
+  }, [url, applyPreview]);
+
+  // ── manual entry (no scrape) ────────────────────────────────────────────────
+  // Opens the SAME editable form empty; the admin types everything, including an
+  // editable website (the dedup key). Saves through the same blocked/save path.
+  const handleAddManually = useCallback(async () => {
+    setFetchError(null);
+    setBlocked(null);
+    setResult(null);
+    setSaveError(null);
+    setG99Meta(null);
+    setG99Source(null);
+    setUrl("");
+    setWebsiteInput("");
+    setManualMode(true);
+    const svc = await adminGet<AdminService[]>("/services").catch(
+      () => [] as AdminService[]
+    );
+    applyPreview(
+      {
+        website: "",
+        business: { name: "" },
+        locations: [emptyLocation()],
+        services: [],
+        concerns: [],
+        images: { logo: null, gallery: [], before_after: [] },
+        reviews: [],
+        ext_rating: null,
+        ext_review_count: null,
+        duplicate: { exists: false, clinicIds: [], byDomain: "" },
+      },
+      svc
+    );
+  }, [applyPreview]);
+
+  // Live duplicate check for the manual website field — blocks before save so
+  // the admin can't fill out a whole form for a clinic that already exists.
+  const checkManualDuplicate = useCallback(async (website: string) => {
+    const w = website.trim();
+    if (!w) return;
+    try {
+      const res = await adminPost<{
+        exists: boolean;
+        byDomain: string;
+        clinics: DuplicateClinic[];
+      }>("/clinics/check-duplicate", { website: w });
+      if (res.exists) setBlocked({ byDomain: res.byDomain, clinics: res.clinics });
+    } catch {
+      /* non-blocking — the save endpoint re-checks as a backstop */
+    }
+  }, []);
+
+  // ── G99 import path: /admin/clinics/new?g99ClinicId=… ───────────────────────
+  // Auto-loads the import preview (scrape + G99 overlay) and seeds the form.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const g99ClinicId = params.get("g99ClinicId");
+    if (!g99ClinicId) return;
+    let cancelled = false;
+
+    (async () => {
+      setFetching(true);
+      setFetchError(null);
+      setBlocked(null);
+      try {
+        const [data, svc] = await Promise.all([
+          adminPost<
+            | (ClinicPreview & {
+                g99: { clinicId: string; businessId: string; tenantId: string; googlePlaceId: string | null };
+                g99Source: { businessName: string | null; clinicName: string | null };
+              })
+            | BlockedResponse
+          >("/g99/import-preview", { g99ClinicId }),
+          adminGet<AdminService[]>("/services").catch(() => [] as AdminService[]),
+        ]);
+        if (cancelled) return;
+        if ("blocked" in data) {
+          setBlocked(data.duplicate);
+          return;
+        }
+        setUrl(data.website);
+        applyPreview(data, svc);
+        setG99Meta(data.g99);
+        setG99Source(data.g99Source);
+      } catch (err) {
+        if (!cancelled)
+          setFetchError(
+            err instanceof Error ? err.message : "Could not import this G99 clinic."
+          );
+      } finally {
+        if (!cancelled) setFetching(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [applyPreview]);
 
   // ── location editing ────────────────────────────────────────────────────────
   const updateLocation = (idx: number, patch: Partial<SaveLocation>) => {
@@ -563,7 +695,7 @@ export default function NewClinicPage() {
       : gallery;
 
     return {
-      website: preview.website,
+      website: manualMode ? websiteInput.trim() : preview.website,
       business: { name: businessName.trim() || preview.business.name },
       locations: outLocations,
       services: outServices,
@@ -576,11 +708,24 @@ export default function NewClinicPage() {
       ext_rating: extRating.trim() === "" ? null : Number(extRating),
       ext_review_count:
         extReviewCount.trim() === "" ? null : parseInt(extReviewCount, 10),
+      stat_experts: heroStats.experts.trim() || null,
+      stat_cities: heroStats.cities.trim() || null,
+      stat_treatments: heroStats.treatments.trim() || null,
+      stat_rating: heroStats.rating.trim() || null,
+      stat_patients: heroStats.patients.trim() || null,
       treatment_slugs: selectedTreatmentSlugs,
       concern_slugs: selectedConcernSlugs,
+      // G99 provenance (null on the manual URL path)
+      g99_clinic_id: g99Meta?.clinicId ?? null,
+      g99_business_id: g99Meta?.businessId ?? null,
+      g99_tenant_id: g99Meta?.tenantId ?? null,
+      google_place_id: g99Meta?.googlePlaceId ?? null,
     };
   }, [
     preview,
+    manualMode,
+    websiteInput,
+    g99Meta,
     locations,
     hoursState,
     services,
@@ -595,34 +740,33 @@ export default function NewClinicPage() {
     gallery,
     coverUrl,
     beforeAfter,
+    heroStats,
     selectedTreatmentSlugs,
     selectedConcernSlugs,
   ]);
 
   // ── save ───────────────────────────────────────────────────────────────────────
   const doSave = useCallback(
-    async (force: boolean) => {
+    async () => {
       const payload = buildPayload();
       if (!payload) return;
       setSaving(true);
       setSaveError(null);
-      setConflict(null);
 
       try {
-        const res = await adminPost<SaveResult>("/clinics/save", {
-          payload,
-          overwrite: force || overwrite,
-        });
+        const res = await adminPost<SaveResult>("/clinics/save", { payload });
         setResult(res);
-        setConflict(null);
         // scroll to top to reveal the success card
         if (typeof window !== "undefined")
           window.scrollTo({ top: 0, behavior: "smooth" });
       } catch (err) {
         const ce = err as ConflictError;
         if (ce.duplicate?.exists && ce.duplicate.clinics) {
-          setConflict(ce.duplicate.clinics);
-          setDuplicateClinics(ce.duplicate.clinics);
+          // Backstop: the domain check should have blocked before we got here,
+          // but if a race created the clinic meanwhile, block at save too.
+          setBlocked({ byDomain: ce.duplicate.byDomain, clinics: ce.duplicate.clinics });
+          if (typeof window !== "undefined")
+            window.scrollTo({ top: 0, behavior: "smooth" });
         } else {
           setSaveError(ce.message || "Save failed. Please try again.");
         }
@@ -630,7 +774,7 @@ export default function NewClinicPage() {
         setSaving(false);
       }
     },
-    [buildPayload, overwrite]
+    [buildPayload]
   );
 
   const serviceOptions: DropdownOption[] = canonicalServices.map((s) => ({
@@ -658,12 +802,21 @@ export default function NewClinicPage() {
         <div>
           <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-900">
             <Sparkles size={18} style={{ color: BRAND }} />
-            Add Clinic by URL
+            {manualMode ? "Add Clinic manually" : "Add Clinic by URL"}
           </h2>
           <p className="text-sm text-slate-500">
-            Paste a clinic website. We&apos;ll scrape it into an editable draft
-            you can review before saving.
+            {manualMode
+              ? "Fill in the clinic details yourself. Nothing is scraped or auto-filled — blank fields stay blank."
+              : "Paste a clinic website. We'll scrape it into an editable draft you can review before saving."}
           </p>
+          {g99Meta && (
+            <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-md bg-purple-50 px-2.5 py-1 text-xs font-medium text-purple-700">
+              <DatabaseZap size={13} />
+              Importing from G99
+              {g99Source?.clinicName ? `: ${g99Source.clinicName}` : ""}
+              <span className="text-purple-400">· clinic #{g99Meta.clinicId}</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -709,6 +862,20 @@ export default function NewClinicPage() {
               )}
             </Button>
           </div>
+
+          <div className="mt-4 flex items-center gap-3 text-xs text-slate-400">
+            <span className="h-px flex-1 bg-slate-200" />
+            or
+            <span className="h-px flex-1 bg-slate-200" />
+          </div>
+          <Button
+            variant="outline"
+            className="mt-4 w-full"
+            onClick={handleAddManually}
+            disabled={fetching}
+          >
+            <Plus size={16} /> Add manually (no scraping)
+          </Button>
 
           {fetchError && (
             <div className="mt-4 flex items-start gap-2.5 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
@@ -777,61 +944,53 @@ export default function NewClinicPage() {
         </Card>
       )}
 
-      {/* Duplicate / overwrite warning */}
-      {preview && (duplicateClinics.length > 0 || conflict) && !result && (
+      {/* Duplicate block — a clinic already exists for this domain */}
+      {blocked && !result && (
         <div className="flex flex-col gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4">
           <div className="flex items-start gap-2.5 text-amber-800">
             <AlertTriangle size={18} className="mt-0.5 shrink-0" />
             <div className="flex flex-col gap-1">
               <span className="text-sm font-semibold">
-                A clinic for this website already exists — saving will OVERWRITE
-                it.
+                This clinic is already in the directory — you can&apos;t add it again.
               </span>
               <span className="text-xs text-amber-700">
                 Matched on domain{" "}
-                <span className="font-mono">
-                  {preview.duplicate.byDomain}
-                </span>
-                . Existing clinic
-                {(conflict ?? duplicateClinics).length > 1 ? "s" : ""}:
+                <span className="font-mono">{blocked.byDomain}</span>. Edit the
+                existing clinic{blocked.clinics.length > 1 ? "s" : ""} or delete
+                {blocked.clinics.length > 1 ? " one" : " it"} first, then add again.
               </span>
-              <div className="flex flex-wrap gap-2 pt-1">
-                {(conflict ?? duplicateClinics).map((c) => (
+            </div>
+          </div>
+          <div className="flex flex-col gap-2 border-t border-amber-200 pt-3">
+            {blocked.clinics.map((c) => (
+              <div key={c.id} className="flex flex-wrap items-center gap-2">
+                <span className="text-sm font-medium text-amber-900">
+                  {c.name && c.name !== "Existing clinic"
+                    ? c.name
+                    : c.slug || c.id.slice(0, 8)}
+                </span>
+                <Link href={`/admin/clinics/${c.id}/edit`}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 gap-1 px-2.5 text-xs"
+                  >
+                    <Pencil size={12} /> Edit
+                  </Button>
+                </Link>
+                {c.slug && (
                   <a
-                    key={c.id}
-                    href={c.slug ? `/clinics/${c.slug}` : `/admin/clinics/${c.id}`}
+                    href={`/clinics/${c.slug}`}
                     target="_blank"
                     rel="noreferrer"
                     className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-white/60 px-2.5 py-1 text-xs font-medium text-amber-900 hover:bg-white"
                   >
-                    <ExternalLink size={12} />
-                    {c.name && c.name !== "Existing clinic" ? c.name : c.slug || c.id.slice(0, 8)}
+                    <ExternalLink size={12} /> View
                   </a>
-                ))}
-              </div>
-            </div>
-          </div>
-          {conflict && (
-            <div className="flex items-center gap-3 border-t border-amber-200 pt-3">
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => doSave(true)}
-                disabled={saving}
-              >
-                {saving ? (
-                  <>
-                    <Loader2 size={14} className="animate-spin" /> Overwriting…
-                  </>
-                ) : (
-                  "Overwrite existing clinic"
                 )}
-              </Button>
-              <span className="text-xs text-amber-700">
-                This replaces the existing clinic&apos;s services and images.
-              </span>
-            </div>
-          )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -893,6 +1052,21 @@ export default function NewClinicPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-5 p-6">
+              {manualMode && (
+                <Field label="Clinic website (required)">
+                  <Input
+                    type="url"
+                    value={websiteInput}
+                    onChange={(e) => {
+                      setWebsiteInput(e.target.value);
+                      if (blocked) setBlocked(null);
+                    }}
+                    onBlur={() => checkManualDuplicate(websiteInput)}
+                    placeholder="https://exampleclinic.com"
+                    className="h-10"
+                  />
+                </Field>
+              )}
               <Field label="Business name">
                 <Input value={businessName} onChange={(e) => setBusinessName(e.target.value)} className="h-10" />
               </Field>
@@ -945,6 +1119,63 @@ export default function NewClinicPage() {
                   <Input value={businessSocials.google_my_business} onChange={(e) => setBusinessSocials(p => ({ ...p, google_my_business: e.target.value }))} className="h-9" placeholder="https://maps.google.com/…" />
                 </Field>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Hero stats */}
+          <Card className="border-slate-200 shadow-sm">
+            <CardHeader className="border-b border-slate-100 bg-slate-50/50 pb-4">
+              <CardTitle className="flex items-center gap-2 text-base font-semibold text-slate-800">
+                <BarChart3 size={16} style={{ color: BRAND }} />
+                Hero stats
+              </CardTitle>
+              <CardDescription className="text-xs text-slate-500">
+                The five numbers shown in the “About + Stats” row on the clinic
+                page. Type the exact value to display (e.g. 20+, 10k+, 5.0).
+                Leave blank to auto-calculate.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid grid-cols-2 gap-4 p-6 sm:grid-cols-3">
+              <Field label="Certified experts">
+                <Input
+                  value={heroStats.experts}
+                  onChange={(e) => setHeroStats((p) => ({ ...p, experts: e.target.value }))}
+                  placeholder="auto — e.g. 20+"
+                  className="h-9"
+                />
+              </Field>
+              <Field label="Cities covered">
+                <Input
+                  value={heroStats.cities}
+                  onChange={(e) => setHeroStats((p) => ({ ...p, cities: e.target.value }))}
+                  placeholder="auto — e.g. 8"
+                  className="h-9"
+                />
+              </Field>
+              <Field label="Advanced treatments">
+                <Input
+                  value={heroStats.treatments}
+                  onChange={(e) => setHeroStats((p) => ({ ...p, treatments: e.target.value }))}
+                  placeholder="auto — e.g. 50+"
+                  className="h-9"
+                />
+              </Field>
+              <Field label="Average rating">
+                <Input
+                  value={heroStats.rating}
+                  onChange={(e) => setHeroStats((p) => ({ ...p, rating: e.target.value }))}
+                  placeholder="auto — e.g. 5.0"
+                  className="h-9"
+                />
+              </Field>
+              <Field label="Patients transformed">
+                <Input
+                  value={heroStats.patients}
+                  onChange={(e) => setHeroStats((p) => ({ ...p, patients: e.target.value }))}
+                  placeholder="auto — e.g. 10k+"
+                  className="h-9"
+                />
+              </Field>
             </CardContent>
           </Card>
 
@@ -1663,9 +1894,9 @@ export default function NewClinicPage() {
             )}
             <div className="flex items-center justify-between gap-4">
               <div className="text-xs text-slate-500">
-                {overwrite ? (
+                {blocked ? (
                   <span className="font-medium text-amber-600">
-                    Overwrite mode — existing clinic will be replaced.
+                    This website already exists — edit the existing clinic instead.
                   </span>
                 ) : (
                   <span>Saving will create a new clinic.</span>
@@ -1674,8 +1905,8 @@ export default function NewClinicPage() {
               <Button
                 variant="gradient"
                 className="h-10 px-8"
-                onClick={() => doSave(false)}
-                disabled={saving}
+                onClick={() => doSave()}
+                disabled={saving || !!blocked}
               >
                 {saving ? (
                   <>

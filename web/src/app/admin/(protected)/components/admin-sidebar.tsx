@@ -12,16 +12,22 @@ import {
   Star,
   Inbox,
   Users,
+  DatabaseZap,
+  Mail,
+  History,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/admin/leads", label: "Leads", icon: Mail },
   { href: "/admin/clinics/new", label: "Add Clinic", icon: PlusCircle },
+  { href: "/admin/g99", label: "G99 Import", icon: DatabaseZap },
   { href: "/admin/clinics", label: "Clinics", icon: Store },
   { href: "/admin/providers", label: "Providers", icon: Users },
   { href: "/admin/businesses", label: "Businesses", icon: Building2 },
   { href: "/admin/services", label: "Treatments", icon: Sparkles },
+  { href: "/admin/treatment-changes", label: "Treatment Changes", icon: History },
   { href: "/admin/concerns", label: "Concerns", icon: HeartPulse },
   { href: "/admin/reviews", label: "Reviews", icon: Star },
   { href: "/admin/unmatched", label: "Unmatched", icon: Inbox },

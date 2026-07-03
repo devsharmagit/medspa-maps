@@ -5,13 +5,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Building2,
+  DatabaseZap,
   ExternalLink,
   Loader2,
-  MapPin,
   Pencil,
   Plus,
   Search,
   Star,
+  ToggleLeft,
+  ToggleRight,
   Trash2,
 } from "lucide-react";
 import { adminGet, adminDelete, adminPatch } from "@/lib/admin/client";
@@ -50,6 +52,7 @@ interface ClinicListItem {
   created_at: string;
   location_count: number;
   location_cities: string | null;
+  g99_clinic_id: string | null;
 }
 
 export default function ClinicsPage() {
@@ -60,6 +63,8 @@ export default function ClinicsPage() {
   const [search, setSearch] = useState("");
   const [pendingDelete, setPendingDelete] = useState<ClinicListItem | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [pendingToggle, setPendingToggle] = useState<ClinicListItem | null>(null);
+  const [toggling, setToggling] = useState(false);
   const [featuringId, setFeaturingId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -116,16 +121,29 @@ export default function ClinicsPage() {
     setDeleting(true);
     try {
       await adminDelete(`/clinics/${pendingDelete.id}`);
-      setClinics((prev) =>
-        prev.map((c) =>
-          c.id === pendingDelete.id ? { ...c, is_active: false } : c
-        )
-      );
+      setClinics((prev) => prev.filter((c) => c.id !== pendingDelete.id));
       setPendingDelete(null);
     } catch (err) {
       setError((err as Error).message);
     } finally {
       setDeleting(false);
+    }
+  }
+
+  async function confirmToggle() {
+    if (!pendingToggle) return;
+    const next = !pendingToggle.is_active;
+    setToggling(true);
+    try {
+      await adminPatch(`/clinics/${pendingToggle.id}`, { is_active: next });
+      setClinics((prev) =>
+        prev.map((c) => (c.id === pendingToggle.id ? { ...c, is_active: next } : c))
+      );
+      setPendingToggle(null);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setToggling(false);
     }
   }
 
@@ -185,11 +203,8 @@ export default function ClinicsPage() {
                   <TableHead className="text-slate-500 font-semibold text-xs uppercase tracking-wider">
                     Business
                   </TableHead>
-                  <TableHead className="text-slate-500 font-semibold text-xs uppercase tracking-wider">
-                    Location
-                  </TableHead>
-                  <TableHead className="text-slate-500 font-semibold text-xs uppercase tracking-wider w-[110px]">
-                    Reviews
+                  <TableHead className="text-slate-500 font-semibold text-xs uppercase tracking-wider w-[150px]">
+                    G99 ID
                   </TableHead>
                   <TableHead className="text-slate-500 font-semibold text-xs uppercase tracking-wider w-[110px]">
                     Status
@@ -197,7 +212,7 @@ export default function ClinicsPage() {
                   <TableHead className="text-slate-500 font-semibold text-xs uppercase tracking-wider w-[120px]">
                     Featured
                   </TableHead>
-                  <TableHead className="text-slate-500 font-semibold text-xs uppercase tracking-wider w-[200px]">
+                  <TableHead className="text-slate-500 font-semibold text-xs uppercase tracking-wider w-[320px]">
                     Actions
                   </TableHead>
                 </TableRow>
@@ -236,22 +251,17 @@ export default function ClinicsPage() {
                     </TableCell>
 
                     <TableCell>
-                      <div className="flex items-center gap-1.5 text-xs text-slate-600">
-                        <MapPin size={12} className="text-slate-400" />
-                        {item.location_count > 0 ? (
-                          <span title={item.location_cities ?? ""}>
-                            {item.location_count === 1
-                              ? (item.location_cities || item.city || "1 location")
-                              : `${item.location_count} locations`}
-                          </span>
-                        ) : (
-                          <span className="text-slate-400">No location</span>
-                        )}
-                      </div>
-                    </TableCell>
-
-                    <TableCell className="text-[13px] text-slate-600">
-                      {item.review_count ?? 0}
+                      {item.g99_clinic_id ? (
+                        <span
+                          className="inline-flex items-center gap-1.5 rounded-md border border-purple-200 bg-purple-50 px-2 py-0.5 font-mono text-xs font-medium text-purple-700"
+                          title={`Imported from Growth99 (clinic id ${item.g99_clinic_id})`}
+                        >
+                          <DatabaseZap size={11} />
+                          #{item.g99_clinic_id}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-slate-400">—</span>
+                      )}
                     </TableCell>
 
                     <TableCell>
@@ -320,8 +330,20 @@ export default function ClinicsPage() {
                         <Button
                           variant="outline"
                           size="sm"
+                          onClick={() => setPendingToggle(item)}
+                          className={`h-7 px-2.5 text-xs gap-1 border ${
+                            item.is_active
+                              ? "border-amber-200 text-amber-700 hover:bg-amber-50"
+                              : "border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                          }`}
+                        >
+                          {item.is_active ? <ToggleRight size={12} /> : <ToggleLeft size={12} />}
+                          {item.is_active ? "Unpublish" : "Publish"}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
                           onClick={() => setPendingDelete(item)}
-                          disabled={!item.is_active}
                           className="h-7 px-2.5 text-xs gap-1 border-red-200 text-red-600 hover:bg-red-50"
                         >
                           <Trash2 size={12} />
@@ -344,14 +366,14 @@ export default function ClinicsPage() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Unpublish clinic?</DialogTitle>
+            <DialogTitle>Delete clinic permanently?</DialogTitle>
             <DialogDescription>
-              This will soft-delete{" "}
+              This permanently deletes{" "}
               <span className="font-medium text-foreground">
                 {pendingDelete?.name}
               </span>{" "}
-              by setting it inactive. It will no longer appear publicly. You can
-              re-publish it later from the edit page.
+              along with its providers, reviews, locations and treatment links.
+              This cannot be undone. To only hide it, use Unpublish instead.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -373,7 +395,67 @@ export default function ClinicsPage() {
               ) : (
                 <Trash2 size={14} />
               )}
-              Unpublish
+              Delete permanently
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={pendingToggle !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingToggle(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {pendingToggle?.is_active ? "Unpublish clinic?" : "Publish clinic?"}
+            </DialogTitle>
+            <DialogDescription>
+              {pendingToggle?.is_active ? (
+                <>
+                  <span className="font-medium text-foreground">
+                    {pendingToggle?.name}
+                  </span>{" "}
+                  will be hidden from the public site (its page, search and
+                  listings). Nothing is deleted — you can re-publish anytime.
+                </>
+              ) : (
+                <>
+                  <span className="font-medium text-foreground">
+                    {pendingToggle?.name}
+                  </span>{" "}
+                  will become visible on the public site again.
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setPendingToggle(null)}
+              disabled={toggling}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmToggle}
+              disabled={toggling}
+              className={
+                pendingToggle?.is_active
+                  ? "gap-1.5 bg-amber-600 text-white hover:bg-amber-700"
+                  : "gap-1.5 bg-emerald-600 text-white hover:bg-emerald-700"
+              }
+            >
+              {toggling ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : pendingToggle?.is_active ? (
+                <ToggleLeft size={14} />
+              ) : (
+                <ToggleRight size={14} />
+              )}
+              {pendingToggle?.is_active ? "Unpublish" : "Publish"}
             </Button>
           </DialogFooter>
         </DialogContent>

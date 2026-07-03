@@ -1,16 +1,18 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   BadgeCheck,
   CalendarDays,
   ChevronDown,
   Crown,
+  Images,
   LocateFixed,
   MapPin,
   Phone,
   Search,
+  SlidersHorizontal,
   Sparkles,
   Star,
   X,
@@ -21,6 +23,8 @@ import {
   SearchableDropdown,
   type DropdownOption,
 } from "@/components/ui/searchable-dropdown";
+import { useLocation } from "@/lib/location/location-context";
+import { toStateCode } from "@/lib/location/states";
 import { cn } from "@/lib/utils";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -84,8 +88,6 @@ const STATE_OPTIONS: DropdownOption[] = STATES.map((s) => ({
   value: s.abbr,
 }));
 
-const RADIUS_OPTIONS = [10, 25, 50, 100];
-
 /** Distance-band radio options → upper-bound radius value. */
 const DISTANCE_BANDS: { label: string; radius: number }[] = [
   { label: "10 - 20 miles", radius: 20 },
@@ -107,6 +109,14 @@ interface ClinicService {
   slug: string;
 }
 
+interface ClinicLocation {
+  id: string;
+  label: string | null;
+  city: string | null;
+  state: string | null;
+  is_primary: boolean;
+}
+
 interface ClinicResult {
   clinic_id: string;
   clinic_name: string;
@@ -121,6 +131,8 @@ interface ClinicResult {
   lng: number;
   avg_rating: number | null;
   review_count: number;
+  ext_rating: number | null;
+  ext_review_count: number | null;
   featured: boolean;
   tier: string;
   verified: boolean;
@@ -128,6 +140,9 @@ interface ClinicResult {
   logo_url: string | null;
   services: ClinicService[];
   cover_image_url: string | null;
+  gallery_images: string[];
+  location_count: number;
+  locations: ClinicLocation[];
   distance_miles: number | null;
 }
 
@@ -151,12 +166,30 @@ export function SearchResults() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [geoError, setGeoError] = useState("");
+  // Mobile-only: filters live in a bottom-sheet modal to keep results above the fold.
+  const [showFilters, setShowFilters] = useState(false);
 
   // Search-bar state
   const [searchService, setSearchService] = useState(q);
   const [searchState, setSearchState] = useState(location);
-  const [searchRadius, setSearchRadius] = useState(radius || "25");
   const [serviceOptions, setServiceOptions] = useState<DropdownOption[]>([]);
+
+  // Detected visitor location (shared context). Prompt once on mount so a direct
+  // visit to /search still asks for location and prefills it.
+  const {
+    status,
+    location: userLoc,
+    requestLocation,
+    clearLocation: clearCtxLocation,
+  } = useLocation();
+  const injectedRef = useRef(false);
+  // Guards against out-of-order responses: when location injects lat/lng we fire
+  // a second fetch immediately, and the slower (stale) one must not clobber it.
+  const fetchIdRef = useRef(0);
+
+  useEffect(() => {
+    requestLocation();
+  }, [requestLocation]);
 
   // Fetch service options for the dropdown
   useEffect(() => {
@@ -176,6 +209,7 @@ export function SearchResults() {
   }, []);
 
   const fetchResults = useCallback(async () => {
+    const myId = ++fetchIdRef.current;
     setLoading(true);
     setError("");
     try {
@@ -193,12 +227,14 @@ export function SearchResults() {
       const res = await fetch(`/api/search?${params.toString()}`);
       if (!res.ok) throw new Error("Search failed");
       const data = await res.json();
+      if (myId !== fetchIdRef.current) return; // a newer fetch superseded this one
       setResults(data.results);
       setTotal(data.total);
     } catch {
+      if (myId !== fetchIdRef.current) return;
       setError("Something went wrong. Please try again.");
     } finally {
-      setLoading(false);
+      if (myId === fetchIdRef.current) setLoading(false);
     }
   }, [q, location, sort, radius, rating, lat, lng]);
 
@@ -206,12 +242,13 @@ export function SearchResults() {
     fetchResults();
   }, [fetchResults]);
 
-  // Sync search fields when URL params change
+  // Reflect the URL into the search fields, and prefill the state from the
+  // visitor's detected location when the URL has none yet. Only runs on URL /
+  // detected-state changes, so it never fights a manual edit.
   useEffect(() => {
     setSearchService(q);
-    setSearchState(location);
-    setSearchRadius(radius || "25");
-  }, [q, location, radius]);
+    setSearchState(location || userLoc?.stateCode || "");
+  }, [q, location, userLoc?.stateCode]);
 
   // Push a new set of params to the URL (which triggers refetch).
   const pushParams = useCallback(
@@ -230,12 +267,29 @@ export function SearchResults() {
     pushParams({ [key]: value || null });
   };
 
+  // On first arrival, enable "near me" by writing the visitor's coordinates to the
+  // URL once — but ONLY when the view is consistent with where they are. If they're
+  // explicitly viewing a DIFFERENT state (e.g. they're in California but picked Utah
+  // on the home page), distance-from-me is meaningless, so we leave the origin — and
+  // therefore the distance filter — OFF. We never set a radius here.
+  useEffect(() => {
+    if (injectedRef.current) return;
+    if (userLoc?.lat == null || userLoc?.lng == null) return; // wait for detection
+    injectedRef.current = true; // one-shot decision for this landing
+    if (hasOrigin) return; // URL already carries an origin
+    const filterState = toStateCode(location);
+    if (filterState && filterState !== userLoc.stateCode) return; // different state
+    pushParams({
+      lat: userLoc.lat.toFixed(6),
+      lng: userLoc.lng.toFixed(6),
+    });
+  }, [hasOrigin, userLoc?.lat, userLoc?.lng, userLoc?.stateCode, location, pushParams]);
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     pushParams({
       q: searchService.trim() || null,
       location: searchState.trim() || null,
-      radius: searchRadius || null,
     });
   };
 
@@ -245,34 +299,68 @@ export function SearchResults() {
       setGeoError("Geolocation is not available.");
       return;
     }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        pushParams({
-          lat: pos.coords.latitude.toFixed(6),
-          lng: pos.coords.longitude.toFixed(6),
-          radius: searchRadius || "25",
-          sort: "distance",
-        });
-      },
-      () => {
-        // Denied/unavailable — continue without distance.
-        setGeoError("Location unavailable. Showing results without distance.");
-      }
-    );
+    // "Near me" = clinics near my ACTUAL location, so drop any conflicting state
+    // filter first, then re-detect. The inject effect writes the fresh coords.
+    injectedRef.current = false;
+    pushParams({ location: null });
+    requestLocation({ force: true });
   };
 
-  const clearLocation = () => {
-    pushParams({ lat: null, lng: null, sort: null });
+  // Apply a state selection immediately — no separate "Search" click needed.
+  // Picking your OWN detected state keeps "near me" distance features; picking a
+  // DIFFERENT state is an explicit filter, so the distance origin (which is
+  // relative to you) is dropped.
+  const applyState = (value: string) => {
+    setSearchState(value);
+    injectedRef.current = true; // manual choice — suspend the auto-inject effect
+    const matchesDetected =
+      Boolean(value) &&
+      userLoc?.stateCode === value &&
+      userLoc?.lat != null &&
+      userLoc?.lng != null;
+    if (matchesDetected) {
+      pushParams({
+        location: value,
+        lat: userLoc!.lat.toFixed(6),
+        lng: userLoc!.lng.toFixed(6),
+        radius: null,
+      });
+    } else {
+      pushParams({
+        location: value || null,
+        lat: null,
+        lng: null,
+        radius: null,
+        sort: null,
+      });
+    }
+  };
+
+  // Fully de-select the location: clears the GPS origin, the state filter, the
+  // distance band, and the remembered position — back to a clean slate.
+  const clearUserLocation = () => {
+    injectedRef.current = true; // don't auto re-inject after an explicit clear
+    clearCtxLocation();
+    setSearchState("");
+    pushParams({
+      lat: null,
+      lng: null,
+      location: null,
+      radius: null,
+      sort: null,
+    });
   };
 
   const clearFilters = () => {
+    // Full reset: drop every filter AND the detected location so nothing lingers —
+    // no state filter, no field value, no "using your location" chip, no distance
+    // filter. Lands on a clean slate showing all clinics by rating.
+    injectedRef.current = true;
+    clearCtxLocation();
     setSearchService("");
     setSearchState("");
-    setSearchRadius("25");
     router.push("/search");
   };
-
-  const hasActiveFilters = q || location || rating || radius || hasOrigin;
 
   // Resolve display label for the title
   const stateName =
@@ -329,110 +417,123 @@ export function SearchResults() {
             <SearchableDropdown
               options={STATE_OPTIONS}
               value={searchState}
-              onChange={setSearchState}
+              onChange={applyState}
               placeholder="Select a state…"
               className="flex-1"
             />
           </div>
 
-          {/* Radius dropdown */}
-          <div className="flex items-center gap-2 rounded-xl border border-[#e8e0e8] px-4 py-2.5">
-            <div className="relative flex items-center">
-              <select
-                value={searchRadius}
-                onChange={(e) => setSearchRadius(e.target.value)}
-                className="appearance-none bg-transparent pr-6 text-sm font-medium text-[#4a4a4a] focus:outline-none"
-                aria-label="Radius"
-              >
-                {RADIUS_OPTIONS.map((r) => (
-                  <option key={r} value={String(r)}>
-                    {r} miles
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-0 size-3.5 text-brand-muted/60" />
-            </div>
-          </div>
-
-          {/* Near-me button */}
-          <button
-            type="button"
-            onClick={handleNearMe}
-            className={cn(
-              "flex items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors",
-              hasOrigin
-                ? "border-brand-magenta/40 bg-brand-magenta/10 text-brand-magenta"
-                : "border-[#e8e0e8] text-[#4a4a4a] hover:border-brand-magenta/40 hover:text-brand-magenta"
-            )}
-            aria-label="Use my location"
-          >
-            <LocateFixed className="size-4" aria-hidden />
-            Near Me
-          </button>
-
-          {/* Search button */}
-          <Button
-            type="submit"
-            variant="gradient"
-            className="h-auto gap-2 rounded-xl px-6 py-3 text-sm font-semibold"
-          >
-            <Search className="size-4" aria-hidden />
-            Search
-          </Button>
-        </form>
-
-        {/* Location status / errors */}
-        {hasOrigin && (
-          <div className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-brand-magenta">
-            <LocateFixed className="size-3.5" />
-            Using your location
+          {/* Near-me + Search — side by side on mobile, inline on desktop */}
+          <div className="flex gap-3 lg:contents">
             <button
               type="button"
-              onClick={clearLocation}
-              className="ml-1 text-brand-muted hover:text-brand-magenta"
-              aria-label="Stop using location"
+              onClick={handleNearMe}
+              className={cn(
+                "flex flex-1 items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors lg:flex-none",
+                hasOrigin
+                  ? "border-brand-magenta/40 bg-brand-magenta/10 text-brand-magenta"
+                  : "border-[#e8e0e8] text-[#4a4a4a] hover:border-brand-magenta/40 hover:text-brand-magenta"
+              )}
+              aria-label="Use my location"
+            >
+              <LocateFixed className="size-4" aria-hidden />
+              Near Me
+            </button>
+
+            <Button
+              type="submit"
+              variant="gradient"
+              className="h-auto flex-1 gap-2 rounded-xl px-6 py-3 text-sm font-semibold lg:flex-none"
+            >
+              <Search className="size-4" aria-hidden />
+              Search
+            </Button>
+          </div>
+        </form>
+
+        {/* Active location / state filter + a clear-it control */}
+        {(hasOrigin || location) && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-magenta/8 px-2.5 py-1 font-medium text-brand-magenta">
+              <LocateFixed className="size-3.5" />
+              {hasOrigin
+                ? `Using your location${userLoc?.stateName ? ` · ${userLoc.stateName}` : ""}`
+                : `Showing ${stateName}`}
+            </span>
+            <button
+              type="button"
+              onClick={clearUserLocation}
+              className="inline-flex items-center gap-1 rounded-full border border-[#e8e0e8] px-2.5 py-1 font-medium text-brand-muted transition-colors hover:border-brand-magenta/40 hover:text-brand-magenta"
+              aria-label="Clear selected location"
             >
               <X className="size-3.5" />
+              Clear location
             </button>
           </div>
         )}
-        {!hasOrigin && geoError && (
-          <p className="mt-3 text-xs text-brand-muted">{geoError}</p>
+        {!hasOrigin && !location && (geoError || status === "denied") && (
+          <p className="mt-3 text-xs text-brand-muted">
+            {geoError ||
+              "Location access is blocked — enable it in your browser to sort and filter by distance."}
+          </p>
         )}
       </div>
 
       {/* ── Body: sidebar + results ─────────────────────────────────────── */}
       <div className="flex flex-col gap-8 lg:flex-row">
-        {/* ── Filter Sidebar ─────────────────────────────────────────────── */}
-        <aside className="w-full shrink-0 lg:w-[260px]">
+        {/* ── Filter Sidebar (desktop only) ──────────────────────────────── */}
+        <aside className="hidden w-full shrink-0 lg:block lg:w-[260px]">
           <div className="flex flex-col gap-6 rounded-2xl border border-[#ece6ec] bg-white p-5 shadow-sm">
-            {/* Distance / Radius */}
+            {/* Distance / Radius — only meaningful with a known origin. */}
             <div>
-              <h3 className="text-sm font-semibold text-[#1a1a1a]">
-                Distance / Radius
-              </h3>
-              <div className="mt-3 flex flex-col gap-2.5">
-                {DISTANCE_BANDS.map((band) => {
-                  const checked = activeBandRadius === band.radius;
-                  return (
-                    <label
-                      key={band.radius}
-                      className="flex cursor-pointer items-center gap-2.5 text-sm text-[#4a4a4a]"
-                    >
-                      <input
-                        type="radio"
-                        name="distance"
-                        checked={checked}
-                        onChange={() =>
-                          updateParam("radius", String(band.radius))
-                        }
-                        className="size-4 accent-brand-magenta"
-                      />
-                      {band.label}
-                    </label>
-                  );
-                })}
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-[#1a1a1a]">
+                  Distance / Radius
+                </h3>
+                {hasOrigin && activeBandRadius && (
+                  <button
+                    type="button"
+                    onClick={() => updateParam("radius", "")}
+                    className="text-xs font-medium text-brand-magenta hover:opacity-70"
+                  >
+                    Reset
+                  </button>
+                )}
               </div>
+
+              {!hasOrigin ? (
+                <button
+                  type="button"
+                  onClick={handleNearMe}
+                  className="mt-3 flex w-full items-center gap-2 rounded-xl border border-dashed border-[#e0c9e0] bg-[#faf5fa] px-3 py-2.5 text-left text-xs text-brand-muted transition-colors hover:border-brand-magenta/50 hover:text-brand-magenta"
+                >
+                  <LocateFixed className="size-4 shrink-0 text-brand-magenta" />
+                  Share your location to filter by distance
+                </button>
+              ) : (
+                <div className="mt-3 flex flex-col gap-2.5">
+                  {DISTANCE_BANDS.map((band) => {
+                    const checked = activeBandRadius === band.radius;
+                    return (
+                      <label
+                        key={band.radius}
+                        className="flex cursor-pointer items-center gap-2.5 text-sm text-[#4a4a4a]"
+                      >
+                        <input
+                          type="radio"
+                          name="distance"
+                          checked={checked}
+                          onChange={() =>
+                            updateParam("radius", String(band.radius))
+                          }
+                          className="size-4 accent-brand-magenta"
+                        />
+                        {band.label}
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             <div className="h-px bg-[#ece6ec]" />
@@ -481,11 +582,28 @@ export function SearchResults() {
         {/* ── Results column ─────────────────────────────────────────────── */}
         <div className="min-w-0 flex-1">
           {/* Results header */}
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center justify-between gap-3">
             <h2 className="text-lg font-semibold text-[#1a1a1a]">
               {loading ? "Searching…" : `${total} Clinics Found`}
             </h2>
-            <div className="flex items-center gap-2">
+
+            {/* Mobile: open filters + sort in a modal */}
+            <button
+              type="button"
+              onClick={() => setShowFilters(true)}
+              className="inline-flex items-center gap-2 rounded-xl border border-[#e1e1e1] bg-white px-4 py-2 text-sm font-medium text-[#4a4a4a] transition-colors hover:border-brand-magenta/40 hover:text-brand-magenta lg:hidden"
+            >
+              <SlidersHorizontal className="size-4" />
+              Filters &amp; Sort
+              {(rating || radius) && (
+                <span className="flex size-5 items-center justify-center rounded-full bg-brand-magenta text-[11px] font-semibold text-white">
+                  {[rating, radius].filter(Boolean).length}
+                </span>
+              )}
+            </button>
+
+            {/* Desktop: inline sort */}
+            <div className="hidden items-center gap-2 lg:flex">
               <span className="text-sm text-brand-muted">Sorted By:</span>
               <div className="relative flex items-center">
                 <select
@@ -493,7 +611,9 @@ export function SearchResults() {
                   onChange={(e) => updateParam("sort", e.target.value)}
                   className="appearance-none rounded-xl border border-[#e1e1e1] bg-white py-2 pl-3.5 pr-9 text-sm font-medium text-[#4a4a4a] transition-colors hover:border-brand-magenta/40 focus:outline-none focus:ring-2 focus:ring-brand-magenta/20"
                 >
-                  <option value="distance">Distance</option>
+                  <option value="distance" disabled={!hasOrigin}>
+                    Distance{!hasOrigin ? " (share location)" : ""}
+                  </option>
                   <option value="rating">Rating</option>
                 </select>
                 <ChevronDown className="pointer-events-none absolute right-3 size-3.5 text-brand-muted" />
@@ -520,7 +640,7 @@ export function SearchResults() {
                 </Button>
               </div>
             ) : results.length === 0 ? (
-              <EmptyState q={q} location={location} onClear={clearFilters} />
+              <EmptyState q={q} location={stateName} onClear={clearFilters} />
             ) : (
               <div className="flex flex-col gap-5">
                 {results.map((clinic) => (
@@ -532,14 +652,120 @@ export function SearchResults() {
         </div>
       </div>
 
-      {/* Active-filters clear shortcut (mobile convenience) */}
-      {hasActiveFilters && !loading && (
-        <button
-          onClick={clearFilters}
-          className="self-center text-xs font-medium text-brand-magenta hover:opacity-70 lg:hidden"
+      {/* ── Mobile filters & sort modal ─────────────────────────────────── */}
+      {showFilters && (
+        <div
+          className="fixed inset-0 z-[120] lg:hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Filters and sort"
         >
-          Clear all filters
-        </button>
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowFilters(false)} />
+          <div className="absolute inset-x-0 bottom-0 flex max-h-[85dvh] flex-col rounded-t-2xl bg-white shadow-2xl">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-[#ece6ec] px-5 py-4">
+              <h3 className="text-base font-semibold text-[#1a1a1a]">Filters &amp; Sort</h3>
+              <button
+                type="button"
+                onClick={() => setShowFilters(false)}
+                aria-label="Close"
+                className="rounded-full p-1.5 text-brand-muted transition-colors hover:bg-[#f5f0f5]"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+
+            {/* Scrollable body */}
+            <div className="flex flex-col gap-6 overflow-y-auto p-5">
+              {/* Sort */}
+              <div>
+                <h4 className="text-sm font-semibold text-[#1a1a1a]">Sort By</h4>
+                <div className="mt-3 flex flex-col gap-2.5">
+                  <label className={cn("flex items-center gap-2.5 text-sm", hasOrigin ? "cursor-pointer text-[#4a4a4a]" : "cursor-not-allowed opacity-50")}>
+                    <input type="radio" name="sort-modal" disabled={!hasOrigin} checked={sort === "distance"} onChange={() => updateParam("sort", "distance")} className="size-4 accent-brand-magenta" />
+                    Distance{!hasOrigin ? " (share location)" : ""}
+                  </label>
+                  <label className="flex cursor-pointer items-center gap-2.5 text-sm text-[#4a4a4a]">
+                    <input type="radio" name="sort-modal" checked={sort === "rating"} onChange={() => updateParam("sort", "rating")} className="size-4 accent-brand-magenta" />
+                    Rating
+                  </label>
+                </div>
+              </div>
+
+              <div className="h-px bg-[#ece6ec]" />
+
+              {/* Distance */}
+              <div>
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-semibold text-[#1a1a1a]">Distance / Radius</h4>
+                  {hasOrigin && activeBandRadius && (
+                    <button type="button" onClick={() => updateParam("radius", "")} className="text-xs font-medium text-brand-magenta">
+                      Reset
+                    </button>
+                  )}
+                </div>
+                {!hasOrigin ? (
+                  <button
+                    type="button"
+                    onClick={handleNearMe}
+                    className="mt-3 flex w-full items-center gap-2 rounded-xl border border-dashed border-[#e0c9e0] bg-[#faf5fa] px-3 py-2.5 text-left text-xs text-brand-muted"
+                  >
+                    <LocateFixed className="size-4 shrink-0 text-brand-magenta" />
+                    Share your location to filter by distance
+                  </button>
+                ) : (
+                  <div className="mt-3 flex flex-col gap-2.5">
+                    {DISTANCE_BANDS.map((band) => (
+                      <label key={band.radius} className="flex cursor-pointer items-center gap-2.5 text-sm text-[#4a4a4a]">
+                        <input type="radio" name="distance-modal" checked={activeBandRadius === band.radius} onChange={() => updateParam("radius", String(band.radius))} className="size-4 accent-brand-magenta" />
+                        {band.label}
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="h-px bg-[#ece6ec]" />
+
+              {/* Rating */}
+              <div>
+                <h4 className="text-sm font-semibold text-[#1a1a1a]">Rating</h4>
+                <div className="mt-3 flex flex-col gap-2.5">
+                  {RATING_BANDS.map((band) => (
+                    <label key={band.value} className="flex cursor-pointer items-center gap-2.5 text-sm text-[#4a4a4a]">
+                      <input type="radio" name="rating-modal" checked={rating === band.value} onChange={() => updateParam("rating", band.value)} className="size-4 accent-brand-magenta" />
+                      <span className="inline-flex items-center gap-1">
+                        <Star className="size-3.5 fill-[#FFBA19] text-[#FFBA19]" />
+                        {band.label}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer actions */}
+            <div className="flex items-center gap-3 border-t border-[#ece6ec] p-4">
+              <button
+                type="button"
+                onClick={() => {
+                  clearFilters();
+                  setShowFilters(false);
+                }}
+                className="flex-1 rounded-xl border border-[#e8e0e8] px-4 py-2.5 text-sm font-medium text-brand-magenta transition-colors hover:bg-brand-magenta/5"
+              >
+                Clear All
+              </button>
+              <Button
+                variant="gradient"
+                onClick={() => setShowFilters(false)}
+                className="h-auto flex-1 rounded-xl py-2.5 text-sm font-semibold"
+              >
+                Show {total} Results
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -552,15 +778,44 @@ function ClinicCard({ clinic }: { clinic: ClinicResult }) {
     new Map(clinic.services.map((s) => [s.slug, s])).values()
   );
 
-  const gallery = clinic.cover_image_url ? [clinic.cover_image_url] : [];
-  // Thumbnails: reuse the cover for now (gallery endpoint not wired) — show up
-  // to 4 small thumbs with a +N overlay when more would exist.
-  const thumbs = gallery.slice(0, 4);
-  const extraThumbs = Math.max(0, gallery.length - 4);
+  // Real photo strip from the API: cover first, then gallery / before-after.
+  const images =
+    clinic.gallery_images && clinic.gallery_images.length > 0
+      ? clinic.gallery_images
+      : clinic.cover_image_url
+        ? [clinic.cover_image_url]
+        : [];
+  const cover = images[0] ?? null;
+  const thumbs = images.slice(1, 5);
+  const extraThumbs = Math.max(0, images.length - 1 - thumbs.length);
+
+  // Rating: internal average first, else external/Google rating.
+  const ratingRaw = clinic.avg_rating ?? clinic.ext_rating;
+  const ratingValue = ratingRaw != null ? Number(ratingRaw) : null;
+  const reviewCount =
+    clinic.avg_rating != null ? clinic.review_count : clinic.ext_review_count;
+
+  // Multi-location awareness.
+  const locationCount = clinic.location_count || clinic.locations?.length || 1;
+  const otherCities = (clinic.locations || [])
+    .map((l) =>
+      l.city
+        ? `${l.city}${l.state ? `, ${toStateCode(l.state) ?? l.state}` : ""}`
+        : null
+    )
+    .filter((c): c is string => Boolean(c));
+
+  const stateCode = toStateCode(clinic.state) ?? clinic.state;
+  // Some scraped cities carry trailing punctuation ("Yardley,"); tidy for display.
+  const cityLabel = (clinic.city || "").replace(/[,\s]+$/, "");
+  const initials = clinic.clinic_name
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .slice(0, 2);
 
   const profileUrl = `/clinics/${clinic.clinic_slug}`;
   const bookUrl = clinic.booking_url || clinic.website || profileUrl;
-  const isFeatured = clinic.featured || clinic.verified;
 
   return (
     <div className="flex flex-col gap-5 overflow-hidden rounded-2xl border border-[#ece6ec] bg-white p-4 shadow-sm transition-shadow hover:shadow-[0_8px_30px_rgba(170,78,179,0.10)] sm:flex-row sm:p-5">
@@ -570,28 +825,30 @@ function ClinicCard({ clinic }: { clinic: ClinicResult }) {
           href={profileUrl}
           className="relative block h-[160px] w-full overflow-hidden rounded-xl bg-gradient-to-br from-brand-coral/20 to-brand-purple/20"
         >
-          {clinic.cover_image_url ? (
+          {cover ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={clinic.cover_image_url}
+              src={cover}
               alt={clinic.clinic_name}
               className="size-full object-cover"
             />
           ) : (
             <div className="flex size-full items-center justify-center">
               <span className="text-4xl font-bold text-white/60">
-                {clinic.clinic_name
-                  .split(" ")
-                  .map((w) => w[0])
-                  .join("")
-                  .slice(0, 2)}
+                {initials}
               </span>
             </div>
           )}
-          {isFeatured && (
+          {clinic.featured && (
             <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-md bg-[#D3A845] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white shadow-lg">
               <Crown className="size-3" />
               Featured
+            </span>
+          )}
+          {images.length > 1 && (
+            <span className="absolute bottom-2 right-2 inline-flex items-center gap-1 rounded-md bg-black/55 px-2 py-0.5 text-[10px] font-semibold text-white">
+              <Images className="size-3" />
+              {images.length}
             </span>
           )}
         </a>
@@ -601,22 +858,19 @@ function ClinicCard({ clinic }: { clinic: ClinicResult }) {
             {thumbs.map((src, i) => {
               const isLast = i === thumbs.length - 1;
               return (
-                <div
+                <a
+                  href={profileUrl}
                   key={i}
-                  className="relative h-[44px] overflow-hidden rounded-md bg-[#f5f0f5]"
+                  className="relative block h-[44px] overflow-hidden rounded-md bg-[#f5f0f5]"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={src}
-                    alt=""
-                    className="size-full object-cover"
-                  />
+                  <img src={src} alt="" className="size-full object-cover" />
                   {isLast && extraThumbs > 0 && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/50 text-xs font-semibold text-white">
                       +{extraThumbs}
                     </div>
                   )}
-                </div>
+                </a>
               );
             })}
           </div>
@@ -634,22 +888,38 @@ function ClinicCard({ clinic }: { clinic: ClinicResult }) {
           )}
         </a>
 
-        <div className="flex items-center gap-1.5 text-sm text-[#727272]">
-          <MapPin className="size-3.5 shrink-0 text-brand-magenta/60" />
-          <span className="line-clamp-1">
-            {clinic.city}, {clinic.state}
-            {clinic.distance_miles != null &&
-              `  ·  ${clinic.distance_miles} Miles Away`}
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-[#727272]">
+          <span className="inline-flex items-center gap-1.5">
+            <MapPin className="size-3.5 shrink-0 text-brand-magenta/60" />
+            <span className="line-clamp-1">
+              {cityLabel}, {stateCode}
+            </span>
           </span>
+          {clinic.distance_miles != null && (
+            <span className="text-[#9a9a9a]">
+              · {clinic.distance_miles} mi away
+            </span>
+          )}
+          {locationCount > 1 && (
+            <span
+              title={otherCities.join(" • ")}
+              className="inline-flex items-center gap-1 rounded-full border border-brand-magenta/20 bg-brand-magenta/5 px-2 py-0.5 text-[11px] font-medium text-brand-magenta"
+            >
+              <MapPin className="size-3" />
+              {locationCount} locations
+            </span>
+          )}
         </div>
 
-        {clinic.avg_rating != null && (
+        {ratingValue != null && (
           <div className="flex items-center gap-1 text-sm">
             <Star className="size-4 fill-[#FFBA19] text-[#FFBA19]" />
             <span className="font-semibold text-[#1a1a1a]">
-              {Number(clinic.avg_rating).toFixed(1)}
+              {ratingValue.toFixed(1)}
             </span>
-            <span className="text-[#727272]">({clinic.review_count})</span>
+            {reviewCount != null && reviewCount > 0 && (
+              <span className="text-[#727272]">({reviewCount} reviews)</span>
+            )}
           </div>
         )}
 
@@ -667,7 +937,7 @@ function ClinicCard({ clinic }: { clinic: ClinicResult }) {
         )}
       </div>
 
-      {/* Right: CTAs */}
+      {/* Right: CTAs (no pricing shown) */}
       <div className="flex shrink-0 flex-col justify-center gap-2.5 sm:w-[180px]">
         <Button
           variant="gradient"
@@ -764,7 +1034,7 @@ function EmptyState({
       </div>
       <div className="flex gap-3">
         <Button variant="outline" onClick={onClear} className="rounded-xl">
-          Clear Search
+          Clear Filters
         </Button>
         <Button
           variant="gradient"

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import type { ConcernPageData } from "@/lib/concerns/queries";
@@ -26,20 +26,37 @@ const CARD_FIELDS: { key: string; label: string }[] = [
 
 export function ConcernTabs({ data }: { data: ConcernPageData }) {
   const [tab, setTab] = useState<Tab>("Overview");
+  const rootRef = useRef<HTMLDivElement>(null);
   const { concern, clinics, providers, services } = data;
   const details = concern.details as Record<string, string> | null;
 
+  // "Book Appointment" links to #clinics — open the Clinics tab and scroll here.
+  useEffect(() => {
+    const goToClinics = () => {
+      if (window.location.hash === "#clinics") {
+        setTab("Clinics & Diagnosis");
+        setTimeout(
+          () => rootRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
+          60
+        );
+      }
+    };
+    goToClinics();
+    window.addEventListener("hashchange", goToClinics);
+    return () => window.removeEventListener("hashchange", goToClinics);
+  }, []);
+
   return (
-    <div className="flex flex-col">
+    <div ref={rootRef} id="clinics" className="flex flex-col scroll-mt-[110px]">
       {/* Tabs Row */}
-      <div className="flex flex-row items-center gap-[14px] mb-10 overflow-x-auto pb-2">
+      <div className="flex flex-wrap lg:flex-nowrap items-center gap-2 sm:gap-[14px] mb-8 sm:mb-10 lg:overflow-x-auto pb-2">
         {TABS.map((t) => {
           const active = tab === t;
           return (
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`box-border flex h-[63px] items-center justify-center rounded-[16px] px-[24px] py-[1px] text-[18px] font-medium leading-[116%] tracking-[0.02em] shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)] flex-none ${
+              className={`box-border flex h-[50px] sm:h-[63px] items-center justify-center rounded-[16px] px-[18px] sm:px-[24px] py-[1px] text-[15px] sm:text-[18px] font-medium leading-[116%] tracking-[0.02em] shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)] flex-none whitespace-nowrap ${
                 active
                   ? "bg-[#E2CCE2] text-[#616161]"
                   : "bg-[#FFFFFF] text-[#616161] hover:bg-zinc-50"
@@ -69,7 +86,7 @@ export function ConcernTabs({ data }: { data: ConcernPageData }) {
              
              {/* Dynamic Details Container */}
              {details && (
-               <div className="flex flex-col lg:flex-row gap-[36px] bg-[#FFFFFF] border border-[#DEDEDE] rounded-[18px] p-[40px] shadow-[0px_9px_11.1px_rgba(240,223,241,0.6)]">
+               <div className="flex flex-col lg:flex-row gap-[28px] sm:gap-[36px] bg-[#FFFFFF] border border-[#DEDEDE] rounded-[18px] p-6 sm:p-[40px] shadow-[0px_9px_11.1px_rgba(240,223,241,0.6)]">
                  
                  {/* Left Column (Lists) */}
                  <div className="flex flex-col gap-[24px] lg:w-[539px] shrink-0">
@@ -103,7 +120,7 @@ export function ConcernTabs({ data }: { data: ConcernPageData }) {
                      const text = details[field.key];
                      if (!text) return null;
                      return (
-                       <div key={field.key} className="flex flex-col gap-[8px] bg-[#FFFFFF] rounded-[16px] p-[24px] shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)] h-full">
+                       <div key={field.key} className="flex flex-col gap-[8px] bg-[#FFFFFF] rounded-[16px] p-5 sm:p-[24px] shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)] h-full">
                          <h4 className="text-[18px] font-semibold leading-[150%] tracking-[0.02em] text-[#575757]">
                            {field.label}
                          </h4>
@@ -125,7 +142,7 @@ export function ConcernTabs({ data }: { data: ConcernPageData }) {
             {clinics.length === 0 ? (
               <Empty label="No clinics offering these treatments yet." />
             ) : (
-              <div className="-mt-[100px]">
+              <div className="-mt-14 sm:-mt-[100px]">
                 <ClinicsCarousel clinics={clinics} />
               </div>
             )}
@@ -137,7 +154,7 @@ export function ConcernTabs({ data }: { data: ConcernPageData }) {
             {providers.length === 0 ? (
               <Empty label="Provider profiles for this concern are coming soon." />
             ) : (
-              <div className="-mt-[100px]">
+              <div className="-mt-14 sm:-mt-[100px]">
                 <ProvidersCarousel providers={providers} />
               </div>
             )}

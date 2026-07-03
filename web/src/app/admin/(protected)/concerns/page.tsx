@@ -9,10 +9,12 @@ import {
   Plus,
   Pencil,
   Trash2,
+  ToggleLeft,
+  ToggleRight,
   Search,
   Eye,
 } from "lucide-react";
-import { adminGet, adminDelete } from "@/lib/admin/client";
+import { adminGet, adminDelete, adminPatch } from "@/lib/admin/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -53,6 +55,8 @@ export default function ConcernsPage() {
 
   const [deleteTarget, setDeleteTarget] = useState<ConcernListRow | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [pendingToggle, setPendingToggle] = useState<ConcernListRow | null>(null);
+  const [toggling, setToggling] = useState(false);
 
   const loadList = useCallback(async () => {
     setLoading(true);
@@ -94,6 +98,25 @@ export default function ConcernsPage() {
       setError(err instanceof Error ? err.message : "Failed to delete concern");
     } finally {
       setDeleting(false);
+    }
+  }
+
+  async function confirmToggle() {
+    if (!pendingToggle) return;
+    const next = !pendingToggle.is_published;
+    setToggling(true);
+    try {
+      await adminPatch(`/concerns/${pendingToggle.id}`, { is_published: next });
+      setRows((prev) =>
+        prev.map((r) =>
+          r.id === pendingToggle.id ? { ...r, is_published: next } : r
+        )
+      );
+      setPendingToggle(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update concern");
+    } finally {
+      setToggling(false);
     }
   }
 
@@ -155,7 +178,7 @@ export default function ConcernsPage() {
                   <TableHead className="w-[120px] text-xs font-semibold uppercase tracking-wider text-slate-500">
                     Status
                   </TableHead>
-                  <TableHead className="w-[120px] text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  <TableHead className="w-[300px] text-xs font-semibold uppercase tracking-wider text-slate-500">
                     Actions
                   </TableHead>
                 </TableRow>
@@ -246,6 +269,19 @@ export default function ConcernsPage() {
                         <Button
                           variant="outline"
                           size="sm"
+                          onClick={() => setPendingToggle(item)}
+                          className={`h-7 gap-1 border px-2.5 text-xs ${
+                            item.is_published
+                              ? "border-amber-200 text-amber-700 hover:bg-amber-50"
+                              : "border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                          }`}
+                        >
+                          {item.is_published ? <ToggleRight size={12} /> : <ToggleLeft size={12} />}
+                          {item.is_published ? "Unpublish" : "Publish"}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
                           className="h-7 gap-1 border-red-200 px-2.5 text-xs text-red-600 hover:bg-red-50"
                           onClick={() => setDeleteTarget(item)}
                         >
@@ -270,10 +306,10 @@ export default function ConcernsPage() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete concern?</DialogTitle>
+            <DialogTitle>Delete concern permanently?</DialogTitle>
             <DialogDescription>
               {deleteTarget
-                ? `“${deleteTarget.name}” will be archived (soft-deleted) and hidden from the public site. You can restore it later.`
+                ? `“${deleteTarget.name}” will be permanently deleted, along with its service and provider links. This cannot be undone. To only hide it, use Unpublish instead.`
                 : ""}
             </DialogDescription>
           </DialogHeader>
@@ -292,7 +328,66 @@ export default function ConcernsPage() {
               className="gap-1.5"
             >
               {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-              Delete
+              Delete permanently
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Publish / Unpublish confirmation */}
+      <Dialog
+        open={pendingToggle !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingToggle(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {pendingToggle?.is_published
+                ? "Unpublish concern?"
+                : "Publish concern?"}
+            </DialogTitle>
+            <DialogDescription>
+              {pendingToggle?.is_published ? (
+                <>
+                  “{pendingToggle?.name}” will be hidden from the public site and
+                  its page will no longer be reachable. Nothing is deleted — you
+                  can re-publish anytime.
+                </>
+              ) : (
+                <>
+                  “{pendingToggle?.name}” will be published and its page will go
+                  live on the public site.
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setPendingToggle(null)}
+              disabled={toggling}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmToggle}
+              disabled={toggling}
+              className={
+                pendingToggle?.is_published
+                  ? "gap-1.5 bg-amber-600 text-white hover:bg-amber-700"
+                  : "gap-1.5 bg-emerald-600 text-white hover:bg-emerald-700"
+              }
+            >
+              {toggling ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : pendingToggle?.is_published ? (
+                <ToggleLeft size={14} />
+              ) : (
+                <ToggleRight size={14} />
+              )}
+              {pendingToggle?.is_published ? "Unpublish" : "Publish"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -34,7 +34,6 @@ export interface Service {
   results_duration: string | null;
   recovery_time: string | null;
   faqs: unknown[] | null;
-  is_published: boolean;
   review_status: string | null;
   is_active: boolean;
   created_at: string;
@@ -55,7 +54,6 @@ interface FormState {
   results_duration: string;
   recovery_time: string;
   faqs: { q: string; a: string }[];
-  is_published: boolean;
 }
 
 // ----------------------------------------------------------------------------
@@ -84,7 +82,6 @@ function emptyForm(): FormState {
     results_duration: "",
     recovery_time: "",
     faqs: [],
-    is_published: false,
   };
 }
 
@@ -102,7 +99,6 @@ function formFromService(s: Service): FormState {
     results_duration: s.results_duration ?? "",
     recovery_time: s.recovery_time ?? "",
     faqs: parseFaqs(s.faqs),
-    is_published: s.is_published,
   };
 }
 
@@ -259,7 +255,6 @@ export function ServiceForm({ serviceId }: { serviceId?: string }) {
       results_duration: form.results_duration.trim() || null,
       recovery_time: form.recovery_time.trim() || null,
       faqs: faqsPayload,
-      is_published: form.is_published,
     };
 
     try {
@@ -518,37 +513,6 @@ export function ServiceForm({ serviceId }: { serviceId?: string }) {
                   />
                 </div>
               </div>
-
-              <Separator />
-
-              {/* Published toggle */}
-              <button
-                type="button"
-                onClick={() => update("is_published", !form.is_published)}
-                className="flex items-center justify-between rounded-lg border border-input px-3 py-2.5 text-left transition-colors hover:bg-slate-50"
-              >
-                <div className="flex flex-col">
-                  <span className="text-sm font-medium text-slate-800">Published</span>
-                  <span className="text-xs text-slate-400">
-                    Visible to the public site when on.
-                  </span>
-                </div>
-                <span
-                  className={cn(
-                    "relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors",
-                    form.is_published
-                      ? "bg-[linear-gradient(90deg,#DE7F4C_0%,#C341D7_100%)]"
-                      : "bg-slate-200"
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform",
-                      form.is_published ? "translate-x-5" : "translate-x-0.5"
-                    )}
-                  />
-                </span>
-              </button>
 
               {error && (
                 <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">

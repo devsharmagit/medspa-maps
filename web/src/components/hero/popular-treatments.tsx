@@ -2,96 +2,68 @@
 
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import Image from "next/image";
-import { useRef } from "react";
+import Link from "next/link";
+import { useRef, useState } from "react";
 
-const treatments = [
-  {
-    name: "Fillers",
-    clinics: 842,
-    startingPrice: 199,
-    icon: "/images/landingpage/fillers.png",
-  },
-  {
-    name: "Botox",
-    clinics: 1254,
-    startingPrice: 122,
-    icon: "/images/landingpage/botox.png",
-  },
-  {
-    name: "Laser",
-    clinics: 536,
-    startingPrice: 99,
-    icon: "/images/landingpage/laser.png",
-  },
-  {
-    name: "Microneedling",
-    clinics: 368,
-    startingPrice: 299,
-    icon: "/images/landingpage/microneedling.png",
-  },
-  {
-    name: "Chemical Peel",
-    clinics: 788,
-    startingPrice: 69,
-    icon: "/images/landingpage/checmical-peel.png",
-  },
-  {
-    name: "Skin Resurfacing",
-    clinics: 218,
-    startingPrice: 299,
-    icon: "/images/landingpage/skin-resurfacing.png",
-  },
-  {
-    name: "IV Therapy",
-    clinics: 524,
-    startingPrice: 89,
-    icon: "/images/landingpage/iv-therapy.png",
-  },
-  {
-    name: "Body Contouring",
-    clinics: 189,
-    startingPrice: 199,
-    icon: "/images/landingpage/body-countring.png",
-  },
-];
+interface Treatment {
+  slug: string;
+  name: string;
+  clinicCount: number;
+  icon: string;
+}
+
+interface PopularTreatmentsProps {
+  treatments: Treatment[];
+  titleNode?: React.ReactNode;
+}
+
+const DEFAULT_FALLBACK_ICON = "/images/landingpage/diamond.png";
 
 function TreatmentCard({
+  slug,
   name,
-  clinics,
+  clinicCount,
   icon,
 }: {
+  slug: string;
   name: string;
-  clinics: number;
+  clinicCount: number;
   icon: string;
 }) {
+  const [imgSrc, setImgSrc] = useState(icon);
+
   return (
-    <div className="box-border flex h-[201px] w-[161px] shrink-0 flex-col items-center justify-center gap-2 rounded-2xl bg-white px-[10px] pt-[3px] shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)]">
-      <div className="flex h-[62px] w-[66px] items-center justify-center rounded-[10px] border border-[#F5DEE8] bg-[linear-gradient(144.23deg,#F5F0F7_-33.1%,#FFFFFF_48.72%)]">
-        <div className="relative h-[32px] w-[32px]">
+    <Link
+      href={`/treatments/${slug}`}
+      className="box-border flex h-[166px] w-[130px] sm:h-[201px] sm:w-[161px] shrink-0 flex-col items-center justify-center gap-2 rounded-2xl bg-white px-[10px] pt-[3px] shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)] transition-transform hover:scale-105 hover:shadow-lg"
+    >
+      <div className="flex h-[52px] w-[56px] sm:h-[62px] sm:w-[66px] items-center justify-center rounded-[10px] border border-[#F5DEE8] bg-[linear-gradient(144.23deg,#F5F0F7_-33.1%,#FFFFFF_48.72%)]">
+        <div className="relative h-[26px] w-[26px] sm:h-[32px] sm:w-[32px]">
           <Image
-            src={icon}
+            src={imgSrc}
             alt={name}
             fill
             sizes="32px"
             className="object-contain"
+            onError={() => setImgSrc(DEFAULT_FALLBACK_ICON)}
           />
         </div>
       </div>
 
       {/* Title */}
-      <p className="flex h-[30px] w-[124px] items-center justify-center text-center font-montserrat text-[14px] font-medium leading-[116.02%] text-[#383838]">
+      <p className="flex h-auto sm:h-[30px] w-[104px] sm:w-[124px] items-center justify-center text-center font-montserrat text-[13px] sm:text-[14px] font-medium leading-[116.02%] text-[#383838]">
         {name}
       </p>
 
       {/* Clinics */}
-      <p className="flex items-center justify-center text-center font-inter text-[12px] font-normal leading-[100%] text-[#9A9A9A]">
-        {clinics} clinics
+      <p className="flex items-center justify-center text-center font-inter text-[11px] sm:text-[12px] font-normal leading-[100%] text-[#9A9A9A]">
+        {clinicCount} clinics
       </p>
-    </div>
+    </Link>
   );
 }
 
-export function PopularTreatments({ titleNode }: { titleNode?: React.ReactNode }) {
+export function PopularTreatments({ treatments, titleNode }: PopularTreatmentsProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const scroll = (direction: "left" | "right") => {
@@ -109,9 +81,9 @@ export function PopularTreatments({ titleNode }: { titleNode?: React.ReactNode }
   return (
     <section className="flex w-full flex-col items-center pt-[44px]">
       {/* ── Section Header ── */}
-      <div className="mb-[38px] flex h-[39px] w-full max-w-[1342px] items-center gap-[40px] px-4">
+      <div className="mb-[38px] flex h-[39px] w-full max-w-[1342px] items-center gap-4 sm:gap-[40px] px-4">
         <div className="h-0 flex-1 border-t border-[rgba(193,121,165,0.4)]" />
-        <h2 className="whitespace-nowrap text-center font-montserrat text-[34px] font-normal leading-[116.02%] tracking-[-0.04em] text-[#373634]">
+        <h2 className="whitespace-nowrap text-center font-montserrat text-[24px] sm:text-[30px] lg:text-[34px] font-normal leading-[116.02%] tracking-[-0.04em] text-[#373634]">
           {titleNode || (
             <>
               Popular <span className="font-heading">Treatments</span>
@@ -127,7 +99,7 @@ export function PopularTreatments({ titleNode }: { titleNode?: React.ReactNode }
         <button
           onClick={() => scroll("left")}
           aria-label="Previous treatments"
-          className="absolute -left-[24px] z-10 flex h-[48px] w-[56px] items-center justify-center rounded-l-[99px] rounded-r-none border border-r-0 border-[#E3CED8] shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)] hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer"
+          className="absolute -left-[24px] z-10 hidden h-[48px] w-[56px] items-center justify-center rounded-l-[99px] rounded-r-none border border-r-0 border-[#E3CED8] shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)] hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer lg:flex"
           style={{
             background: "linear-gradient(291.82deg, #FFFFFF 33.27%, #EDD8EF 159.97%)",
           }}
@@ -141,7 +113,7 @@ export function PopularTreatments({ titleNode }: { titleNode?: React.ReactNode }
           className="flex w-full gap-2 overflow-x-auto px-2 py-[38px] scrollbar-none"
         >
           {treatments.map((treatment) => (
-            <TreatmentCard key={treatment.name} {...treatment} />
+            <TreatmentCard key={treatment.slug} {...treatment} />
           ))}
         </div>
 
@@ -149,7 +121,7 @@ export function PopularTreatments({ titleNode }: { titleNode?: React.ReactNode }
         <button
           onClick={() => scroll("right")}
           aria-label="Next treatments"
-          className="absolute -right-[24px] z-10 flex h-[48px] w-[56px] items-center justify-center rounded-r-[99px] rounded-l-none border border-l-0 border-[#E3CED8] shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)] hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer"
+          className="absolute -right-[24px] z-10 hidden h-[48px] w-[56px] items-center justify-center rounded-r-[99px] rounded-l-none border border-l-0 border-[#E3CED8] shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)] hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer lg:flex"
           style={{
             background: "linear-gradient(111.82deg, #FFFFFF 33.27%, #EDD8EF 159.97%)",
           }}

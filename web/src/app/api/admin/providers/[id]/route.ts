@@ -9,6 +9,7 @@ import {
   getProviderServiceIds,
   getProviderConcernIds,
   updateProvider,
+  setProviderActive,
   deleteProvider,
 } from "@/lib/providers/queries";
 
@@ -26,6 +27,9 @@ const updateProviderSchema = z.object({
   name: z.string().min(1).max(255).optional(),
   title: z.string().max(255).nullish(),
   bio: z.string().nullish(),
+  card_tagline: z.string().max(500).nullish(),
+  review_rating: z.number().min(0).max(5).nullish(),
+  review_count: z.number().int().min(0).nullish(),
   image_url: z.string().url("Must be a valid URL").nullish(),
   years_experience: z.number().int().positive().nullish(),
   is_verified: z.boolean().optional(),
@@ -103,6 +107,9 @@ export async function PUT(
       ...(input.name !== undefined && { name: input.name }),
       title: input.title ?? undefined,
       bio: input.bio ?? undefined,
+      card_tagline: input.card_tagline ?? undefined,
+      review_rating: input.review_rating ?? undefined,
+      review_count: input.review_count ?? undefined,
       image_url: input.image_url ?? undefined,
       years_experience: input.years_experience ?? undefined,
       ...(input.is_verified !== undefined && { is_verified: input.is_verified }),
@@ -113,6 +120,28 @@ export async function PUT(
       ...(input.concern_ids !== undefined && { concern_ids: input.concern_ids }),
     });
 
+    if (!updated) throw ApiError.notFound("Provider not found");
+    return successResponse(updated);
+  } catch (err) {
+    return handleApiError(err);
+  }
+}
+
+const patchProviderSchema = z.object({
+  is_active: z.boolean(),
+});
+
+// PATCH /api/admin/providers/[id] — toggle active (enable/disable) state
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    await requireAdmin();
+    const { id } = await params;
+    const { is_active } = patchProviderSchema.parse(await req.json());
+
+    const updated = await setProviderActive(id, is_active);
     if (!updated) throw ApiError.notFound("Provider not found");
     return successResponse(updated);
   } catch (err) {
