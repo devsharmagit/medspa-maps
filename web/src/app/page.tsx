@@ -15,6 +15,10 @@ import { LocationPrompt } from "@/components/location/location-prompt";
 import { getPopularTreatments } from "@/lib/treatments/popular";
 import Image from "next/image";
 
+// Queries the database, so it can't be prerendered at Docker build time —
+// env (DATABASE_URL etc.) is only injected at runtime via ECS Secrets Manager.
+export const dynamic = "force-dynamic";
+
 export default async function Home() {
   const popularTreatments = await getPopularTreatments();
 
