@@ -7,6 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "db:migrate": "bun scripts/db-migrate.ts",
+    "db:seed": "bun scripts/db-seed.ts",
+    "db:setup": "bun run db:migrate && bun run db:seed",
     "seed": "bun scripts/seed.ts",
     "migrate:providers": "bun scripts/migrate-providers.ts",
     "migrate:treatment-changes": "bun scripts/migrate-treatment-changes.ts"
