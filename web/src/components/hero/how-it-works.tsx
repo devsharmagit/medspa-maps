@@ -43,7 +43,7 @@ export function HowItWorks() {
   return (
     // Outer container: 1372×330px on desktop, gradient, pink border, subtle shadow
     <section
-      className="flex w-full max-w-[1372px] flex-col lg:flex-row items-center justify-center rounded-[18px] border border-[#DEC6DF] py-10 px-6 lg:py-[14px] lg:pr-[34px] lg:pl-0 lg:pb-[5px]"
+      className="flex w-[calc(100%-2rem)] max-w-[1372px] flex-col min-[1400px]:flex-row items-center justify-center rounded-[18px] border border-[#DEC6DF] py-10 px-6 min-[1400px]:py-[14px] min-[1400px]:pr-[34px] min-[1400px]:pl-0 min-[1400px]:pb-[5px]"
       style={{
         background: "linear-gradient(129.28deg, #FCD1FF -95.16%, #FFFFFF 21.93%)",
         boxShadow: "0px 8px 14px rgba(0,0,0,0.02)",
@@ -54,10 +54,10 @@ export function HowItWorks() {
       {/* ── Left title block ── */}
       {/* Width 317px on desktop: padding 0 59px 0 62px → title is 216px wide */}
       <div
-        className="flex shrink-0 items-start justify-center mb-10 lg:mb-0 w-full lg:w-[317px] px-4 lg:px-0 lg:pl-[62px] lg:pr-[59px]"
+        className="flex shrink-0 items-start justify-center mb-10 min-[1400px]:mb-0 w-full min-[1400px]:w-[317px] px-4 min-[1400px]:px-0 min-[1400px]:pl-[62px] min-[1400px]:pr-[59px]"
       >
         <h2
-          className="font-montserrat font-medium leading-[116.02%] tracking-[-0.04em] text-[#99597A] text-center lg:text-left text-4xl lg:text-[58px]"
+          className="font-montserrat font-medium leading-[116.02%] tracking-[-0.04em] text-[#99597A] text-center min-[1400px]:text-left text-4xl lg:text-[58px]"
           style={{ lineHeight: "116.02%" }}
         >
           How It{" "}
@@ -67,8 +67,8 @@ export function HowItWorks() {
 
       {/* ── Steps area: 994×206px on desktop, relative for absolute numbers ── */}
       <div
-        className="relative flex flex-col lg:flex-row items-center justify-center gap-14 lg:gap-[27px] w-full lg:w-[994px]"
-        style={{ minHeight: 206, isolation: "isolate" }}
+        className="relative grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 justify-items-center gap-14 xl:gap-[27px] w-full xl:w-[994px]"
+        style={{ isolation: "isolate" }}
       >
         {/* ── Step cards ── */}
         {steps.map((step, idx) => (

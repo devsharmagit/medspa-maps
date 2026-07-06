@@ -1,43 +1,17 @@
 "use client";
 
-import Image from "next/image";
+import Link from "next/link";
 import { useRef } from "react";
 
-const providers = [
-  {
-    id: 1,
-    name: "Shelby Miller ",
-    verified: true,
-    specialty: "Injectable Specialist",
-    experience: "10+ years of Experience",
-    description:
-      "Expert in Botox, fillers and laser treatments. Provides soft and natural looking results.",
-    rating: 4.9,
-    image: "/images/landingpage/SHELBY-HEADSHOT.webp",
-  },
-  {
-    id: 2,
-    name: "Shelby Miller ",
-    verified: true,
-    specialty: "Injectable Specialist",
-    experience: "10+ years of Experience",
-    description:
-      "Expert in Botox, fillers and laser treatments. Provides soft and natural looking results.",
-    rating: 4.9,
-    image: "/images/landingpage/SHELBY-HEADSHOT.webp",
-  },
-  {
-    id: 3,
-    name: "Shelby Miller ",
-    verified: true,
-    specialty: "Injectable Specialist",
-    experience: "10+ years of Experience",
-    description:
-      "Expert in Botox, fillers and laser treatments. Provides soft and natural looking results.",
-    rating: 4.9,
-    image: "/images/landingpage/SHELBY-HEADSHOT.webp",
-  },
-];
+import type { ConcernProvider } from "@/lib/providers/queries";
+
+/** Fallback headshot when a provider has no image (matches ProvidersCarousel). */
+const DEFAULT_PHOTO =
+  "https://images.stockcake.com/public/1/9/d/19d13828-c999-4e2d-a191-9da4dd8bd824_large/confident-medical-professional-stockcake.jpg";
+
+function providerHref(p: ConcernProvider) {
+  return `/providers/${p.id}/${p.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
+}
 
 // ─── Verified badge — pink checkmark circle ────────────────────────────────────
 function VerifiedBadge() {
@@ -75,20 +49,25 @@ function ChevronArrow({ color }: { color: string }) {
 // Left half: photo filling full height (rounded-l-[22px])
 // Right half: info column with name, specialty, divider, details, CTA button
 
-function ProviderCard({ provider }: { provider: (typeof providers)[0] }) {
+function ProviderCard({ provider }: { provider: ConcernProvider }) {
+  const specialty = provider.title || "Aesthetic Provider";
+  const description = provider.card_tagline?.trim() || null;
+  const rating = provider.review_rating ?? provider.avg_rating;
+
   return (
     <div
       className="flex min-h-[341px] h-auto sm:h-[341px] w-[326px] sm:w-[401px] shrink-0 overflow-hidden rounded-[22px] border border-[#DEDEDE] bg-white"
       style={{ boxShadow: "0px 6px 10.5px 1px rgba(0,0,0,0.05)" }}
     >
       {/* ── Photo — left half ── */}
-      <div className="relative w-[150px] sm:w-[200.5px] shrink-0">
-        <Image
-          src={provider.image}
+      <div className="relative w-[150px] sm:w-[200.5px] shrink-0 bg-zinc-100">
+        {/* Arbitrary scraped/CDN URLs — use a plain img (not next/image, which
+            requires each host in remotePatterns). */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={provider.image_url || DEFAULT_PHOTO}
           alt={provider.name}
-          fill
-          className="object-cover object-top"
-          sizes="(max-width: 768px) 50vw, 200px"
+          className="absolute inset-0 h-full w-full object-cover object-top"
         />
       </div>
 
@@ -99,13 +78,13 @@ function ProviderCard({ provider }: { provider: (typeof providers)[0] }) {
           {/* Name + badge + specialty */}
           <div className="flex flex-col gap-2">
             <div className="flex gap-1">
-              <h3 className="font-montserrat text-[18px] font-medium leading-[116.02%] tracking-[0.02em] text-[#383838]">
+              <h3 className="font-montserrat text-[18px] font-medium leading-[116.02%] tracking-[0.02em] text-[#383838] line-clamp-1">
                 {provider.name}
               </h3>
-              {provider.verified && <VerifiedBadge />}
+              {provider.is_verified && <VerifiedBadge />}
             </div>
-            <span className="font-montserrat text-[14px] leading-[138%] tracking-[0.02em] text-[#727272]">
-              {provider.specialty}
+            <span className="font-montserrat text-[14px] leading-[138%] tracking-[0.02em] text-[#727272] line-clamp-1">
+              {specialty}
             </span>
           </div>
 
@@ -114,28 +93,42 @@ function ProviderCard({ provider }: { provider: (typeof providers)[0] }) {
 
           {/* Experience + description + rating */}
           <div className="flex flex-col gap-3">
-            <p className="font-montserrat text-[12px] font-semibold uppercase leading-[130%] tracking-[0.02em] text-[#616161]">
-              {provider.experience}
-            </p>
-            <p className="font-montserrat text-[11px] leading-[138%] tracking-[0.02em] text-[#727272]">
-              {provider.description}
-            </p>
-            <div className="flex items-center gap-1">
-              <span className="font-montserrat text-[11px] leading-[138%] tracking-[0.02em] text-[#727272]">
-                Customer Rating
-              </span>
-              <span className="font-inter text-[13px] font-medium leading-[21px] text-[#FFBA19]">★</span>
-              <span className="font-montserrat text-[12px] font-semibold uppercase leading-[130%] tracking-[0.02em] text-[#616161]">
-                {provider.rating}
-              </span>
-            </div>
+            {provider.years_experience != null && (
+              <p className="font-montserrat text-[12px] font-semibold uppercase leading-[130%] tracking-[0.02em] text-[#616161]">
+                {provider.years_experience}+ years of Experience
+              </p>
+            )}
+            {description && (
+              <p className="font-montserrat text-[11px] leading-[138%] tracking-[0.02em] text-[#727272] line-clamp-3">
+                {description}
+              </p>
+            )}
+            {rating && (
+              <div className="flex items-center gap-1">
+                <span className="font-montserrat text-[11px] leading-[138%] tracking-[0.02em] text-[#727272]">
+                  Customer Rating
+                </span>
+                <span className="font-inter text-[13px] font-medium leading-[21px] text-[#FFBA19]">★</span>
+                <span className="font-montserrat text-[12px] font-semibold uppercase leading-[130%] tracking-[0.02em] text-[#616161]">
+                  {rating}
+                </span>
+                {provider.review_count ? (
+                  <span className="font-montserrat text-[11px] leading-[138%] tracking-[0.02em] text-[#9A9A9A]">
+                    ({provider.review_count})
+                  </span>
+                ) : null}
+              </div>
+            )}
           </div>
         </div>
 
         {/* View Profile button — full width gradient */}
-        <button className="flex h-10 w-full items-center justify-center rounded-lg bg-[linear-gradient(90deg,#DE7F4C_0%,#C341D7_100%)] font-montserrat text-[14px] font-semibold text-white transition-opacity hover:opacity-90">
+        <Link
+          href={providerHref(provider)}
+          className="flex h-10 w-full items-center justify-center rounded-lg bg-[linear-gradient(90deg,#DE7F4C_0%,#C341D7_100%)] font-montserrat text-[14px] font-semibold text-white transition-opacity hover:opacity-90"
+        >
           View Profile
-        </button>
+        </Link>
       </div>
     </div>
   );
@@ -143,7 +136,7 @@ function ProviderCard({ provider }: { provider: (typeof providers)[0] }) {
 
 // ─── ProvidersSpotlight ───────────────────────────────────────────────────────
 
-export function ProvidersSpotlight() {
+export function ProvidersSpotlight({ providers = [] }: { providers?: ConcernProvider[] }) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const scroll = (dir: "left" | "right") => {
@@ -154,9 +147,12 @@ export function ProvidersSpotlight() {
     });
   };
 
+  // Nothing to spotlight — don't render an empty carousel.
+  if (providers.length === 0) return null;
+
   return (
     /* Outer card: 1372px wide, 536px tall, white bg, border, pink shadow, 18px radius */
-    <section className="flex w-full max-w-[1372px] flex-col items-center justify-center gap-6 lg:gap-9 rounded-[18px] border border-[#DEDEDE] bg-white pt-7 lg:pt-9 pb-[5px] shadow-[0px_9px_11.1px_rgba(240,223,241,0.6)]">
+    <section className="flex w-[calc(100%-2rem)] max-w-[1372px] flex-col items-center justify-center gap-6 lg:gap-9 rounded-[18px] border border-[#DEDEDE] bg-white pt-7 lg:pt-9 pb-[5px] shadow-[0px_9px_11.1px_rgba(240,223,241,0.6)]">
 
       {/* ── Header row ── */}
       <div className="flex w-full flex-col gap-4 px-5 sm:px-8 lg:flex-row lg:items-center lg:justify-between lg:px-16">
@@ -168,8 +164,8 @@ export function ProvidersSpotlight() {
         {/* Right group: View All + nav arrows */}
         <div className="flex items-center justify-between gap-8 lg:justify-normal">
           {/* View All Providers link */}
-          <a
-            href="#"
+          <Link
+            href="/providers"
             className="flex items-center gap-[5px] transition-opacity hover:opacity-70"
           >
             <span className="font-montserrat text-[16px] font-medium leading-[116.02%] text-[#CF5D9A]">
@@ -185,7 +181,7 @@ export function ProvidersSpotlight() {
                 strokeLinejoin="round"
               />
             </svg>
-          </a>
+          </Link>
 
           {/* Prev / Next arrows */}
           <div className="flex items-center gap-[3px]">

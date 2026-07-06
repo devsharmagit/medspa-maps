@@ -87,6 +87,29 @@ export async function getProvidersByConcernId(
     .map(({ featured: _featured, verified: _verified, ...p }) => p);
 }
 
+/**
+ * Fetch active providers, sorted by featured clinic status, then verified, then
+ * rating. Pass `limit` to cap the result (e.g. the landing-page spotlight).
+ */
+export async function getAllProviders(limit?: number): Promise<ConcernProvider[]> {
+  type Row = ConcernProvider & { featured: boolean; verified: boolean };
+
+  const rows = await query<Row>(
+    `SELECT
+       pr.id, pr.name, pr.title, pr.card_tagline, pr.image_url, pr.years_experience,
+       pr.is_verified, pr.review_rating, pr.review_count,
+       cl.slug AS clinic_slug, cl.name AS clinic_name, cl.featured, cl.verified, cl.avg_rating
+     FROM providers pr
+     JOIN clinics cl ON cl.id = pr.clinic_id AND cl.is_active = true
+     WHERE pr.is_active = true
+     ORDER BY cl.featured DESC, pr.is_verified DESC, pr.review_rating DESC NULLS LAST
+     ${limit != null ? "LIMIT $1" : ""}`,
+    limit != null ? [limit] : []
+  );
+
+  return rows.map(({ featured: _featured, verified: _verified, ...p }) => p);
+}
+
 /** Fetch a single full provider row by ID. */
 export async function getProviderById(id: string): Promise<Provider | null> {
   return queryOne<Provider>(

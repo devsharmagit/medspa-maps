@@ -85,10 +85,10 @@ export function ArticleSection() {
   };
 
   return (
-    <section className="mx-auto flex w-full max-w-[1372px] pb-16 lg:pb-[120px] flex-col items-center justify-center py-6 px-4 lg:px-0">
+    <section className="mx-auto flex w-full max-w-[1372px] pb-16 min-[1400px]:pb-[120px] flex-col items-center justify-center py-6 px-4 min-[1400px]:px-0">
       {/* Outer Card Container */}
       <div
-        className="relative flex w-full h-auto lg:h-[393px] flex-col lg:flex-row items-center justify-start rounded-[18px] border border-[#DEC6DF] overflow-hidden px-4 py-8 lg:p-0"
+        className="relative flex w-full h-auto min-[1400px]:h-[393px] flex-col min-[1400px]:flex-row items-center justify-start rounded-[18px] border border-[#DEC6DF] overflow-hidden px-4 py-8 min-[1400px]:p-0"
         style={{
           background: "linear-gradient(210.9deg, #FCD1FF -132.87%, #FFFFFF 43.51%)",
           boxShadow: "0px 8px 14px rgba(0, 0, 0, 0.02)",
@@ -96,7 +96,7 @@ export function ArticleSection() {
       >
         {/* Left Column: Search & Topic Knowledge Hub */}
         <div
-          className="relative flex w-full lg:w-[408px] h-auto lg:h-[314px] flex-col justify-center items-start rounded-[14px] px-5 py-6 lg:py-0 lg:absolute lg:left-[36px] lg:top-[39px] z-20 "
+          className="relative flex w-full min-[1400px]:w-[408px] h-auto min-[1400px]:h-[314px] flex-col justify-center items-start rounded-[14px] px-5 py-6 min-[1400px]:py-0 min-[1400px]:absolute min-[1400px]:left-[36px] min-[1400px]:top-[39px] z-20 "
           style={{
             background: "linear-gradient(111.82deg, #FFFFFF 33.27%, #EDD8EF 159.97%)",
           }}
@@ -149,7 +149,7 @@ export function ArticleSection() {
         </div>
 
         {/* Right Column Content Stack (Visible and formatted correctly for desktops/mobiles) */}
-        <div className="flex flex-col w-full lg:w-[839px] gap-4 mt-8 lg:mt-0 lg:absolute lg:left-[490px] lg:top-[26px] z-10">
+        <div className="flex flex-col w-full min-[1400px]:w-[839px] gap-4 mt-8 min-[1400px]:mt-0 min-[1400px]:absolute min-[1400px]:left-[490px] min-[1400px]:top-[26px] z-10">
           
           {/* Categories Grid (Top Row) */}
           <div className="flex w-full gap-[11px] overflow-x-auto pb-2 scrollbar-none snap-x snap-mandatory">

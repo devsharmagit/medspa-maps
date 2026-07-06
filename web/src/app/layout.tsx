@@ -3,6 +3,7 @@ import { Fraunces, Geist_Mono, Inter, Montserrat } from "next/font/google";
 import NextAuthProvider from "@/app/_providers/session-provider";
 import ChatWidget from "@/components/chat/chat-widget";
 import { LocationProvider } from "@/lib/location/location-context";
+import { UsaOnlyNotice } from "@/components/location/usa-only-notice";
 import "./globals.css";
 
 
@@ -53,6 +54,8 @@ export default function RootLayout({
         <NextAuthProvider>
           <LocationProvider>
             {children}
+            {/* Single global "USA-only" notice — never doubles up across pages. */}
+            <UsaOnlyNotice />
           </LocationProvider>
         </NextAuthProvider>
         {/* AI assistant — self-hides on /admin routes */}
