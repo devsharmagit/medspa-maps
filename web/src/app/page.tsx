@@ -5,14 +5,13 @@ import { HeroSection } from "@/components/hero/hero-section";
 import { HowItWorks } from "@/components/hero/how-it-works";
 import { PopularTreatments } from "@/components/hero/popular-treatments";
 import { ProvidersSpotlight } from "@/components/hero/providers-spotlight";
-import { ResourcesSection } from "@/components/hero/resources-section";
-import { Newsletter } from "@/components/hero/newsletter";
 import { TopCities } from "@/components/hero/top-cities";
 import { ArticleSection } from "@/components/hero/article-section";
 import StatsSection from "@/components/hero/stat-section";
-import { LocationHeadsUp } from "@/components/location/location-heads-up";
 import { LocationPrompt } from "@/components/location/location-prompt";
+import { getFeaturedClinics } from "@/lib/clinics/featured";
 import { getPopularTreatments } from "@/lib/treatments/popular";
+import { getAllProviders } from "@/lib/providers/queries";
 import Image from "next/image";
 
 // Queries the database, so it can't be prerendered at Docker build time —
@@ -20,7 +19,11 @@ import Image from "next/image";
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const popularTreatments = await getPopularTreatments();
+  const [popularTreatments, featuredClinics, spotlightProviders] = await Promise.all([
+    getPopularTreatments(),
+    getFeaturedClinics(5),
+    getAllProviders(5),
+  ]);
 
   return (
     <main className="relative flex flex-1 flex-col items-center bg-[#FDFDFD] gap-10 isolate w-full overflow-x-clip">
@@ -36,20 +39,17 @@ export default async function Home() {
         />
       </div>
 
-      {/* Ask for location on landing; show a heads-up if outside the USA. */}
+      {/* Ask for location on landing. The USA-only notice lives in the layout. */}
       <LocationPrompt />
-      <LocationHeadsUp />
 
       <HeroSection />
       <StatsSection />
       <PopularTreatments treatments={popularTreatments} />
-      <FindClinicSection />
-      <ProvidersSpotlight />
+      <FindClinicSection clinics={featuredClinics} />
+      <ProvidersSpotlight providers={spotlightProviders} />
       <HowItWorks />
-      <ResourcesSection />
       <TopCities />
       <ArticleSection />
-      <Newsletter />
       <Footer />
     </main>
   );

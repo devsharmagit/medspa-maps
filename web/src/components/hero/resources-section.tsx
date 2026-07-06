@@ -49,17 +49,17 @@ export function ResourcesSection() {
   return (
     <section 
       id="list-your-medspa"
-      className="mx-auto flex w-full max-w-[1372px] flex-col lg:flex-row items-center justify-between gap-6 overflow-visible py-8 px-4 lg:px-0"
+      className="mx-auto flex w-full max-w-[1372px] flex-col min-[1400px]:flex-row items-center justify-between gap-6 overflow-visible py-8 px-4 min-[1400px]:px-0"
     >
       {/* ── Left Card: Get Your medSpa listed ── */}
       <div
-        className="relative flex w-full lg:w-[814px] h-auto lg:h-[546px] flex-col items-start rounded-[18px] border border-[#DEC6DF] overflow-hidden p-6 sm:p-10 lg:p-0 bg-[linear-gradient(145deg,#F5CFFA_0%,#FAE3F9_50%,#FFFFFF_100%)] bg-no-repeat lg:bg-[url(/images/landingpage/gift-bg-whole.png)] lg:bg-[length:107%] lg:bg-center"
+        className="relative flex w-full min-[1400px]:w-[814px] h-auto min-[1400px]:h-[546px] flex-col items-start rounded-[18px] border border-[#DEC6DF] overflow-hidden p-6 sm:p-10 min-[1400px]:p-0 bg-[linear-gradient(145deg,#F5CFFA_0%,#FAE3F9_50%,#FFFFFF_100%)] bg-no-repeat min-[1400px]:bg-[url(/images/landingpage/gift-bg-whole.png)] min-[1400px]:bg-[length:107%] min-[1400px]:bg-center"
         style={{
           boxShadow: "0px 8px 14px rgba(0, 0, 0, 0.02)",
         }}
       >
         {/* Text Block */}
-        <div className="flex flex-col w-full lg:max-w-[512px] lg:absolute lg:left-[61px] lg:top-[65px] z-30">
+        <div className="flex flex-col w-full min-[1400px]:max-w-[512px] min-[1400px]:absolute min-[1400px]:left-[61px] min-[1400px]:top-[65px] z-30">
           <h2
             className="font-montserrat font-medium leading-[116.02%] tracking-[-0.04em] text-[#99597A] text-[28px] sm:text-[39px]"
             style={{ lineHeight: "116.02%" }}
@@ -73,7 +73,7 @@ export function ResourcesSection() {
         </div>
 
         {/* Benefit Items List */}
-        <div className="flex flex-col gap-[25px] w-full sm:max-w-[337px] mt-8 lg:mt-0 lg:absolute lg:left-[61px] lg:top-[246px] z-30">
+        <div className="flex flex-col gap-[25px] w-full sm:max-w-[337px] mt-8 min-[1400px]:mt-0 min-[1400px]:absolute min-[1400px]:left-[61px] min-[1400px]:top-[246px] z-30">
           {/* Item 1 */}
           <div
             className="flex items-center gap-[9px] w-full h-[61px] pl-3 rounded-[10px]"
@@ -138,14 +138,14 @@ export function ResourcesSection() {
 
       {/* ── Right Card: Claim Your Benefits ── */}
       <div
-        className="relative flex w-full lg:w-[535px] h-auto lg:h-[546px] flex-col items-center rounded-[18px] border border-[#DEC6DF] p-6 sm:p-10 lg:p-0"
+        className="relative flex w-full min-[1400px]:w-[535px] h-auto min-[1400px]:h-[546px] flex-col items-center rounded-[18px] border border-[#DEC6DF] p-6 sm:p-10 min-[1400px]:p-0"
         style={{
           background: "linear-gradient(147.33deg, #FCD1FF -144.24%, #FFFFFF 47.26%)",
           boxShadow: "0px 8px 14px rgba(0, 0, 0, 0.02)",
         }}
       >
         {/* Title Block */}
-        <div className="flex flex-col items-center w-full lg:max-w-[432px] lg:absolute lg:left-[52px] lg:top-[49px] z-30">
+        <div className="flex flex-col items-center w-full min-[1400px]:max-w-[432px] min-[1400px]:absolute min-[1400px]:left-[52px] min-[1400px]:top-[49px] z-30">
           <h2
             className="font-montserrat font-medium leading-[116.02%] tracking-[-0.04em] text-[#99597A] text-[28px] sm:text-[32px] text-center"
             style={{ lineHeight: "116.02%" }}
@@ -157,7 +157,7 @@ export function ResourcesSection() {
         {/* Form Inputs (Desktop absolute, mobile mt-8) */}
         <form 
           onSubmit={handleSubmit}
-          className="flex flex-col gap-[13px] w-full lg:max-w-[422px] mt-8 lg:mt-0 lg:absolute lg:left-[54px] lg:top-[170px] z-30"
+          className="flex flex-col gap-[13px] w-full min-[1400px]:max-w-[422px] mt-8 min-[1400px]:mt-0 min-[1400px]:absolute min-[1400px]:left-[54px] min-[1400px]:top-[170px] z-30"
         >
           {/* Full Name */}
           <div className="flex h-[50px] w-full items-center rounded-[4px] border border-[#D2C3D3] bg-white px-[15px]">

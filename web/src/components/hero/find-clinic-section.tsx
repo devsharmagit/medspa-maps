@@ -1,128 +1,39 @@
 "use client";
 
-import { ChevronDown, Heart, MapPin, Play, Star } from "lucide-react";
-import Image from "next/image";
+import { ChevronDown, LocateFixed, MapPin, Star } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+import type { FeaturedClinic } from "@/lib/clinics/featured";
+import { useLocation } from "@/lib/location/location-context";
+import { toStateCode } from "@/lib/location/states";
 
-interface Clinic {
-  id: number;
-  name: string;
-  abbr: string;
-  verified: boolean;
-  location: string;
-  distance: string;
-  rating: number;
-  reviewCount: number;
-  startingPrice: number;
-  treatments: string[];
-  featured: boolean;
-  discount: string;
-  thumbnails: string[];
-  additionalImages: number;
-  logo: string;
-  mainImage: string;
+// ─── Distance helpers ───────────────────────────────────────────────────────
+
+/** Haversine distance in MILES between two lat/lng points. */
+function milesBetween(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number,
+): number {
+  const R = 3959; // Earth radius in miles
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-// ─── Data ─────────────────────────────────────────────────────────────────────
+function formatMiles(miles: number): string {
+  const v = miles < 10 ? miles.toFixed(1) : String(Math.round(miles));
+  return `${v} mi away`;
+}
 
-const CLINIC_IMG = "/images/landingpage/clinic-2.png";
-const CLINIC_IMG2 = "/images/landingpage/clinic-3.png";
-
-const clinicData: Clinic[] = [
-  {
-    id: 1,
-    name: "Timeless Aesthetics",
-    abbr: "TA",
-    verified: true,
-    location: "Austin, TX",
-    distance: "8.5 Miles Away",
-    rating: 4.8,
-    reviewCount: 68,
-    startingPrice: 129,
-    treatments: ["Botox", "Fillers", "Laser", "Skin", "IV Therapy"],
-    featured: true,
-    discount: "15% Off",
-    thumbnails: [CLINIC_IMG2, CLINIC_IMG, CLINIC_IMG2],
-    additionalImages: 18,
-    logo: "/images/landingpage/clinic-logo.png",
-    mainImage: CLINIC_IMG,
-  },
-  {
-    id: 2,
-    name: "Revera Med",
-    abbr: "RM",
-    verified: true,
-    location: "Austin, TX",
-    distance: "8.5 Miles Away",
-    rating: 4.8,
-    reviewCount: 54,
-    startingPrice: 99,
-    treatments: ["Botox", "Fillers"],
-    featured: true,
-    discount: "15% Off",
-    thumbnails: [CLINIC_IMG, CLINIC_IMG2, CLINIC_IMG],
-    additionalImages: 18,
-    logo: "/images/landingpage/clinic-logo.png",
-    mainImage: CLINIC_IMG2,
-  },
-  {
-    id: 3,
-    name: "Glow Studio",
-    abbr: "GS",
-    verified: true,
-    location: "Austin, TX",
-    distance: "12 Miles Away",
-    rating: 4.9,
-    reviewCount: 42,
-    startingPrice: 99,
-    treatments: ["Skin", "Laser", "Peels"],
-    featured: true,
-    discount: "10% Off",
-    thumbnails: [CLINIC_IMG2, CLINIC_IMG, CLINIC_IMG2],
-    additionalImages: 18,
-    logo: "/images/landingpage/clinic-logo.png",
-    mainImage: CLINIC_IMG,
-  },
-  {
-    id: 4,
-    name: "Aura Aesthetics",
-    abbr: "AA",
-    verified: true,
-    location: "Austin, TX",
-    distance: "5 Miles Away",
-    rating: 4.7,
-    reviewCount: 91,
-    startingPrice: 149,
-    treatments: ["Botox", "Skin", "IV Therapy"],
-    featured: true,
-    discount: "20% Off",
-    thumbnails: [CLINIC_IMG, CLINIC_IMG2, CLINIC_IMG],
-    additionalImages: 18,
-    logo: "/images/landingpage/clinic-logo.png",
-    mainImage: CLINIC_IMG2,
-  },
-  {
-    id: 5,
-    name: "Beauty Clinic",
-    abbr: "BC",
-    verified: true,
-    location: "Austin, TX",
-    distance: "3 Miles Away",
-    rating: 4.6,
-    reviewCount: 77,
-    startingPrice: 79,
-    treatments: ["Botox", "Fillers", "Laser"],
-    featured: true,
-    discount: "12% Off",
-    thumbnails: [CLINIC_IMG2, CLINIC_IMG, CLINIC_IMG2],
-    additionalImages: 18,
-    logo: "/images/landingpage/clinic-logo.png",
-    mainImage: CLINIC_IMG,
-  },
-];
+// A clinic with a distance label resolved for the current viewer.
+type DisplayClinic = FeaturedClinic & { distanceLabel: string | null };
 
 // ─── Carousel Helpers ─────────────────────────────────────────────────────────
 
@@ -183,22 +94,26 @@ function getSlotStyle(offset: number) {
 }
 
 // ─── ClinicCard ───────────────────────────────────────────────────────────────
-// Layout (matching Figma):
-//   ┌──────────────────────────────────────────────┐
-//   │              Main Image (302px tall)          │
-//   │  [FEATURED]         [♥]                       │
-//   │              [▶]                              │
-//   │ 15% OFF                                       │
-//   ├──────────────────────────────────────────────┤
-//   │ [Logo] Name ✓          [thumb][thumb][+18]    │
-//   │        Austin, TX  📍 8.5 Miles               │
-//   │ 4.8 ★★★★★ (68) Starting at $129              │
-//   │ [Botox][Fillers][Laser][Skin][IV Therapy]     │
-//   │ [View Profile]              [Book Now ▶]      │
-//   └──────────────────────────────────────────────┘
 
-function ClinicCard({ clinic }: { clinic: Clinic }) {
-  const [isFavorited, setIsFavorited] = useState(false);
+function ClinicCard({ clinic }: { clinic: DisplayClinic }) {
+  const stateCode = toStateCode(clinic.state) ?? clinic.state ?? "";
+  const cityLabel = (clinic.city || "").replace(/[,\s]+$/, "");
+  const location = [cityLabel, stateCode].filter(Boolean).join(", ");
+  const initials = clinic.name
+    .split(" ")
+    .map((w) => w[0])
+    .filter(Boolean)
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
+  const thumbs = clinic.gallery.filter((src) => src !== clinic.coverImage).slice(0, 3);
+  const totalGallery = clinic.gallery.filter((src) => src !== clinic.coverImage).length;
+  const extra = Math.max(0, totalGallery - thumbs.length);
+
+  const profileUrl = `/clinics/${clinic.slug}`;
+  const bookUrl = clinic.bookingUrl || clinic.website || profileUrl;
+  const bookExternal = Boolean(clinic.bookingUrl || clinic.website);
 
   return (
     <div
@@ -207,52 +122,25 @@ function ClinicCard({ clinic }: { clinic: Clinic }) {
     >
       {/* ── Main Image ── */}
       <div className="relative h-[200px] lg:h-[302px] w-full overflow-hidden">
-        <Image
-          src={clinic.mainImage}
-          alt={clinic.name}
-          fill
-          className="object-cover"
-          sizes="(max-width: 768px) 100vw, 660px"
-        />
-
-        {/* Play button */}
-        <button
-          className="absolute left-1/2 top-1/2 flex h-[79px] w-[79px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white/70"
-          aria-label="Play video"
-        >
-          <div className="flex h-[58px] w-[58px] items-center justify-center rounded-full bg-black/70">
-            <Play className="ml-1 h-5 w-5 fill-white text-white" />
-          </div>
-        </button>
-
-        {/* Heart */}
-        <button
-          onClick={() => setIsFavorited(!isFavorited)}
-          className="absolute right-[18px] top-[18px] flex h-[40px] w-[40px] items-center justify-center rounded-full border-2 border-white bg-white/20"
-          aria-label="Add to favorites"
-        >
-          <Heart
-            className={`h-[18px] w-[18px] ${isFavorited ? "fill-[#CF5D9A] text-[#CF5D9A]" : "fill-white text-white"}`}
+        {clinic.coverImage ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={clinic.coverImage}
+            alt={clinic.name}
+            className="h-full w-full object-cover"
+            loading="lazy"
           />
-        </button>
+        ) : (
+          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#DE7F4C]/20 to-[#C341D7]/20 text-5xl font-semibold text-white/70">
+            {initials}
+          </div>
+        )}
 
         {/* Featured badge */}
         {clinic.featured && (
           <div className="absolute left-[22px] top-[23px] rounded bg-[#D3A845] px-[10px] py-1">
             <span className="font-montserrat text-[14px] font-semibold uppercase tracking-[-0.02em] text-white">
               Featured
-            </span>
-          </div>
-        )}
-
-        {/* Discount banner */}
-        {clinic.discount && (
-          <div
-            className="absolute bottom-0 left-0 w-full px-[10px] py-1.5"
-            style={{ background: "linear-gradient(90deg, #CF5C9B 15.45%, rgba(211,168,69,0) 100%)" }}
-          >
-            <span className="font-montserrat text-[14px] font-bold uppercase tracking-[-0.02em] text-white">
-              {clinic.discount}
             </span>
           </div>
         )}
@@ -266,20 +154,26 @@ function ClinicCard({ clinic }: { clinic: Clinic }) {
           {/* Left: logo + text */}
           <div className="flex items-start gap-[11px]">
             {/* Logo */}
-            <div className="h-[50px] w-[57px] shrink-0 overflow-hidden rounded-[6px] border border-[#E5E5E5]">
-              <Image
-                src={clinic.logo}
-                alt={`${clinic.name} logo`}
-                width={57}
-                height={50}
-                className="h-full w-full object-cover"
-              />
+            <div className="flex h-[50px] w-[57px] shrink-0 items-center justify-center overflow-hidden rounded-[6px] border border-[#E5E5E5] bg-[#faf5fa]">
+              {clinic.logo ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={clinic.logo}
+                  alt={`${clinic.name} logo`}
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                />
+              ) : (
+                <span className="font-montserrat text-[15px] font-semibold text-[#CF5D9A]">
+                  {initials}
+                </span>
+              )}
             </div>
 
             {/* Name + location */}
             <div className="flex flex-col gap-[4px]">
               <div className="flex items-center gap-[4px]">
-                <h3 className="font-montserrat text-[20px] font-medium leading-[116.02%] tracking-[0.02em] text-[#383838]">
+                <h3 className="font-montserrat text-[20px] font-medium leading-[116.02%] tracking-[0.02em] text-[#383838] line-clamp-1">
                   {clinic.name}
                 </h3>
                 {clinic.verified && (
@@ -295,77 +189,102 @@ function ClinicCard({ clinic }: { clinic: Clinic }) {
                 )}
               </div>
               <div className="flex items-center gap-[13px] text-[12px] text-[#727272]">
-                <span className="font-montserrat font-medium tracking-[0.02em]">{clinic.location}</span>
-                <div className="h-[14px] w-px bg-[#DBDBDB]" />
-                <div className="flex items-center gap-[2px]">
-                  <MapPin className="h-[13px] w-[13px] text-[#EE97C6]" />
-                  <span className="font-montserrat tracking-[0.02em]">{clinic.distance}</span>
-                </div>
+                {location && (
+                  <span className="font-montserrat font-medium tracking-[0.02em] line-clamp-1">
+                    {location}
+                  </span>
+                )}
+                {clinic.distanceLabel && (
+                  <>
+                    <div className="h-[14px] w-px bg-[#DBDBDB]" />
+                    <div className="flex items-center gap-[2px]">
+                      <MapPin className="h-[13px] w-[13px] text-[#EE97C6]" />
+                      <span className="font-montserrat tracking-[0.02em] whitespace-nowrap">
+                        {clinic.distanceLabel}
+                      </span>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>
 
           {/* Right: thumbnails */}
-          <div className="hidden lg:flex shrink-0 items-center gap-[9px]">
-            {clinic.thumbnails.map((img, idx) => (
-              <div
-                key={idx}
-                className="relative h-[56px] w-[76px] overflow-hidden rounded-[6px]"
-              >
-                <Image
-                  src={img}
-                  alt={`Gallery ${idx + 1}`}
-                  fill
-                  className="object-cover"
-                  sizes="76px"
-                />
-                {idx === 2 && (
-                  <div className="absolute inset-0 flex items-center justify-center rounded-[6px] bg-black/40">
-                    <span className="font-montserrat text-[14px] font-semibold text-white">
-                      +{clinic.additionalImages}
-                    </span>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
+          {thumbs.length > 0 && (
+            <div className="hidden lg:flex shrink-0 items-center gap-[9px]">
+              {thumbs.map((img, idx) => (
+                <div
+                  key={idx}
+                  className="relative h-[56px] w-[76px] overflow-hidden rounded-[6px]"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={img}
+                    alt={`${clinic.name} gallery ${idx + 1}`}
+                    className="h-full w-full object-cover"
+                    loading="lazy"
+                  />
+                  {idx === thumbs.length - 1 && extra > 0 && (
+                    <div className="absolute inset-0 flex items-center justify-center rounded-[6px] bg-black/40">
+                      <span className="font-montserrat text-[14px] font-semibold text-white">
+                        +{extra}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Row 2: Rating */}
-        <div className="mt-[14px] flex items-center gap-[6px] text-[12px] text-[#727272]">
-          <span className="font-montserrat tracking-[-0.02em]">{clinic.rating}</span>
-          <div className="flex items-center gap-[4px]">
-            {[...Array(5)].map((_, i) => (
-              <Star key={i} className="h-[14px] w-[14px] fill-[#FFBA19] text-[#FFBA19]" />
+        {clinic.rating != null && (
+          <div className="mt-[14px] flex items-center gap-[6px] text-[12px] text-[#727272]">
+            <span className="font-montserrat tracking-[-0.02em]">
+              {clinic.rating.toFixed(1)}
+            </span>
+            <div className="flex items-center gap-[4px]">
+              {[...Array(5)].map((_, i) => (
+                <Star key={i} className="h-[14px] w-[14px] fill-[#FFBA19] text-[#FFBA19]" />
+              ))}
+            </div>
+            {clinic.reviewCount > 0 && (
+              <span className="font-montserrat tracking-[-0.02em]">({clinic.reviewCount})</span>
+            )}
+          </div>
+        )}
+
+        <div className="flex flex-col gap-3 lg:flex-row lg:justify-between lg:gap-4">
+
+          {/* Row 3: Treatment tags */}
+          <div className="mt-[10px] flex flex-wrap items-center gap-[6px]">
+            {clinic.services.slice(0, 5).map((t) => (
+              <span
+                key={t.slug}
+                className="rounded border-[0.5px] border-[#DFDFDF] bg-[#F5F5F5] px-[10px] py-1 font-montserrat text-[12px] tracking-[0.02em] text-[#7F7F7F]"
+              >
+                {t.name}
+              </span>
             ))}
           </div>
-          <span className="font-montserrat tracking-[-0.02em]">({clinic.reviewCount})</span>
-        </div>
 
-<div className="flex flex-col gap-3 lg:flex-row lg:justify-between lg:gap-4">
-
-        {/* Row 3: Treatment tags */}
-        <div className="mt-[10px] flex flex-wrap items-center gap-[6px]">
-          {clinic.treatments.map((t) => (
-            <span
-              key={t}
-              className="rounded border-[0.5px] border-[#DFDFDF] bg-[#F5F5F5] px-[10px] py-1 font-montserrat text-[12px] tracking-[0.02em] text-[#7F7F7F]"
+          {/* Row 4: CTA buttons */}
+          <div className="mt-1 lg:mt-[20px] flex items-center gap-[9px] shrink-0">
+            <a
+              href={profileUrl}
+              className="flex h-[43px] flex-1 lg:w-[120px] lg:flex-none items-center justify-center rounded-lg border border-[#CF5B9D] font-montserrat text-[14px] font-semibold text-[#CF5B9D] transition-colors hover:bg-pink-50"
             >
-              {t}
-            </span>
-          ))}
+              View Profile
+            </a>
+            <a
+              href={bookUrl}
+              {...(bookExternal ? { target: "_blank", rel: "noreferrer" } : {})}
+              className="flex h-[43px] flex-1 lg:w-[127px] lg:flex-none items-center justify-center rounded-lg bg-[linear-gradient(90deg,#DE7F4C_0%,#C341D7_100%)] font-montserrat text-[14px] font-semibold text-white transition-opacity hover:opacity-90"
+            >
+              Book Now
+            </a>
+          </div>
         </div>
-
-        {/* Row 4: CTA buttons */}
-        <div className="mt-1 lg:mt-[20px] flex items-center gap-[9px] shrink-0">
-          <button className="flex h-[43px] flex-1 lg:w-[120px] lg:flex-none items-center justify-center rounded-lg border border-[#CF5B9D] font-montserrat text-[14px] font-semibold text-[#CF5B9D] transition-colors hover:bg-pink-50">
-            View Profile
-          </button>
-          <button className="flex h-[43px] flex-1 lg:w-[127px] lg:flex-none items-center justify-center rounded-lg bg-[linear-gradient(90deg,#DE7F4C_0%,#C341D7_100%)] font-montserrat text-[14px] font-semibold text-white transition-opacity hover:opacity-90">
-            Book Now
-          </button>
-        </div>
-</div>
       </div>
     </div>
   );
@@ -427,10 +346,10 @@ const TREATMENT_OPTIONS = [
 ];
 
 const DISTANCE_OPTIONS = [
-  { value: "10", label: "10 Miles Away" },
-  { value: "25", label: "25 Miles Away" },
-  { value: "50", label: "50 Miles Away" },
-  { value: "100", label: "100 Miles Away" },
+  { value: "10", label: "Within 10 Miles" },
+  { value: "25", label: "Within 25 Miles" },
+  { value: "50", label: "Within 50 Miles" },
+  { value: "100", label: "Within 100 Miles" },
 ];
 
 const RATING_OPTIONS = [
@@ -439,10 +358,20 @@ const RATING_OPTIONS = [
   { value: "5.0", label: "5.0 Only" },
 ];
 
-export function FindClinicSection() {
+export function FindClinicSection({ clinics }: { clinics: FeaturedClinic[] }) {
   const router = useRouter();
   const [current, setCurrent] = useState(0);
-  const total = clinicData.length;
+  const total = clinics.length;
+  const { status, location: userLoc } = useLocation();
+
+  // We can only offer distance features when we KNOW the visitor is in the USA.
+  const inUS = Boolean(
+    status === "granted" &&
+      userLoc &&
+      !userLoc.outsideUS &&
+      userLoc.lat != null &&
+      userLoc.lng != null,
+  );
 
   // Filter states
   const [selectedTreatment, setSelectedTreatment] = useState("");
@@ -453,7 +382,10 @@ export function FindClinicSection() {
   const isDragging = useRef(false);
 
   const goTo = useCallback(
-    (idx: number) => setCurrent(((idx % total) + total) % total),
+    (idx: number) => {
+      if (total === 0) return;
+      setCurrent(((idx % total) + total) % total);
+    },
     [total]
   );
 
@@ -485,21 +417,39 @@ export function FindClinicSection() {
     dragStart.current = null;
   };
 
+  // Attach a viewer-relative distance label to each clinic (US visitors only).
+  const displayClinics: DisplayClinic[] = useMemo(() => {
+    return clinics.map((c) => {
+      let distanceLabel: string | null = null;
+      if (inUS && c.lat != null && c.lng != null) {
+        const miles = milesBetween(userLoc!.lat, userLoc!.lng, c.lat, c.lng);
+        distanceLabel = formatMiles(miles);
+      }
+      return { ...c, distanceLabel };
+    });
+  }, [clinics, inUS, userLoc]);
+
+  // Detected location label for the chip
+  const detectedLabel = inUS
+    ? userLoc!.city
+      ? `${userLoc!.city}${userLoc!.stateName ? `, ${userLoc!.stateName}` : ""}`
+      : userLoc!.stateName ?? null
+    : null;
+
   const handleApplyFilters = () => {
     const params = new URLSearchParams();
-    
-    if (selectedTreatment) {
-      params.set("q", selectedTreatment);
+
+    if (selectedTreatment) params.set("q", selectedTreatment);
+    if (selectedRating) params.set("rating", selectedRating);
+
+    // Distance + origin are USA-only. Never send lat/lng for outside-US visitors.
+    if (inUS) {
+      if (selectedDistance) params.set("radius", selectedDistance);
+      if (userLoc!.stateCode) params.set("location", userLoc!.stateCode);
+      params.set("lat", userLoc!.lat.toFixed(6));
+      params.set("lng", userLoc!.lng.toFixed(6));
     }
-    
-    if (selectedDistance) {
-      params.set("radius", selectedDistance);
-    }
-    
-    if (selectedRating) {
-      params.set("rating", selectedRating);
-    }
-    
+
     router.push(`/search?${params.toString()}`);
   };
 
@@ -509,6 +459,8 @@ export function FindClinicSection() {
     setSelectedRating("");
   };
 
+  if (total === 0) return null;
+
   return (
     <section className="flex w-full flex-col items-center gap-[27px] overflow-hidden pb-16 pt-0">
       {/* ── Title ── */}
@@ -516,20 +468,33 @@ export function FindClinicSection() {
         Find the <em className="font-normal font-heading" >Perfect Clinic</em>
       </h2>
 
+      {/* Detected location chip (US visitors only) */}
+      {detectedLabel && (
+        <div className="flex items-center gap-2 rounded-full border border-[#E5C7DA] bg-[#faf5fa] px-4 py-2 -mt-3">
+          <LocateFixed className="size-4 text-[#CF5D9A]" />
+          <span className="font-montserrat text-[13px] font-medium text-[#727272]">
+            Showing clinics near
+          </span>
+          <span className="font-montserrat text-[13px] font-semibold text-[#CF5D9A]">
+            {detectedLabel}
+          </span>
+        </div>
+      )}
+
       {/* ── Filter Bar — single row on desktop, stacked on mobile ── */}
-      <div className="flex w-full max-w-[1355px] flex-col lg:flex-row items-stretch lg:items-center justify-center gap-4 lg:gap-[25px] px-4 lg:px-8">
+      <div className="flex w-full max-w-[1355px] flex-col xl:flex-row items-stretch xl:items-center justify-center gap-4 xl:gap-[25px] px-4 lg:px-8">
         {/* Filter dropdowns group */}
-        <div className="flex flex-col lg:flex-row w-full lg:w-auto items-stretch lg:items-center gap-4 lg:gap-[27px]">
+        <div className="flex flex-col xl:flex-row w-full xl:flex-1 items-stretch xl:items-center gap-4 xl:gap-[27px]">
           {/* Treatments */}
-          <div className="flex w-full lg:w-auto items-center gap-[8px]">
+          <div className="flex w-full xl:flex-1 xl:min-w-0 items-center gap-[8px]">
             <div className="flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-full bg-[#CF5D9A]">
               <SearchIcon />
             </div>
-            <div className="relative w-full lg:w-auto">
+            <div className="relative w-full xl:flex-1 xl:min-w-0">
               <select
                 value={selectedTreatment}
                 onChange={(e) => setSelectedTreatment(e.target.value)}
-                className="flex h-[50px] w-full lg:w-[280px] cursor-pointer appearance-none items-center justify-between rounded-[4px] border border-[#D2C3D3] bg-white px-[22px] font-montserrat text-[16px] leading-[140%] text-[#727272] focus:outline-none focus:ring-2 focus:ring-[#CF5D9A]"
+                className="flex h-[50px] w-full cursor-pointer appearance-none items-center justify-between rounded-[4px] border border-[#D2C3D3] bg-white px-[22px] font-montserrat text-[16px] leading-[140%] text-[#727272] focus:outline-none focus:ring-2 focus:ring-[#CF5D9A]"
               >
                 <option value="">Treatments</option>
                 {TREATMENT_OPTIONS.map((opt) => (
@@ -542,16 +507,20 @@ export function FindClinicSection() {
             </div>
           </div>
 
-          {/* Distance */}
-          <div className="flex w-full lg:w-auto items-center gap-[8px]">
-            <div className="flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-full bg-[#CF5D9A]">
+          {/* Distance — USA-only. Disabled for outside-US / unknown-location visitors. */}
+          <div className="flex w-full xl:flex-1 xl:min-w-0 items-center gap-[8px]">
+            <div
+              className={`flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-full ${inUS ? "bg-[#CF5D9A]" : "bg-[#CBB8CB]"}`}
+            >
               <LocationIcon />
             </div>
-            <div className="relative w-full lg:w-auto">
+            <div className="relative w-full xl:flex-1 xl:min-w-0">
               <select
                 value={selectedDistance}
                 onChange={(e) => setSelectedDistance(e.target.value)}
-                className="flex h-[50px] w-full lg:w-[280px] cursor-pointer appearance-none items-center justify-between rounded-[4px] border border-[#D2C3D3] bg-white px-[22px] font-montserrat text-[16px] leading-[140%] text-[#727272] focus:outline-none focus:ring-2 focus:ring-[#CF5D9A]"
+                disabled={!inUS}
+                title={inUS ? undefined : "Distance filtering is available for USA locations only"}
+                className="flex h-[50px] w-full appearance-none items-center justify-between rounded-[4px] border border-[#D2C3D3] bg-white px-[22px] font-montserrat text-[16px] leading-[140%] text-[#727272] focus:outline-none focus:ring-2 focus:ring-[#CF5D9A] enabled:cursor-pointer disabled:cursor-not-allowed disabled:bg-[#F4F0F4] disabled:text-[#B7A9B7]"
               >
                 {DISTANCE_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -564,15 +533,15 @@ export function FindClinicSection() {
           </div>
 
           {/* Rating */}
-          <div className="flex w-full lg:w-auto items-center gap-[8px]">
+          <div className="flex w-full xl:flex-1 xl:min-w-0 items-center gap-[8px]">
             <div className="flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-full bg-[#CF5D9A]">
               <StarOutlineIcon />
             </div>
-            <div className="relative w-full lg:w-auto">
+            <div className="relative w-full xl:flex-1 xl:min-w-0">
               <select
                 value={selectedRating}
                 onChange={(e) => setSelectedRating(e.target.value)}
-                className="flex h-[50px] w-full lg:w-[280px] cursor-pointer appearance-none items-center justify-between rounded-[4px] border border-[#D2C3D3] bg-white px-[22px] font-montserrat text-[16px] leading-[140%] text-[#727272] focus:outline-none focus:ring-2 focus:ring-[#CF5D9A]"
+                className="flex h-[50px] w-full cursor-pointer appearance-none items-center justify-between rounded-[4px] border border-[#D2C3D3] bg-white px-[22px] font-montserrat text-[16px] leading-[140%] text-[#727272] focus:outline-none focus:ring-2 focus:ring-[#CF5D9A]"
               >
                 <option value="">All Ratings</option>
                 {RATING_OPTIONS.map((opt) => (
@@ -587,8 +556,8 @@ export function FindClinicSection() {
         </div>
 
         {/* Divider + actions */}
-        <div className="flex items-center justify-between lg:justify-normal gap-4 lg:gap-[20px] w-full lg:w-auto">
-          <div className="hidden lg:block h-[50px] w-px bg-[#D2D2D2]" />
+        <div className="flex items-center justify-between xl:justify-normal gap-4 xl:gap-[20px] w-full xl:w-auto">
+          <div className="hidden xl:block h-[50px] w-px bg-[#D2D2D2]" />
           <button
             onClick={handleClearFilters}
             className="whitespace-nowrap font-montserrat text-[16px] font-medium text-[#CF5D9A] transition-opacity hover:opacity-70"
@@ -604,10 +573,17 @@ export function FindClinicSection() {
         </div>
       </div>
 
-      {/* ── Mobile / tablet carousel — swipeable scroll-snap row ── */}
-      <div className="w-full lg:hidden">
+      {/* Distance-availability hint for non-US / unknown-location visitors */}
+      {!inUS && (
+        <p className="-mt-2 px-4 text-center font-montserrat text-[12px] text-[#9a9a9a]">
+          Distance filtering is available for USA locations only.
+        </p>
+      )}
+
+      {/* ── Mobile / tablet carousel — swipeable scroll-snap row (up to xl) ── */}
+      <div className="w-full xl:hidden">
         <div className="flex w-full snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth scrollbar-none px-4 pb-4">
-          {clinicData.map((clinic) => (
+          {displayClinics.map((clinic) => (
             <div
               key={clinic.id}
               className="w-[88vw] max-w-[440px] shrink-0 snap-center py-2"
@@ -618,15 +594,15 @@ export function FindClinicSection() {
         </div>
       </div>
 
-      {/* ── Desktop carousel — 3D coverflow ── */}
+      {/* ── Desktop carousel — 3D coverflow (xl and up) ── */}
       <div
-        className="relative hidden w-full max-w-[1346px] lg:block"
+        className="relative hidden w-full max-w-[1346px] xl:block"
         style={{ height: 520, perspective: "1400px", perspectiveOrigin: "50% 50%" }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
       >
-        {clinicData.map((clinic, idx) => {
+        {displayClinics.map((clinic, idx) => {
           const offset = getOffset(idx, current, total);
           const slot = getSlotStyle(offset);
 

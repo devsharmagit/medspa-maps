@@ -185,25 +185,6 @@ export function ProvidersCarousel({ providers }: { providers: SharedProviderData
             {sortedProviders.length} providers found
           </p>
         </div>
-
-        <div className="flex items-center gap-3">
-          <span className="text-[14px] text-[#9A9A9A]" style={{ fontFamily: "var(--font-inter), sans-serif" }}>Sorted by:</span>
-          <div className="relative">
-            <select
-              value={sortBy}
-              onChange={(e) => {
-                setSortBy(e.target.value as "Distance" | "Rating");
-                setCurrentPage(1);
-                setMobileVisible(6);
-              }}
-              className="appearance-none cursor-pointer flex items-center justify-between rounded-[4px] border border-[#D2C3D3] bg-white px-5 py-2 pr-10 min-w-[150px] text-[14px] text-[#727272] outline-none shadow-sm"
-            >
-              <option value="Distance">Distance</option>
-              <option value="Rating">Rating</option>
-            </select>
-            <ChevronDown className="size-4 text-[#353535] absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" />
-          </div>
-        </div>
       </div>
 
       {/* ── Mobile: spotlight-style cards, batched with Load More ── */}

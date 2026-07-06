@@ -2,7 +2,6 @@ import { Suspense } from "react";
 import { SearchResults } from "./search-results";
 import { HeroHeader } from "@/components/hero/hero-header";
 import { Footer } from "@/components/footer";
-import { LocationHeadsUp } from "@/components/location/location-heads-up";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -14,9 +13,6 @@ export const metadata: Metadata = {
 export default function SearchPage() {
   return (
     <main className="relative flex min-h-screen flex-col bg-[#FDFDFD]">
-      {/* Heads-up if the visitor is outside the USA */}
-      <LocationHeadsUp />
-
       {/* Hero header band */}
       <div className="bg-hero-gradient">
         <HeroHeader />

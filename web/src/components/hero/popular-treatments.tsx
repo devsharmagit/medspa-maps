@@ -79,7 +79,7 @@ export function PopularTreatments({ treatments, titleNode }: PopularTreatmentsPr
   };
 
   return (
-    <section className="flex w-full flex-col items-center pt-[44px]">
+    <section className="flex w-full flex-col items-center pt-[44px] lg:px-8">
       {/* ── Section Header ── */}
       <div className="mb-[38px] flex h-[39px] w-full max-w-[1342px] items-center gap-4 sm:gap-[40px] px-4">
         <div className="h-0 flex-1 border-t border-[rgba(193,121,165,0.4)]" />

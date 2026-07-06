@@ -70,8 +70,8 @@ export function ClinicReviewsSection({
       {/* Header */}
       <div className="flex w-full flex-row items-center justify-between px-[20px] sm:px-[64px]">
         <h2 className="font-montserrat text-[22px] sm:text-[34px] font-normal leading-[116.02%] tracking-[-0.04em] text-[#373634]">
-          Clinic{" "}
-          <span className="font-fraunces italic font-normal">Reviews</span>
+          What our{" "}
+          <span className="font-fraunces italic font-normal">patient says</span>
         </h2>
         <div className="flex h-[31px] items-center gap-[3px]">
           <button

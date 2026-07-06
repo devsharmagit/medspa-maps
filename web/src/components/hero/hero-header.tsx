@@ -10,11 +10,9 @@ import { cn } from "@/lib/utils";
 
 const navLinks = [
   { label: "Treatments", href: "/treatments", hasDropdown: true },
-  { label: "Clinics", href: "/providers" },
-  { label: "Before & After", href: "#" },
+  { label: "Clinics", href: "/search" },
   { label: "Best of 2026", href: "#" },
-  { label: "Reviews", href: "#" },
-  { label: "Resources", href: "#", hasDropdown: true },
+  { label: "Conditions", href: "/conditions" },
 ] as const;
 
 const scrollToListYourMedspa = () => {

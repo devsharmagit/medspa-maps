@@ -7,6 +7,7 @@ import {
   CalendarDays,
   ChevronDown,
   Crown,
+  Eye,
   Images,
   LocateFixed,
   MapPin,
@@ -25,6 +26,7 @@ import {
 } from "@/components/ui/searchable-dropdown";
 import { useLocation } from "@/lib/location/location-context";
 import { toStateCode } from "@/lib/location/states";
+import { NOTICE_REFRESH_EVENT } from "@/components/location/usa-only-notice";
 import { cn } from "@/lib/utils";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -168,6 +170,10 @@ export function SearchResults() {
   const [geoError, setGeoError] = useState("");
   // Mobile-only: filters live in a bottom-sheet modal to keep results above the fold.
   const [showFilters, setShowFilters] = useState(false);
+  // Visual feedback when location is detected via Near Me
+  const [locationToast, setLocationToast] = useState<string | null>(null);
+  // Track if we need to show a "share location" hint on the distance filter
+  const [showShareHint, setShowShareHint] = useState(false);
 
   // Search-bar state
   const [searchService, setSearchService] = useState(q);
@@ -179,6 +185,7 @@ export function SearchResults() {
   const {
     status,
     location: userLoc,
+    outsideUS,
     requestLocation,
     clearLocation: clearCtxLocation,
   } = useLocation();
@@ -186,6 +193,9 @@ export function SearchResults() {
   // Guards against out-of-order responses: when location injects lat/lng we fire
   // a second fetch immediately, and the slower (stale) one must not clobber it.
   const fetchIdRef = useRef(0);
+  // Set true while an explicit "Near Me" detection is in flight, so we can turn
+  // its result into the right URL state (pin the visitor's own state + coords).
+  const nearMeRef = useRef(false);
 
   useEffect(() => {
     requestLocation();
@@ -250,7 +260,8 @@ export function SearchResults() {
     setSearchState(location || userLoc?.stateCode || "");
   }, [q, location, userLoc?.stateCode]);
 
-  // Push a new set of params to the URL (which triggers refetch).
+  // Replace (not push) filter changes so browser back goes to the previous PAGE,
+  // not the previous filter state.
   const pushParams = useCallback(
     (next: Record<string, string | null>) => {
       const params = new URLSearchParams(searchParams.toString());
@@ -258,7 +269,7 @@ export function SearchResults() {
         if (value) params.set(key, value);
         else params.delete(key);
       }
-      router.push(`/search?${params.toString()}`);
+      router.replace(`/search?${params.toString()}`);
     },
     [router, searchParams]
   );
@@ -276,14 +287,31 @@ export function SearchResults() {
     if (injectedRef.current) return;
     if (userLoc?.lat == null || userLoc?.lng == null) return; // wait for detection
     injectedRef.current = true; // one-shot decision for this landing
+    // Distance/origin is a USA-only feature — never write coords for visitors we
+    // know are outside the US (keeps lat/lng out of the search query entirely).
+    if (userLoc.outsideUS) return;
     if (hasOrigin) return; // URL already carries an origin
     const filterState = toStateCode(location);
     if (filterState && filterState !== userLoc.stateCode) return; // different state
     pushParams({
+      // Pin the detected state so results are scoped to it (not all clinics),
+      // while lat/lng still power distance sort/filter. Keeps any state the URL
+      // already carries.
+      location: location || userLoc.stateCode || null,
       lat: userLoc.lat.toFixed(6),
       lng: userLoc.lng.toFixed(6),
     });
-  }, [hasOrigin, userLoc?.lat, userLoc?.lng, userLoc?.stateCode, location, pushParams]);
+  }, [hasOrigin, userLoc?.lat, userLoc?.lng, userLoc?.stateCode, userLoc?.outsideUS, location, pushParams]);
+
+  // Distance is USA-only: if we know the visitor is outside the US, make sure no
+  // origin/radius lingers in the URL — whether from a shared link, stale storage,
+  // or a prior in-US session — so we never query or sort by distance for them.
+  useEffect(() => {
+    if (!outsideUS) return;
+    if (hasOrigin || radius) {
+      pushParams({ lat: null, lng: null, radius: null });
+    }
+  }, [outsideUS, hasOrigin, radius, pushParams]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -295,15 +323,76 @@ export function SearchResults() {
 
   const handleNearMe = () => {
     setGeoError("");
+    setShowShareHint(false);
     if (typeof navigator === "undefined" || !navigator.geolocation) {
       setGeoError("Geolocation is not available.");
       return;
     }
-    // "Near me" = clinics near my ACTUAL location, so drop any conflicting state
-    // filter first, then re-detect. The inject effect writes the fresh coords.
-    injectedRef.current = false;
-    pushParams({ location: null });
+    // Re-detect the visitor's ACTUAL location. We turn the result into URL state
+    // ourselves (below), so suppress the passive one-shot auto-inject.
+    nearMeRef.current = true;
+    injectedRef.current = true;
+    // If the USA-only notice was dismissed, resurface it so an outside-US visitor
+    // gets clear feedback that "Near Me" can't be used here (not a broken button).
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event(NOTICE_REFRESH_EVENT));
+    }
     requestLocation({ force: true });
+  };
+
+  // Resolve an explicit "Near Me" request once detection settles.
+  useEffect(() => {
+    if (!nearMeRef.current) return;
+    if (status === "prompting") return; // still detecting
+    if (status !== "granted" || !userLoc) {
+      nearMeRef.current = false; // denied/unavailable → blocked-message UI handles it
+      return;
+    }
+    nearMeRef.current = false;
+    if (userLoc.outsideUS || userLoc.lat == null || userLoc.lng == null) {
+      // Outside the US: no proximity search. The outside-US effect strips any
+      // origin/radius and the (resurfaced) USA-only notice explains why.
+      return;
+    }
+    // In the US: center on the visitor — pin THEIR state AND coordinates, so the
+    // selected state is preserved (not wiped to "all locations") and distance
+    // features turn on.
+    pushParams({
+      location: userLoc.stateCode || null,
+      lat: userLoc.lat.toFixed(6),
+      lng: userLoc.lng.toFixed(6),
+    });
+  }, [status, userLoc?.outsideUS, userLoc?.lat, userLoc?.lng, userLoc?.stateCode, pushParams]);
+
+  // Show toast and fill state when location is detected after Near Me click.
+  // Outside-US visitors are handled by the global USA-only notice, not here.
+  useEffect(() => {
+    if (status === "granted" && userLoc && !userLoc.outsideUS) {
+      if (userLoc.city || userLoc.stateName) {
+        const label = userLoc.city
+          ? `${userLoc.city}${userLoc.stateName ? `, ${userLoc.stateName}` : ""}`
+          : userLoc.stateName ?? "";
+        setLocationToast(label);
+        // Auto-fill the state dropdown
+        if (userLoc.stateCode && !searchState) {
+          setSearchState(userLoc.stateCode);
+        }
+        // Auto-dismiss toast after 4 seconds
+        const timer = setTimeout(() => setLocationToast(null), 4000);
+        return () => clearTimeout(timer);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, userLoc?.city, userLoc?.stateName, userLoc?.outsideUS]);
+
+  // Handler for when user clicks a distance radio without sharing location
+  const handleDistanceClick = (bandRadius: number) => {
+    if (outsideUS) return; // distance filtering is USA-only
+    if (!hasOrigin) {
+      setShowShareHint(true);
+      return;
+    }
+    updateParam("radius", String(bandRadius));
   };
 
   // Apply a state selection immediately — no separate "Search" click needed.
@@ -369,8 +458,18 @@ export function SearchResults() {
   const serviceName =
     serviceOptions.find((s) => s.value === q)?.label || q || "Treatments";
 
-  // Which distance band (if any) is currently selected
-  const activeBandRadius = radius ? Number(radius) : null;
+  // Which distance band (if any) is selected. Snap any radius to a band (exact,
+  // else the smallest band that covers it) so a URL value like radius=10 — which
+  // isn't itself a band value — still shows the right radio as checked.
+  const radiusNum = radius ? Number(radius) : null;
+  const activeBandRadius =
+    radiusNum == null || Number.isNaN(radiusNum)
+      ? null
+      : (
+          DISTANCE_BANDS.find((b) => b.radius === radiusNum) ??
+          DISTANCE_BANDS.find((b) => radiusNum <= b.radius) ??
+          DISTANCE_BANDS[DISTANCE_BANDS.length - 1]
+        ).radius;
 
   return (
     <div className="mx-auto flex w-full max-w-[1380px] flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8">
@@ -479,12 +578,34 @@ export function SearchResults() {
         )}
       </div>
 
+      {/* Location detected toast */}
+      {locationToast && (
+        <div className="fixed bottom-6 left-1/2 z-[200] -translate-x-1/2 animate-in slide-in-from-bottom-4 fade-in duration-300">
+          <div className="flex items-center gap-2.5 rounded-2xl border border-[#E5C7DA] bg-white px-5 py-3 shadow-[0_10px_40px_rgba(170,78,179,0.18)]">
+            <span className="flex size-8 items-center justify-center rounded-full bg-green-50">
+              <LocateFixed className="size-4 text-green-600" />
+            </span>
+            <div className="text-sm">
+              <span className="font-medium text-[#1a1a1a]">📍 Location detected: </span>
+              <span className="font-semibold text-brand-magenta">{locationToast}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setLocationToast(null)}
+              className="ml-2 rounded-full p-1 text-[#9a9a9a] hover:bg-[#f5f0f5]"
+            >
+              <X className="size-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── Body: sidebar + results ─────────────────────────────────────── */}
       <div className="flex flex-col gap-8 lg:flex-row">
         {/* ── Filter Sidebar (desktop only) ──────────────────────────────── */}
         <aside className="hidden w-full shrink-0 lg:block lg:w-[260px]">
           <div className="flex flex-col gap-6 rounded-2xl border border-[#ece6ec] bg-white p-5 shadow-sm">
-            {/* Distance / Radius — only meaningful with a known origin. */}
+            {/* Distance / Radius — always visible */}
             <div>
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-[#1a1a1a]">
@@ -501,39 +622,57 @@ export function SearchResults() {
                 )}
               </div>
 
-              {!hasOrigin ? (
+              <div className="mt-3 flex flex-col gap-2.5">
+                {DISTANCE_BANDS.map((band) => {
+                  const checked = activeBandRadius === band.radius;
+                  return (
+                    <label
+                      key={band.radius}
+                      className={cn(
+                        "flex items-center gap-2.5 text-sm",
+                        hasOrigin ? "cursor-pointer text-[#4a4a4a]" : "text-[#9a9a9a]",
+                        outsideUS && "cursor-not-allowed opacity-60"
+                      )}
+                      onClick={(e) => {
+                        if (!hasOrigin) {
+                          e.preventDefault();
+                          handleDistanceClick(band.radius);
+                        }
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name="distance"
+                        checked={checked}
+                        disabled={outsideUS}
+                        onChange={() => handleDistanceClick(band.radius)}
+                        className="size-4 accent-brand-magenta"
+                      />
+                      {band.label}
+                    </label>
+                  );
+                })}
+              </div>
+
+              {/* Availability hint */}
+              {outsideUS ? (
+                <p className="mt-2 text-[11px] text-brand-muted">
+                  Distance filtering is available for USA locations only.
+                </p>
+              ) : showShareHint && !hasOrigin ? (
                 <button
                   type="button"
                   onClick={handleNearMe}
-                  className="mt-3 flex w-full items-center gap-2 rounded-xl border border-dashed border-[#e0c9e0] bg-[#faf5fa] px-3 py-2.5 text-left text-xs text-brand-muted transition-colors hover:border-brand-magenta/50 hover:text-brand-magenta"
+                  className="mt-3 flex w-full items-center gap-2 rounded-xl border border-dashed border-[#e0c9e0] bg-[#faf5fa] px-3 py-2.5 text-left text-xs text-brand-muted transition-colors hover:border-brand-magenta/50 hover:text-brand-magenta animate-pulse"
                 >
                   <LocateFixed className="size-4 shrink-0 text-brand-magenta" />
-                  Share your location to filter by distance
+                  Please share your location to use distance filters
                 </button>
-              ) : (
-                <div className="mt-3 flex flex-col gap-2.5">
-                  {DISTANCE_BANDS.map((band) => {
-                    const checked = activeBandRadius === band.radius;
-                    return (
-                      <label
-                        key={band.radius}
-                        className="flex cursor-pointer items-center gap-2.5 text-sm text-[#4a4a4a]"
-                      >
-                        <input
-                          type="radio"
-                          name="distance"
-                          checked={checked}
-                          onChange={() =>
-                            updateParam("radius", String(band.radius))
-                          }
-                          className="size-4 accent-brand-magenta"
-                        />
-                        {band.label}
-                      </label>
-                    );
-                  })}
-                </div>
-              )}
+              ) : !hasOrigin ? (
+                <p className="mt-2 text-[11px] text-brand-muted">
+                  Click &quot;Near Me&quot; or select a distance to enable
+                </p>
+              ) : null}
             </div>
 
             <div className="h-px bg-[#ece6ec]" />
@@ -612,7 +751,7 @@ export function SearchResults() {
                   className="appearance-none rounded-xl border border-[#e1e1e1] bg-white py-2 pl-3.5 pr-9 text-sm font-medium text-[#4a4a4a] transition-colors hover:border-brand-magenta/40 focus:outline-none focus:ring-2 focus:ring-brand-magenta/20"
                 >
                   <option value="distance" disabled={!hasOrigin}>
-                    Distance{!hasOrigin ? " (share location)" : ""}
+                    Distance{outsideUS ? " (USA only)" : !hasOrigin ? " (share location)" : ""}
                   </option>
                   <option value="rating">Rating</option>
                 </select>
@@ -683,7 +822,7 @@ export function SearchResults() {
                 <div className="mt-3 flex flex-col gap-2.5">
                   <label className={cn("flex items-center gap-2.5 text-sm", hasOrigin ? "cursor-pointer text-[#4a4a4a]" : "cursor-not-allowed opacity-50")}>
                     <input type="radio" name="sort-modal" disabled={!hasOrigin} checked={sort === "distance"} onChange={() => updateParam("sort", "distance")} className="size-4 accent-brand-magenta" />
-                    Distance{!hasOrigin ? " (share location)" : ""}
+                    Distance{outsideUS ? " (USA only)" : !hasOrigin ? " (share location)" : ""}
                   </label>
                   <label className="flex cursor-pointer items-center gap-2.5 text-sm text-[#4a4a4a]">
                     <input type="radio" name="sort-modal" checked={sort === "rating"} onChange={() => updateParam("sort", "rating")} className="size-4 accent-brand-magenta" />
@@ -704,25 +843,41 @@ export function SearchResults() {
                     </button>
                   )}
                 </div>
-                {!hasOrigin ? (
+                <div className="mt-3 flex flex-col gap-2.5">
+                  {DISTANCE_BANDS.map((band) => (
+                    <label
+                      key={band.radius}
+                      className={cn(
+                        "flex items-center gap-2.5 text-sm",
+                        hasOrigin ? "cursor-pointer text-[#4a4a4a]" : "text-[#9a9a9a]",
+                        outsideUS && "cursor-not-allowed opacity-60"
+                      )}
+                      onClick={(e) => {
+                        if (!hasOrigin) {
+                          e.preventDefault();
+                          handleDistanceClick(band.radius);
+                        }
+                      }}
+                    >
+                      <input type="radio" name="distance-modal" checked={activeBandRadius === band.radius} disabled={outsideUS} onChange={() => handleDistanceClick(band.radius)} className="size-4 accent-brand-magenta" />
+                      {band.label}
+                    </label>
+                  ))}
+                </div>
+                {outsideUS ? (
+                  <p className="mt-2 text-[11px] text-brand-muted">
+                    Distance filtering is available for USA locations only.
+                  </p>
+                ) : showShareHint && !hasOrigin ? (
                   <button
                     type="button"
                     onClick={handleNearMe}
-                    className="mt-3 flex w-full items-center gap-2 rounded-xl border border-dashed border-[#e0c9e0] bg-[#faf5fa] px-3 py-2.5 text-left text-xs text-brand-muted"
+                    className="mt-3 flex w-full items-center gap-2 rounded-xl border border-dashed border-[#e0c9e0] bg-[#faf5fa] px-3 py-2.5 text-left text-xs text-brand-muted animate-pulse"
                   >
                     <LocateFixed className="size-4 shrink-0 text-brand-magenta" />
-                    Share your location to filter by distance
+                    Please share your location to use distance filters
                   </button>
-                ) : (
-                  <div className="mt-3 flex flex-col gap-2.5">
-                    {DISTANCE_BANDS.map((band) => (
-                      <label key={band.radius} className="flex cursor-pointer items-center gap-2.5 text-sm text-[#4a4a4a]">
-                        <input type="radio" name="distance-modal" checked={activeBandRadius === band.radius} onChange={() => updateParam("radius", String(band.radius))} className="size-4 accent-brand-magenta" />
-                        {band.label}
-                      </label>
-                    ))}
-                  </div>
-                )}
+                ) : null}
               </div>
 
               <div className="h-px bg-[#ece6ec]" />
@@ -957,6 +1112,16 @@ function ClinicCard({ clinic }: { clinic: ClinicResult }) {
           <a href={`tel:${clinic.phone}`}>
             <Phone className="size-4" />
             Call Clinic
+          </a>
+        </Button>
+        <Button
+          variant="outline"
+          className="h-[42px] gap-2 rounded-xl text-sm font-semibold"
+          asChild
+        >
+          <a href={profileUrl}>
+            <Eye className="size-4" />
+            View Clinic
           </a>
         </Button>
       </div>

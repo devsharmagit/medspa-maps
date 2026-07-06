@@ -73,7 +73,7 @@ export function TopCities() {
   };
 
   return (
-    <section className="mx-auto flex w-full max-w-[1372px] flex-col items-center justify-center gap-4 py-6 px-4 lg:px-0">
+    <section className="mx-auto flex w-full max-w-[1372px] flex-col items-center justify-center gap-4 py-6 px-4 min-[1400px]:px-0">
       {/* Header Row */}
       <div className="flex w-full items-center justify-between h-[39px]">
         <h2 className="font-montserrat font-normal text-[#373634] text-[28px] sm:text-[34px] tracking-[-0.04em] leading-[116.02%]">

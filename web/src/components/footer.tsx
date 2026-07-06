@@ -3,6 +3,9 @@
 import Link from "next/link";
 import { useState } from "react";
 
+import { ResourcesSection } from "@/components/hero/resources-section";
+import { Newsletter } from "@/components/hero/newsletter";
+
 export function Footer() {
   const [bottomEmail, setBottomEmail] = useState("");
 
@@ -12,7 +15,13 @@ export function Footer() {
   };
 
   return (
-    <footer className="w-full bg-[#3D2E38] pt-20 lg:pt-[187px] pb-[50px] px-4 flex justify-center items-center">
+    <>
+      <div className="w-full flex flex-col items-center relative z-10 mt-10">
+        <ResourcesSection />
+        <div className="h-10 lg:h-32 w-full" /> {/* Spacer to handle negative margins */}
+        <Newsletter />
+      </div>
+      <footer className="w-full bg-[#3D2E38] pt-20 lg:pt-[187px] pb-[50px] px-4 flex justify-center items-center relative z-0">
       {/* Inner Content Wrapper */}
       <div className="flex flex-col items-start gap-[89px] w-full max-w-[1291px]">
         
@@ -24,7 +33,7 @@ export function Footer() {
             {/* Column 1 */}
             <div className="flex flex-col items-start gap-[23px] w-[135px] shrink-0">
               <Link
-                href="/find-medspa"
+                href="/search"
                 className="font-montserrat font-medium text-[14px] leading-[180%] tracking-[0.02em] text-[#C4C4C4] uppercase transition-colors hover:text-white"
               >
                 Find a Medspa
@@ -36,27 +45,32 @@ export function Footer() {
                 Treatments A-Z
               </Link>
               <Link
-                href="/best-of-2026"
+                href="/conditions"
                 className="font-montserrat font-medium text-[14px] leading-[180%] tracking-[0.02em] text-[#C4C4C4] uppercase transition-colors hover:text-white"
               >
-                Best of 2026
+                Conditions
+              </Link>
+              <Link
+                href="/providers"
+                className="font-montserrat font-medium text-[14px] leading-[180%] tracking-[0.02em] text-[#C4C4C4] uppercase transition-colors hover:text-white"
+              >
+                Providers
               </Link>
             </div>
 
             {/* Column 2 */}
             <div className="flex flex-col items-start gap-[23px] w-[170px] shrink-0">
               <Link
+                href="/best-of-2026"
+                className="font-montserrat font-medium text-[14px] leading-[180%] tracking-[0.02em] text-[#C4C4C4] uppercase transition-colors hover:text-white"
+              >
+                Best of 2026
+              </Link>
+              <Link
                 href="/get-free-listings"
                 className="font-montserrat font-medium text-[14px] leading-[180%] tracking-[0.02em] text-[#C4C4C4] uppercase transition-colors hover:text-white"
               >
-                Get a Free Listings
-              </Link>
-              
-              <Link
-                href="/featured-plans"
-                className="font-montserrat font-medium text-[14px] leading-[180%] tracking-[0.02em] text-[#C4C4C4] uppercase transition-colors hover:text-white"
-              >
-                Featured Plans
+                Partner with us
               </Link>
               <Link
                 href="/for-providers"
@@ -114,5 +128,6 @@ export function Footer() {
 
       </div>
     </footer>
+    </>
   );
 }

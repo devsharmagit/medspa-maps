@@ -32,7 +32,7 @@ export interface UserLocation {
 interface LocationContextValue {
   status: LocationStatus;
   location: UserLocation | null;
-  /** Convenience: true only when we're confident the user is outside the US. */
+  /** True when the browser location resolves to a country other than the US. */
   outsideUS: boolean;
   /** Ask the browser for the user's position. No-op if already resolved unless `force`. */
   requestLocation: (opts?: { force?: boolean }) => void;
