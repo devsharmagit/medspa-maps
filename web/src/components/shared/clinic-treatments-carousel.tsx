@@ -2,7 +2,7 @@
 
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import Image from "next/image";
-import { useRef } from "react";
+import { useRef, useState, useEffect } from "react";
 import Link from "next/link";
 
 const TREATMENT_ICON_MAP: Record<string, string> = {
@@ -86,6 +86,22 @@ export function ClinicTreatmentsCarousel({
   clinicName: string;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const checkScrollability = () => {
+    if (scrollRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+      setCanScrollLeft(scrollLeft > 0);
+      setCanScrollRight(Math.ceil(scrollLeft) < scrollWidth - clientWidth);
+    }
+  };
+
+  useEffect(() => {
+    checkScrollability();
+    window.addEventListener("resize", checkScrollability);
+    return () => window.removeEventListener("resize", checkScrollability);
+  }, [treatments]);
 
   const scroll = (dir: "left" | "right") => {
     if (!scrollRef.current) return;
@@ -97,8 +113,6 @@ export function ClinicTreatmentsCarousel({
 
   if (!treatments.length) return null;
 
-  const firstName = clinicName.split(" ")[0];
-
   return (
     <section className="flex w-full flex-col items-center pt-[44px]">
       {/* Header */}
@@ -106,7 +120,7 @@ export function ClinicTreatmentsCarousel({
         <h2 className="whitespace-nowrap font-montserrat text-[19px] sm:text-[34px] font-normal leading-[116.02%] tracking-[-0.04em] text-[#373634]">
           Treatment{" "}
           <span className="font-fraunces italic font-normal">Offered</span> By{" "}
-          {firstName}
+          {clinicName}
         </h2>
         <div className="h-0 flex-1 border-t border-[rgba(193,121,165,0.4)]" />
       </div>
@@ -116,7 +130,7 @@ export function ClinicTreatmentsCarousel({
         <button
           onClick={() => scroll("left")}
           aria-label="Previous treatments"
-          className="absolute -left-[24px] z-10 hidden h-[48px] w-[56px] items-center justify-center rounded-l-[99px] rounded-r-none border border-r-0 border-[#E3CED8] shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)] hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer lg:flex"
+          className={`absolute -left-[24px] z-10 h-[48px] w-[56px] items-center justify-center rounded-l-[99px] rounded-r-none border border-r-0 border-[#E3CED8] shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)] hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer ${canScrollLeft ? "hidden lg:flex" : "hidden"}`}
           style={{
             background: "linear-gradient(291.82deg, #FFFFFF 33.27%, #EDD8EF 159.97%)",
           }}
@@ -126,6 +140,7 @@ export function ClinicTreatmentsCarousel({
 
         <div
           ref={scrollRef}
+          onScroll={checkScrollability}
           className="flex w-full gap-2 overflow-x-auto px-2 py-[38px] scrollbar-none"
         >
           {treatments.map((t) => (
@@ -136,7 +151,7 @@ export function ClinicTreatmentsCarousel({
         <button
           onClick={() => scroll("right")}
           aria-label="Next treatments"
-          className="absolute -right-[24px] z-10 hidden h-[48px] w-[56px] items-center justify-center rounded-r-[99px] rounded-l-none border border-l-0 border-[#E3CED8] shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)] hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer lg:flex"
+          className={`absolute -right-[24px] z-10 h-[48px] w-[56px] items-center justify-center rounded-r-[99px] rounded-l-none border border-l-0 border-[#E3CED8] shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)] hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer ${canScrollRight ? "hidden lg:flex" : "hidden"}`}
           style={{
             background: "linear-gradient(111.82deg, #FFFFFF 33.27%, #EDD8EF 159.97%)",
           }}

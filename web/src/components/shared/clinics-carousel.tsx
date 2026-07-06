@@ -55,19 +55,19 @@ function DesktopClinicCard({ c }: { c: SharedClinicData }) {
 
   return (
     <div className="flex flex-col overflow-hidden rounded-[18px] border border-[#DEDEDE] bg-white p-6 shadow-[0px_9px_11.1px_rgba(240,223,241,0.6)]">
-      <div className="relative mb-3 aspect-[4/3] w-full overflow-hidden rounded-[11px] bg-[#D9D9D9]">
+      <Link href={`/clinics/${c.slug}`} className="relative mb-3 aspect-[4/3] w-full block overflow-hidden rounded-[11px] bg-[#D9D9D9]">
         {coverImageSrc ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={coverImageSrc} alt={c.name} className="h-full w-full object-cover" loading="lazy" />
+          <img src={coverImageSrc} alt={c.name} className="h-full w-full object-cover transition hover:scale-105" loading="lazy" />
         ) : (
-          <div className="h-full w-full bg-zinc-200" />
+          <div className="h-full w-full bg-zinc-200 transition hover:bg-zinc-300" />
         )}
         {c.featured && (
           <span className="absolute left-4 top-4 rounded-[4px] bg-[#D3A845] px-2 py-1 text-[12px] font-semibold uppercase tracking-[0.02em] text-white">
             FEATURED
           </span>
         )}
-      </div>
+      </Link>
 
       {displayThumbnails.length > 0 && (
         <div className="mb-6 flex gap-3 h-[88px]">
@@ -87,16 +87,18 @@ function DesktopClinicCard({ c }: { c: SharedClinicData }) {
 
       <div className="flex flex-col flex-1 justify-between gap-4">
         <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 max-w-[200px]">
-              <h3 className="text-[20px] font-medium leading-[116%] text-[#383838] truncate">{c.name}</h3>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <Link href={`/clinics/${c.slug}`} className="hover:underline min-w-0">
+                <h3 className="text-[20px] font-medium leading-[116%] text-[#383838] truncate">{c.name}</h3>
+              </Link>
               {c.verified && <BadgeCheck className="size-[18px] shrink-0 fill-[#CF5D9A] text-white" />}
             </div>
             {c.avg_rating != null && c.review_count > 0 && (
-              <div className="flex items-center gap-1.5 text-[12px] text-[#727272]">
+              <div className="flex items-center gap-1.5 text-[12px] text-[#727272] shrink-0">
                 <span>{c.avg_rating}</span>
-                <Star className="size-4 fill-[#FFBA19] text-[#FFBA19]" />
-                <span className="opacity-90">({c.review_count})</span>
+                <Star className="size-4 shrink-0 fill-[#FFBA19] text-[#FFBA19]" />
+                <span className="opacity-90 whitespace-nowrap">({c.review_count})</span>
               </div>
             )}
           </div>

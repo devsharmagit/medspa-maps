@@ -104,15 +104,6 @@ export default async function TreatmentPage({
               <span className="font-fraunces italic font-normal">Treatment</span>
             </h1>
 
-            {service.hero_rating && (
-              <div className="inline-flex items-center gap-3 rounded-full bg-black/20 px-4 py-2 backdrop-blur-sm mb-6">
-                <span className="flex items-center gap-1.5 text-xs font-normal tracking-[-0.02em]">
-                  {service.hero_rating}
-                  <Star className="size-4 fill-[#FFBA19] text-[#FFBA19]" />
-                  <span className="opacity-90">({service.hero_review_count})</span>
-                </span>
-              </div>
-            )}
 
             {service.description && (
               <p className="text-[14px] leading-[150%] tracking-[0.02em] max-w-[547px] mb-8">

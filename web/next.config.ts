@@ -24,6 +24,11 @@ const nextConfig: NextConfig = {
         source: '/clinic/:path*',
         destination: '/search',
         permanent: false,
+      },
+      {
+        source: '/clinics',
+        destination: '/search',
+        permanent: false,
       }
     ];
   },

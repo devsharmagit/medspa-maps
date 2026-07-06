@@ -170,8 +170,6 @@ export function SearchResults() {
   const [geoError, setGeoError] = useState("");
   // Mobile-only: filters live in a bottom-sheet modal to keep results above the fold.
   const [showFilters, setShowFilters] = useState(false);
-  // Visual feedback when location is detected via Near Me
-  const [locationToast, setLocationToast] = useState<string | null>(null);
   // Track if we need to show a "share location" hint on the distance filter
   const [showShareHint, setShowShareHint] = useState(false);
 
@@ -364,26 +362,16 @@ export function SearchResults() {
     });
   }, [status, userLoc?.outsideUS, userLoc?.lat, userLoc?.lng, userLoc?.stateCode, pushParams]);
 
-  // Show toast and fill state when location is detected after Near Me click.
-  // Outside-US visitors are handled by the global USA-only notice, not here.
+  // Auto-fill the state dropdown when location is detected. The "location
+  // detected" toast itself is the global USA-only notice, not a search-page one.
   useEffect(() => {
     if (status === "granted" && userLoc && !userLoc.outsideUS) {
-      if (userLoc.city || userLoc.stateName) {
-        const label = userLoc.city
-          ? `${userLoc.city}${userLoc.stateName ? `, ${userLoc.stateName}` : ""}`
-          : userLoc.stateName ?? "";
-        setLocationToast(label);
-        // Auto-fill the state dropdown
-        if (userLoc.stateCode && !searchState) {
-          setSearchState(userLoc.stateCode);
-        }
-        // Auto-dismiss toast after 4 seconds
-        const timer = setTimeout(() => setLocationToast(null), 4000);
-        return () => clearTimeout(timer);
+      if (userLoc.stateCode && !searchState) {
+        setSearchState(userLoc.stateCode);
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, userLoc?.city, userLoc?.stateName, userLoc?.outsideUS]);
+  }, [status, userLoc?.stateCode, userLoc?.outsideUS]);
 
   // Handler for when user clicks a distance radio without sharing location
   const handleDistanceClick = (bandRadius: number) => {
@@ -577,28 +565,6 @@ export function SearchResults() {
           </p>
         )}
       </div>
-
-      {/* Location detected toast */}
-      {locationToast && (
-        <div className="fixed bottom-6 left-1/2 z-[200] -translate-x-1/2 animate-in slide-in-from-bottom-4 fade-in duration-300">
-          <div className="flex items-center gap-2.5 rounded-2xl border border-[#E5C7DA] bg-white px-5 py-3 shadow-[0_10px_40px_rgba(170,78,179,0.18)]">
-            <span className="flex size-8 items-center justify-center rounded-full bg-green-50">
-              <LocateFixed className="size-4 text-green-600" />
-            </span>
-            <div className="text-sm">
-              <span className="font-medium text-[#1a1a1a]">📍 Location detected: </span>
-              <span className="font-semibold text-brand-magenta">{locationToast}</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setLocationToast(null)}
-              className="ml-2 rounded-full p-1 text-[#9a9a9a] hover:bg-[#f5f0f5]"
-            >
-              <X className="size-3.5" />
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* ── Body: sidebar + results ─────────────────────────────────────── */}
       <div className="flex flex-col gap-8 lg:flex-row">

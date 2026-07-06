@@ -84,12 +84,12 @@ export function ConcernTabs({ data }: { data: ConcernPageData }) {
                )}
              </div>
              
-             {/* Dynamic Details Container */}
+              {/* Dynamic Details Container */}
              {details && (
-               <div className="flex flex-col lg:flex-row gap-[28px] sm:gap-[36px] bg-[#FFFFFF] border border-[#DEDEDE] rounded-[18px] p-6 sm:p-[40px] shadow-[0px_9px_11.1px_rgba(240,223,241,0.6)]">
+               <div className="flex flex-col xl:flex-row gap-[28px] sm:gap-[36px] bg-[#FFFFFF] border border-[#DEDEDE] rounded-[18px] p-6 sm:p-[40px] shadow-[0px_9px_11.1px_rgba(240,223,241,0.6)]">
                  
                  {/* Left Column (Lists) */}
-                 <div className="flex flex-col gap-[24px] lg:w-[539px] shrink-0">
+                 <div className="flex flex-col gap-[24px] xl:w-[539px] shrink-0">
                    {LEFT_FIELDS.map((field) => {
                      const text = details[field.key];
                      if (!text) return null;
@@ -111,8 +111,8 @@ export function ConcernTabs({ data }: { data: ConcernPageData }) {
                  </div>
 
                  {/* Vertical/Horizontal Divider */}
-                 <div className="hidden lg:block w-[1px] bg-[rgba(229,199,218,0.4)] self-stretch"></div>
-                 <div className="block lg:hidden h-[1px] w-full bg-[rgba(229,199,218,0.4)]"></div>
+                 <div className="hidden xl:block w-[1px] bg-[rgba(229,199,218,0.4)] self-stretch"></div>
+                 <div className="block xl:hidden h-[1px] w-full bg-[rgba(229,199,218,0.4)]"></div>
 
                  {/* Right Column (Cards Grid) */}
                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-[24px] flex-1">

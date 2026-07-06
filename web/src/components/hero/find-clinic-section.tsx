@@ -466,20 +466,7 @@ export function FindClinicSection({ clinics }: { clinics: FeaturedClinic[] }) {
       {/* ── Title ── */}
       <h2 className="w-full px-4 text-center font-montserrat text-[26px] sm:text-[30px] lg:text-[34px] font-normal leading-[116.02%] tracking-[-0.04em] text-[#373634]">
         Find the <em className="font-normal font-heading" >Perfect Clinic</em>
-      </h2>
-
-      {/* Detected location chip (US visitors only) */}
-      {detectedLabel && (
-        <div className="flex items-center gap-2 rounded-full border border-[#E5C7DA] bg-[#faf5fa] px-4 py-2 -mt-3">
-          <LocateFixed className="size-4 text-[#CF5D9A]" />
-          <span className="font-montserrat text-[13px] font-medium text-[#727272]">
-            Showing clinics near
-          </span>
-          <span className="font-montserrat text-[13px] font-semibold text-[#CF5D9A]">
-            {detectedLabel}
-          </span>
-        </div>
-      )}
+      </h2> 
 
       {/* ── Filter Bar — single row on desktop, stacked on mobile ── */}
       <div className="flex w-full max-w-[1355px] flex-col xl:flex-row items-stretch xl:items-center justify-center gap-4 xl:gap-[25px] px-4 lg:px-8">

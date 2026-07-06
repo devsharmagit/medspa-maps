@@ -1,78 +1,80 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Globe, MapPinOff, X } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { Globe, MapPin, MapPinOff, X } from "lucide-react";
 
 import { useLocation } from "@/lib/location/location-context";
 
-const DISMISS_KEY = "medspa.usaOnlyNotice.dismissed.v1";
-/** Fired by pages (e.g. search "Near Me") to resurface the notice after dismissal. */
+/** Fired by pages (e.g. search "Near Me") to resurface the notice after it hides. */
 export const NOTICE_REFRESH_EVENT = "medspa:location-refresh";
+
+/** Only these pages ever show the location notice. */
+const ALLOWED_PATHS = new Set(["/", "/search"]);
+
+/** How long the toast stays on screen before it fades on its own (ms). */
+const AUTO_HIDE_MS = 8000;
 
 /**
  * A single, small, non-blocking toast about the visitor's location, rendered
- * ONCE globally from the root layout so it can never collide across pages. It
- * shows in two cases, both based purely on the browser's own geolocation:
- *   • the visitor is outside the USA (where we don't list medspas yet), or
- *   • we couldn't get their location at all (denied / unavailable) — so they get
- *     clear feedback instead of silence.
- * Dismissal is remembered for the session; an explicit re-detect resurfaces it.
+ * ONCE globally from the root layout but shown ONLY on the home ("/") and
+ * search ("/search") pages. It has three states, all based purely on the
+ * browser's own geolocation:
+ *   • detected inside the USA → confirm we're showing nearby clinics,
+ *   • outside the USA (where we don't list medspas yet) → USA-only note, or
+ *   • detection failed (denied / unavailable) → graceful fallback.
+ * It reappears on every page load/refresh and auto-hides after a few seconds;
+ * an explicit re-detect (e.g. search "Near Me") also brings it back.
  */
 export function UsaOnlyNotice() {
+  const pathname = usePathname();
   const { outsideUS, status, location } = useLocation();
-  const [dismissed, setDismissed] = useState(true); // start hidden until mounted
+  const [hidden, setHidden] = useState(false);
 
-  // Read the session dismissal only after mount to avoid a hydration mismatch
-  // (server render can't see sessionStorage, so first client render must match).
-  useEffect(() => {
-    /* eslint-disable react-hooks/set-state-in-effect */
-    try {
-      setDismissed(sessionStorage.getItem(DISMISS_KEY) === "1");
-    } catch {
-      setDismissed(false);
-    }
-    /* eslint-enable react-hooks/set-state-in-effect */
-  }, []);
+  // Which message (if any) applies. Priority: outside-US, then a failed
+  // detection, then a successful detection inside the US.
+  const mode: "outside" | "failed" | "detected" | null = outsideUS
+    ? "outside"
+    : status === "denied" || status === "unavailable"
+      ? "failed"
+      : status === "granted" && location
+        ? "detected"
+        : null;
 
-  // Let an explicit re-detect (e.g. tapping "Near Me") bring the notice back even
-  // if it was dismissed — otherwise the button looks broken.
+  const visible = ALLOWED_PATHS.has(pathname) && !!mode && !hidden;
+
+  // Re-show on each navigation (and refresh) so the notice appears freshly on
+  // both allowed pages, even after it auto-hid on the previous one.
   useEffect(() => {
-    const resurface = () => {
-      try {
-        sessionStorage.removeItem(DISMISS_KEY);
-      } catch {
-        /* storage may be unavailable */
-      }
-      setDismissed(false);
-    };
+    /* eslint-disable-next-line react-hooks/set-state-in-effect */
+    setHidden(false);
+  }, [pathname]);
+
+  // Auto-hide after a few seconds so the toast never lingers. The timer resets
+  // whenever a new message becomes visible (e.g. idle → detected).
+  useEffect(() => {
+    if (!visible) return;
+    const t = setTimeout(() => setHidden(true), AUTO_HIDE_MS);
+    return () => clearTimeout(t);
+  }, [visible, mode]);
+
+  // An explicit re-detect (e.g. tapping "Near Me") brings the notice back even
+  // after it auto-hid or was dismissed — otherwise the button looks broken.
+  useEffect(() => {
+    const resurface = () => setHidden(false);
     window.addEventListener(NOTICE_REFRESH_EVENT, resurface);
     return () => window.removeEventListener(NOTICE_REFRESH_EVENT, resurface);
   }, []);
 
-  // Which message (if any) applies. Outside-US takes priority; otherwise, if the
-  // browser couldn't give us a location, show the fallback.
-  const mode: "outside" | "failed" | null = outsideUS
-    ? "outside"
-    : status === "denied" || status === "unavailable"
-      ? "failed"
-      : null;
-
-  if (!mode || dismissed) return null;
+  if (!visible) return null;
 
   const place = location?.city
     ? `${location.city}${location.stateName ? `, ${location.stateName}` : ""}`
     : null;
 
-  const close = () => {
-    setDismissed(true);
-    try {
-      sessionStorage.setItem(DISMISS_KEY, "1");
-    } catch {
-      /* storage may be unavailable */
-    }
-  };
+  const close = () => setHidden(true);
 
-  const Icon = mode === "outside" ? Globe : MapPinOff;
+  const Icon = mode === "outside" ? Globe : mode === "failed" ? MapPinOff : MapPin;
 
   return (
     <div
@@ -90,12 +92,24 @@ export function UsaOnlyNotice() {
             {place ? `We don't list medspas near ${place} yet — ` : ""}
             <span className="whitespace-nowrap">showing U.S. clinics.</span>
           </p>
-        ) : (
+        ) : mode === "failed" ? (
           <p className="text-[13px] leading-snug text-[#3a3a3a]">
             <span className="font-semibold text-[#1a1a1a]">
               Couldn&apos;t detect your location.
             </span>{" "}
             <span className="whitespace-nowrap">Showing all U.S. clinics.</span>
+          </p>
+        ) : (
+          <p className="text-[13px] leading-snug text-[#3a3a3a]">
+            <span className="font-semibold text-[#1a1a1a]">Location detected.</span>{" "}
+            {place ? (
+              <>
+                Showing clinics near{" "}
+                <span className="whitespace-nowrap">{place}.</span>
+              </>
+            ) : (
+              <span className="whitespace-nowrap">Showing clinics near you.</span>
+            )}
           </p>
         )}
         <button

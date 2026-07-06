@@ -2,7 +2,7 @@
 
 import { ArrowLeft, ArrowRight, Calendar, Phone } from "lucide-react";
 import Link from "next/link";
-import { useRef } from "react";
+import { useRef, useState, useEffect } from "react";
 
 interface OtherProvider {
   id: string;
@@ -22,6 +22,22 @@ interface Props {
 
 export function OtherProvidersCarousel({ clinicName, title, providers, bookUrl, clinicPhone }: Props) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const checkScrollability = () => {
+    if (scrollContainerRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = scrollContainerRef.current;
+      setCanScrollLeft(scrollLeft > 0);
+      setCanScrollRight(Math.ceil(scrollLeft) < scrollWidth - clientWidth);
+    }
+  };
+
+  useEffect(() => {
+    checkScrollability();
+    window.addEventListener("resize", checkScrollability);
+    return () => window.removeEventListener("resize", checkScrollability);
+  }, [providers]);
 
   const scroll = (direction: "left" | "right") => {
     if (scrollContainerRef.current) {
@@ -64,14 +80,20 @@ export function OtherProvidersCarousel({ clinicName, title, providers, bookUrl, 
           <button
             onClick={() => scroll("left")}
             aria-label="Previous provider"
-            className="flex h-[31px] w-[40px] cursor-pointer items-center justify-center rounded-l-full border-[0.6px] border-[#D9D9D9] bg-white hover:bg-gray-50 active:bg-gray-100"
+            disabled={!canScrollLeft}
+            className={`flex h-[31px] w-[40px] items-center justify-center rounded-l-full border-[0.6px] border-[#D9D9D9] bg-white transition-all ${
+              canScrollLeft ? "cursor-pointer hover:bg-gray-50 active:bg-gray-100" : "cursor-not-allowed opacity-50"
+            }`}
           >
-            <ArrowLeft className="h-[14px] w-[14px] text-[#CF5D9A] opacity-40" />
+            <ArrowLeft className="h-[14px] w-[14px] text-[#CF5D9A]" />
           </button>
           <button
             onClick={() => scroll("right")}
             aria-label="Next provider"
-            className="flex h-[31px] w-[40px] cursor-pointer items-center justify-center rounded-r-full border-[0.6px] border-[#A5A5A5] bg-white hover:bg-gray-50 active:bg-gray-100"
+            disabled={!canScrollRight}
+            className={`flex h-[31px] w-[40px] items-center justify-center rounded-r-full border-[0.6px] border-[#A5A5A5] bg-white transition-all ${
+              canScrollRight ? "cursor-pointer hover:bg-gray-50 active:bg-gray-100" : "cursor-not-allowed opacity-50"
+            }`}
           >
             <ArrowRight className="h-[14px] w-[14px] text-[#CF5D9A]" />
           </button>
@@ -82,6 +104,7 @@ export function OtherProvidersCarousel({ clinicName, title, providers, bookUrl, 
       <div className="w-full relative px-[20px] sm:px-[48px] py-[10px]">
         <div
           ref={scrollContainerRef}
+          onScroll={checkScrollability}
           className="flex w-full flex-row items-start gap-[24px] overflow-x-auto scrollbar-none snap-x snap-mandatory pb-[10px]"
         >
           {providers.map((other) => (

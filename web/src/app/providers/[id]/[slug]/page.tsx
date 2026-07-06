@@ -56,6 +56,7 @@ interface ProviderDetails {
   clinic_phone: string | null;
   clinic_address: string | null;
   clinic_zip: string | null;
+  clinic_website: string | null;
 }
 
 interface ClinicService {
@@ -182,7 +183,7 @@ export default async function ProviderPage({
   // Retrieve provider and clinic details
   const provider = await queryOne<ProviderDetails>(
     `SELECT p.*, c.name AS clinic_name, c.slug AS clinic_slug, c.city AS clinic_city,
-            c.booking_url AS clinic_booking_url, c.phone AS clinic_phone,
+            c.booking_url AS clinic_booking_url, c.website AS clinic_website, c.phone AS clinic_phone,
             c.state AS clinic_state, c.address AS clinic_address, c.zip AS clinic_zip,
             COALESCE(
               (SELECT source_url FROM images i
@@ -225,7 +226,7 @@ export default async function ProviderPage({
   const loc = [provider.clinic_city, provider.clinic_state].filter(Boolean).join(", ");
   const reviewRating = provider.review_rating != null ? Number(provider.review_rating) : null;
   const reviewCount = provider.review_count ?? 0;
-  const bookUrl = provider.clinic_booking_url || "#";
+  const bookUrl = provider.clinic_booking_url || provider.clinic_website || "#";
   const defaultPhoto = "https://images.stockcake.com/public/1/9/d/19d13828-c999-4e2d-a191-9da4dd8bd824_large/confident-medical-professional-stockcake.jpg";
 
   return (

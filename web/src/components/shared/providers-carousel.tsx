@@ -33,46 +33,44 @@ function providerTagline(p: SharedProviderData) {
   return p.card_tagline?.trim() || (p.bio ? p.bio.split(". ")[0] + "." : "");
 }
 
-/** Original desktop card (unchanged) — 50/50 photo + info split. */
+/** Original desktop card — updated for better 1024px responsiveness. */
 function DesktopProviderCard({ p }: { p: SharedProviderData }) {
   const tagline = providerTagline(p);
   const rating = p.review_rating ?? p.avg_rating;
 
   return (
-    <div className="flex bg-white shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)] rounded-[22px] overflow-hidden">
-      <div className="w-1/2 relative bg-zinc-100 min-h-[340px]">
-        {p.image_url && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={p.image_url} alt={p.name} className="absolute inset-0 w-full h-full object-cover" />
-        )}
+    <div className="flex bg-white shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)] rounded-[22px] overflow-hidden h-full">
+      <div className="relative w-[130px] xl:w-[150px] shrink-0 bg-zinc-100 min-h-[300px]">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={p.image_url || DEFAULT_PHOTO} alt={p.name} className="absolute inset-0 w-full h-full object-cover object-top" />
       </div>
 
-      <div className="w-1/2 p-6 flex flex-col justify-between">
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-2">
-            <h3 className="text-[18px] font-medium leading-[116%] tracking-[0.02em] text-[#383838]">{p.name}</h3>
+      <div className="flex-1 min-w-0 p-4 xl:p-5 flex flex-col justify-between">
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <h3 className="text-[18px] font-medium leading-[116%] tracking-[0.02em] text-[#383838] truncate">{p.name}</h3>
             {p.is_verified && (
-              <div className="relative w-5 h-5 flex items-center justify-center bg-[#CF5D9A] rounded-full text-white flex-shrink-0">
-                <BadgeCheck className="w-3.5 h-3.5" />
+              <div className="relative w-4 h-4 flex items-center justify-center bg-[#CF5D9A] rounded-full text-white shrink-0">
+                <BadgeCheck className="w-3 h-3" />
               </div>
             )}
           </div>
-          {p.title && <p className="text-[14px] leading-[138%] tracking-[0.02em] text-[#727272]">{p.title}</p>}
+          {p.title && <p className="text-[14px] leading-[138%] tracking-[0.02em] text-[#727272] line-clamp-2">{p.title}</p>}
         </div>
 
-        <hr className="border-t border-[#DDC3DF] my-4" />
+        <hr className="border-t border-[#DDC3DF] my-3" />
 
-        <div className="flex flex-col gap-3 flex-1">
+        <div className="flex flex-col gap-2.5 flex-1">
           {p.years_experience != null && (
             <p className="text-[12px] font-semibold leading-[130%] tracking-[0.02em] uppercase text-[#616161]">
-              {p.years_experience}+ years of Experience
+              {p.years_experience}+ years Exp.
             </p>
           )}
-          <p className="text-[11px] leading-[138%] tracking-[0.02em] text-[#727272] line-clamp-4">{tagline}</p>
+          {tagline && <p className="text-[11px] leading-[138%] tracking-[0.02em] text-[#727272] line-clamp-3">{tagline}</p>}
           {rating && (
-            <div className="flex items-center gap-1 mt-auto">
-              <span className="text-[11px] leading-[138%] tracking-[0.02em] text-[#727272]">Customer Rating</span>
-              <Star className="w-3.5 h-3.5 fill-[#FFBA19] text-[#FFBA19]" />
+            <div className="flex flex-wrap items-center gap-1 mt-auto">
+              <span className="text-[11px] leading-[138%] tracking-[0.02em] text-[#727272]">Rating</span>
+              <Star className="w-3.5 h-3.5 fill-[#FFBA19] text-[#FFBA19] shrink-0" />
               <span className="text-[12px] font-semibold leading-[130%] tracking-[0.02em] uppercase text-[#616161]">{rating}</span>
               {p.review_count ? <span className="text-[11px] leading-[138%] tracking-[0.02em] text-[#9A9A9A]">({p.review_count})</span> : null}
             </div>
@@ -189,7 +187,7 @@ export function ProvidersCarousel({ providers }: { providers: SharedProviderData
 
       {/* ── Mobile: spotlight-style cards, batched with Load More ── */}
       <div className="lg:hidden">
-        <div className="grid grid-cols-1 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {sortedProviders.slice(0, mobileVisible).map((p) => (
             <MobileProviderCard key={p.id} p={p} />
           ))}

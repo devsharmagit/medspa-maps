@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowLeft, ArrowRight } from "lucide-react";
-import { useRef } from "react";
+import { useRef, useState, useEffect } from "react";
 
 interface Service {
   id: string;
@@ -17,6 +17,22 @@ interface Props {
 
 export function TreatmentsCarousel({ providerName, services }: Props) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const checkScrollability = () => {
+    if (scrollContainerRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = scrollContainerRef.current;
+      setCanScrollLeft(scrollLeft > 0);
+      setCanScrollRight(Math.ceil(scrollLeft) < scrollWidth - clientWidth);
+    }
+  };
+
+  useEffect(() => {
+    checkScrollability();
+    window.addEventListener("resize", checkScrollability);
+    return () => window.removeEventListener("resize", checkScrollability);
+  }, [services]);
 
   const scroll = (direction: "left" | "right") => {
     if (scrollContainerRef.current) {
@@ -48,7 +64,7 @@ export function TreatmentsCarousel({ providerName, services }: Props) {
         <button
           onClick={() => scroll("left")}
           aria-label="Previous treatments"
-          className="absolute -left-[24px] z-10 hidden h-[48px] w-[56px] items-center justify-center rounded-l-[99px] rounded-r-none border border-r-0 border-[#E3CED8] shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)] hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer lg:flex"
+          className={`absolute -left-[24px] z-10 h-[48px] w-[56px] items-center justify-center rounded-l-[99px] rounded-r-none border border-r-0 border-[#E3CED8] shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)] hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer ${canScrollLeft ? "hidden lg:flex" : "hidden"}`}
           style={{
             background: "linear-gradient(291.82deg, #FFFFFF 33.27%, #EDD8EF 159.97%)",
           }}
@@ -59,6 +75,7 @@ export function TreatmentsCarousel({ providerName, services }: Props) {
         {/* Scrollable card row */}
         <div
           ref={scrollContainerRef}
+          onScroll={checkScrollability}
           className="flex w-full gap-[8px] overflow-x-auto px-[10px] py-[10px] scrollbar-none snap-x snap-mandatory"
         >
           {services.map((svc) => {
@@ -102,7 +119,7 @@ export function TreatmentsCarousel({ providerName, services }: Props) {
         <button
           onClick={() => scroll("right")}
           aria-label="Next treatments"
-          className="absolute -right-[24px] z-10 hidden h-[48px] w-[56px] items-center justify-center rounded-r-[99px] rounded-l-none border border-l-0 border-[#E3CED8] shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)] hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer lg:flex"
+          className={`absolute -right-[24px] z-10 h-[48px] w-[56px] items-center justify-center rounded-r-[99px] rounded-l-none border border-l-0 border-[#E3CED8] shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)] hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer ${canScrollRight ? "hidden lg:flex" : "hidden"}`}
           style={{
             background: "linear-gradient(111.82deg, #FFFFFF 33.27%, #EDD8EF 159.97%)",
           }}

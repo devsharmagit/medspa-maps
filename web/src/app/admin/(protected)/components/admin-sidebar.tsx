@@ -39,14 +39,14 @@ export default function AdminSidebar() {
   return (
     <aside className="w-60 shrink-0 bg-white border-r border-pink-100/80 flex flex-col sticky top-0 h-screen overflow-y-auto">
       {/* Wordmark */}
-      <div className="flex items-center gap-2.5 px-5 h-16 border-b border-pink-100/80">
+      <Link href="/admin/dashboard" className="flex items-center gap-2.5 px-5 h-16 border-b border-pink-100/80 transition-opacity hover:opacity-80">
         <div className="w-8 h-8 rounded-lg bg-[linear-gradient(135deg,#DE7F4C_0%,#C341D7_100%)] flex items-center justify-center text-white font-bold text-sm shrink-0 shadow-[0_4px_12px_rgba(195,65,215,0.25)]">
           M
         </div>
         <span className="text-sm font-semibold text-slate-800 tracking-tight">
           MedSpa Admin
         </span>
-      </div>
+      </Link>
 
       {/* Nav */}
       <nav className="flex flex-col gap-0.5 p-3 flex-1">
