@@ -1,0 +1,5 @@
+# Secrets and local Python env — never commit
+.env.g99
+.venv/
+__pycache__/
+*.pyc
