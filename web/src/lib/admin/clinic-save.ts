@@ -98,10 +98,39 @@ export interface SaveReview {
   source_url?: string | null;
 }
 
+/**
+ * Clinic-wide fields. When present on the bundle, they populate the clinic row
+ * directly and the clinic's HEADLINE address/geo/hours/maps are left blank —
+ * all location detail lives in clinic_locations and NO location is marked
+ * primary. When absent (admin manual-save, demo-setup) the clinic row keeps its
+ * legacy behaviour of being derived from locations[0].
+ */
+export interface SaveClinicLevel {
+  booking_url?: string | null;
+  about?: string | null;
+  tagline?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  instagram_url?: string | null;
+  facebook_url?: string | null;
+  tiktok_url?: string | null;
+  youtube_url?: string | null;
+  x_url?: string | null;
+  linkedin_url?: string | null;
+  yelp_url?: string | null;
+  google_my_business?: string | null;
+}
+
 export interface ClinicBundle {
   /** canonical website (its hostname is the dedup key) */
   website: string;
   business: SaveBusiness;
+  /**
+   * Optional clinic-wide fields. When present, the clinic row is populated from
+   * these and its headline address/geo/hours are left blank (no primary
+   * location; every location lives independently in clinic_locations).
+   */
+  clinic?: SaveClinicLevel;
   locations: SaveLocation[];
   services: SaveService[];
   images?: SaveImages;
@@ -294,6 +323,32 @@ export async function saveClinicBundle(
 
   const primaryLoc = payload.locations[0] ?? {};
 
+  // Clinic-row field sources. In clinic-level mode (payload.clinic present) the
+  // clinic-wide columns come from payload.clinic and the HEADLINE
+  // address/city/state/zip/geo/hours/maps are left blank; otherwise everything
+  // is derived from locations[0] (legacy admin/demo behaviour).
+  const cl = payload.clinic;
+  const clinicMode = cl != null;
+  const cBookingUrl = clinicMode ? cl.booking_url ?? null : primaryLoc.booking_url ?? null;
+  const cAbout = clinicMode ? cl.about ?? null : primaryLoc.about ?? null;
+  const cTagline = clinicMode ? cl.tagline ?? null : primaryLoc.tagline ?? null;
+  const cEmail = clinicMode ? cl.email ?? null : primaryLoc.email ?? null;
+  const cPhone = clinicMode ? cl.phone ?? null : primaryLoc.phone ?? null;
+  const cInstagram = clinicMode ? cl.instagram_url ?? null : primaryLoc.instagram_url ?? null;
+  const cFacebook = clinicMode ? cl.facebook_url ?? null : primaryLoc.facebook_url ?? null;
+  const cTiktok = clinicMode ? cl.tiktok_url ?? null : primaryLoc.tiktok_url ?? null;
+  const cYoutube = clinicMode ? cl.youtube_url ?? null : primaryLoc.youtube_url ?? null;
+  const cX = clinicMode ? cl.x_url ?? null : primaryLoc.x_url ?? null;
+  const cLinkedin = clinicMode ? cl.linkedin_url ?? null : primaryLoc.linkedin_url ?? null;
+  const cYelp = clinicMode ? cl.yelp_url ?? null : primaryLoc.yelp_url ?? null;
+  const cGmb = clinicMode ? cl.google_my_business ?? null : primaryLoc.google_my_business ?? null;
+  // Headline location fields — blank in clinic-level mode.
+  const cAddress = clinicMode ? null : primaryLoc.address ?? null;
+  const cCity = clinicMode ? null : primaryLoc.city ?? null;
+  const cState = clinicMode ? null : primaryLoc.state ?? null;
+  const cZip = clinicMode ? null : primaryLoc.zip ?? null;
+  const cMapsUrl = clinicMode ? null : primaryLoc.maps_url ?? null;
+
   if (clinicId) {
     const setOrOverwrite = (col: string, idx: number) =>
       overwrite ? `${col} = $${idx}` : `${col} = COALESCE($${idx}, ${col})`;
@@ -325,14 +380,14 @@ export async function saveClinicBundle(
         WHERE id = $1`,
       [
         clinicId, clinicName, website,
-        primaryLoc.booking_url ?? null, primaryLoc.address ?? null,
-        primaryLoc.city ?? null, primaryLoc.state ?? null, primaryLoc.zip ?? null,
-        primaryLoc.phone ?? null, primaryLoc.email ?? null, primaryLoc.about ?? null,
-        primaryLoc.instagram_url ?? null, primaryLoc.facebook_url ?? null,
-        primaryLoc.tiktok_url ?? null, primaryLoc.youtube_url ?? null,
-        primaryLoc.tagline ?? null, primaryLoc.maps_url ?? null,
-        primaryLoc.x_url ?? null, primaryLoc.linkedin_url ?? null,
-        primaryLoc.yelp_url ?? null, primaryLoc.google_my_business ?? null,
+        cBookingUrl, cAddress,
+        cCity, cState, cZip,
+        cPhone, cEmail, cAbout,
+        cInstagram, cFacebook,
+        cTiktok, cYoutube,
+        cTagline, cMapsUrl,
+        cX, cLinkedin,
+        cYelp, cGmb,
       ]
     );
     const existing = await queryOne<{ slug: string }>(
@@ -352,14 +407,14 @@ export async function saveClinicBundle(
        RETURNING id`,
       [
         businessId, clinicName, slug, website,
-        primaryLoc.booking_url ?? null, primaryLoc.address ?? null,
-        primaryLoc.city ?? null, primaryLoc.state ?? null, primaryLoc.zip ?? null,
-        primaryLoc.phone ?? null, primaryLoc.email ?? null, primaryLoc.about ?? null,
-        primaryLoc.instagram_url ?? null, primaryLoc.facebook_url ?? null,
-        primaryLoc.tiktok_url ?? null, primaryLoc.youtube_url ?? null,
-        primaryLoc.tagline ?? null, primaryLoc.maps_url ?? null,
-        primaryLoc.x_url ?? null, primaryLoc.linkedin_url ?? null,
-        primaryLoc.yelp_url ?? null, primaryLoc.google_my_business ?? null,
+        cBookingUrl, cAddress,
+        cCity, cState, cZip,
+        cPhone, cEmail, cAbout,
+        cInstagram, cFacebook,
+        cTiktok, cYoutube,
+        cTagline, cMapsUrl,
+        cX, cLinkedin,
+        cYelp, cGmb,
       ]
     );
     clinicId = ins!.id;
@@ -381,8 +436,9 @@ export async function saveClinicBundle(
     );
   }
 
-  // geo from primary location
-  if (primaryLoc.lat != null && primaryLoc.lng != null) {
+  // geo + hours from primary location — legacy mode only. In clinic-level mode
+  // the clinic row carries no headline geo/hours (all lives in clinic_locations).
+  if (!clinicMode && primaryLoc.lat != null && primaryLoc.lng != null) {
     await query(
       `UPDATE clinics SET lat = $2::float8::numeric, lng = $3::float8::numeric,
           geo = ST_SetSRID(ST_MakePoint($3::float8, $2::float8), 4326)::geography,
@@ -390,7 +446,7 @@ export async function saveClinicBundle(
       [clinicId, primaryLoc.lat, primaryLoc.lng]
     );
   }
-  if (primaryLoc.hours) {
+  if (!clinicMode && primaryLoc.hours) {
     await query(`UPDATE clinics SET hours = $2::jsonb WHERE id = $1`, [
       clinicId,
       JSON.stringify(primaryLoc.hours),
@@ -444,7 +500,8 @@ export async function saveClinicBundle(
   const locations = payload.locations.length > 0 ? payload.locations : [{}];
   for (let i = 0; i < locations.length; i++) {
     const loc = locations[i];
-    const isPrimary = i === 0;
+    // No primary in clinic-level mode; legacy callers keep locations[0] primary.
+    const isPrimary = clinicMode ? false : i === 0;
     await query(
       `INSERT INTO clinic_locations
          (clinic_id, label, address, city, state, zip, phone, email,

@@ -223,7 +223,7 @@ export function extractFromFooterText(
  *   3. Fall back to positional order (blockIdx-th link)
  *   4. Fall back to the first available link
  */
-function pickMapsLink(
+export function pickMapsLink(
   links: MapsLink[],
   address: string | null,
   city: string | null,

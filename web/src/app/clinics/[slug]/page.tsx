@@ -96,9 +96,17 @@ export default async function ClinicPage({
     : [clinic.city, clinic.state].filter(Boolean).join(", ");
   const isPremium = clinic.featured || clinic.verified;
   const todayHours = getTodayHours(clinic.hours);
+  // Fall back to the representative location's map link/address, since the
+  // clinic row carries no headline address (every location lives on its own).
   const mapsUrl =
     clinic.google_maps_url ||
-    buildMapsUrl([clinic.address, clinic.city, clinic.state, clinic.zip]);
+    primaryLoc?.google_maps_url ||
+    buildMapsUrl([
+      primaryLoc?.address ?? clinic.address,
+      primaryLoc?.city ?? clinic.city,
+      primaryLoc?.state ?? clinic.state,
+      primaryLoc?.zip ?? clinic.zip,
+    ]);
   const bookUrl = clinic.booking_url || clinic.website;
   // Excerpt shows the admin-provided tagline ONLY — no about-snippet fallback.
   // (Never present derived text as if it were a curated tagline.)

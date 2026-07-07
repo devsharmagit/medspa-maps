@@ -127,3 +127,17 @@ export function normalizeState(state: string | null | undefined): string | null 
   const abbr = STATE_NAME_TO_ABBR[trimmed.toLowerCase()];
   return abbr ?? null;
 }
+
+/**
+ * Normalizes a state value to its FULL NAME ("Texas").
+ * Accepts abbreviations ("TX"), full names ("texas"), or mixed case.
+ * When the input is a recognized US state it returns the canonical full name;
+ * otherwise it returns the trimmed input (or null when empty).
+ */
+export function stateFullName(state: string | null | undefined): string | null {
+  if (!state) return null;
+  const trimmed = state.trim();
+  if (trimmed.length === 0) return null;
+  const abbr = normalizeState(trimmed);
+  return abbr ? STATE_ABBREVIATIONS[abbr] : trimmed;
+}
