@@ -11,7 +11,7 @@
  * Google-Maps location resolution) — the cron only cares about treatments.
  */
 
-import { scrapeWebsite } from "@/lib/scraper";
+import { scrapeWebsite, type ScrapedImage } from "@/lib/scraper";
 import { normalizeUrl } from "@/lib/scraper/utils";
 import { buildServices } from "@/lib/admin/scrape-preview";
 import { matchService, isLikelyNoise } from "@/lib/taxonomy/canonical";
@@ -35,6 +35,9 @@ export interface DetectionResult {
   pagesVisited: number;
   /** distinct canonical slugs the clinic currently offers (matched, non-noise) */
   matchedSlugs: string[];
+  /** clinic images found this scrape (cover/gallery/before_after) — the
+   *  rescrape uses these to refresh stale scraped image rows */
+  images: ScrapedImage[];
 }
 
 /**
@@ -77,5 +80,7 @@ export async function detectClinicServices(url: string): Promise<DetectionResult
     services,
     pagesVisited: scrape.pages_visited.length,
     matchedSlugs,
+    // logo belongs to the business entity, not the clinic — exclude it here
+    images: scrape.images.filter((img) => img.role !== "logo"),
   };
 }

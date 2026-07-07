@@ -67,13 +67,26 @@ const SKIP_PATTERNS = [
   // social media icons (small)
   /\/social[-_]?icon/i,
   /\/(insta|fb|twitter|tiktok|yt)[-_.]?(icon|logo)/i,
+  // decorative page furniture — dividers, section separators, ornaments
+  // (e.g. "newsectionline.webp", "wave-divider.png", "gold-underline.svg")
+  /divider/i,
+  /separator/i,
+  /section[-_]?line/i,
+  /[-_.](line|underline|wave|swirl|ornament|flourish|squiggle)[-_.]/i,
+  /pattern[-_.]/i,
+  /texture[-_.]/i,
 ];
 
 function shouldSkip(src: string, alt: string): boolean {
-  // Always skip data: URIs  
+  // Always skip data: URIs
   if (src.startsWith("data:image/svg")) return true;
   if (src.startsWith("data:image/gif")) return true; // 1x1 tracking pixels
   return SKIP_PATTERNS.some((p) => p.test(src) || p.test(alt));
+}
+
+/** Extreme declared aspect ratios are banners/dividers, not content images */
+function isDecorativeShape(w: number, h: number): boolean {
+  return w > 0 && h > 0 && (w / h > 6 || h / w > 6);
 }
 
 /**
@@ -217,8 +230,9 @@ function scoreCandidate(
     if (altLow.includes(token) || filename.includes(token)) score += 2;
   }
 
-  // og:image bonus
-  if (ogUrl && src === ogUrl) score += 2;
+  // og:image bonus — the site owner's own choice of representative image is
+  // the strongest signal we have; weight it above hero-position + one city hit.
+  if (ogUrl && src === ogUrl) score += 4;
 
   // Hero/banner location bonus
   if (isHero) score += 1;
@@ -233,7 +247,11 @@ export function extractCover(
   businessName?: string,
   city?: string,
 ): ScrapedImage | null {
-  const ogUrl = extractOgImage($);
+  // Absolutize og:image up front so the score comparison (src === ogUrl)
+  // matches the absolutized candidate URLs — previously a relative/differently
+  // normalized og URL silently lost its bonus.
+  const ogRaw = extractOgImage($);
+  const ogUrl = ogRaw ? (toAbsolute(ogRaw, baseUrl) ?? ogRaw) : null;
   const nameTokens = (businessName ?? "")
     .toLowerCase()
     .split(/\s+/)
@@ -258,10 +276,9 @@ export function extractCover(
     candidates.push({ src, alt, score });
   };
 
-  // og:image as a candidate (gets +2 from scoreCandidate automatically)
+  // og:image as a candidate (gets its +4 from scoreCandidate automatically)
   if (ogUrl) {
-    const abs = toAbsolute(ogUrl, baseUrl);
-    if (abs) addCandidate(abs, "", false);
+    addCandidate(ogUrl, "", false);
   }
 
   // Hero/banner/slider images
@@ -270,7 +287,7 @@ export function extractCover(
       const el = $(rawEl);
       const { src, alt, w, h } = getImgAttrs(el);
       if (!src || shouldSkip(src, alt)) return;
-      if (isTooSmall(w, h)) return;
+      if (isTooSmall(w, h) || isDecorativeShape(w, h)) return;
       const abs = toAbsolute(src, baseUrl);
       if (!abs) return;
       addCandidate(abs, alt, true);
@@ -282,7 +299,7 @@ export function extractCover(
     const el = $(rawEl);
     const { src, alt, w, h } = getImgAttrs(el);
     if (!src || shouldSkip(src, alt)) return;
-    if (isTooSmall(w, h)) return;
+    if (isTooSmall(w, h) || isDecorativeShape(w, h)) return;
     if (w > 0 && w < 400) return;
     const abs = toAbsolute(src, baseUrl);
     if (!abs) return;
@@ -312,7 +329,7 @@ export function extractGallery($: CheerioAPI, baseUrl: string): ScrapedImage[] {
       const el = $(rawEl);
       const { src, alt, w, h } = getImgAttrs(el);
       if (!src || shouldSkip(src, alt)) return;
-      if (isTooSmall(w, h)) return;
+      if (isTooSmall(w, h) || isDecorativeShape(w, h)) return;
       const abs = toAbsolute(src, baseUrl);
       if (!abs) return;
       images.push({ source_url: abs, role: "gallery", alt_text: alt || undefined });
@@ -327,7 +344,7 @@ export function extractGallery($: CheerioAPI, baseUrl: string): ScrapedImage[] {
       const el = $(rawEl);
       const { src, alt, w, h } = getImgAttrs(el);
       if (!src || shouldSkip(src, alt)) return;
-      if (isTooSmall(w, h)) return;
+      if (isTooSmall(w, h) || isDecorativeShape(w, h)) return;
       if (w > 0 && w < 300) return; // skip small thumbnails
       const abs = toAbsolute(src, baseUrl);
       if (!abs) return;

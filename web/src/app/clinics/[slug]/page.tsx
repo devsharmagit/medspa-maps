@@ -11,6 +11,7 @@ import {
 import { HeroHeader } from "@/components/hero/hero-header";
 import { Footer } from "@/components/footer";
 import { getClinicData } from "@/lib/clinics/queries";
+import { toStateCode } from "@/lib/location/states";
 import { ClinicGallery } from "./gallery";
 import { ClinicLocationsSection } from "./locations";
 import { OtherProvidersCarousel } from "@/components/shared/other-providers-carousel";
@@ -94,6 +95,22 @@ export default async function ClinicPage({
   const loc = primaryLoc
     ? [primaryLoc.city, primaryLoc.state].filter(Boolean).join(", ")
     : [clinic.city, clinic.state].filter(Boolean).join(", ");
+  // Full postal address for the hero info row: street + "City, ST ZIP",
+  // sourced from the clinic row or its primary location (whichever has data).
+  const heroAddress = (() => {
+    const street = (clinic.address ?? primaryLoc?.address)?.trim() || null;
+    const city = clinic.city ?? primaryLoc?.city ?? null;
+    const state = clinic.state ?? primaryLoc?.state ?? null;
+    const zip = clinic.zip ?? primaryLoc?.zip ?? null;
+    const stateAbbr = state ? (toStateCode(state) ?? state) : null;
+    const cityLine = [[city, stateAbbr].filter(Boolean).join(", "), zip]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+    const skipCityLine =
+      street && city && street.toLowerCase().includes(city.toLowerCase());
+    return [street, skipCityLine ? null : cityLine].filter(Boolean).join(", ") || null;
+  })();
   const isPremium = clinic.featured || clinic.verified;
   const todayHours = getTodayHours(clinic.hours);
   // Fall back to the representative location's map link/address, since the
@@ -192,16 +209,16 @@ export default async function ClinicPage({
               {/* Info row — only renders items that have data, dividers only between present items */}
               {(() => {
                 const infoItems = [
-                  (clinic.address || loc) ? (
+                  (heroAddress || loc) ? (
                     <div key="addr" className="flex items-center gap-[8px]">
                       <MapPin className="h-[24px] w-[24px] text-[#EE97C6] shrink-0" strokeWidth={1.5} />
                       <a
                         href={mapsUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="font-montserrat text-[12px] font-medium leading-[130%] tracking-[0.02em] text-[#616161] hover:underline max-w-[145px]"
+                        className="font-montserrat text-[12px] font-medium leading-[130%] tracking-[0.02em] text-[#616161] hover:underline max-w-[220px]"
                       >
-                        {clinic.address || loc}
+                        {heroAddress || loc}
                       </a>
                     </div>
                   ) : null,

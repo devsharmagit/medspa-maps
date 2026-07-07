@@ -9,7 +9,10 @@ import {
   SearchableDropdown,
   type DropdownOption,
 } from "@/components/ui/searchable-dropdown";
-import { US_STATES } from "@/lib/constants";
+import {
+  LocationTypeahead,
+  type LocationSelection,
+} from "@/components/ui/location-typeahead";
 import { useLocation } from "@/lib/location/location-context";
 import { cn } from "@/lib/utils";
 
@@ -18,15 +21,23 @@ export function HeroSearchBar({ className }: { className?: string }) {
   const { location: userLocation } = useLocation();
   const [service, setService] = useState("");
   const [location, setLocation] = useState("");
+  // Coordinates of the picked suggestion (null for free text — the search API
+  // resolves bare zips / "City, ST" server-side as a fallback).
+  const [locationGeo, setLocationGeo] = useState<{ lat: number; lng: number } | null>(null);
   const [serviceOptions, setServiceOptions] = useState<DropdownOption[]>([]);
 
-  // Prefill the state field once we detect the visitor's US state (unless they've
-  // already picked one). Never overrides a manual choice.
+  // Prefill once we detect the visitor's US city/state (unless they've already
+  // typed something). Never overrides a manual choice.
   useEffect(() => {
-    if (userLocation?.stateCode) {
-      setLocation((prev) => prev || userLocation.stateCode!);
+    if (userLocation?.city || userLocation?.stateCode) {
+      setLocation((prev) =>
+        prev ||
+        (userLocation.city && userLocation.stateCode
+          ? `${userLocation.city}, ${userLocation.stateCode}`
+          : userLocation.stateCode || ""),
+      );
     }
-  }, [userLocation?.stateCode]);
+  }, [userLocation?.city, userLocation?.stateCode]);
 
   // Fetch services from DB
   useEffect(() => {
@@ -50,7 +61,17 @@ export function HeroSearchBar({ className }: { className?: string }) {
     const params = new URLSearchParams();
     if (service.trim()) params.set("q", service.trim());
     if (location.trim()) params.set("location", location.trim());
+    // Picked suggestion carries exact coordinates → instant radius search.
+    if (locationGeo) {
+      params.set("lat", String(locationGeo.lat));
+      params.set("lng", String(locationGeo.lng));
+    }
     router.push(`/search?${params.toString()}`);
+  };
+
+  const handleLocationChange = (sel: LocationSelection) => {
+    setLocation(sel.value);
+    setLocationGeo(sel.lat !== null && sel.lng !== null ? { lat: sel.lat, lng: sel.lng } : null);
   };
 
   return (
@@ -81,14 +102,12 @@ export function HeroSearchBar({ className }: { className?: string }) {
       {/* ── Location dropdown ── */}
       <div className="flex flex-1 items-stretch border-t border-[#e1e1e1] sm:border-t-0 sm:border-l">
         <div className="flex flex-1 flex-col justify-center gap-2 px-5 py-4 sm:py-0 sm:pl-[18px]">
-          <SearchableDropdown
-            options={US_STATES}
+          <LocationTypeahead
             value={location}
-            onChange={setLocation}
-            placeholder="City, state, or ZIP…"
+            onChange={handleLocationChange}
+            placeholder="ZIP code or city…"
             icon={<MapPin className="size-5 text-brand-magenta" aria-hidden />}
             label="Location"
-            allowFreeText
           />
         </div>
 

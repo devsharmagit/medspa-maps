@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { LocationTypeahead } from "@/components/ui/location-typeahead";
 import {
   SearchableDropdown,
   type DropdownOption,
@@ -413,6 +414,29 @@ export function SearchResults() {
     }
   };
 
+  // Apply a typeahead pick (zip or city suggestion) immediately. A picked
+  // suggestion carries its own coordinates → distance search from that point,
+  // regardless of where the visitor physically is. Free text just updates the
+  // input; the form submit sends it as-is (the API resolves zips server-side).
+  const applyLocationSelection = (sel: {
+    label: string;
+    value: string;
+    lat: number | null;
+    lng: number | null;
+  }) => {
+    setSearchState(sel.value);
+    if (sel.lat !== null && sel.lng !== null) {
+      injectedRef.current = true; // manual choice — suspend the auto-inject effect
+      pushParams({
+        location: sel.value,
+        lat: sel.lat.toFixed(6),
+        lng: sel.lng.toFixed(6),
+        radius: null,
+        sort: null,
+      });
+    }
+  };
+
   // Fully de-select the location: clears the GPS origin, the state filter, the
   // distance band, and the remembered position — back to a clean slate.
   const clearUserLocation = () => {
@@ -498,14 +522,13 @@ export function SearchResults() {
             />
           </div>
 
-          {/* State dropdown */}
+          {/* Location typeahead — ZIP or city, ecommerce-style suggestions */}
           <div className="flex flex-1 items-center gap-3 rounded-xl border border-[#e8e0e8] px-4 py-2.5">
             <MapPin className="size-5 shrink-0 text-brand-magenta" aria-hidden />
-            <SearchableDropdown
-              options={STATE_OPTIONS}
+            <LocationTypeahead
               value={searchState}
-              onChange={applyState}
-              placeholder="Select a state…"
+              onChange={applyLocationSelection}
+              placeholder="ZIP code or city…"
               className="flex-1"
             />
           </div>

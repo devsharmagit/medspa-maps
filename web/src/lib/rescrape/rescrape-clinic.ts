@@ -37,6 +37,7 @@ export interface RescrapeClinicResult {
   added: TreatmentDelta[];
   removed: TreatmentDelta[];
   servicesFound: number;
+  imagesFound: number;
   pagesVisited: number;
   /** true when the run completed (scrape reached the site and diff applied) */
   ok: boolean;
@@ -66,6 +67,7 @@ export async function rescrapeClinic(clinicId: string): Promise<RescrapeClinicRe
     added: [],
     removed: [],
     servicesFound: 0,
+    imagesFound: 0,
     pagesVisited: 0,
   };
 
@@ -101,6 +103,7 @@ export async function rescrapeClinic(clinicId: string): Promise<RescrapeClinicRe
     // ── live scrape (no DB txn held during network I/O) ───────────────────────
     const detection = await detectClinicServices(clinic.website);
     base.servicesFound = detection.services.length;
+    base.imagesFound = detection.images.length;
     base.pagesVisited = detection.pagesVisited;
 
     // SAFETY: site unreachable → do NOT reconcile (would wipe all treatments).
@@ -266,6 +269,63 @@ export async function rescrapeClinic(clinicId: string): Promise<RescrapeClinicRe
         removedOut.push({ slug: svc.slug, name: svc.name });
       }
 
+      // ── image refresh ─────────────────────────────────────────────────────
+      // Replace SCRAPED image rows (cover/gallery/before_after) with this run's
+      // set so cover/junk fixes propagate on rescrape. Two protections:
+      //   * skip entirely when the scrape found no images (parse hiccup must
+      //     never wipe a clinic's gallery — mirrors the zero-services safety)
+      //   * curated rows (cdn_url or storage_key set → uploaded/processed by
+      //     an admin) are never deleted; if a curated cover exists, the fresh
+      //     scraped cover is demoted to gallery instead of competing with it.
+      if (detection.images.length > 0) {
+        const domain = (() => {
+          try { return new URL(clinic.website!).hostname; } catch { return null; }
+        })();
+
+        const curated = await client.query<{ role: string }>(
+          `SELECT role FROM images
+            WHERE entity_type = 'clinic' AND entity_id = $1
+              AND (cdn_url IS NOT NULL OR storage_key IS NOT NULL)`,
+          [clinicId]
+        );
+        const hasCuratedCover = curated.rows.some((r) => r.role === "cover");
+
+        await client.query(
+          `DELETE FROM images
+            WHERE entity_type = 'clinic' AND entity_id = $1
+              AND role IN ('cover', 'gallery', 'before_after')
+              AND cdn_url IS NULL AND storage_key IS NULL`,
+          [clinicId]
+        );
+
+        let sort = 0;
+        const seen = new Set<string>();
+        for (const img of detection.images) {
+          if (seen.has(img.source_url)) continue;
+          seen.add(img.source_url);
+          const role =
+            img.role === "cover" && hasCuratedCover ? "gallery" : img.role;
+          // (entity_type, entity_id, source_url) is UNIQUE — a scraped URL can
+          // collide with a surviving curated row; keep the curated row's cdn
+          // fields and just refresh metadata.
+          await client.query(
+            `INSERT INTO images
+               (entity_type, entity_id, source_url, role, sort_order, alt_text,
+                scraped_domain, scrape_status, last_checked_at)
+             VALUES ('clinic', $1, $2, $3, $4, $5, $6, 'ok', NOW())
+             ON CONFLICT (entity_type, entity_id, source_url) DO UPDATE SET
+               role = EXCLUDED.role,
+               sort_order = EXCLUDED.sort_order,
+               alt_text = COALESCE(EXCLUDED.alt_text, images.alt_text),
+               scrape_status = 'ok',
+               last_checked_at = NOW(),
+               updated_at = NOW()`,
+            [clinicId, img.source_url, role, img.sort_order ?? sort, img.alt_text ?? null, domain]
+          );
+          sort++;
+        }
+      }
+
       await client.query(
         `UPDATE clinics SET last_scraped_at = NOW(), updated_at = NOW() WHERE id = $1`,
         [clinicId]
@@ -276,9 +336,10 @@ export async function rescrapeClinic(clinicId: string): Promise<RescrapeClinicRe
 
     await pool.query(
       `UPDATE scrape_jobs
-          SET status = 'completed', finished_at = NOW(), services_found = $2, error_message = NULL
+          SET status = 'completed', finished_at = NOW(), services_found = $2,
+              images_found = $3, error_message = NULL
         WHERE id = $1`,
-      [jobId, base.servicesFound]
+      [jobId, base.servicesFound, base.imagesFound]
     );
 
     return { ...base, added, removed, ok: true, skipped: false, error: null };

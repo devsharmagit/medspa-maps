@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/lib/db";
+import { lookupZip, lookupCityState } from "@/lib/location/postal-index";
 
 // Maps 2-letter state abbreviations to full names as stored in the DB
 const STATE_ABBR_TO_NAME: Record<string, string> = {
@@ -22,6 +23,30 @@ const STATE_NAME_TO_ABBR: Record<string, string> = Object.fromEntries(
   Object.entries(STATE_ABBR_TO_NAME).map(([abbr, name]) => [name.toUpperCase(), abbr])
 );
 
+/**
+ * Resolve a typed location string to coordinates using the in-memory postal
+ * index (src/data/postal-codes-us.json — no DB round-trip). Handles "37203"
+ * (zip) and "Nashville, TN" (city, state). Plain city names stay on the
+ * text-match path — the typeahead UI sends lat/lng when a suggestion is picked.
+ */
+function resolveTypedLocation(
+  location: string,
+): { lat: number; lng: number } | null {
+  const zipMatch = location.match(/^\s*(\d{5})\s*$/);
+  if (zipMatch) {
+    const hit = lookupZip(zipMatch[1]);
+    return hit ? { lat: hit.lat, lng: hit.lng } : null;
+  }
+
+  // "City, ST" / "City, StateName" — specific enough to geocode locally.
+  const cityState = location.match(/^\s*(.+?)\s*,\s*([A-Za-z .]{2,})\s*$/);
+  if (cityState) {
+    const hit = lookupCityState(cityState[1], cityState[2]);
+    if (hit) return { lat: hit.lat, lng: hit.lng };
+  }
+  return null;
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const q = searchParams.get("q") || "";
@@ -34,9 +59,23 @@ export async function GET(request: NextRequest) {
   const radiusRaw = searchParams.get("radius");
   const ratingRaw = searchParams.get("rating");
 
-  const latNum = latRaw !== null ? Number(latRaw) : NaN;
-  const lngNum = lngRaw !== null ? Number(lngRaw) : NaN;
-  const hasOrigin = Number.isFinite(latNum) && Number.isFinite(lngNum);
+  let latNum = latRaw !== null ? Number(latRaw) : NaN;
+  let lngNum = lngRaw !== null ? Number(lngRaw) : NaN;
+  let hasOrigin = Number.isFinite(latNum) && Number.isFinite(lngNum);
+
+  // Ecommerce-style zip/area search: a location of the form "37201" or
+  // "Nashville, TN" is geo-resolvable, so distance handles it — the text
+  // filter must NOT also run ("Nashville, TN" never ILIKE-matches the city
+  // column "Nashville", and "37201" would exclude the clinic one zip over).
+  // When the client sent no coordinates (raw typed input), we also resolve
+  // the origin from the in-memory postal index here.
+  const typedGeo = location ? resolveTypedLocation(location) : null;
+  const originFromTypedLocation = Boolean(typedGeo);
+  if (!hasOrigin && typedGeo) {
+    latNum = typedGeo.lat;
+    lngNum = typedGeo.lng;
+    hasOrigin = true;
+  }
 
   const radiusNum = radiusRaw !== null && Number.isFinite(Number(radiusRaw))
     ? Number(radiusRaw)
@@ -55,30 +94,45 @@ export async function GET(request: NextRequest) {
     let paramIdx = 1;
 
     // Haversine distance in MILES from (lat,lng) origin, computed in SQL.
-    // Only clinics with non-null lat/lng can match when an origin is given.
+    // Distance = NEAREST point among the clinic's own coords AND all of its
+    // active clinic_locations. This makes distance work for clinics whose
+    // primary coords live only in clinic_locations (the common case after
+    // import) and gives multi-location clinics the honest "closest branch".
     let distanceExpr = "NULL::float";
+    let originLatParam: number | null = null;
+    let originLngParam: number | null = null;
     if (hasOrigin) {
       const latParam = paramIdx;
       const lngParam = paramIdx + 1;
-      // 3959 = Earth radius in miles. Guard null coords explicitly: GREATEST/
-      // LEAST ignore NULLs in Postgres, so without this a null-coordinate clinic
-      // would collapse to acos(1)=0 and masquerade as "0 miles / nearest".
+      originLatParam = latParam;
+      originLngParam = lngParam;
+      // 3959 = Earth radius in miles. GREATEST/LEAST clamp acos domain errors.
       distanceExpr = `(
-        CASE WHEN c.lat IS NULL OR c.lng IS NULL THEN NULL ELSE
-        3959 * acos(
-          GREATEST(-1, LEAST(1,
-            cos(radians($${latParam})) * cos(radians(c.lat))
-            * cos(radians(c.lng) - radians($${lngParam}))
-            + sin(radians($${latParam})) * sin(radians(c.lat))
-          ))
-        ) END
+        SELECT MIN(
+          3959 * acos(
+            GREATEST(-1, LEAST(1,
+              cos(radians($${latParam})) * cos(radians(pt.lat))
+              * cos(radians(pt.lng) - radians($${lngParam}))
+              + sin(radians($${latParam})) * sin(radians(pt.lat))
+            ))
+          )
+        )
+        FROM (
+          SELECT c.lat::float AS lat, c.lng::float AS lng
+          WHERE c.lat IS NOT NULL AND c.lng IS NOT NULL
+          UNION ALL
+          SELECT cl2.lat::float, cl2.lng::float
+          FROM clinic_locations cl2
+          WHERE cl2.clinic_id = c.id AND cl2.is_active = TRUE
+            AND cl2.lat IS NOT NULL AND cl2.lng IS NOT NULL
+        ) pt
       )`;
       params.push(latNum, lngNum);
       paramIdx += 2;
-      // NOTE: we intentionally do NOT require lat/lng here. A clinic without
-      // coordinates simply gets distance_miles = NULL (sorted last within its
-      // group) rather than disappearing the moment a user shares their location.
-      // The radius hard-filter below naturally excludes null-coordinate clinics.
+      // NOTE: clinics with no coordinates anywhere get distance_miles = NULL
+      // (sorted last within their group) rather than disappearing the moment a
+      // user shares their location. The radius hard-filter below naturally
+      // excludes null-coordinate clinics.
     }
 
     // Service / treatment search — checks canonical services AND raw scraped names
@@ -95,8 +149,11 @@ export async function GET(request: NextRequest) {
       paramIdx += 2;
     }
 
-    // Location search — checks both clinics table AND clinic_locations for multi-location clinics
-    if (location) {
+    // Location search — checks both clinics table AND clinic_locations for
+    // multi-location clinics. Skipped when the typed location was resolved to
+    // an origin (zip / "City, ST"): distance handles it, and a string match on
+    // "37201" would wrongly exclude the clinic one zip over.
+    if (location && !originFromTypedLocation) {
       const upper = location.trim().toUpperCase();
       // Resolve either a 2-letter abbr ("CA") or a full name ("California") → abbr.
       const abbr = STATE_ABBR_TO_NAME[upper] ? upper : STATE_NAME_TO_ABBR[upper];
@@ -142,12 +199,15 @@ export async function GET(request: NextRequest) {
       paramIdx++;
     }
 
-    // Radius hard-filter — ONLY when the user explicitly picks a distance band.
-    // Having an origin alone just enables distance display + distance sorting; it
-    // must never silently hide clinics that fall outside a default radius.
-    if (hasOrigin && radiusRaw !== null && Number.isFinite(Number(radiusRaw))) {
+    // Radius hard-filter — when the user explicitly picks a distance band, OR
+    // when the origin came from a typed zip / "City, ST" (ecommerce behavior:
+    // "37201" means near 37201, not the whole country — default 50 miles).
+    // A browser-geolocation origin alone still only enables distance display /
+    // sorting and never silently hides clinics.
+    const explicitRadius = radiusRaw !== null && Number.isFinite(Number(radiusRaw));
+    if (hasOrigin && (explicitRadius || originFromTypedLocation)) {
       conditions.push(`${distanceExpr} <= $${paramIdx}`);
-      params.push(radiusNum);
+      params.push(explicitRadius ? radiusNum : 50);
       paramIdx++;
     }
 
@@ -167,11 +227,14 @@ export async function GET(request: NextRequest) {
         ${distanceExpr} AS distance_miles,
         c.name AS clinic_name,
         c.slug AS clinic_slug,
-        c.address,
-        c.city,
-        c.state,
-        c.zip,
-        c.phone,
+        -- Address/city/state/zip/phone: the clinics columns are often NULL
+        -- (imported data lives in clinic_locations) — fall back to the primary
+        -- active location so cards always have a display address.
+        COALESCE(c.address, ploc.address) AS address,
+        COALESCE(c.city,    ploc.city)    AS city,
+        COALESCE(c.state,   ploc.state)   AS state,
+        COALESCE(c.zip,     ploc.zip)     AS zip,
+        COALESCE(c.phone,   ploc.phone)   AS phone,
         c.website,
         c.lat,
         c.lng,
@@ -241,6 +304,25 @@ export async function GET(request: NextRequest) {
         ) AS locations
       FROM clinics c
       JOIN businesses b ON b.id = c.business_id
+      LEFT JOIN LATERAL (
+        SELECT cl.address, cl.city, cl.state, cl.zip, cl.phone
+        FROM clinic_locations cl
+        WHERE cl.clinic_id = c.id AND cl.is_active = TRUE
+        ORDER BY ${
+          originLatParam !== null
+            ? // With a search origin, show the NEAREST branch's address —
+              // "0.3 mi away" next to the primary branch's city reads wrong
+              // for multi-location clinics.
+              `(CASE WHEN cl.lat IS NULL OR cl.lng IS NULL THEN NULL ELSE
+                 3959 * acos(GREATEST(-1, LEAST(1,
+                   cos(radians($${originLatParam})) * cos(radians(cl.lat))
+                   * cos(radians(cl.lng) - radians($${originLngParam}))
+                   + sin(radians($${originLatParam})) * sin(radians(cl.lat))
+                 ))) END) ASC NULLS LAST,`
+            : ""
+        } cl.is_primary DESC, cl.sort_order NULLS LAST, cl.created_at
+        LIMIT 1
+      ) ploc ON TRUE
       LEFT JOIN clinic_services cs ON cs.clinic_id = c.id AND cs.is_active = TRUE
       LEFT JOIN services s ON s.id = cs.service_id AND s.is_active = TRUE
       WHERE ${conditions.join(" AND ")}

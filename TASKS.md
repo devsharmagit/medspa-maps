@@ -81,9 +81,9 @@ Legend: ✅ done · 🟡 partial (gap noted) · 🔴 not started
 ### Phase 1 — Search per Figma
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 1.1 | `zip_codes` table (US zips → lat/lng/city/state, ~42k rows, free dataset) | 🔴 | Prereq: makes zip radius + autocomplete work without external APIs |
-| 1.2 | Location autocomplete API (`/api/locations/suggest`) + typeahead input | 🔴 | City & zip suggestions |
-| 1.3 | Geocode typed location → lat/lng in search API (today distance only works if browser sends coords) | 🔴 | |
+| 1.1 | `postal_codes` table (US zips → lat/lng/city/state, 41,490 rows from GeoNames) | ✅ 2026-07-07 | `scripts/import-postal-codes.mjs` (rerunnable; same format adds India later) |
+| 1.2 | Location autocomplete API (`/api/locations/suggest`) + typeahead input (hero + search page) | ✅ 2026-07-07 | `components/ui/location-typeahead.tsx`; zip-prefix, city-prefix + fuzzy |
+| 1.3 | Geocode typed location → lat/lng in search API (zip / "City, ST" resolved server-side; 50mi default radius) | ✅ 2026-07-07 | Also FIXED distance bug: nearest `clinic_locations` coords now used (clinics.lat was always NULL) |
 | 1.4 | Distance-bucket filter (10-20 / 20-40 / 40-80 / 80-120 mi per Figma) | 🔴 | API accepts radius; UI buckets missing |
 | 1.5 | Provider-type filter (NP / MD / Plastic Surgeon / Dermatologist) | 🔴 | Needs `providers.provider_type` column (see 5.3) |
 | 1.6 | Availability filter (Open Today / Weekend) from `hours` jsonb | 🔴 | Data exists, logic missing |
@@ -104,6 +104,8 @@ Legend: ✅ done · 🟡 partial (gap noted) · 🔴 not started
 | 2.5 | Deep-scrape individual service pages → per-service description/price/duration | 🔴 | `clinic_services.description/scraped_from_url` columns ready |
 | 2.6 | AI provider extraction (name, credentials, specialties, experience, photo, provider_type) | 🟡 | Names-only today |
 | 2.7 | Before/after extraction + pairing + treatment association | 🟡 | Heuristic stub exists |
+| 2.13 | Cover = og:image preferred + decorative-junk filtering (dividers, extreme aspect ratios) | ✅ 2026-07-07 | `lib/scraper/images.ts`; fixed og bonus never firing (URL normalization bug) |
+| 2.14 | Rescrape pipeline now refreshes images (cover/gallery/before_after) | ✅ 2026-07-07 | Idempotent upsert; curated rows (cdn_url/storage_key) protected; zero-image scrapes never wipe; all 10 clinics re-run |
 | 2.8 | Clinic stats extraction (`stat_experts`, `stat_patients`, etc. — columns exist, empty) | 🔴 | Figma stats bar |
 | 2.9 | Multi-location resolution v2 (scraper = source of truth; G99 rows = hints) | 🟡 | Works today via footer heuristics; add AI pass on /locations pages |
 | 2.10 | Wire AI pipeline into existing preview→save flow + `scrape_jobs` tracking + confidence gating | 🟡 | Flow exists for heuristic scraper |

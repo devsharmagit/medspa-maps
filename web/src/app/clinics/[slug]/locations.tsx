@@ -1,5 +1,6 @@
 import { CalendarDays, Clock, MapPin, Phone } from "lucide-react";
 import type { ClinicLocation } from "@/lib/clinics/queries";
+import { toStateCode } from "@/lib/location/states";
 
 const DAY_KEYS = [
   "SUNDAY",
@@ -36,10 +37,29 @@ function locationTitle(loc: ClinicLocation, idx: number): string {
   return cityState || `Location ${idx + 1}`;
 }
 
-function addressLine(loc: ClinicLocation): string | null {
-  if (loc.address) return loc.address;
-  const parts = [loc.city, loc.state, loc.zip].filter(Boolean).join(", ");
-  return parts || null;
+/**
+ * Full postal address as up to two display lines:
+ *   line 1 — street ("541 Buttermilk Pike, Suite 100")
+ *   line 2 — "City, ST ZIP" ("Crescent Springs, KY 41017")
+ * If the street string already contains the city (some scrapes store the full
+ * address in one field), the second line is skipped to avoid duplication.
+ */
+function addressLines(loc: ClinicLocation): string[] {
+  const lines: string[] = [];
+  const street = loc.address?.trim() || null;
+
+  const stateAbbr = loc.state ? (toStateCode(loc.state) ?? loc.state) : null;
+  const cityState = [loc.city, stateAbbr].filter(Boolean).join(", ");
+  const cityLine = [cityState, loc.zip].filter(Boolean).join(" ").trim();
+
+  if (street) lines.push(street);
+  if (
+    cityLine &&
+    !(street && loc.city && street.toLowerCase().includes(loc.city.toLowerCase()))
+  ) {
+    lines.push(cityLine);
+  }
+  return lines;
 }
 
 /**
@@ -70,7 +90,7 @@ export function ClinicLocationsSection({
       <div className="grid gap-[20px] sm:grid-cols-2 lg:grid-cols-3">
         {locations.map((loc, idx) => {
           const title = locationTitle(loc, idx);
-          const addr = addressLine(loc);
+          const addrLines = addressLines(loc);
           const mapsUrl =
             loc.google_maps_url ||
             buildMapsUrl([loc.address, loc.city, loc.state, loc.zip]);
@@ -94,7 +114,7 @@ export function ClinicLocationsSection({
               </div>
 
               <div className="flex flex-col gap-[12px]">
-                {addr && (
+                {addrLines.length > 0 && (
                   <div className="flex items-start gap-[8px]">
                     <MapPin
                       className="h-[20px] w-[20px] shrink-0 text-[#EE97C6]"
@@ -106,7 +126,11 @@ export function ClinicLocationsSection({
                       rel="noreferrer"
                       className="font-montserrat text-[13px] font-medium leading-[140%] tracking-[0.02em] text-[#616161] hover:underline"
                     >
-                      {addr}
+                      {addrLines.map((line, i) => (
+                        <span key={i} className="block">
+                          {line}
+                        </span>
+                      ))}
                     </a>
                   </div>
                 )}
