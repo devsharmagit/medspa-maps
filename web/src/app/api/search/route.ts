@@ -13,8 +13,14 @@ const STATE_ABBR_TO_NAME: Record<string, string> = {
   ND: "North Dakota", OH: "Ohio", OK: "Oklahoma", OR: "Oregon", PA: "Pennsylvania",
   RI: "Rhode Island", SC: "South Carolina", SD: "South Dakota", TN: "Tennessee",
   TX: "Texas", UT: "Utah", VT: "Vermont", VA: "Virginia", WA: "Washington",
-  WV: "West Virginia", WI: "Wisconsin", WY: "Wyoming",
+  WV: "West Virginia", WI: "Wisconsin", WY: "Wyoming", DC: "District of Columbia",
 };
+
+// Reverse: FULL STATE NAME (upper-cased) → 2-letter abbreviation. Lets the
+// location search resolve a typed full name ("California") the same as "CA".
+const STATE_NAME_TO_ABBR: Record<string, string> = Object.fromEntries(
+  Object.entries(STATE_ABBR_TO_NAME).map(([abbr, name]) => [name.toUpperCase(), abbr])
+);
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
@@ -91,9 +97,11 @@ export async function GET(request: NextRequest) {
 
     // Location search — checks both clinics table AND clinic_locations for multi-location clinics
     if (location) {
-      const upper = location.toUpperCase();
-      const fullName = STATE_ABBR_TO_NAME[upper];
-      if (fullName) {
+      const upper = location.trim().toUpperCase();
+      // Resolve either a 2-letter abbr ("CA") or a full name ("California") → abbr.
+      const abbr = STATE_ABBR_TO_NAME[upper] ? upper : STATE_NAME_TO_ABBR[upper];
+      const fullName = abbr ? STATE_ABBR_TO_NAME[abbr] : undefined;
+      if (abbr && fullName) {
         conditions.push(`(
           c.state = $${paramIdx} OR c.state ILIKE $${paramIdx + 1}
           OR EXISTS (
@@ -102,7 +110,7 @@ export async function GET(request: NextRequest) {
               AND (cl.state = $${paramIdx} OR cl.state ILIKE $${paramIdx + 1})
           )
         )`);
-        params.push(upper, fullName);
+        params.push(abbr, fullName);
         paramIdx += 2;
       } else {
         conditions.push(`(

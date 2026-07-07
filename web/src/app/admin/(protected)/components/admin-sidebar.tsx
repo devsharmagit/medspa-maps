@@ -13,6 +13,7 @@ import {
   Inbox,
   Users,
   DatabaseZap,
+  Globe,
   Mail,
   History,
 } from "lucide-react";
@@ -23,6 +24,7 @@ const navItems = [
   { href: "/admin/leads", label: "Leads", icon: Mail },
   { href: "/admin/clinics/new", label: "Add Clinic", icon: PlusCircle },
   { href: "/admin/g99", label: "G99 Import", icon: DatabaseZap },
+  { href: "/admin/g99-websites", label: "G99 Websites", icon: Globe },
   { href: "/admin/clinics", label: "Clinics", icon: Store },
   { href: "/admin/providers", label: "Providers", icon: Users },
   { href: "/admin/businesses", label: "Businesses", icon: Building2 },

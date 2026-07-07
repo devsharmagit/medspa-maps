@@ -85,9 +85,10 @@ export function HeroSearchBar({ className }: { className?: string }) {
             options={US_STATES}
             value={location}
             onChange={setLocation}
-            placeholder='Select a state…'
+            placeholder="City, state, or ZIP…"
             icon={<MapPin className="size-5 text-brand-magenta" aria-hidden />}
             label="Location"
+            allowFreeText
           />
         </div>
 

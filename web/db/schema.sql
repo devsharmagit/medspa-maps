@@ -1632,6 +1632,39 @@ ALTER TABLE ONLY public.scrape_jobs
 --
 
 
+--
+-- Name: g99_clinic_websites; Type: TABLE; Schema: public; Owner: -
+--
+-- Phase-0 discovery store: ONE ROW PER UNIQUE clinic website.
+-- Populated by scripts/g99/harvest_websites.py from G99 PROD, filtered to valid
+-- (non-deleted) businesses with a MEDSPA specialization (not dental-only, not
+-- test/internal). Junk/placeholder websites (growth99, instagram, …) are excluded.
+-- Each row keeps the arrays of every G99 clinic id + business (tenant) id at that
+-- website; full per-clinic detail is fetched LIVE from G99 prod by those ids.
+--
+CREATE TABLE IF NOT EXISTS public.g99_clinic_websites (
+    id               uuid DEFAULT public.uuid_generate_v4() NOT NULL,
+    domain           text NOT NULL,
+    website          text NOT NULL,
+    g99_clinic_ids   bigint[] DEFAULT '{}'::bigint[] NOT NULL,
+    g99_business_ids bigint[] DEFAULT '{}'::bigint[] NOT NULL,
+    clinic_count     integer DEFAULT 0 NOT NULL,
+    business_count   integer DEFAULT 0 NOT NULL,
+    business_name    text,
+    clinic_name      text,
+    specialization   text,
+    created_at       timestamp with time zone DEFAULT now() NOT NULL
+);
+
+ALTER TABLE ONLY public.g99_clinic_websites
+    ADD CONSTRAINT g99_clinic_websites_pkey PRIMARY KEY (id);
+
+ALTER TABLE ONLY public.g99_clinic_websites
+    ADD CONSTRAINT g99_clinic_websites_domain_key UNIQUE (domain);
+
+CREATE INDEX IF NOT EXISTS idx_g99_clinic_websites_domain ON public.g99_clinic_websites USING btree (domain);
+
+
 
 --
 -- Populate the (empty) materialized view so the app can query it.
