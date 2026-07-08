@@ -1,30 +1,7 @@
 import { CalendarDays, Clock, MapPin, Phone } from "lucide-react";
 import type { ClinicLocation } from "@/lib/clinics/queries";
 import { toStateCode } from "@/lib/location/states";
-
-const DAY_KEYS = [
-  "SUNDAY",
-  "MONDAY",
-  "TUESDAY",
-  "WEDNESDAY",
-  "THURSDAY",
-  "FRIDAY",
-  "SATURDAY",
-];
-
-type HoursMap = Record<
-  string,
-  { open: string | null; close: string | null; is_open: boolean }
->;
-
-function getTodayHours(hours: unknown): { open: string; close: string } | null {
-  if (!hours || typeof hours !== "object") return null;
-  const map = hours as HoursMap;
-  const key = DAY_KEYS[new Date().getDay()];
-  const h = map[key];
-  if (!h || !h.is_open || !h.open || !h.close) return null;
-  return { open: h.open, close: h.close };
-}
+import { WeeklyHours, hasWeeklyHours } from "./hours";
 
 function buildMapsUrl(parts: (string | null)[]): string {
   const q = parts.filter(Boolean).join(", ");
@@ -94,7 +71,6 @@ export function ClinicLocationsSection({
           const mapsUrl =
             loc.google_maps_url ||
             buildMapsUrl([loc.address, loc.city, loc.state, loc.zip]);
-          const today = getTodayHours(loc.hours);
           const book = loc.booking_url || fallbackBookUrl;
 
           return (
@@ -135,18 +111,13 @@ export function ClinicLocationsSection({
                   </div>
                 )}
 
-                {today && (
-                  <div className="flex items-center gap-[8px]">
+                {hasWeeklyHours(loc.hours) && (
+                  <div className="flex items-start gap-[8px]">
                     <Clock
                       className="h-[20px] w-[20px] shrink-0 text-[#EE97C6]"
                       strokeWidth={1.5}
                     />
-                    <span className="font-montserrat text-[13px] font-medium leading-[130%] tracking-[0.02em] text-[#616161]">
-                      Open Today{" "}
-                      <span className="text-[#9A9A9A]">
-                        {today.open} - {today.close}
-                      </span>
-                    </span>
+                    <WeeklyHours hours={loc.hours} className="flex-1" />
                   </div>
                 )}
 

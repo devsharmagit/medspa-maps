@@ -426,12 +426,17 @@ export function extractAbout($: CheerioAPI): string | null {
  * (e.g. bizzflo.com) — the previous text branch was dead code (`!href.includes("")`
  * is always false) so only the hardcoded platform list ever matched.
  */
-export function extractBookingUrl($: CheerioAPI): string | null {
+export function extractBookingUrl($: CheerioAPI, pageUrl?: string): string | null {
   const candidates: { href: string; score: number }[] = [];
 
   $("a[href]").each((_, el) => {
     const href = ($(el).attr("href") ?? "").trim();
-    if (!href || href.startsWith("#") || /^(tel:|mailto:|javascript:)/i.test(href)) return;
+    if (!href || /^(tel:|mailto:|javascript:)/i.test(href)) return;
+    // Same-page "#book-now" anchors point at an on-page (embedded) booking
+    // widget. Keep them only when a pageUrl is supplied to resolve against;
+    // otherwise (legacy callers) skip fragments as before.
+    const isFragment = href.startsWith("#");
+    if (isFragment && (!pageUrl || href.length < 2)) return;
 
     const label = `${cleanText($(el).text())} ${$(el).attr("aria-label") ?? ""}`
       .toLowerCase()
@@ -448,7 +453,58 @@ export function extractBookingUrl($: CheerioAPI): string | null {
 
   if (candidates.length === 0) return null;
   candidates.sort((a, b) => b.score - a.score);
-  return candidates[0].href;
+  const best = candidates[0].href;
+
+  // Resolve relative / fragment hrefs to an absolute URL when the page is known.
+  if (!pageUrl || /^https?:\/\//i.test(best)) return best;
+  try {
+    return new URL(best, pageUrl).toString();
+  } catch {
+    return best;
+  }
+}
+
+export interface BookingLinkCandidate {
+  href: string;
+  text: string;
+}
+
+/**
+ * Collect booking-ish links (href + visible label) for the AI to choose from.
+ * Fragments/relative hrefs are resolved to absolute against pageUrl. The AI
+ * decides which one is the real booking link; this only supplies the shortlist.
+ */
+export function collectBookingLinkCandidates(
+  $: CheerioAPI,
+  pageUrl: string
+): BookingLinkCandidate[] {
+  const out: BookingLinkCandidate[] = [];
+  const seen = new Set<string>();
+  $("a[href]").each((_, el) => {
+    if (out.length >= 25) return;
+    const rawHref = ($(el).attr("href") ?? "").trim();
+    if (!rawHref || /^(tel:|mailto:|javascript:)/i.test(rawHref)) return;
+    const text = `${cleanText($(el).text())} ${$(el).attr("aria-label") ?? ""}`
+      .replace(/\s+/g, " ")
+      .trim();
+    const isPlatform = BOOKING_PLATFORMS.some((p) => rawHref.includes(p));
+    const isBookingText = BOOKING_TEXT_RE.test(text);
+    const isFragBook = rawHref.startsWith("#") && /book|appoint|schedul|consult|reserv/i.test(rawHref);
+    if (!isPlatform && !isBookingText && !isFragBook) return;
+    if (BOOKING_NEGATIVE_RE.test(text) || BOOKING_NEGATIVE_RE.test(rawHref)) return;
+    let href = rawHref;
+    if (!/^https?:\/\//i.test(href)) {
+      try {
+        href = new URL(href, pageUrl).toString();
+      } catch {
+        return;
+      }
+    }
+    if (seen.has(href)) return;
+    seen.add(href);
+    out.push({ href, text: text.slice(0, 80) });
+  });
+  return out;
 }
 
 /** Extract social media URLs */
@@ -554,50 +610,59 @@ export function extractHours($: CheerioAPI, html: string): Record<string, HoursE
 
 function extractHoursText($: CheerioAPI, html: string): Record<string, HoursEntry> | null {
   const hours: Record<string, HoursEntry> = {};
-
-  // Find elements that likely contain hours
-  const candidates: string[] = [];
-
-  $("[class*='hour'],[class*='schedule'],[id*='hour'],[id*='schedule']").each((_, el) => {
-    candidates.push($(el).text());
-  });
-
-  // Also check footer and contact sections
-  $("footer,[class*='footer'],[class*='contact']").each((_, el) => {
-    candidates.push($(el).text());
-  });
-
-  if (candidates.length === 0) {
-    candidates.push(html);
-  }
-
-  const timeRx = /(\d{1,2}(?::\d{2})?)\s*(am|pm)/gi;
   const rangeRx = /(\d{1,2}(?::\d{2})?)\s*(am|pm)?\s*[-–—to]+\s*(\d{1,2}(?::\d{2})?)\s*(am|pm)/gi;
+  // Split a text blob right before each day name, so a single concatenated
+  // string ("Monday: Closed Tuesday: ...") becomes one segment per day. This is
+  // what makes minified WordPress/Elementor lists parseable (their <li> text
+  // nodes run together with no whitespace separators).
+  const dayBoundary =
+    /(?=\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b)/i;
 
-  for (const text of candidates) {
-    const lines = text.split(/[\n\r|•·]+/);
-    for (const line of lines) {
-      const lower = line.toLowerCase();
-      const day = DAYS.find((d) => lower.includes(d));
-      if (!day) continue;
-
-      const rangeMatch = [...line.matchAll(rangeRx)][0];
-      if (rangeMatch) {
-        const openStr = normalizeTime(`${rangeMatch[1]} ${rangeMatch[2] || rangeMatch[4]}`);
-        const closeStr = normalizeTime(`${rangeMatch[3]} ${rangeMatch[4]}`);
-        const key = DAY_ABBR[day];
-        if (key && !hours[key]) {
-          hours[key] = { open: openStr, close: closeStr, is_open: true };
-        }
-        continue;
+  const lines: string[] = [];
+  const pushText = (text: string) => {
+    for (const chunk of text.split(/[\n\r|•·]+/)) {
+      for (const seg of chunk.split(dayBoundary)) {
+        const s = seg.trim();
+        if (s) lines.push(s);
       }
+    }
+  };
 
-      if (lower.includes("closed") || lower.includes("by appt")) {
-        const key = DAY_ABBR[day];
-        if (key && !hours[key]) {
-          hours[key] = { open: null, close: null, is_open: false };
-        }
-      }
+  // 1. Prefer per-item elements (Elementor icon-lists, table rows) so a day's
+  //    line is never concatenated with the next day's.
+  $("li, tr, dd, p").each((_, el) => {
+    const t = $(el).text();
+    if (t && DAYS.some((d) => t.toLowerCase().includes(d))) pushText(t);
+  });
+  // 2. Fallback: hours/schedule/footer/contact containers.
+  if (lines.length === 0) {
+    $(
+      "[class*='hour'],[class*='schedule'],[id*='hour'],[id*='schedule'],footer,[class*='footer'],[class*='contact']"
+    ).each((_, el) => pushText($(el).text()));
+  }
+  // 3. Last resort: the whole document.
+  if (lines.length === 0) pushText(html);
+
+  for (const line of lines) {
+    const lower = line.toLowerCase();
+    const day = DAYS.find((d) => lower.includes(d));
+    if (!day) continue;
+    const key = DAY_ABBR[day];
+    if (!key || hours[key]) continue;
+
+    const rangeMatch = [...line.matchAll(rangeRx)][0];
+    if (rangeMatch) {
+      hours[key] = {
+        open: normalizeTime(`${rangeMatch[1]} ${rangeMatch[2] || rangeMatch[4]}`),
+        close: normalizeTime(`${rangeMatch[3]} ${rangeMatch[4]}`),
+        is_open: true,
+      };
+    } else if (
+      /\bclosed\b/.test(lower) ||
+      lower.includes("by appt") ||
+      lower.includes("appointment only")
+    ) {
+      hours[key] = { open: null, close: null, is_open: false };
     }
   }
 

@@ -14,6 +14,7 @@ import { getClinicData } from "@/lib/clinics/queries";
 import { toStateCode } from "@/lib/location/states";
 import { ClinicGallery } from "./gallery";
 import { ClinicLocationsSection } from "./locations";
+import { HoursCard } from "./hours";
 import { OtherProvidersCarousel } from "@/components/shared/other-providers-carousel";
 import { ClinicTreatmentsCarousel } from "@/components/shared/clinic-treatments-carousel";
 import { ClinicReviewsSection } from "@/components/shared/clinic-reviews-section";
@@ -328,6 +329,9 @@ export default async function ClinicPage({
               {clinic.about}
             </p>
           )}
+
+          {/* Weekly hours (clinic-wide) */}
+          <HoursCard hours={clinic.hours} />
 
           {/* Stats row — rendered only when the admin entered ≥1 stat */}
           {statsConfig.length > 0 && (

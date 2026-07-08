@@ -367,7 +367,8 @@ CREATE TABLE public.services (
     hero_review_count integer,
     is_published boolean DEFAULT true,
     review_status text DEFAULT 'approved'::text,
-    faqs jsonb DEFAULT '[]'::jsonb
+    faqs jsonb DEFAULT '[]'::jsonb,
+    origin text DEFAULT 'seed'::text NOT NULL
 );
 
 

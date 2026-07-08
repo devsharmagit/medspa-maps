@@ -24,6 +24,7 @@ import {
   CANONICAL_CONCERNS,
   PRIORITY_SERVICE_SLUGS,
   matchService,
+  bestCatalogMatch,
 } from "../src/lib/taxonomy/canonical";
 import { TREATMENT_CATALOG } from "../src/lib/treatments/catalog";
 import { CONCERN_CATALOG } from "../src/lib/concerns/catalog";
@@ -57,8 +58,8 @@ async function reconcile() {
            (name, slug, category, aliases, summary, description,
             treatment_time, results_timeline, results_duration,
             price_from, price_unit, recovery_time,
-            is_published, review_status, is_active, updated_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'approved',true,NOW())
+            is_published, review_status, is_active, origin, updated_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'approved',true,'seed',NOW())
          ON CONFLICT (slug) DO UPDATE SET
            name=EXCLUDED.name, category=EXCLUDED.category, aliases=EXCLUDED.aliases,
            summary=EXCLUDED.summary, description=EXCLUDED.description,
@@ -67,7 +68,7 @@ async function reconcile() {
            price_from=EXCLUDED.price_from, price_unit=EXCLUDED.price_unit,
            recovery_time=EXCLUDED.recovery_time,
            is_published=EXCLUDED.is_published, review_status='approved',
-           is_active=true, updated_at=NOW()`,
+           is_active=true, origin='seed', updated_at=NOW()`,
         [
           svc.name, svc.slug, svc.category, svc.aliases, svc.summary, svc.description,
           svc.treatment_time, svc.results_timeline, svc.results_duration,
@@ -78,34 +79,50 @@ async function reconcile() {
     }
     console.log(`upserted ${CANONICAL_SERVICES.length} canonical services`);
 
-    // ── 2. DELETE services outside the Phase-0 set ───────────────────────────
+    // ── 2. DELETE seed services outside the Phase-0 set ──────────────────────
+    // Only curated ('seed') rows are pruned; AI-grown ('ai') and manual rows
+    // survive so the AI-grown catalog persists across reconcile runs.
     const delSvc = await client.query(
-      `DELETE FROM services WHERE slug <> ALL($1::text[]) RETURNING slug`,
+      `DELETE FROM services WHERE slug <> ALL($1::text[]) AND origin = 'seed' RETURNING slug`,
       [PRIORITY_SERVICE_SLUGS]
     );
-    console.log(`deleted ${delSvc.rowCount} non-priority services`);
+    console.log(`deleted ${delSvc.rowCount} non-priority seed services`);
 
-    // slug -> id for survivors (always the 15)
-    const svcRows = await client.query<{ id: string; slug: string }>(
-      `SELECT id, slug FROM services`
+    // Full surviving catalog: the 15 seed rows + any AI-grown/manual rows.
+    const svcRows = await client.query<{ id: string; name: string; slug: string; aliases: string[] | null }>(
+      `SELECT id, name, slug, COALESCE(aliases, '{}') AS aliases FROM services`
     );
     const svcIdBySlug = new Map(svcRows.rows.map((r) => [r.slug, r.id]));
+    const catalog = svcRows.rows.map((r) => ({ slug: r.slug, name: r.name, aliases: r.aliases ?? [] }));
 
-    // ── 3. RE-MATCH every clinic_services row against the narrowed catalog ────
+    // ── 3. RE-MATCH every clinic_services row against the FULL catalog ────────
+    // Curated matchService first (the 15 + brand aliases), then the DB catalog
+    // (folds AI-grown treatments) so their links aren't nulled out.
     const csRows = await client.query<{ id: string; raw_name: string; match_status: string | null }>(
       `SELECT id, raw_name, match_status FROM clinic_services`
     );
     let matched = 0, auto = 0, unmatched = 0, ignored = 0;
     for (const row of csRows.rows) {
       if (row.match_status === "ignored") { ignored++; continue; }
+      let serviceId: string | null = null;
+      let confidence = 0;
       const m = matchService(row.raw_name);
-      const serviceId = m.slug ? svcIdBySlug.get(m.slug) ?? null : null;
-      const status = serviceId ? (m.confidence >= 1 ? "matched" : "auto") : "unmatched";
+      if (m.slug && svcIdBySlug.has(m.slug)) {
+        serviceId = svcIdBySlug.get(m.slug)!;
+        confidence = m.confidence;
+      } else {
+        const hit = bestCatalogMatch(row.raw_name, catalog);
+        if (hit) {
+          serviceId = svcIdBySlug.get(hit.entry.slug) ?? null;
+          confidence = hit.confidence;
+        }
+      }
+      const status = serviceId ? (confidence >= 1 ? "matched" : "auto") : "unmatched";
       await client.query(
         `UPDATE clinic_services
            SET service_id=$2, match_status=$3, match_confidence=$4, updated_at=NOW()
          WHERE id=$1`,
-        [row.id, serviceId, status, m.confidence || null]
+        [row.id, serviceId, status, confidence || null]
       );
       if (status === "matched") matched++;
       else if (status === "auto") auto++;

@@ -257,7 +257,8 @@ CREATE TABLE IF NOT EXISTS public.services (
     hero_review_count integer,
     is_published boolean DEFAULT true,
     review_status text DEFAULT 'approved'::text,
-    faqs jsonb DEFAULT '[]'::jsonb
+    faqs jsonb DEFAULT '[]'::jsonb,
+    origin text DEFAULT 'seed'::text NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS public.clinic_service_changes (
@@ -671,6 +672,7 @@ ALTER TABLE public.services ADD COLUMN IF NOT EXISTS hero_review_count integer;
 ALTER TABLE public.services ADD COLUMN IF NOT EXISTS is_published boolean DEFAULT true;
 ALTER TABLE public.services ADD COLUMN IF NOT EXISTS review_status text DEFAULT 'approved'::text;
 ALTER TABLE public.services ADD COLUMN IF NOT EXISTS faqs jsonb DEFAULT '[]'::jsonb;
+ALTER TABLE public.services ADD COLUMN IF NOT EXISTS origin text DEFAULT 'seed'::text NOT NULL;
 
 
 -- PRIMARY KEY / UNIQUE / CHECK CONSTRAINTS

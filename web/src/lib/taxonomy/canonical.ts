@@ -761,6 +761,64 @@ export function matchService(rawName: string): MatchResult {
   return { slug: null, confidence: bestScore };
 }
 
+/**
+ * fuzzyScore(a, b) — Sørensen–Dice similarity of two raw strings after
+ * normalization. Exported so callers (clinic-save, reconcile) can match against
+ * the *live DB catalog* (which includes AI-grown treatments) the same way
+ * matchService matches against the in-memory curated set.
+ */
+export function fuzzyScore(a: string, b: string): number {
+  return diceCoefficient(tokenSet(normalize(a)), tokenSet(normalize(b)));
+}
+
+/** A row of the live `services` catalog, for DB-backed matching. */
+export interface CatalogEntry {
+  slug: string;
+  name: string;
+  aliases?: string[] | null;
+}
+
+/**
+ * bestCatalogMatch(raw, catalog, threshold) — resolve a scraped name against a
+ * DYNAMIC catalog loaded from the DB (the curated 15 PLUS AI-grown treatments).
+ * Exact normalized name/slug/alias → confidence 1.0; else best Dice ≥ threshold.
+ * Returns null when nothing clears the bar. Mirrors matchService's two-stage
+ * logic but over arbitrary rows instead of the hard-coded CANONICAL_SERVICES.
+ */
+export function bestCatalogMatch(
+  raw: string,
+  catalog: CatalogEntry[],
+  threshold = 0.55
+): { entry: CatalogEntry; confidence: number } | null {
+  const norm = normalize(raw);
+  if (!norm) return null;
+
+  // 1. exact normalized name / slug / alias
+  for (const e of catalog) {
+    if (normalize(e.name) === norm || normalize(e.slug) === norm) {
+      return { entry: e, confidence: 1 };
+    }
+    for (const a of e.aliases ?? []) {
+      if (normalize(a) === norm) return { entry: e, confidence: 1 };
+    }
+  }
+
+  // 2. fuzzy — best Dice over name + slug + aliases
+  const target = tokenSet(norm);
+  let best: CatalogEntry | null = null;
+  let bestScore = 0;
+  for (const e of catalog) {
+    for (const cand of [e.name, e.slug, ...(e.aliases ?? [])]) {
+      const score = diceCoefficient(target, tokenSet(normalize(cand)));
+      if (score > bestScore) {
+        bestScore = score;
+        best = e;
+      }
+    }
+  }
+  return best && bestScore >= threshold ? { entry: best, confidence: bestScore } : null;
+}
+
 /** All canonical (Phase-0 priority) service slugs, in catalog order. */
 export const PRIORITY_SERVICE_SLUGS: string[] = CANONICAL_SERVICES.map(
   (s) => s.slug

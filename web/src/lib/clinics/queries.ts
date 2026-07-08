@@ -169,7 +169,7 @@ export async function getClinicData(slug: string): Promise<ClinicPageData | null
       `SELECT id, name, title, image_url, is_verified
        FROM providers
        WHERE clinic_id = $1 AND is_active = true
-       ORDER BY name`,
+       ORDER BY (card_tagline IS NOT NULL) DESC, name`,
       [c.id]
     ),
   ]);

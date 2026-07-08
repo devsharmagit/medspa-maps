@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 
 export function HeroSearchBar({ className }: { className?: string }) {
   const router = useRouter();
-  const { location: userLocation } = useLocation();
+  const { location: userLocation, status, requestLocation } = useLocation();
   const [service, setService] = useState("");
   const [location, setLocation] = useState("");
   // Coordinates of the picked suggestion (null for free text — the search API
@@ -26,9 +26,12 @@ export function HeroSearchBar({ className }: { className?: string }) {
   const [locationGeo, setLocationGeo] = useState<{ lat: number; lng: number } | null>(null);
   const [serviceOptions, setServiceOptions] = useState<DropdownOption[]>([]);
 
-  // Prefill once we detect the visitor's US city/state (unless they've already
-  // typed something). Never overrides a manual choice.
+  // Prefill once the visitor asks for their location and we resolve a US
+  // city/state (unless they've already typed something). Never overrides a
+  // manual choice; never fills a non-US place (search is USA-only — the
+  // USA-only notice explains it instead).
   useEffect(() => {
+    if (userLocation?.outsideUS) return;
     if (userLocation?.city || userLocation?.stateCode) {
       setLocation((prev) =>
         prev ||
@@ -37,7 +40,7 @@ export function HeroSearchBar({ className }: { className?: string }) {
           : userLocation.stateCode || ""),
       );
     }
-  }, [userLocation?.city, userLocation?.stateCode]);
+  }, [userLocation?.city, userLocation?.stateCode, userLocation?.outsideUS]);
 
   // Fetch services from DB
   useEffect(() => {
@@ -108,6 +111,8 @@ export function HeroSearchBar({ className }: { className?: string }) {
             placeholder="ZIP code or city…"
             icon={<MapPin className="size-5 text-brand-magenta" aria-hidden />}
             label="Location"
+            onUseMyLocation={() => requestLocation({ force: true })}
+            locating={status === "prompting"}
           />
         </div>
 
@@ -115,7 +120,7 @@ export function HeroSearchBar({ className }: { className?: string }) {
           <Button
             type="submit"
             variant={"gradient"}
-            className="h-[47px] gap-2.5 rounded-lg border-0 px-6 text-sm font-semibold text-white shadow-none hover:opacity-90"
+            className="h-[47px] gap-2.5 rounded-lg border-0 px-6 text-sm font-semibold text-white"
           >
             <Search className="size-5" aria-hidden />
             Search

@@ -52,6 +52,28 @@ const GALLERY_SELECTORS = [
   "[class*='masonry'] img",
 ];
 
+// Elements that commonly carry the hero/cover as a CSS background-image.
+// Elementor/WordPress render sliders and section backgrounds this way, so they
+// are invisible to <img>-only extraction — scan inline styles, Elementor
+// data-settings and <style> blocks for these too.
+const BG_SELECTORS = [
+  "[class*='hero'][style*='background']",
+  "[class*='banner'][style*='background']",
+  "[class*='slider'][style*='background']",
+  "[class*='slide'][style*='background']",
+  "[class*='carousel'][style*='background']",
+  "[class*='elementor'][style*='background-image']",
+  "[class*='swiper-slide'][style*='background']",
+  "section[style*='background-image']",
+  "div[style*='background-image']",
+];
+const BG_URL_RE = /background-image\s*:\s*url\((['"]?)([^'")]+)\1\)/i;
+const CSS_IMG_URL_RE = /url\(\s*['"]?([^'")]+\.(?:jpe?g|png|webp))(?:\?[^'")]*)?['"]?\s*\)/gi;
+// Strong hero signals (the site's actual homepage hero/slider) outrank weaker
+// "banner"-type promo images so the real cover wins score ties.
+const HERO_FILENAME_STRONG = /(hero|slider|masthead|home[-_]?slider|homepage)/i;
+const HERO_FILENAME_WEAK = /(banner|cover|header[-_]?bg|main[-_]?bg)/i;
+
 // Patterns that indicate the image is not a useful content image
 const SKIP_PATTERNS = [
   /placeholder/i,
@@ -75,6 +97,23 @@ const SKIP_PATTERNS = [
   /[-_.](line|underline|wave|swirl|ornament|flourish|squiggle)[-_.]/i,
   /pattern[-_.]/i,
   /texture[-_.]/i,
+  // promotional / non-clinic content that must never enter the DB
+  /promo/i,
+  /sponsor/i,
+  /newsletter/i,
+  /subscribe/i,
+  /coupon/i,
+  /gift[-_]?card/i,
+  /financing/i,
+  /\baward/i,
+  /\bbadge/i,
+  /\bseal[-_.]/i,
+  /accredited/i,
+  /certified/i,
+  /as[-_]?seen/i,
+  /featured[-_]?in/i,
+  /partner[-_]?logo/i,
+  /\bpress[-_.]/i,
 ];
 
 function shouldSkip(src: string, alt: string): boolean {
@@ -237,6 +276,11 @@ function scoreCandidate(
   // Hero/banner location bonus
   if (isHero) score += 1;
 
+  // Filename signals a hero/slider/cover image (e.g. "homepageslider2.webp").
+  // A real slider/hero outranks a generic promotional "banner".
+  if (HERO_FILENAME_STRONG.test(filename) || HERO_FILENAME_STRONG.test(src)) score += 3;
+  else if (HERO_FILENAME_WEAK.test(filename) || HERO_FILENAME_WEAK.test(src)) score += 2;
+
   return score;
 }
 
@@ -246,6 +290,7 @@ export function extractCover(
   baseUrl: string,
   businessName?: string,
   city?: string,
+  logoUrl?: string | null,
 ): ScrapedImage | null {
   // Absolutize og:image up front so the score comparison (src === ogUrl)
   // matches the absolutized candidate URLs — previously a relative/differently
@@ -266,12 +311,15 @@ export function extractCover(
   interface Candidate { src: string; alt: string; score: number }
   const candidates: Candidate[] = [];
   const seenSrc = new Set<string>();
+  const preloadUrls = new Set<string>();
 
   const addCandidate = (src: string, alt: string, isHero: boolean) => {
     if (seenSrc.has(src)) return;
     seenSrc.add(src);
-    // Exclude images that are clearly logos (only if we'll have a separate logo)
-    if (logoHints.test(alt)) return;
+    // Never let the logo become the cover — including when og:image IS the logo
+    // (they'd otherwise dedupe against the logo row and leave no cover at all).
+    if (logoUrl && src === logoUrl) return;
+    if (logoHints.test(alt) || logoHints.test(src)) return;
     const score = scoreCandidate(src, alt, isHero, ogUrl, nameTokens, cityTokens);
     candidates.push({ src, alt, score });
   };
@@ -294,6 +342,45 @@ export function extractCover(
     });
   }
 
+  // CSS background-image heroes (Elementor/WordPress sliders & section
+  // backgrounds) — invisible to <img> extraction, so scan inline styles,
+  // Elementor data-settings JSON, and <style> blocks.
+  const addBg = (rawUrl: string) => {
+    if (!rawUrl) return;
+    const clean = rawUrl.replace(/\\/g, "");
+    if (shouldSkip(clean, "")) return;
+    const abs = toAbsolute(clean, baseUrl);
+    if (abs) addCandidate(abs, "", true);
+  };
+  for (const sel of BG_SELECTORS) {
+    $(sel).each((_, rawEl) => {
+      const m = ($(rawEl).attr("style") ?? "").match(BG_URL_RE);
+      if (m) addBg(m[2]);
+    });
+  }
+  $("[data-settings*='url']").each((_, rawEl) => {
+    const raw = $(rawEl).attr("data-settings") ?? "";
+    for (const m of raw.matchAll(/"url"\s*:\s*"([^"]+\.(?:jpe?g|png|webp)[^"]*)"/gi)) addBg(m[1]);
+  });
+  $("style").each((_, rawEl) => {
+    const css = $(rawEl).text() ?? "";
+    for (const m of css.matchAll(CSS_IMG_URL_RE)) addBg(m[1]);
+  });
+  // <link rel="preload" as="image"> — the site's own declared priority hero
+  // (LCP), stable in <head> and immune to lazy-render variance. Recorded so we
+  // can boost it decisively over incidental hero <img>s / content photos below.
+  $("link[rel~='preload'],link[rel~='prefetch']").each((_, rawEl) => {
+    const el = $(rawEl);
+    const as = (el.attr("as") ?? "").toLowerCase();
+    let href = el.attr("href") ?? "";
+    if (!href) href = ((el.attr("imagesrcset") ?? "").split(",")[0] ?? "").trim().split(/\s+/)[0] ?? "";
+    if (!href || !(as === "image" || /\.(jpe?g|png|webp|avif)(\?|$)/i.test(href))) return;
+    const abs = toAbsolute(href.replace(/\\/g, ""), baseUrl);
+    if (!abs || shouldSkip(abs, "")) return;
+    preloadUrls.add(abs);
+    addCandidate(abs, "", true);
+  });
+
   // All other decent-size images (fallback pool)
   $("img").each((_, rawEl) => {
     const el = $(rawEl);
@@ -307,6 +394,12 @@ export function extractCover(
   });
 
   if (candidates.length === 0) return null;
+
+  // The site's own preloaded hero is the strongest signal — let it win ties
+  // against incidental hero <img>s / name-matching content photos.
+  if (preloadUrls.size) {
+    for (const c of candidates) if (preloadUrls.has(c.src)) c.score += 4;
+  }
 
   candidates.sort((a, b) => b.score - a.score);
   const best = candidates[0];
@@ -367,11 +460,96 @@ export function extractImages(
   const logo = extractLogo($, baseUrl);
   if (logo) results.push(logo);
 
-  const cover = extractCover($, baseUrl, businessName, city);
+  const cover = extractCover($, baseUrl, businessName, city, logo?.source_url);
   if (cover) results.push({ ...cover, sort_order: 0 });
 
-  const gallery = extractGallery($, baseUrl);
+  // Keep the logo and cover OUT of the gallery, and never let a logo-looking
+  // image sit in the gallery strip.
+  const exclude = new Set(
+    [logo?.source_url, cover?.source_url].filter(Boolean) as string[]
+  );
+  const gallery = extractGallery($, baseUrl).filter(
+    (img) =>
+      !exclude.has(img.source_url) &&
+      !/\blogo\b/i.test(img.source_url) &&
+      !/\blogo\b/i.test(img.alt_text ?? "")
+  );
   gallery.forEach((img, i) => results.push({ ...img, sort_order: i + 1 }));
 
   return dedupeBy(results, (img) => img.source_url);
+}
+
+// ─── AI candidate collection ─────────────────────────────────────────────────
+// Gather EVERY image URL on the page with light metadata (alt + where it sits),
+// WITHOUT deciding roles — this is the candidate list the LLM chooses cover/
+// logo/gallery from. The AI does the judgement; cheerio just supplies material.
+
+export interface ImageCandidate {
+  url: string;
+  alt: string;
+  /** where it appears: og-image | schema-logo | preload | header | hero | background | gallery | footer | body */
+  context: string;
+}
+
+export function collectImageCandidates($: CheerioAPI, baseUrl: string): ImageCandidate[] {
+  const out: ImageCandidate[] = [];
+  const seen = new Set<string>();
+  const MAX = 60;
+
+  const add = (rawUrl: string, alt: string, context: string) => {
+    if (out.length >= MAX || !rawUrl) return;
+    const clean = rawUrl.replace(/\\/g, "").trim();
+    if (!clean || clean.startsWith("data:")) return;
+    if (shouldSkip(clean, alt)) return;
+    const abs = toAbsolute(clean, baseUrl);
+    if (!abs || seen.has(abs)) return;
+    seen.add(abs);
+    out.push({ url: abs, alt: (alt || "").replace(/\s+/g, " ").trim().slice(0, 100), context });
+  };
+  const addImgs = (sel: string, context: string) => {
+    $(sel).each((_, el) => {
+      const { src, alt } = getImgAttrs($(el));
+      add(src, alt, context);
+    });
+  };
+
+  // Declared / meta signals first — strongest hints for the AI.
+  const og = extractOgImage($);
+  if (og) add(og, "", "og-image");
+  const schemaLogo = extractSchemaLogo($);
+  if (schemaLogo) add(schemaLogo, "", "schema-logo");
+  $("link[rel~='preload'],link[rel~='prefetch']").each((_, el) => {
+    const as = ($(el).attr("as") ?? "").toLowerCase();
+    let href = $(el).attr("href") ?? "";
+    if (!href) href = (($(el).attr("imagesrcset") ?? "").split(",")[0] ?? "").trim().split(/\s+/)[0] ?? "";
+    if (href && (as === "image" || /\.(jpe?g|png|webp|avif)(\?|$)/i.test(href))) add(href, "", "preload");
+  });
+
+  // Positional <img> groups (context tells the AI what each likely is).
+  addImgs("header img, nav img, [class*='header'] img, [class*='navbar'] img, [class*='logo'] img", "header");
+  for (const sel of HERO_SELECTORS) addImgs(sel, "hero");
+  for (const sel of GALLERY_SELECTORS) addImgs(sel, "gallery");
+  addImgs("footer img, [class*='footer'] img", "footer");
+
+  // CSS background images (hero/section backgrounds; incl. <style> + data-settings).
+  const addBg = (u: string) => add(u, "", "background");
+  for (const sel of BG_SELECTORS) {
+    $(sel).each((_, el) => {
+      const m = ($(el).attr("style") ?? "").match(BG_URL_RE);
+      if (m) addBg(m[2]);
+    });
+  }
+  $("[data-settings*='url']").each((_, el) => {
+    const raw = $(el).attr("data-settings") ?? "";
+    for (const m of raw.matchAll(/"url"\s*:\s*"([^"]+\.(?:jpe?g|png|webp)[^"]*)"/gi)) addBg(m[1]);
+  });
+  $("style").each((_, el) => {
+    const css = $(el).text() ?? "";
+    for (const m of css.matchAll(CSS_IMG_URL_RE)) addBg(m[1]);
+  });
+
+  // Everything else that's left.
+  addImgs("img", "body");
+
+  return out;
 }

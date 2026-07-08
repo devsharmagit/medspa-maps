@@ -179,8 +179,8 @@ export function SearchResults() {
   const [searchState, setSearchState] = useState(location);
   const [serviceOptions, setServiceOptions] = useState<DropdownOption[]>([]);
 
-  // Detected visitor location (shared context). Prompt once on mount so a direct
-  // visit to /search still asks for location and prefills it.
+  // Detected visitor location (shared context). We do NOT auto-prompt — the user
+  // opts in via "Use my current location" in the location field (handleNearMe).
   const {
     status,
     location: userLoc,
@@ -195,10 +195,6 @@ export function SearchResults() {
   // Set true while an explicit "Near Me" detection is in flight, so we can turn
   // its result into the right URL state (pin the visitor's own state + coords).
   const nearMeRef = useRef(false);
-
-  useEffect(() => {
-    requestLocation();
-  }, [requestLocation]);
 
   // Fetch service options for the dropdown
   useEffect(() => {
@@ -522,7 +518,7 @@ export function SearchResults() {
             />
           </div>
 
-          {/* Location typeahead — ZIP or city, ecommerce-style suggestions */}
+          {/* Location typeahead — ZIP or city + "use my location" on focus */}
           <div className="flex flex-1 items-center gap-3 rounded-xl border border-[#e8e0e8] px-4 py-2.5">
             <MapPin className="size-5 shrink-0 text-brand-magenta" aria-hidden />
             <LocationTypeahead
@@ -530,35 +526,19 @@ export function SearchResults() {
               onChange={applyLocationSelection}
               placeholder="ZIP code or city…"
               className="flex-1"
+              onUseMyLocation={handleNearMe}
+              locating={status === "prompting"}
             />
           </div>
 
-          {/* Near-me + Search — side by side on mobile, inline on desktop */}
-          <div className="flex gap-3 lg:contents">
-            <button
-              type="button"
-              onClick={handleNearMe}
-              className={cn(
-                "flex flex-1 items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors lg:flex-none",
-                hasOrigin
-                  ? "border-brand-magenta/40 bg-brand-magenta/10 text-brand-magenta"
-                  : "border-[#e8e0e8] text-[#4a4a4a] hover:border-brand-magenta/40 hover:text-brand-magenta"
-              )}
-              aria-label="Use my location"
-            >
-              <LocateFixed className="size-4" aria-hidden />
-              Near Me
-            </button>
-
-            <Button
-              type="submit"
-              variant="gradient"
-              className="h-auto flex-1 gap-2 rounded-xl px-6 py-3 text-sm font-semibold lg:flex-none"
-            >
-              <Search className="size-4" aria-hidden />
-              Search
-            </Button>
-          </div>
+          <Button
+            type="submit"
+            variant="gradient"
+            className="h-auto gap-2 rounded-xl px-6 py-3 text-sm font-semibold"
+          >
+            <Search className="size-4" aria-hidden />
+            Search
+          </Button>
         </form>
 
         {/* Active location / state filter + a clear-it control */}
@@ -659,7 +639,7 @@ export function SearchResults() {
                 </button>
               ) : !hasOrigin ? (
                 <p className="mt-2 text-[11px] text-brand-muted">
-                  Click &quot;Near Me&quot; or select a distance to enable
+                  Use my location (in the location box) or select a distance to enable
                 </p>
               ) : null}
             </div>

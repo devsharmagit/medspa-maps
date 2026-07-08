@@ -253,8 +253,8 @@ export async function GET(request: NextRequest) {
         b.id AS business_id,
         b.name AS business_name,
         (
-          SELECT source_url FROM images
-          WHERE entity_type = 'business' AND entity_id = b.id
+          SELECT COALESCE(cdn_url, source_url) FROM images
+          WHERE entity_type = 'clinic' AND entity_id = c.id
           AND role = 'logo' AND scrape_status = 'ok'
           ORDER BY sort_order LIMIT 1
         ) AS logo_url,

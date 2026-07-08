@@ -24,6 +24,8 @@ import { query, queryOne } from "@/lib/db";
 import { slugify } from "@/lib/scraper/utils";
 import {
   matchService,
+  bestCatalogMatch,
+  normalize,
   CANONICAL_CONCERNS,
   CANONICAL_SERVICES,
 } from "@/lib/taxonomy/canonical";
@@ -76,6 +78,15 @@ export interface SaveService {
   is_noise?: boolean;
   /** explicit admin override → map this raw name to this canonical service slug */
   mapped_slug?: string | null;
+  /**
+   * AI-proposed GENERAL treatment name (e.g. "Hormone Therapy" for a raw
+   * "Bioidentical Hormone Replacement"). When the raw name doesn't resolve to an
+   * existing catalog treatment, this is de-duped against the catalog and, if
+   * still novel, created as a new `origin='ai'` service.
+   */
+  general_name?: string | null;
+  /** AI-proposed category label for a newly-created general treatment. */
+  general_category?: string | null;
   /** admin chose to drop this raw service from the save entirely */
   ignored?: boolean;
 }
@@ -107,6 +118,7 @@ export interface SaveReview {
  */
 export interface SaveClinicLevel {
   booking_url?: string | null;
+  hours?: Record<string, unknown> | null;
   about?: string | null;
   tagline?: string | null;
   email?: string | null;
@@ -119,6 +131,17 @@ export interface SaveClinicLevel {
   linkedin_url?: string | null;
   yelp_url?: string | null;
   google_my_business?: string | null;
+}
+
+export interface SaveProvider {
+  name: string;
+  /** role / credentials label, e.g. "DNP, FNP-C", "Aesthetic Injector", "CEO, Medical Director, Founder" */
+  title?: string | null;
+  /** headshot URL (single column, not the polymorphic images table) */
+  image_url?: string | null;
+  /** short tagline — populated for the owner/CEO/founder only (also the owner-first sort key) */
+  card_tagline?: string | null;
+  is_verified?: boolean;
 }
 
 export interface ClinicBundle {
@@ -134,6 +157,8 @@ export interface ClinicBundle {
   locations: SaveLocation[];
   services: SaveService[];
   images?: SaveImages;
+  /** Providers/practitioners (owner/CEO/founder first). Delete-then-insert on overwrite. */
+  providers?: SaveProvider[];
   reviews?: SaveReview[];
   /** aggregate rating, if known */
   ext_rating?: number | null;
@@ -348,6 +373,9 @@ export async function saveClinicBundle(
   const cState = clinicMode ? null : primaryLoc.state ?? null;
   const cZip = clinicMode ? null : primaryLoc.zip ?? null;
   const cMapsUrl = clinicMode ? null : primaryLoc.maps_url ?? null;
+  // Working hours: clinic-wide in clinic mode, else derived from primary loc.
+  const cHours = clinicMode ? cl.hours ?? null : primaryLoc.hours ?? null;
+  const cHoursJson = cHours ? JSON.stringify(cHours) : null;
 
   if (clinicId) {
     const setOrOverwrite = (col: string, idx: number) =>
@@ -374,6 +402,7 @@ export async function saveClinicBundle(
           ${setOrOverwrite("linkedin_url", 19)},
           ${setOrOverwrite("yelp_url", 20)},
           ${setOrOverwrite("google_my_business", 21)},
+          hours = ${overwrite ? "$22::jsonb" : "COALESCE($22::jsonb, hours)"},
           data_source = 'scraped',
           last_scraped_at = NOW(),
           updated_at = NOW()
@@ -388,6 +417,7 @@ export async function saveClinicBundle(
         cTagline, cMapsUrl,
         cX, cLinkedin,
         cYelp, cGmb,
+        cHoursJson,
       ]
     );
     const existing = await queryOne<{ slug: string }>(
@@ -402,8 +432,8 @@ export async function saveClinicBundle(
          (business_id, name, slug, website, booking_url, address, city, state, zip,
           phone, email, about, instagram_url, facebook_url, tiktok_url, youtube_url,
           tagline, google_maps_url, x_url, linkedin_url, yelp_url, google_my_business,
-          data_source, verified, last_scraped_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,'scraped',false,NOW())
+          hours, data_source, verified, last_scraped_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23::jsonb,'scraped',false,NOW())
        RETURNING id`,
       [
         businessId, clinicName, slug, website,
@@ -415,6 +445,7 @@ export async function saveClinicBundle(
         cTagline, cMapsUrl,
         cX, cLinkedin,
         cYelp, cGmb,
+        cHoursJson,
       ]
     );
     clinicId = ins!.id;
@@ -446,12 +477,7 @@ export async function saveClinicBundle(
       [clinicId, primaryLoc.lat, primaryLoc.lng]
     );
   }
-  if (!clinicMode && primaryLoc.hours) {
-    await query(`UPDATE clinics SET hours = $2::jsonb WHERE id = $1`, [
-      clinicId,
-      JSON.stringify(primaryLoc.hours),
-    ]);
-  }
+  // clinic-level hours are written via the INSERT/UPDATE above (all modes).
   if (payload.ext_rating != null) {
     await query(
       `UPDATE clinics SET ext_rating = $2, ext_review_count = $3 WHERE id = $1`,
@@ -533,9 +559,61 @@ export async function saveClinicBundle(
   }
 
   // ── services (NEVER skip; unmatched → service_id NULL) ───────────────────
+  // Resolution order per raw service: admin override → curated matchService (the
+  // 15 + rich brand aliases) → live DB catalog (folds AI-grown treatments) →
+  // AI-proposed general_name (de-duped, else CREATE a new origin='ai' treatment).
   if (overwrite) {
     await query(`DELETE FROM clinic_services WHERE clinic_id = $1`, [clinicId]);
   }
+
+  // Load the live catalog once (curated 15 + previously AI-grown rows).
+  type CatRow = { id: string; name: string; slug: string; aliases: string[]; origin: string };
+  const catalog: CatRow[] = (
+    await query<{ id: string; name: string; slug: string; aliases: string[] | null; origin: string | null }>(
+      `SELECT id, name, slug, COALESCE(aliases, '{}') AS aliases, COALESCE(origin, 'seed') AS origin
+         FROM services WHERE is_active = true`
+    )
+  ).map((r) => ({ id: r.id, name: r.name, slug: r.slug, aliases: r.aliases ?? [], origin: r.origin ?? "seed" }));
+  const catBySlug = new Map(catalog.map((r) => [r.slug, r]));
+
+  const cleanName = (v: string) => v.replace(/[®™©]/g, "").replace(/\s+/g, " ").trim();
+  const uniqueServiceSlug = async (base: string): Promise<string> => {
+    const root = base || "treatment";
+    let slug = root;
+    let n = 2;
+    while (catBySlug.has(slug) || (await queryOne(`SELECT 1 FROM services WHERE slug = $1`, [slug]))) {
+      slug = `${root}-${n++}`;
+    }
+    return slug;
+  };
+  const addAiAlias = async (row: CatRow, rawName: string) => {
+    if (row.origin !== "ai") return; // never mutate curated/seed rows
+    const a = normalize(rawName);
+    if (!a || row.aliases.includes(a)) return;
+    row.aliases.push(a);
+    await query(
+      `UPDATE services SET aliases = array_append(COALESCE(aliases,'{}'), $2), updated_at = NOW()
+         WHERE id = $1 AND NOT ($2 = ANY(COALESCE(aliases,'{}')))`,
+      [row.id, a]
+    );
+  };
+  const createAiService = async (generalName: string, category: string | null, rawName: string): Promise<CatRow> => {
+    const name = cleanName(generalName) || cleanName(rawName);
+    const slug = await uniqueServiceSlug(slugify(name));
+    const aliases = [...new Set([normalize(rawName), normalize(name)].filter(Boolean))];
+    const ins = await queryOne<{ id: string }>(
+      `INSERT INTO services (name, slug, category, aliases, origin, is_active)
+       VALUES ($1,$2,$3,$4,'ai',true)
+       ON CONFLICT (slug) DO UPDATE SET updated_at = NOW()
+       RETURNING id`,
+      [name, slug, category, aliases]
+    );
+    const row: CatRow = { id: ins!.id, name, slug, aliases, origin: "ai" };
+    catalog.push(row);
+    catBySlug.set(slug, row);
+    return row;
+  };
+
   const seenRaw = new Set<string>();
   for (const s of payload.services) {
     const raw = s.raw_name?.trim();
@@ -550,25 +628,45 @@ export async function saveClinicBundle(
     let matchStatus: "matched" | "auto" | "unmatched";
 
     if (s.mapped_slug) {
-      const svc = await queryOne<{ id: string }>(
-        `SELECT id FROM services WHERE slug = $1`,
-        [s.mapped_slug]
-      );
+      const svc = catBySlug.get(s.mapped_slug)
+        ?? (await queryOne<{ id: string }>(`SELECT id FROM services WHERE slug = $1`, [s.mapped_slug]));
       serviceId = svc?.id ?? null;
       confidence = serviceId ? 1 : 0;
       matchStatus = serviceId ? "matched" : "unmatched";
     } else {
-      const { slug: canonSlug, confidence: conf } = matchService(raw);
-      confidence = conf;
-      if (canonSlug) {
-        const svc = await queryOne<{ id: string }>(
-          `SELECT id FROM services WHERE slug = $1`,
-          [canonSlug]
-        );
-        serviceId = svc?.id ?? null;
-        matchStatus = serviceId ? (confidence >= 1 ? "matched" : "auto") : "unmatched";
+      // 1. curated matcher — authoritative for the 15 + their brand aliases
+      const curated = matchService(raw);
+      const curatedRow = curated.slug ? catBySlug.get(curated.slug) : undefined;
+      if (curatedRow) {
+        serviceId = curatedRow.id;
+        confidence = curated.confidence;
+        matchStatus = curated.confidence >= 1 ? "matched" : "auto";
       } else {
-        matchStatus = "unmatched";
+        // 2. live DB catalog on the raw name (picks up AI-grown treatments)
+        const dbHit = bestCatalogMatch(raw, catalog);
+        if (dbHit) {
+          const row = catBySlug.get(dbHit.entry.slug)!;
+          serviceId = row.id;
+          confidence = dbHit.confidence;
+          matchStatus = dbHit.confidence >= 1 ? "matched" : "auto";
+          await addAiAlias(row, raw);
+        } else if (s.general_name && s.general_name.trim().length >= 3) {
+          // 3. AI general name → de-dup (higher bar), else create a new treatment.
+          //    Trust the AI's general_name (it returns null for non-treatments);
+          //    don't re-gate on the raw name (isLikelyNoise false-positives on
+          //    multiword Title-Case treatments like "Bioidentical Hormone Replacement").
+          const gen = s.general_name.trim();
+          const genHit = bestCatalogMatch(gen, catalog, 0.72);
+          const row = genHit
+            ? catBySlug.get(genHit.entry.slug)!
+            : await createAiService(gen, s.general_category?.trim() || null, raw);
+          if (genHit) await addAiAlias(row, raw);
+          serviceId = row.id;
+          confidence = genHit ? genHit.confidence : 0.9;
+          matchStatus = "auto";
+        } else {
+          matchStatus = "unmatched";
+        }
       }
     }
     if (matchStatus === "matched") result.servicesMatched++;
@@ -593,6 +691,18 @@ export async function saveClinicBundle(
   }
 
   // ── images (logo / gallery / before_after; source_url only) ──────────────
+  // On overwrite, clear previously-scraped image rows first so roles can change
+  // on re-ingest (e.g. a URL promoted gallery→cover). Curated rows (CDN'd or
+  // storage-backed) are preserved — mirrors the rescrape image guard.
+  if (overwrite) {
+    await query(
+      `DELETE FROM images
+         WHERE entity_type = 'clinic' AND entity_id = $1
+           AND role IN ('cover','gallery','before_after','logo')
+           AND cdn_url IS NULL AND storage_key IS NULL`,
+      [clinicId]
+    );
+  }
   const insertImg = async (img: SaveImageRef, role: string, order: number) => {
     if (!img.source_url) return;
     const res = await query<{ id: string }>(
@@ -627,6 +737,20 @@ export async function saveClinicBundle(
       [clinicId, rev.rating ?? null, rev.body, rev.reviewer_name ?? null, rev.source_url ?? null, ch]
     );
     result.reviews += res.length;
+  }
+
+  // ── providers (owner/CEO/founder first; delete-then-insert on overwrite) ────
+  if (overwrite) {
+    await query(`DELETE FROM providers WHERE clinic_id = $1`, [clinicId]);
+  }
+  for (const p of payload.providers ?? []) {
+    const nm = p.name?.trim();
+    if (!nm) continue;
+    await query(
+      `INSERT INTO providers (clinic_id, name, title, image_url, card_tagline, is_verified, is_active)
+       VALUES ($1,$2,$3,$4,$5,$6,true)`,
+      [clinicId, nm, p.title ?? null, p.image_url ?? null, p.card_tagline ?? null, p.is_verified ?? false]
+    );
   }
 
   // ── optional admin override: ensure canonical treatments are offered ──────

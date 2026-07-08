@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { MapPin } from "lucide-react";
+import { LocateFixed, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -41,6 +41,14 @@ interface LocationTypeaheadProps {
   label?: string;
   className?: string;
   inputClassName?: string;
+  /**
+   * When provided, the dropdown shows a "Use my current location" row (opening
+   * the field on focus/click, even before the user types). Clicking it runs the
+   * caller's geolocation flow. Nothing is requested until the user clicks.
+   */
+  onUseMyLocation?: () => void;
+  /** True while geolocation is resolving (shows "Detecting…" on the row). */
+  locating?: boolean;
 }
 
 const DEBOUNCE_MS = 180;
@@ -53,6 +61,8 @@ export function LocationTypeahead({
   label,
   className,
   inputClassName,
+  onUseMyLocation,
+  locating = false,
 }: LocationTypeaheadProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -106,6 +116,14 @@ export function LocationTypeahead({
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
+
+  // Close the dropdown once an in-flight "use my location" detection settles
+  // (locating true → false) so the freshly-filled value is shown, not the menu.
+  const prevLocatingRef = useRef(locating);
+  useEffect(() => {
+    if (prevLocatingRef.current && !locating) setOpen(false);
+    prevLocatingRef.current = locating;
+  }, [locating]);
 
   useEffect(() => {
     if (highlightedIdx >= 0 && listRef.current) {
@@ -196,14 +214,39 @@ export function LocationTypeahead({
         />
       </div>
 
-      {open && query.trim().length >= 2 && (
+      {open && (onUseMyLocation || query.trim().length >= 2) && (
         <ul
           ref={listRef}
           role="listbox"
           className="absolute left-0 top-full z-50 mt-2 max-h-[280px] w-full min-w-[260px] overflow-y-auto rounded-xl border border-[#e8e0e8] bg-white py-1.5 shadow-[0_12px_40px_rgba(170,78,179,0.12)] backdrop-blur-sm"
           style={{ scrollbarWidth: "thin" }}
         >
-          {loading && suggestions.length === 0 ? (
+          {onUseMyLocation && (
+            <li>
+              <button
+                type="button"
+                // keep focus on the input so the panel doesn't blur-close first
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => { if (!locating) onUseMyLocation(); }}
+                disabled={locating}
+                className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm font-medium text-brand-magenta transition-colors hover:bg-brand-magenta/8 disabled:opacity-70"
+              >
+                <LocateFixed className={cn("size-4 shrink-0", locating && "animate-pulse")} aria-hidden />
+                <span className="flex-1">
+                  {locating ? "Detecting your location…" : "Use my current location"}
+                </span>
+              </button>
+            </li>
+          )}
+          {onUseMyLocation && query.trim().length < 2 && (
+            <li className="px-4 pb-1.5 pt-1 text-[11px] text-brand-muted/60">
+              …or type a ZIP code or city
+            </li>
+          )}
+          {query.trim().length >= 2 && (
+            <>
+              {onUseMyLocation && <li className="mx-4 my-1 border-t border-[#f0e6f0]" role="separator" />}
+              {loading && suggestions.length === 0 ? (
             <li className="px-4 py-3 text-center text-xs text-brand-muted/60">
               Searching…
             </li>
@@ -233,6 +276,8 @@ export function LocationTypeahead({
                 </span>
               </li>
             ))
+          )}
+            </>
           )}
         </ul>
       )}

@@ -1,8 +1,8 @@
 /**
  * ingest/ingest-clinic.ts — ingest ONE clinic website into the medspa-map DB.
  *
- * WEBSITE-ONLY pipeline (basic details + multi-location; NO treatments/
- * providers/reviews, and NO G99 database lookups):
+ * WEBSITE-ONLY pipeline (basic details + multi-location + providers + services;
+ * NO reviews, and NO G99 database lookups):
  *   1. Fetch homepage + discovered locations/contact/about pages → cleaned text,
  *      and collect every Google-Maps anchor link on those pages.
  *   2. AI extract basic details + ALL physical locations (Claude, forced-tool
@@ -19,12 +19,25 @@
  */
 
 import type { CheerioAPI } from "cheerio";
+import { query } from "@/lib/db";
 import { fetchHtml, load, normalizeUrl } from "@/lib/scraper/utils";
-import { extractImages } from "@/lib/scraper/images";
+import { extractImages, collectImageCandidates, type ImageCandidate } from "@/lib/scraper/images";
+import { extractProviders } from "@/lib/scraper/providers";
+import {
+  extractServices,
+  extractServicesFromNav,
+  extractServiceAnchors,
+} from "@/lib/scraper/services";
+import type { ScrapedService } from "@/lib/scraper/types";
 import { parseUSAddress, stateFullName } from "@/lib/address-parser";
 import { firstNonEmpty } from "@/lib/g99/overlay";
 import { geocodeAddress } from "@/lib/geocoder";
-import { collectMapsLinks } from "@/lib/scraper/contact";
+import {
+  collectMapsLinks,
+  extractBookingUrl,
+  extractHours,
+  collectBookingLinkCandidates,
+} from "@/lib/scraper/contact";
 import { pickMapsLink } from "@/lib/scraper/locations";
 import {
   saveClinicBundle,
@@ -32,6 +45,8 @@ import {
   type SaveClinicLevel,
   type SaveLocation,
   type SaveImages,
+  type SaveProvider,
+  type SaveService,
 } from "@/lib/admin/clinic-save";
 import { ESCALATION_MODEL } from "@/lib/ai/anthropic";
 import {
@@ -51,15 +66,22 @@ export interface IngestResult {
   images: number;
   aiLocations: number;
   g99Locations: number;
+  providers?: number;
+  services?: number;
   modelUsed: string;
   escalated: boolean;
   note?: string;
 }
 
-/** Strip tags to plain text; tags → spaces so words/addresses never run together. */
+/** Strip tags to plain text; tags → spaces so words/addresses never run together.
+ *  Operates on a DETACHED clone: the same $home is reused for image extraction,
+ *  which needs <head>/<style>/<script> intact (og:image, CSS-background heroes,
+ *  preload-hero links, schema.org logo). Mutating it here silently gutted the
+ *  cover/logo detection. */
 function htmlToText($: CheerioAPI): string {
-  $("script,style,noscript,svg,iframe,head").remove();
-  const html = $("body").html() ?? $.html() ?? "";
+  const $c = load($.html());
+  $c("script,style,noscript,svg,iframe,head").remove();
+  const html = $c("body").html() ?? $c.html() ?? "";
   return html
     .replace(/<[^>]+>/g, " ")
     .replace(/&nbsp;/gi, " ")
@@ -97,11 +119,29 @@ function toSaveLocation(x: {
     phone: firstNonEmpty(x.phone),
     // Booking is clinic-wide, never per location.
     booking_url: null,
-    hours: x.hours ? { text: x.hours } : null,
+    // Hours are attached later from the heuristic DOM parse — the AI free-text
+    // hours are unreliable and mis-shaped for the UI.
+    hours: null,
   };
 }
 
 const aiToLoc = (l: ExtractedLocation): SaveLocation => toSaveLocation(l);
+
+const DAYS7 = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"];
+/** Convert the AI's working_hours array to the canonical {DAY:{open,close,is_open}} map. */
+function hoursArrayToMap(
+  arr: Array<{ day: string; open: string | null; close: string | null; is_open: boolean }> | undefined
+): Record<string, { open: string | null; close: string | null; is_open: boolean }> | null {
+  if (!Array.isArray(arr) || arr.length === 0) return null;
+  const map: Record<string, { open: string | null; close: string | null; is_open: boolean }> = {};
+  for (const h of arr) {
+    const day = String(h?.day ?? "").toUpperCase().trim();
+    if (!DAYS7.includes(day) || map[day]) continue;
+    const isOpen = !!h.is_open && !!h.open && !!h.close;
+    map[day] = { open: isOpen ? h.open : null, close: isOpen ? h.close : null, is_open: isOpen };
+  }
+  return Object.keys(map).length ? map : null;
+}
 
 export async function ingestClinicByDomain(domain: string): Promise<IngestResult> {
   const base: IngestResult = {
@@ -112,6 +152,7 @@ export async function ingestClinicByDomain(domain: string): Promise<IngestResult
     images: 0,
     aiLocations: 0,
     g99Locations: 0,
+    providers: 0,
     modelUsed: "",
     escalated: false,
   };
@@ -127,32 +168,95 @@ export async function ingestClinicByDomain(domain: string): Promise<IngestResult
     { url: finalUrl, text: htmlToText($home) },
   ];
   const mapsPool = collectMapsLinks($home);
+  // Candidates the AI chooses from — cheerio only gathers the material (image
+  // URLs + booking links); the LLM makes every judgement (which image is the
+  // cover/logo/gallery, which link is booking). Heuristics are kept as FALLBACK.
+  const imageCandidates = collectImageCandidates($home, finalUrl);
+  const bookingCandidates = collectBookingLinkCandidates($home, finalUrl);
+  // Provider headshots live on the team/about pages, so build the provider
+  // image-candidate list from CONTENT pages FIRST and use the homepage only as
+  // filler — otherwise homepage hero/gallery images crowd the team page out
+  // under the cap (which left many providers with no matchable headshot).
+  const providerImageCandidates: ImageCandidate[] = [];
+  const PROV_CAND_CAP = 80;
+  const addProvCands = (list: ImageCandidate[]) => {
+    for (const c of list) {
+      if (providerImageCandidates.length >= PROV_CAND_CAP) break;
+      if (!providerImageCandidates.some((x) => x.url === c.url)) providerImageCandidates.push(c);
+    }
+  };
+  const hProviders = extractProviders($home, finalUrl);
+  let hBooking = extractBookingUrl($home, finalUrl);
+  let hHours = extractHours($home, home.html);
+  // Service candidates: the nav mega-menu lists the full catalogue on every page;
+  // service pages add card/heading/list items. The AI maps these to general
+  // treatments; extractServices output is the heuristic fallback.
+  const SERVICES_URL_RE = /\/(services?|treatments?|menu|procedures|what-we-offer)/i;
+  const SVC_CAND_CAP = 80;
+  const serviceCandidates: Array<{ name: string; category?: string | null; url?: string | null }> = [];
+  const seenSvcCand = new Set<string>();
+  const hServices: ScrapedService[] = [];
+  const addSvcCands = (list: ScrapedService[]) => {
+    for (const c of list) {
+      const key = c.name?.trim().toLowerCase();
+      if (!key || seenSvcCand.has(key)) continue;
+      if (serviceCandidates.length >= SVC_CAND_CAP) break;
+      seenSvcCand.add(key);
+      serviceCandidates.push({ name: c.name.trim(), category: c.category ?? null, url: c.scraped_from_url ?? null });
+    }
+  };
+  addSvcCands(extractServicesFromNav($home, finalUrl));
   for (const u of await discoverContentPages($home, finalUrl)) {
     const r = await fetchHtml(u);
     if (!r) continue;
     const $p = load(r.html);
     pages.push({ url: u, text: htmlToText($p) });
     mapsPool.push(...collectMapsLinks($p));
+    for (const c of collectBookingLinkCandidates($p, u)) {
+      if (!bookingCandidates.some((b) => b.href === c.href)) bookingCandidates.push(c);
+    }
+    addProvCands(collectImageCandidates($p, u));
+    hProviders.push(...extractProviders($p, u));
+    addSvcCands(extractServicesFromNav($p, u));
+    if (SERVICES_URL_RE.test(u)) {
+      const pageSvcs = extractServices($p, u);
+      hServices.push(...pageSvcs);
+      addSvcCands(pageSvcs);
+      addSvcCands(extractServiceAnchors($p, u));
+    }
+    if (!hBooking) hBooking = extractBookingUrl($p, u);
+    if (!hHours) hHours = extractHours($p, r.html);
   }
+  addProvCands(imageCandidates); // homepage images as filler (some sites list team on home)
 
   // 2) AI extraction — website is the ONLY source (escalate once on failure /
-  //    when zero locations come back).
+  //    when zero locations come back). knownTreatments shows the AI the live
+  //    catalog (curated 15 + AI-grown) so it reuses names before inventing new.
+  const knownTreatments = (
+    await query<{ name: string }>(`SELECT name FROM services WHERE is_active = true ORDER BY name`)
+  ).map((r) => r.name);
+  const aiInput = {
+    domain, pages, imageCandidates, bookingCandidates, providerImageCandidates,
+    serviceCandidates, knownTreatments,
+  };
   let extracted: ExtractedClinic;
   let modelUsed: string;
   let escalated = false;
   try {
-    const out = await extractClinicDetails({ domain, pages });
+    const out = await extractClinicDetails(aiInput);
     extracted = out.data;
     modelUsed = out.model;
   } catch {
-    const out = await extractClinicDetails({ domain, pages, model: ESCALATION_MODEL });
+    // Escalate text-only: a hotlink-blocked/4xx image URL can 400 the vision
+    // request, so the retry must not resend images.
+    const out = await extractClinicDetails({ ...aiInput, model: ESCALATION_MODEL, useVision: false });
     extracted = out.data;
     modelUsed = out.model;
     escalated = true;
   }
   let aiLocs = extracted.locations.map(aiToLoc);
   if (!escalated && aiLocs.length === 0) {
-    const out = await extractClinicDetails({ domain, pages, model: ESCALATION_MODEL });
+    const out = await extractClinicDetails({ ...aiInput, model: ESCALATION_MODEL, useVision: false });
     extracted = out.data;
     modelUsed = out.model;
     escalated = true;
@@ -177,21 +281,125 @@ export async function ingestClinicByDomain(domain: string): Promise<IngestResult
     if (picked) loc.maps_url = picked;
   });
 
-  // 4) images (heuristic, free) → logo + hero/cover (+ gallery)
+  // 4) images — the AI picks cover/logo/gallery from the candidate list; the
+  //    heuristic extractor is the FALLBACK when the AI returns nothing/invalid.
   const businessName = firstNonEmpty(extracted.business_name) ?? undefined;
   const cityHint = firstNonEmpty(merged[0]?.city) ?? undefined;
-  const imgs = extractImages($home, finalUrl, businessName, cityHint);
-  const logo = imgs.find((i) => i.role === "logo");
-  const cover = imgs.find((i) => i.role === "cover");
-  const galleryImgs = imgs.filter((i) => i.role === "gallery");
+  const hImgs = extractImages($home, finalUrl, businessName, cityHint);
+  const hLogo = hImgs.find((i) => i.role === "logo");
+  const hCover = hImgs.find((i) => i.role === "cover");
+  const hGallery = hImgs.filter((i) => i.role === "gallery");
+
+  const candUrls = new Set(imageCandidates.map((c) => c.url));
+  const altOf = (u: string) => imageCandidates.find((c) => c.url === u)?.alt || null;
+  const validImg = (u: string | null | undefined) => (u && candUrls.has(u) ? u : null);
+
+  const coverUrl = validImg(extracted.cover_image_url) ?? hCover?.source_url ?? null;
+  const logoUrl = validImg(extracted.logo_url) ?? hLogo?.source_url ?? null;
+  let galleryUrls = (extracted.gallery_image_urls ?? []).filter((u) => candUrls.has(u));
+  if (galleryUrls.length === 0) galleryUrls = hGallery.map((g) => g.source_url);
+  galleryUrls = galleryUrls.filter((u) => u !== coverUrl && u !== logoUrl);
+
   const images: SaveImages = {
-    logo: logo ? { source_url: logo.source_url, alt_text: logo.alt_text ?? null } : null,
+    logo: logoUrl ? { source_url: logoUrl, alt_text: altOf(logoUrl) } : null,
     // cover first → persisted as role 'cover' (the hero); the rest as 'gallery'.
     gallery: [
-      ...(cover ? [{ source_url: cover.source_url, alt_text: cover.alt_text ?? null }] : []),
-      ...galleryImgs.map((g) => ({ source_url: g.source_url, alt_text: g.alt_text ?? null })),
+      ...(coverUrl ? [{ source_url: coverUrl, alt_text: altOf(coverUrl) }] : []),
+      ...galleryUrls.map((u) => ({ source_url: u, alt_text: altOf(u) })),
     ],
   };
+
+  // 4b) booking + hours — AI pick (validated against the candidate lists) first,
+  //     heuristic fallback second.
+  const bookHrefs = new Set(bookingCandidates.map((c) => c.href));
+  const bookingUrl =
+    (extracted.booking_url && bookHrefs.has(extracted.booking_url)
+      ? extracted.booking_url
+      : null) ??
+    hBooking ??
+    null;
+  const hours = hoursArrayToMap(extracted.working_hours) ?? hHours ?? null;
+  merged.forEach((loc) => {
+    if (!loc.hours) loc.hours = hours;
+  });
+
+  // 4c) providers — AI picks name/title, an image (verbatim from candidates),
+  //     and flags the owner; heuristic extractProviders is the fallback. Only
+  //     the owner gets a card_tagline, which is also the owner-first sort key.
+  const provCandUrls = new Set(providerImageCandidates.map((c) => c.url));
+  const seenProv = new Set<string>();
+  let providers: SaveProvider[] = (extracted.providers ?? [])
+    .filter((p) => p.name?.trim())
+    .map((p) => ({
+      name: p.name.trim(),
+      title: firstNonEmpty(p.title) ?? null,
+      image_url: p.image_url && provCandUrls.has(p.image_url) ? p.image_url : null,
+      card_tagline: p.is_owner ? firstNonEmpty(p.card_tagline) ?? null : null,
+      is_verified: false,
+    }))
+    .filter((p) => {
+      const k = p.name.toLowerCase();
+      if (seenProv.has(k)) return false;
+      seenProv.add(k);
+      return true;
+    });
+  providers.sort((a, b) => (b.card_tagline ? 1 : 0) - (a.card_tagline ? 1 : 0));
+
+  // Fallback: if the AI returned no providers, use the heuristic extractor.
+  if (providers.length === 0 && hProviders.length > 0) {
+    const seenH = new Set<string>();
+    providers = hProviders
+      .filter((p) => p.name?.trim())
+      .filter((p) => {
+        const k = p.name.toLowerCase();
+        if (seenH.has(k)) return false;
+        seenH.add(k);
+        return true;
+      })
+      .map((p) => ({
+        name: p.name.trim(),
+        title: firstNonEmpty(p.title, p.designation) ?? null,
+        image_url: firstNonEmpty(p.photo_url) ?? null,
+        card_tagline: null,
+        is_verified: false,
+      }));
+  }
+
+  // 4d) services — AI extracts each raw_name + a general treatment mapping; the
+  //     save layer resolves it to a canonical row (curated → DB catalog → create
+  //     origin='ai'). Heuristic extractServices output is the fallback.
+  const seenSvc = new Set<string>();
+  let services: SaveService[] = (extracted.services ?? [])
+    .filter((s) => s.raw_name?.trim())
+    .map((s) => ({
+      raw_name: s.raw_name.trim(),
+      general_name: firstNonEmpty(s.general_name) ?? null,
+      general_category: firstNonEmpty(s.category) ?? null,
+      scraped_from_url: finalUrl,
+    }))
+    .filter((s) => {
+      const k = s.raw_name.toLowerCase();
+      if (seenSvc.has(k)) return false;
+      seenSvc.add(k);
+      return true;
+    });
+  if (services.length === 0 && hServices.length > 0) {
+    const seenH = new Set<string>();
+    services = hServices
+      .filter((s) => s.name?.trim())
+      .filter((s) => {
+        const k = s.name.toLowerCase();
+        if (seenH.has(k)) return false;
+        seenH.add(k);
+        return true;
+      })
+      .map((s) => ({
+        raw_name: s.name.trim(),
+        general_name: null,
+        general_category: s.category ?? null,
+        scraped_from_url: s.scraped_from_url ?? finalUrl,
+      }));
+  }
 
   // 5) geocode each location missing coordinates (Nominatim, rate-limited).
   //    Full street addresses with suite/unit tokens frequently miss, so fall
@@ -219,9 +427,10 @@ export async function ingestClinicByDomain(domain: string): Promise<IngestResult
   }
 
   // 6) persist — clinic-wide fields on the clinic; every location independent
-  //    (no primary); no services / reviews this phase.
+  //    (no primary); services mapped to canonical treatments; no reviews.
   const clinic: SaveClinicLevel = {
-    booking_url: extracted.booking_url,
+    booking_url: bookingUrl,
+    hours: hours,
     about: firstNonEmpty(extracted.about, extracted.tagline),
     tagline: extracted.tagline,
     email: extracted.email,
@@ -240,9 +449,10 @@ export async function ingestClinicByDomain(domain: string): Promise<IngestResult
     business: { name: firstNonEmpty(extracted.business_name, domain) ?? domain },
     clinic,
     locations: merged,
-    services: [],
+    services,
     reviews: [],
     images,
+    providers,
   };
   const saved = await saveClinicBundle(bundle, { overwrite: true });
 
@@ -254,6 +464,8 @@ export async function ingestClinicByDomain(domain: string): Promise<IngestResult
     locations: merged.length,
     geocoded,
     images: saved.images,
+    providers: providers.length,
+    services: saved.servicesMatched + saved.servicesAuto + saved.servicesUnmatched,
     modelUsed,
     escalated,
   };

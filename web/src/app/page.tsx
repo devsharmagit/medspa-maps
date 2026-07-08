@@ -8,7 +8,6 @@ import { ProvidersSpotlight } from "@/components/hero/providers-spotlight";
 import { TopCities } from "@/components/hero/top-cities";
 import { ArticleSection } from "@/components/hero/article-section";
 import StatsSection from "@/components/hero/stat-section";
-import { LocationPrompt } from "@/components/location/location-prompt";
 import { getFeaturedClinics } from "@/lib/clinics/featured";
 import { getPopularTreatments } from "@/lib/treatments/popular";
 import { getAllProviders } from "@/lib/providers/queries";
@@ -38,9 +37,6 @@ export default async function Home() {
           sizes="100vw"
         />
       </div>
-
-      {/* Ask for location on landing. The USA-only notice lives in the layout. */}
-      <LocationPrompt />
 
       <HeroSection />
       <StatsSection />
