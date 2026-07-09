@@ -173,9 +173,13 @@ export async function getClinicData(slug: string): Promise<ClinicPageData | null
       [c.id]
     ),
     pool.query(
+      // Only providers WITH a headshot — never surface a card that would fall
+      // back to the stock placeholder. (Some clinics' team photos are JS-rendered
+      // and can't be scraped statically, so those providers have no image_url.)
       `SELECT id, name, title, image_url, is_verified
        FROM providers
        WHERE clinic_id = $1 AND is_active = true
+         AND image_url IS NOT NULL AND image_url <> ''
        ORDER BY (card_tagline IS NOT NULL) DESC, name`,
       [c.id]
     ),

@@ -97,6 +97,13 @@ async function postWithRetry(key: string, body: string): Promise<Response> {
 export async function extractViaTool<T>(
   opts: ToolExtractOptions
 ): Promise<ToolExtractResult<T>> {
+  // Optional provider override (e.g. INGEST_PROVIDER=gemini) routes the SAME
+  // forced-tool contract through a different backend without touching callers.
+  if (process.env.INGEST_PROVIDER?.trim().toLowerCase() === "gemini") {
+    const { extractViaGemini } = await import("./gemini");
+    return extractViaGemini<T>(opts);
+  }
+
   const key = process.env.ANTHROPIC_API_KEY?.trim();
   if (!key) throw new Error("ANTHROPIC_API_KEY is not set");
   const model = opts.model || ingestModel();

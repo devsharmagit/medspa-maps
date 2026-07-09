@@ -58,9 +58,9 @@ function addressLines(loc: ClinicLocation): string[] {
 
 /**
  * "Our Locations" — a card grid of every physical location a clinic runs.
- * Rendered only for multi-location clinics; the hero card already covers the
- * single-location case. Anchored ("locations") so the hero's "+N more
- * locations" link can jump straight here.
+ * Rendered whenever the clinic has at least one location (even a single one, so
+ * every clinic page gets the map embed + "Open in Google Maps"). Anchored
+ * ("locations") so the hero's "+N more locations" link can jump straight here.
  */
 export function ClinicLocationsSection({
   locations,
@@ -69,7 +69,7 @@ export function ClinicLocationsSection({
   locations: ClinicLocation[];
   clinicName: string;
 }) {
-  if (!locations || locations.length <= 1) return null;
+  if (!locations || locations.length === 0) return null;
 
   return (
     <section
@@ -81,7 +81,7 @@ export function ClinicLocationsSection({
           Our Locations
         </h2>
         <span className="font-montserrat text-[14px] font-medium text-[#A8698B]">
-          {locations.length} locations
+          {locations.length} location{locations.length === 1 ? "" : "s"}
         </span>
       </div>
 

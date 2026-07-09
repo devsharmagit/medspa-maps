@@ -641,8 +641,25 @@ export async function saveClinicBundle(
         serviceId = curatedRow.id;
         confidence = curated.confidence;
         matchStatus = curated.confidence >= 1 ? "matched" : "auto";
+      } else if (s.general_name && s.general_name.trim().length >= 3) {
+        // 2. The AI's GENERIC treatment name is authoritative for the long tail:
+        //    match it against the catalog (exact / ≥0.72) or create a new generic
+        //    bucket. This runs BEFORE any raw-name fuzzy so distinct variants
+        //    (Phentermine, Metformin, Semaglutide…) collapse into the clean
+        //    generic bucket the AI chose ("Medical Weight Loss") — not a
+        //    drug-named row that a raw fuzzy-match happened to land on.
+        const gen = s.general_name.trim();
+        const genHit = bestCatalogMatch(gen, catalog, 0.72);
+        const row = genHit
+          ? catBySlug.get(genHit.entry.slug)!
+          : await createAiService(gen, s.general_category?.trim() || null, raw);
+        if (genHit) await addAiAlias(row, raw);
+        serviceId = row.id;
+        confidence = genHit ? genHit.confidence : 0.9;
+        matchStatus = "auto";
       } else {
-        // 2. live DB catalog on the raw name (picks up AI-grown treatments)
+        // 3. no AI suggestion (heuristic-fallback path) → fuzzy the raw name
+        //    against the live catalog; else leave unmatched (still stored by raw_name).
         const dbHit = bestCatalogMatch(raw, catalog);
         if (dbHit) {
           const row = catBySlug.get(dbHit.entry.slug)!;
@@ -650,20 +667,6 @@ export async function saveClinicBundle(
           confidence = dbHit.confidence;
           matchStatus = dbHit.confidence >= 1 ? "matched" : "auto";
           await addAiAlias(row, raw);
-        } else if (s.general_name && s.general_name.trim().length >= 3) {
-          // 3. AI general name → de-dup (higher bar), else create a new treatment.
-          //    Trust the AI's general_name (it returns null for non-treatments);
-          //    don't re-gate on the raw name (isLikelyNoise false-positives on
-          //    multiword Title-Case treatments like "Bioidentical Hormone Replacement").
-          const gen = s.general_name.trim();
-          const genHit = bestCatalogMatch(gen, catalog, 0.72);
-          const row = genHit
-            ? catBySlug.get(genHit.entry.slug)!
-            : await createAiService(gen, s.general_category?.trim() || null, raw);
-          if (genHit) await addAiAlias(row, raw);
-          serviceId = row.id;
-          confidence = genHit ? genHit.confidence : 0.9;
-          matchStatus = "auto";
         } else {
           matchStatus = "unmatched";
         }

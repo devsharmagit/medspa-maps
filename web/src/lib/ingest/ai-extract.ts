@@ -139,7 +139,7 @@ const TOOL_INPUT_SCHEMA: Record<string, unknown> = {
     },
     services: {
       type: "array",
-      description: "Every distinct service/treatment the clinic offers (from nav + services page). [] if none.",
+      description: "MED-SPA / aesthetic / wellness treatments only (from nav + services page). OMIT non-aesthetic items entirely — urgent/primary/quick care, physicals, labs, vaccinations, diagnostics/body-composition, retail product lines. [] if none.",
       items: {
         type: "object",
         additionalProperties: false,
@@ -147,9 +147,9 @@ const TOOL_INPUT_SCHEMA: Record<string, unknown> = {
           raw_name: { type: "string", description: "The service EXACTLY as written on the site (keep ®/™ and brand words, e.g. 'Botox®', 'RUMA Gold Microchannel Treatment')" },
           general_name: {
             type: ["string", "null"],
-            description: "The GENERAL treatment name this maps to. Prefer one of the KNOWN TREATMENTS listed in the prompt; if none fits, a concise generic name (no brand/®/™, no clinic-specific words). null only if it is not a real treatment.",
+            description: "A concise GENERIC treatment category — NEVER a brand/drug name, no ®/™, no clinic-specific words. Prefer a KNOWN TREATMENT from the prompt. Group all variants under the same generic name (e.g. Semaglutide/Tirzepatide/Phentermine → 'Medical Weight Loss'; BPC-157/Sermorelin → 'Peptide Therapy'). null only if genuinely not a treatment.",
           },
-          category: { type: ["string", "null"], description: "Group/category label if shown (e.g. 'Injectables', 'Skin Health')" },
+          category: { type: ["string", "null"], description: "Group/category label if shown (e.g. 'Anti-Aging', 'Laser Treatment')" },
         },
         required: ["raw_name", "general_name", "category"],
       },
@@ -214,11 +214,11 @@ PROVIDERS — from the team/about page text + the PROVIDER IMAGE CANDIDATES list
 - Do NOT invent people, and do NOT list services/locations as providers. Empty array if none.
 
 SERVICES — from the page text + the SERVICE CANDIDATES list (nav + services page):
-- Extract EVERY distinct treatment/service the clinic OFFERS. Prefer the SERVICE CANDIDATES; add any clearly-offered service you see in the page text.
+- Extract only MED-SPA / aesthetic / wellness treatments a user would search a med-spa directory for: injectables, skin/laser/facials, body contouring, hair, medical weight loss, hormone/peptide therapy, IV/vitamin therapy, sexual wellness, regenerative (PRP/PRF), and similar.
+- EXCLUDE anything that is NOT an aesthetic/wellness treatment — OMIT it from the array entirely (do not include it with a null). In particular exclude urgent/primary/"quick" care visits (e.g. "Minor Quick Care", "Sick Visit", "Sinus Cocktail"), physicals (school/sports/DOT/employment), lab work / bloodwork / panels ("Laboratories"), vaccinations, diagnostics & body-composition/InBody assessments, and retail PRODUCT lines (e.g. "ZO Skin Health Skincare"). When the site groups these under a "Labs & Medical Services" / "Quick Care" / "Urgent Care" category, drop that whole group.
 - raw_name: the service EXACTLY as written (KEEP ®/™ and brand words, e.g. "Botox®", "Morpheus8", "RUMA Gold Microchannel Treatment").
-- general_name: the GENERAL treatment this maps to. If it reasonably fits one of the KNOWN TREATMENTS listed below, return that exact name. Otherwise propose a concise, GENERIC treatment name — no brand names, no ®/™, no clinic-specific words (e.g. "RUMA Gold Microchannel Treatment" → "Microneedling"; "Bioidentical Hormone Replacement" → "Hormone Therapy"). Two variants of the same treatment MUST get the SAME general_name.
-- Set general_name = null ONLY when the item is not actually a treatment (a category header, a product line, or noise).
-- category: the group/category label if the site shows one (e.g. "Injectables", "Skin Health"); else null.
+- general_name: a concise, GENERIC treatment category — NEVER a brand or drug name, no ®/™, no clinic-specific words. Prefer a KNOWN TREATMENT from the list below when it fits. Examples: "RUMA Gold Microchannel Treatment" → "Microneedling"; "Semaglutide"/"Tirzepatide"/"Phentermine"/"Qsymia" → "Medical Weight Loss"; "BPC-157"/"Sermorelin"/"CJC-1295" → "Peptide Therapy"; "Viagra"/"Cialis"/"GAINSWave" → "Sexual Wellness"; "Testosterone Replacement" → "Hormone Therapy". Group ALL variants of the same general treatment under the SAME generic name; NEVER name a general treatment after one specific brand or drug.
+- category: the group/category label the site shows (e.g. "Anti-Aging", "Laser Treatment"); else null.
 - Do NOT list category headers, memberships, gift cards, financing, or consultations as services. Do NOT invent services. Empty array if none.
 
 - Call the record_clinic tool exactly once with your result.`;
@@ -253,7 +253,11 @@ export interface AiExtractInput {
   useVision?: boolean;
 }
 
-const MAX_PAGE_CHARS = 8_000; // per page, to bound token cost
+// Per page, to bound token cost. Kept generous because address/location blocks
+// (and footers) often sit LOW on a page — at 8K, multi-location clinics like
+// aromaslaser.com had their 2nd/3rd addresses (~char 9,000) truncated before the
+// AI ever saw them, so only 1 location was extracted.
+const MAX_PAGE_CHARS = 16_000;
 
 // Vision shortlist: how many candidate images we actually SHOW the model, and
 // the context order we prioritise so the hero + logo + a few real photos survive
