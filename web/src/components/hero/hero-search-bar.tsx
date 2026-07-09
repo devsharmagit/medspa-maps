@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 
 export function HeroSearchBar({ className }: { className?: string }) {
   const router = useRouter();
-  const { location: userLocation, status, requestLocation } = useLocation();
+  const { location: userLocation, status, requested, requestLocation } = useLocation();
   const [service, setService] = useState("");
   const [location, setLocation] = useState("");
   // Coordinates of the picked suggestion (null for free text — the search API
@@ -26,13 +26,14 @@ export function HeroSearchBar({ className }: { className?: string }) {
   const [locationGeo, setLocationGeo] = useState<{ lat: number; lng: number } | null>(null);
   const [serviceOptions, setServiceOptions] = useState<DropdownOption[]>([]);
 
-  // Prefill once the visitor asks for their location and we resolve a US
-  // city/state (unless they've already typed something). Never overrides a
-  // manual choice; never fills a non-US place (search is USA-only — the
-  // USA-only notice explains it instead).
+  // Prefill ONLY after the visitor clicks "Use my current location" and we
+  // resolve a US city/state (unless they've already typed something). Never on a
+  // stored position rehydrated at load, never a non-US place (the USA-only
+  // notice explains that instead).
   useEffect(() => {
-    if (userLocation?.outsideUS) return;
+    if (!requested || userLocation?.outsideUS) return;
     if (userLocation?.city || userLocation?.stateCode) {
+      /* eslint-disable-next-line react-hooks/set-state-in-effect */
       setLocation((prev) =>
         prev ||
         (userLocation.city && userLocation.stateCode
@@ -40,7 +41,7 @@ export function HeroSearchBar({ className }: { className?: string }) {
           : userLocation.stateCode || ""),
       );
     }
-  }, [userLocation?.city, userLocation?.stateCode, userLocation?.outsideUS]);
+  }, [requested, userLocation?.city, userLocation?.stateCode, userLocation?.outsideUS]);
 
   // Fetch services from DB
   useEffect(() => {

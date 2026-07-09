@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { Globe, MapPin, MapPinOff, X } from "lucide-react";
+import { Globe, MapPinOff, X } from "lucide-react";
 
 import { useLocation } from "@/lib/location/location-context";
 
@@ -28,20 +28,22 @@ const AUTO_HIDE_MS = 8000;
  */
 export function UsaOnlyNotice() {
   const pathname = usePathname();
-  const { outsideUS, status, location } = useLocation();
+  const { outsideUS, status, location, requested } = useLocation();
   const [hidden, setHidden] = useState(false);
 
-  // Which message (if any) applies. Priority: outside-US, then a failed
-  // detection, then a successful detection inside the US.
-  const mode: "outside" | "failed" | "detected" | null = outsideUS
+  // Which message (if any) applies. We only surface the two cases the user needs
+  // feedback on: outside the US (we don't list clinics there) or a failed
+  // detection. A SUCCESSFUL US detection shows nothing — the location box just
+  // fills with the city/state instead.
+  const mode: "outside" | "failed" | null = outsideUS
     ? "outside"
     : status === "denied" || status === "unavailable"
       ? "failed"
-      : status === "granted" && location
-        ? "detected"
-        : null;
+      : null;
 
-  const visible = ALLOWED_PATHS.has(pathname) && !!mode && !hidden;
+  // Only ever show as the result of an explicit "Use my current location" click
+  // this session — never from a position rehydrated from storage on page load.
+  const visible = ALLOWED_PATHS.has(pathname) && requested && !!mode && !hidden;
 
   // Re-show on each navigation (and refresh) so the notice appears freshly on
   // both allowed pages, even after it auto-hid on the previous one.
@@ -74,7 +76,7 @@ export function UsaOnlyNotice() {
 
   const close = () => setHidden(true);
 
-  const Icon = mode === "outside" ? Globe : mode === "failed" ? MapPinOff : MapPin;
+  const Icon = mode === "outside" ? Globe : MapPinOff;
 
   return (
     <div
@@ -92,24 +94,12 @@ export function UsaOnlyNotice() {
             {place ? `We don't list medspas near ${place} yet — ` : ""}
             <span className="whitespace-nowrap">showing U.S. clinics.</span>
           </p>
-        ) : mode === "failed" ? (
+        ) : (
           <p className="text-[13px] leading-snug text-[#3a3a3a]">
             <span className="font-semibold text-[#1a1a1a]">
               Couldn&apos;t detect your location.
             </span>{" "}
             <span className="whitespace-nowrap">Showing all U.S. clinics.</span>
-          </p>
-        ) : (
-          <p className="text-[13px] leading-snug text-[#3a3a3a]">
-            <span className="font-semibold text-[#1a1a1a]">Location detected.</span>{" "}
-            {place ? (
-              <>
-                Showing clinics near{" "}
-                <span className="whitespace-nowrap">{place}.</span>
-              </>
-            ) : (
-              <span className="whitespace-nowrap">Showing clinics near you.</span>
-            )}
           </p>
         )}
         <button

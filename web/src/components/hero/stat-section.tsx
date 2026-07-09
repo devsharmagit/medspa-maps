@@ -75,11 +75,10 @@ function CountUp({
 }
 
 const stats = [
-  { value: 12500, suffix: "+", label: "Verified Clinics" },
-  { value: 750, suffix: "+", label: "Cities Covered" },
+  { value: 100, suffix: "+", label: "Verified Clinics" },
+  { value: 100, suffix: "+", label: "Cities Covered" },
   { value: 48, suffix: "", label: "States Represented" },
-  { value: 4.9, suffix: "", label: "Average Rating", isDecimal: true },
-  { value: 185000, suffix: "+", label: "Monthly Visitors" },
+  { value: 100, suffix: "%", label: "PERSONALIZED CARE" },
 ];
 
 export default function StatsSection() {

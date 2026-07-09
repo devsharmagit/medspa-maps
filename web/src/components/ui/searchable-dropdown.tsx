@@ -20,6 +20,13 @@ interface SearchableDropdownProps {
   inputClassName?: string;
   /** If true, user can also type a freeform value not in the list */
   allowFreeText?: boolean;
+  /**
+   * Fires ONLY when the user actually picks an option (click, or Enter on a
+   * match) — never on every keystroke, even with allowFreeText. Callers that
+   * apply filters live (e.g. a results page) should use this to push the change
+   * immediately, instead of waiting for a separate "Search" submit.
+   */
+  onSelect?: (option: DropdownOption) => void;
 }
 
 export function SearchableDropdown({
@@ -32,6 +39,7 @@ export function SearchableDropdown({
   className,
   inputClassName,
   allowFreeText = false,
+  onSelect,
 }: SearchableDropdownProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -74,11 +82,12 @@ export function SearchableDropdown({
   const handleSelect = useCallback(
     (option: DropdownOption) => {
       onChange(option.value);
+      onSelect?.(option);
       setQuery("");
       setOpen(false);
       setHighlightedIdx(-1);
     },
-    [onChange]
+    [onChange, onSelect]
   );
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {

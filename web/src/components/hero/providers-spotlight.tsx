@@ -9,10 +9,6 @@ import type { ConcernProvider } from "@/lib/providers/queries";
 const DEFAULT_PHOTO =
   "https://images.stockcake.com/public/1/9/d/19d13828-c999-4e2d-a191-9da4dd8bd824_large/confident-medical-professional-stockcake.jpg";
 
-function providerHref(p: ConcernProvider) {
-  return `/providers/${p.id}/${p.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
-}
-
 // ─── Verified badge — pink checkmark circle ────────────────────────────────────
 function VerifiedBadge() {
   return (
@@ -122,12 +118,12 @@ function ProviderCard({ provider }: { provider: ConcernProvider }) {
           </div>
         </div>
 
-        {/* View Profile button — full width gradient */}
+        {/* View Clinic button — full width gradient */}
         <Link
-          href={providerHref(provider)}
+          href={`/clinics/${provider.clinic_slug}`}
           className="flex h-10 w-full items-center justify-center rounded-lg bg-[linear-gradient(90deg,#DE7F4C_0%,#C341D7_100%)] font-montserrat text-[14px] font-semibold text-white transition-opacity hover:opacity-90"
         >
-          View Profile
+          View Clinic
         </Link>
       </div>
     </div>
@@ -164,24 +160,7 @@ export function ProvidersSpotlight({ providers = [] }: { providers?: ConcernProv
         {/* Right group: View All + nav arrows */}
         <div className="flex items-center justify-between gap-8 lg:justify-normal">
           {/* View All Providers link */}
-          <Link
-            href="/providers"
-            className="flex items-center gap-[5px] transition-opacity hover:opacity-70"
-          >
-            <span className="font-montserrat text-[16px] font-medium leading-[116.02%] text-[#CF5D9A]">
-              View All Providers
-            </span>
-            {/* Arrow → pointing right */}
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path
-                d="M3 8H13M13 8L8 3M13 8L8 13"
-                stroke="#CF5D9A"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </Link>
+       
 
           {/* Prev / Next arrows */}
           <div className="flex items-center gap-[3px]">

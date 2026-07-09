@@ -34,6 +34,13 @@ interface LocationContextValue {
   location: UserLocation | null;
   /** True when the browser location resolves to a country other than the US. */
   outsideUS: boolean;
+  /**
+   * True once the user EXPLICITLY asked for their location this session (clicked
+   * "Use my current location"). A location merely rehydrated from localStorage on
+   * page load does NOT set this — so the USA-only notice / prefill only react to a
+   * deliberate click, never to a stored position on refresh.
+   */
+  requested: boolean;
   /** Ask the browser for the user's position. No-op if already resolved unless `force`. */
   requestLocation: (opts?: { force?: boolean }) => void;
   /** Forget the stored location (and stop auto-filling). */
@@ -48,6 +55,7 @@ const LocationContext = createContext<LocationContextValue | null>(null);
 export function LocationProvider({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<LocationStatus>("idle");
   const [location, setLocationState] = useState<UserLocation | null>(null);
+  const [requested, setRequested] = useState(false);
   const requestedRef = useRef(false);
 
   // Hydrate a recent, previously-granted location so we don't re-prompt.
@@ -121,6 +129,8 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
 
   const requestLocation = useCallback(
     (opts?: { force?: boolean }) => {
+      // An explicit user request (only caller now) — enables the notice/prefill.
+      setRequested(true);
       if (typeof navigator === "undefined" || !navigator.geolocation) {
         setStatus("unavailable");
         return;
@@ -144,6 +154,7 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
   const clearLocation = useCallback(() => {
     setLocationState(null);
     setStatus("idle");
+    setRequested(false);
     // Keep requestedRef = true: an explicit clear must NOT auto-prompt again on
     // this visit (the changed callback identity would otherwise re-fire the mount
     // effect). The user can re-detect deliberately via "Near Me" (force: true).
@@ -156,6 +167,7 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
         status,
         location,
         outsideUS: !!location?.outsideUS,
+        requested,
         requestLocation,
         clearLocation,
       }}

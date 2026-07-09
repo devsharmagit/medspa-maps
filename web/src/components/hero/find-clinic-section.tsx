@@ -1,12 +1,21 @@
 "use client";
 
-import { ChevronDown, LocateFixed, MapPin, Star } from "lucide-react";
+import { MapPin, Search, Sparkles, Star } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { FeaturedClinic } from "@/lib/clinics/featured";
 import { useLocation } from "@/lib/location/location-context";
 import { toStateCode } from "@/lib/location/states";
+import { Button } from "@/components/ui/button";
+import {
+  SearchableDropdown,
+  type DropdownOption,
+} from "@/components/ui/searchable-dropdown";
+import {
+  LocationTypeahead,
+  type LocationSelection,
+} from "@/components/ui/location-typeahead";
 
 // ─── Distance helpers ───────────────────────────────────────────────────────
 
@@ -290,69 +299,12 @@ function ClinicCard({ clinic }: { clinic: DisplayClinic }) {
   );
 }
 
-// ─── Filter Icon SVGs ─────────────────────────────────────────────────────────
-
-function SearchIcon() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-      <circle cx="11" cy="11" r="7" stroke="white" strokeWidth="2" />
-      <path d="M16.5 16.5L21 21" stroke="white" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function LocationIcon() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-      <path
-        d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 6.5 12 6.5s2.5 1.12 2.5 2.5S13.38 11.5 12 11.5z"
-        fill="white"
-      />
-    </svg>
-  );
-}
-
-function StarOutlineIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-      <path
-        d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-        stroke="white"
-        strokeWidth="1.8"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
 // ─── FindClinicSection ────────────────────────────────────────────────────────
 
-const TREATMENT_OPTIONS = [
-  { value: "botox", label: "Botox" },
-  { value: "dermal-fillers", label: "Dermal Fillers" },
-  { value: "kybella", label: "Kybella" },
-  { value: "pdo-threads", label: "PDO Threads" },
-  { value: "prp-prf", label: "PRP / PRF" },
-  { value: "microneedling", label: "Microneedling" },
-  { value: "chemical-peels", label: "Chemical Peels" },
-  { value: "hydrafacial", label: "HydraFacial" },
-  { value: "rf-skin-tightening", label: "RF Skin Tightening" },
-  { value: "ultherapy", label: "Ultherapy" },
-  { value: "laser-skin-resurfacing", label: "Laser Resurfacing" },
-  { value: "laser-hair-removal", label: "Laser Hair Removal" },
-  { value: "ipl-photofacial", label: "IPL / Photofacial" },
-  { value: "coolsculpting", label: "CoolSculpting" },
-  { value: "body-contouring", label: "Body Contouring" },
-];
-
-const DISTANCE_OPTIONS = [
-  { value: "10", label: "Within 10 Miles" },
-  { value: "25", label: "Within 25 Miles" },
-  { value: "50", label: "Within 50 Miles" },
-  { value: "100", label: "Within 100 Miles" },
-];
-
-const RATING_OPTIONS = [
+// Leading "All Ratings" entry lets the SearchableDropdown clear back to no
+// filter (the old native <select> had this as its default empty option).
+const RATING_OPTIONS: DropdownOption[] = [
+  { value: "", label: "All Ratings" },
   { value: "4.0", label: "4.0+ and More Rating" },
   { value: "4.5", label: "4.5+ and More Rating" },
   { value: "5.0", label: "5.0 Only" },
@@ -362,7 +314,7 @@ export function FindClinicSection({ clinics }: { clinics: FeaturedClinic[] }) {
   const router = useRouter();
   const [current, setCurrent] = useState(0);
   const total = clinics.length;
-  const { status, location: userLoc } = useLocation();
+  const { status, location: userLoc, requested, requestLocation } = useLocation();
 
   // We can only offer distance features when we KNOW the visitor is in the USA.
   const inUS = Boolean(
@@ -373,10 +325,48 @@ export function FindClinicSection({ clinics }: { clinics: FeaturedClinic[] }) {
       userLoc.lng != null,
   );
 
-  // Filter states
+  // Filter states — mirrors the hero search bar's fields exactly (treatment
+  // dropdown + location typeahead + rating), so behavior stays consistent
+  // across the two search entry points.
   const [selectedTreatment, setSelectedTreatment] = useState("");
-  const [selectedDistance, setSelectedDistance] = useState("25");
+  const [location, setLocation] = useState("");
+  const [locationGeo, setLocationGeo] = useState<{ lat: number; lng: number } | null>(null);
   const [selectedRating, setSelectedRating] = useState("");
+  const [serviceOptions, setServiceOptions] = useState<DropdownOption[]>([]);
+
+  // Fetch treatment options from the live catalog (same source as the hero bar
+  // and /search, so AI-grown treatments appear here too).
+  useEffect(() => {
+    fetch("/api/services")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.services) {
+          setServiceOptions(
+            data.services.map((s: { name: string; slug: string }) => ({
+              label: s.name,
+              value: s.slug,
+            })),
+          );
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Prefill the location box ONLY after the visitor explicitly clicks "Use my
+  // current location" (never from a position rehydrated from storage on load),
+  // and never for a non-US result — the USA-only notice explains that instead.
+  useEffect(() => {
+    if (!requested || userLoc?.outsideUS) return;
+    if (userLoc?.city || userLoc?.stateCode) {
+      /* eslint-disable-next-line react-hooks/set-state-in-effect */
+      setLocation((prev) =>
+        prev ||
+        (userLoc.city && userLoc.stateCode
+          ? `${userLoc.city}, ${userLoc.stateCode}`
+          : userLoc.stateCode || ""),
+      );
+    }
+  }, [requested, userLoc?.city, userLoc?.stateCode, userLoc?.outsideUS]);
 
   const dragStart = useRef<number | null>(null);
   const isDragging = useRef(false);
@@ -429,34 +419,23 @@ export function FindClinicSection({ clinics }: { clinics: FeaturedClinic[] }) {
     });
   }, [clinics, inUS, userLoc]);
 
-  // Detected location label for the chip
-  const detectedLabel = inUS
-    ? userLoc!.city
-      ? `${userLoc!.city}${userLoc!.stateName ? `, ${userLoc!.stateName}` : ""}`
-      : userLoc!.stateName ?? null
-    : null;
-
-  const handleApplyFilters = () => {
-    const params = new URLSearchParams();
-
-    if (selectedTreatment) params.set("q", selectedTreatment);
-    if (selectedRating) params.set("rating", selectedRating);
-
-    // Distance + origin are USA-only. Never send lat/lng for outside-US visitors.
-    if (inUS) {
-      if (selectedDistance) params.set("radius", selectedDistance);
-      if (userLoc!.stateCode) params.set("location", userLoc!.stateCode);
-      params.set("lat", userLoc!.lat.toFixed(6));
-      params.set("lng", userLoc!.lng.toFixed(6));
-    }
-
-    router.push(`/search?${params.toString()}`);
+  const handleLocationChange = (sel: LocationSelection) => {
+    setLocation(sel.value);
+    setLocationGeo(sel.lat !== null && sel.lng !== null ? { lat: sel.lat, lng: sel.lng } : null);
   };
 
-  const handleClearFilters = () => {
-    setSelectedTreatment("");
-    setSelectedDistance("25");
-    setSelectedRating("");
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const params = new URLSearchParams();
+    if (selectedTreatment.trim()) params.set("q", selectedTreatment.trim());
+    if (location.trim()) params.set("location", location.trim());
+    if (selectedRating) params.set("rating", selectedRating);
+    // Picked suggestion carries exact coordinates → instant radius search.
+    if (locationGeo) {
+      params.set("lat", String(locationGeo.lat));
+      params.set("lng", String(locationGeo.lng));
+    }
+    router.push(`/search?${params.toString()}`);
   };
 
   if (total === 0) return null;
@@ -468,104 +447,71 @@ export function FindClinicSection({ clinics }: { clinics: FeaturedClinic[] }) {
         Find the <em className="font-normal font-heading" >Perfect Clinic</em>
       </h2> 
 
-      {/* ── Filter Bar — single row on desktop, stacked on mobile ── */}
-      <div className="flex w-full max-w-[1355px] flex-col xl:flex-row items-stretch xl:items-center justify-center gap-4 xl:gap-[25px] px-4 lg:px-8">
-        {/* Filter dropdowns group */}
-        <div className="flex flex-col xl:flex-row w-full xl:flex-1 items-stretch xl:items-center gap-4 xl:gap-[27px]">
+      {/* ── Search Bar — mirrors the hero search bar (treatment + location +
+          rating, one Search button; no separate Clear/Apply) ── */}
+      <div className="flex w-full justify-center px-4 lg:px-8">
+        <form
+          onSubmit={handleSearch}
+          className="relative flex w-full max-w-[1100px] flex-col rounded-[18px] bg-white shadow-lg sm:flex-row sm:items-stretch sm:h-[75px]"
+        >
           {/* Treatments */}
-          <div className="flex w-full xl:flex-1 xl:min-w-0 items-center gap-[8px]">
-            <div className="flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-full bg-[#CF5D9A]">
-              <SearchIcon />
-            </div>
-            <div className="relative w-full xl:flex-1 xl:min-w-0">
-              <select
-                value={selectedTreatment}
-                onChange={(e) => setSelectedTreatment(e.target.value)}
-                className="flex h-[50px] w-full cursor-pointer appearance-none items-center justify-between rounded-[4px] border border-[#D2C3D3] bg-white px-[22px] font-montserrat text-[16px] leading-[140%] text-[#727272] focus:outline-none focus:ring-2 focus:ring-[#CF5D9A]"
-              >
-                <option value="">Treatments</option>
-                {TREATMENT_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-[22px] top-1/2 h-4 w-4 -translate-y-1/2 text-[#353535]" />
-            </div>
+          <div className="flex flex-1 flex-col justify-center gap-2 px-5 py-4 sm:py-0 sm:pl-6">
+            <SearchableDropdown
+              options={serviceOptions}
+              value={selectedTreatment}
+              onChange={setSelectedTreatment}
+              placeholder="Search treatments…"
+              icon={
+                <span className="flex size-5 items-center justify-center rounded-full bg-brand-magenta text-white">
+                  <Sparkles className="size-3" aria-hidden />
+                </span>
+              }
+              label="Treatment"
+              allowFreeText
+            />
           </div>
 
-          {/* Distance — USA-only. Disabled for outside-US / unknown-location visitors. */}
-          <div className="flex w-full xl:flex-1 xl:min-w-0 items-center gap-[8px]">
-            <div
-              className={`flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-full ${inUS ? "bg-[#CF5D9A]" : "bg-[#CBB8CB]"}`}
-            >
-              <LocationIcon />
-            </div>
-            <div className="relative w-full xl:flex-1 xl:min-w-0">
-              <select
-                value={selectedDistance}
-                onChange={(e) => setSelectedDistance(e.target.value)}
-                disabled={!inUS}
-                title={inUS ? undefined : "Distance filtering is available for USA locations only"}
-                className="flex h-[50px] w-full appearance-none items-center justify-between rounded-[4px] border border-[#D2C3D3] bg-white px-[22px] font-montserrat text-[16px] leading-[140%] text-[#727272] focus:outline-none focus:ring-2 focus:ring-[#CF5D9A] enabled:cursor-pointer disabled:cursor-not-allowed disabled:bg-[#F4F0F4] disabled:text-[#B7A9B7]"
-              >
-                {DISTANCE_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-[22px] top-1/2 h-4 w-4 -translate-y-1/2 text-[#353535]" />
+          {/* Location — typeahead with "Use my current location" */}
+          <div className="flex flex-1 items-stretch border-t border-[#e1e1e1] sm:border-t-0 sm:border-l">
+            <div className="flex flex-1 flex-col justify-center gap-2 px-5 py-4 sm:py-0 sm:pl-[18px]">
+              <LocationTypeahead
+                value={location}
+                onChange={handleLocationChange}
+                placeholder="ZIP code or city…"
+                icon={<MapPin className="size-5 text-brand-magenta" aria-hidden />}
+                label="Location"
+                onUseMyLocation={() => requestLocation({ force: true })}
+                locating={status === "prompting"}
+              />
             </div>
           </div>
 
           {/* Rating */}
-          <div className="flex w-full xl:flex-1 xl:min-w-0 items-center gap-[8px]">
-            <div className="flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-full bg-[#CF5D9A]">
-              <StarOutlineIcon />
-            </div>
-            <div className="relative w-full xl:flex-1 xl:min-w-0">
-              <select
+          <div className="flex flex-1 items-stretch border-t border-[#e1e1e1] sm:border-t-0 sm:border-l">
+            <div className="flex flex-1 flex-col justify-center gap-2 px-5 py-4 sm:py-0 sm:pl-[18px]">
+              <SearchableDropdown
+                options={RATING_OPTIONS}
                 value={selectedRating}
-                onChange={(e) => setSelectedRating(e.target.value)}
-                className="flex h-[50px] w-full cursor-pointer appearance-none items-center justify-between rounded-[4px] border border-[#D2C3D3] bg-white px-[22px] font-montserrat text-[16px] leading-[140%] text-[#727272] focus:outline-none focus:ring-2 focus:ring-[#CF5D9A]"
-              >
-                <option value="">All Ratings</option>
-                {RATING_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-[22px] top-1/2 h-4 w-4 -translate-y-1/2 text-[#353535]" />
+                onChange={setSelectedRating}
+                placeholder="All Ratings"
+                icon={<Star className="size-5 text-brand-magenta" aria-hidden />}
+                label="Rating"
+              />
             </div>
           </div>
-        </div>
 
-        {/* Divider + actions */}
-        <div className="flex items-center justify-between xl:justify-normal gap-4 xl:gap-[20px] w-full xl:w-auto">
-          <div className="hidden xl:block h-[50px] w-px bg-[#D2D2D2]" />
-          <button
-            onClick={handleClearFilters}
-            className="whitespace-nowrap font-montserrat text-[16px] font-medium text-[#CF5D9A] transition-opacity hover:opacity-70"
-          >
-            Clear Filters
-          </button>
-          <button
-            onClick={handleApplyFilters}
-            className="flex h-[47px] w-[160px] lg:w-[127px] shrink-0 items-center justify-center rounded-[8px] bg-[linear-gradient(90deg,#DE7F4C_0%,#C341D7_100%)] font-montserrat text-[14px] font-semibold text-white transition-opacity hover:opacity-90"
-          >
-            Apply Filters
-          </button>
-        </div>
+          <div className="flex items-center px-3 pb-4 sm:px-3.5 sm:pb-0">
+            <Button
+              type="submit"
+              variant="gradient"
+              className="h-[47px] w-full gap-2.5 rounded-lg border-0 px-6 text-sm font-semibold text-white sm:w-auto"
+            >
+              <Search className="size-5" aria-hidden />
+              Search
+            </Button>
+          </div>
+        </form>
       </div>
-
-      {/* Distance-availability hint for non-US / unknown-location visitors */}
-      {!inUS && (
-        <p className="-mt-2 px-4 text-center font-montserrat text-[12px] text-[#9a9a9a]">
-          Distance filtering is available for USA locations only.
-        </p>
-      )}
 
       {/* ── Mobile / tablet carousel — swipeable scroll-snap row (up to xl) ── */}
       <div className="w-full xl:hidden">

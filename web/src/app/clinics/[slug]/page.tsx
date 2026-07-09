@@ -7,6 +7,7 @@ import {
   MapPin,
   Clock,
   Star,
+  Globe,
 } from "lucide-react";
 import { HeroHeader } from "@/components/hero/hero-header";
 import { Footer } from "@/components/footer";
@@ -19,6 +20,7 @@ import { OtherProvidersCarousel } from "@/components/shared/other-providers-caro
 import { ClinicTreatmentsCarousel } from "@/components/shared/clinic-treatments-carousel";
 import { ClinicReviewsSection } from "@/components/shared/clinic-reviews-section";
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
+import { ClinicSocialLinks } from "@/components/shared/clinic-social-links";
 
 export const dynamic = "force-dynamic";
 
@@ -213,14 +215,24 @@ export default async function ClinicPage({
                   (heroAddress || loc) ? (
                     <div key="addr" className="flex items-center gap-[8px]">
                       <MapPin className="h-[24px] w-[24px] text-[#EE97C6] shrink-0" strokeWidth={1.5} />
-                      <a
-                        href={mapsUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="font-montserrat text-[12px] font-medium leading-[130%] tracking-[0.02em] text-[#616161] hover:underline max-w-[220px]"
-                      >
-                        {heroAddress || loc}
-                      </a>
+                      <div className="flex flex-col gap-[2px]">
+                        <a
+                          href={mapsUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="font-montserrat text-[12px] font-medium leading-[130%] tracking-[0.02em] text-[#616161] hover:underline max-w-[220px]"
+                        >
+                          {heroAddress || loc}
+                        </a>
+                        {locations.length > 1 && (
+                          <a
+                            href="#locations"
+                            className="font-montserrat text-[11px] font-semibold leading-[130%] tracking-[0.02em] text-[#CF5B9D] hover:underline"
+                          >
+                            +{locations.length - 1} more location{locations.length - 1 > 1 ? "s" : ""}
+                          </a>
+                        )}
+                      </div>
                     </div>
                   ) : null,
                   todayHours ? (
@@ -298,7 +310,23 @@ export default async function ClinicPage({
                     <Phone className="h-[17px] w-[17px] shrink-0 text-[#CF5B9D]" strokeWidth={1.5} />
                   </a>
                 )}
+                {clinic.website && (
+                  <a
+                    href={clinic.website}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex h-[48px] w-full sm:w-[170px] items-center justify-center gap-[10px] rounded-[8px] border-[1px] border-[#E5C7DA] px-[24px] py-[10px] transition-colors hover:bg-pink-50"
+                  >
+                    <span className="font-montserrat text-[14px] font-semibold leading-[17px] text-[#CF5B9D] whitespace-nowrap">
+                      Visit Website
+                    </span>
+                    <Globe className="h-[17px] w-[17px] shrink-0 text-[#CF5B9D]" strokeWidth={1.5} />
+                  </a>
+                )}
               </div>
+
+              {/* Social media links */}
+              <ClinicSocialLinks socials={clinic} />
             </div>
 
             {/* RIGHT — gallery (shown first on mobile as the hero image) */}
@@ -394,12 +422,12 @@ export default async function ClinicPage({
         </section>
 
         {/* ── Our Locations (multi-location clinics only) ── */}
-        <ClinicLocationsSection locations={locations} fallbackBookUrl={bookUrl} />
+        <ClinicLocationsSection locations={locations} clinicName={clinic.name} />
 
         {/* ── Meet Experts ── */}
         {data.providers && data.providers.length > 0 && (
           <OtherProvidersCarousel
-            title={`Meet ${clinic.name.split(" ")[0]} Experts`}
+            title="Meet the Experts"
             providers={data.providers}
             bookUrl={bookUrl ?? "#"}
             clinicPhone={clinic.phone}

@@ -21,7 +21,7 @@ export default async function Home() {
   const [popularTreatments, featuredClinics, spotlightProviders] = await Promise.all([
     getPopularTreatments(),
     getFeaturedClinics(5),
-    getAllProviders(5),
+    getAllProviders(5, { requireImage: true }),
   ]);
 
   return (

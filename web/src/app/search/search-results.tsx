@@ -185,9 +185,17 @@ export function SearchResults() {
     status,
     location: userLoc,
     outsideUS,
+    requested,
     requestLocation,
     clearLocation: clearCtxLocation,
   } = useLocation();
+
+  // "San Francisco, CA" when we have both (matches the typeahead city-pick and
+  // the home page), else the bare state code, else "".
+  const cityStateLabel = (loc: typeof userLoc): string =>
+    loc?.city && loc?.stateCode
+      ? `${loc.city}, ${loc.stateCode}`
+      : loc?.stateCode ?? "";
   const injectedRef = useRef(false);
   // Guards against out-of-order responses: when location injects lat/lng we fire
   // a second fetch immediately, and the slower (stale) one must not clobber it.
@@ -251,9 +259,14 @@ export function SearchResults() {
   // visitor's detected location when the URL has none yet. Only runs on URL /
   // detected-state changes, so it never fights a manual edit.
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
     setSearchService(q);
-    setSearchState(location || userLoc?.stateCode || "");
-  }, [q, location, userLoc?.stateCode]);
+    // Show the URL's location; otherwise the detected City, ST — but ONLY after an
+    // explicit request (never from a position rehydrated at load).
+    setSearchState(location || (requested ? cityStateLabel(userLoc) : ""));
+    /* eslint-enable react-hooks/set-state-in-effect */
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q, location, requested, userLoc?.city, userLoc?.stateCode]);
 
   // Replace (not push) filter changes so browser back goes to the previous PAGE,
   // not the previous filter state.
@@ -279,6 +292,7 @@ export function SearchResults() {
   // on the home page), distance-from-me is meaningless, so we leave the origin — and
   // therefore the distance filter — OFF. We never set a radius here.
   useEffect(() => {
+    if (!requested) return; // only act on an explicit request, not stored state
     if (injectedRef.current) return;
     if (userLoc?.lat == null || userLoc?.lng == null) return; // wait for detection
     injectedRef.current = true; // one-shot decision for this landing
@@ -289,14 +303,15 @@ export function SearchResults() {
     const filterState = toStateCode(location);
     if (filterState && filterState !== userLoc.stateCode) return; // different state
     pushParams({
-      // Pin the detected state so results are scoped to it (not all clinics),
-      // while lat/lng still power distance sort/filter. Keeps any state the URL
+      // Pin the detected City, ST so results are scoped there (not all clinics),
+      // while lat/lng still power distance sort/filter. Keeps any location the URL
       // already carries.
-      location: location || userLoc.stateCode || null,
+      location: location || cityStateLabel(userLoc) || null,
       lat: userLoc.lat.toFixed(6),
       lng: userLoc.lng.toFixed(6),
     });
-  }, [hasOrigin, userLoc?.lat, userLoc?.lng, userLoc?.stateCode, userLoc?.outsideUS, location, pushParams]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requested, hasOrigin, userLoc?.lat, userLoc?.lng, userLoc?.city, userLoc?.stateCode, userLoc?.outsideUS, location, pushParams]);
 
   // Distance is USA-only: if we know the visitor is outside the US, make sure no
   // origin/radius lingers in the URL — whether from a shared link, stale storage,
@@ -349,26 +364,31 @@ export function SearchResults() {
       // origin/radius and the (resurfaced) USA-only notice explains why.
       return;
     }
-    // In the US: center on the visitor — pin THEIR state AND coordinates, so the
-    // selected state is preserved (not wiped to "all locations") and distance
-    // features turn on.
+    // In the US: center on the visitor — pin THEIR City, ST AND coordinates, so
+    // the location is preserved (not wiped to "all locations") and distance
+    // features turn on. City-level matches the home page + typeahead behavior.
+    const label = cityStateLabel(userLoc);
+    /* eslint-disable-next-line react-hooks/set-state-in-effect */
+    setSearchState(label);
     pushParams({
-      location: userLoc.stateCode || null,
+      location: label || null,
       lat: userLoc.lat.toFixed(6),
       lng: userLoc.lng.toFixed(6),
     });
-  }, [status, userLoc?.outsideUS, userLoc?.lat, userLoc?.lng, userLoc?.stateCode, pushParams]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, userLoc?.outsideUS, userLoc?.lat, userLoc?.lng, userLoc?.city, userLoc?.stateCode, pushParams]);
 
-  // Auto-fill the state dropdown when location is detected. The "location
-  // detected" toast itself is the global USA-only notice, not a search-page one.
+  // Fill the location box with the detected City, ST — only after an explicit
+  // request, never from a stored position. Success feedback IS the filled box
+  // (no toast); the USA-only notice only covers outside-US / failed cases.
   useEffect(() => {
-    if (status === "granted" && userLoc && !userLoc.outsideUS) {
-      if (userLoc.stateCode && !searchState) {
-        setSearchState(userLoc.stateCode);
-      }
+    if (!requested) return;
+    if (status === "granted" && userLoc && !userLoc.outsideUS && !searchState) {
+      /* eslint-disable-next-line react-hooks/set-state-in-effect */
+      setSearchState(cityStateLabel(userLoc));
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, userLoc?.stateCode, userLoc?.outsideUS]);
+  }, [requested, status, userLoc?.city, userLoc?.stateCode, userLoc?.outsideUS]);
 
   // Handler for when user clicks a distance radio without sharing location
   const handleDistanceClick = (bandRadius: number) => {
@@ -512,6 +532,7 @@ export function SearchResults() {
               options={serviceOptions}
               value={searchService}
               onChange={setSearchService}
+              onSelect={(opt) => updateParam("q", opt.value)}
               placeholder="Treatment or clinic…"
               className="flex-1"
               allowFreeText

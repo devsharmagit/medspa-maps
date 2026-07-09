@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { ResourcesSection } from "@/components/hero/resources-section";
 import { Newsletter } from "@/components/hero/newsletter";
+import { scrollToListYourMedspa } from "@/lib/scroll-to-list-your-medspa";
 
 export function Footer() {
   const [bottomEmail, setBottomEmail] = useState("");
@@ -50,34 +51,17 @@ export function Footer() {
               >
                 Conditions
               </Link>
-              <Link
-                href="/providers"
-                className="font-montserrat font-medium text-[14px] leading-[180%] tracking-[0.02em] text-[#C4C4C4] uppercase transition-colors hover:text-white"
-              >
-                Providers
-              </Link>
             </div>
 
             {/* Column 2 */}
             <div className="flex flex-col items-start gap-[23px] w-[170px] shrink-0">
-              <Link
-                href="/best-of-2026"
-                className="font-montserrat font-medium text-[14px] leading-[180%] tracking-[0.02em] text-[#C4C4C4] uppercase transition-colors hover:text-white"
-              >
-                Best of 2026
-              </Link>
-              <Link
-                href="/get-free-listings"
-                className="font-montserrat font-medium text-[14px] leading-[180%] tracking-[0.02em] text-[#C4C4C4] uppercase transition-colors hover:text-white"
+              <button
+                type="button"
+                onClick={scrollToListYourMedspa}
+                className="font-montserrat font-medium text-[14px] leading-[180%] tracking-[0.02em] text-[#C4C4C4] uppercase transition-colors hover:text-white cursor-pointer"
               >
                 Partner with us
-              </Link>
-              <Link
-                href="/for-providers"
-                className="font-montserrat font-medium text-[14px] leading-[180%] tracking-[0.02em] text-[#C4C4C4] uppercase transition-colors hover:text-white"
-              >
-                For providers
-              </Link>
+              </button>
             </div>
           </div>
 

@@ -91,7 +91,10 @@ export async function getProvidersByConcernId(
  * Fetch active providers, sorted by featured clinic status, then verified, then
  * rating. Pass `limit` to cap the result (e.g. the landing-page spotlight).
  */
-export async function getAllProviders(limit?: number): Promise<ConcernProvider[]> {
+export async function getAllProviders(
+  limit?: number,
+  opts: { requireImage?: boolean } = {}
+): Promise<ConcernProvider[]> {
   type Row = ConcernProvider & { featured: boolean; verified: boolean };
 
   const rows = await query<Row>(
@@ -102,6 +105,7 @@ export async function getAllProviders(limit?: number): Promise<ConcernProvider[]
      FROM providers pr
      JOIN clinics cl ON cl.id = pr.clinic_id AND cl.is_active = true
      WHERE pr.is_active = true
+       ${opts.requireImage ? "AND pr.image_url IS NOT NULL AND pr.image_url <> ''" : ""}
      ORDER BY cl.featured DESC, pr.is_verified DESC, pr.review_rating DESC NULLS LAST
      ${limit != null ? "LIMIT $1" : ""}`,
     limit != null ? [limit] : []

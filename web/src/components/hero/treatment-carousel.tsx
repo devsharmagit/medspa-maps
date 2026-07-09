@@ -27,7 +27,7 @@ const TREATMENTS = [
 function TreatmentItem({ slug, label }: { slug: string; label: readonly string[] }) {
   return (
     <Link
-      href={`/treatments/${slug}`}
+      href={`/search?q=${slug}`}
       className="flex shrink-0 items-center gap-1.5 sm:gap-2 px-1 transition-opacity hover:opacity-70"
     >
       <Image src={starsvg} alt="" width={35} height={31} className="h-auto w-6 sm:w-[35px]" />

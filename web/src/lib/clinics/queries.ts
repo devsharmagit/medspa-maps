@@ -12,6 +12,8 @@ export interface ClinicLocation {
   google_maps_url: string | null;
   hours: unknown;
   is_primary: boolean;
+  lat: number | null;
+  lng: number | null;
 }
 
 export interface ClinicPageData {
@@ -32,7 +34,11 @@ export interface ClinicPageData {
     hours: unknown;
     instagram_url: string | null;
     facebook_url: string | null;
+    tiktok_url: string | null;
     youtube_url: string | null;
+    x_url: string | null;
+    linkedin_url: string | null;
+    yelp_url: string | null;
     founded_year: number | null;
     avg_rating: string | null;
     review_count: number;
@@ -77,7 +83,8 @@ export async function getClinicData(slug: string): Promise<ClinicPageData | null
     `SELECT
        c.id, c.slug, c.name, c.tagline, c.about, c.address, c.city, c.state,
        c.zip, c.phone, c.website, c.booking_url, c.google_maps_url, c.hours, c.instagram_url,
-       c.facebook_url, c.youtube_url, c.founded_year, c.avg_rating,
+       c.facebook_url, c.tiktok_url, c.youtube_url, c.x_url, c.linkedin_url, c.yelp_url,
+       c.founded_year, c.avg_rating,
        c.review_count, c.ext_rating, c.ext_review_count, c.verified, c.featured,
        c.stat_experts, c.stat_cities, c.stat_treatments, c.stat_rating, c.stat_patients,
        c.business_id,
@@ -159,7 +166,7 @@ export async function getClinicData(slug: string): Promise<ClinicPageData | null
     ),
     pool.query(
       `SELECT id, label, address, city, state, zip, phone,
-              booking_url, google_maps_url, hours, is_primary
+              booking_url, google_maps_url, hours, is_primary, lat, lng
          FROM clinic_locations
         WHERE clinic_id = $1 AND is_active = true
         ORDER BY sort_order, created_at`,
@@ -177,7 +184,12 @@ export async function getClinicData(slug: string): Promise<ClinicPageData | null
   const treatments_count = treatments.rows.length;
 
   return {
-    locations: locationsResult.rows as ClinicLocation[],
+    // pg returns numeric columns as strings when no type parser is registered.
+    locations: locationsResult.rows.map((r) => ({
+      ...r,
+      lat: r.lat != null ? Number(r.lat) : null,
+      lng: r.lng != null ? Number(r.lng) : null,
+    })) as ClinicLocation[],
     clinic: {
       id: c.id,
       slug: c.slug,
@@ -195,7 +207,11 @@ export async function getClinicData(slug: string): Promise<ClinicPageData | null
       hours: c.hours,
       instagram_url: c.instagram_url,
       facebook_url: c.facebook_url,
+      tiktok_url: c.tiktok_url,
       youtube_url: c.youtube_url,
+      x_url: c.x_url,
+      linkedin_url: c.linkedin_url,
+      yelp_url: c.yelp_url,
       founded_year: c.founded_year,
       avg_rating: c.avg_rating,
       review_count: c.review_count,

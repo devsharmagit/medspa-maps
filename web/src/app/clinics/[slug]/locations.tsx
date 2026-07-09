@@ -1,11 +1,28 @@
-import { CalendarDays, Clock, MapPin, Phone } from "lucide-react";
+import { MapPin, MapPinned, Phone } from "lucide-react";
 import type { ClinicLocation } from "@/lib/clinics/queries";
 import { toStateCode } from "@/lib/location/states";
-import { WeeklyHours, hasWeeklyHours } from "./hours";
 
-function buildMapsUrl(parts: (string | null)[]): string {
-  const q = parts.filter(Boolean).join(", ");
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
+/**
+ * ONE query per location = clinic name + full address. Google resolves this to
+ * the exact business pin, and driving BOTH the embed and the "Open in Google
+ * Maps" link from the same query keeps them pointing at the identical place.
+ *
+ * We deliberately use neither the stored lat/lng (Nominatim geocode — observed
+ * up to ~1km off the real pin) nor the scraped maps short link (accurate, but
+ * `maps.app.goo.gl` links are frame-blocked, so they can't be embedded — and
+ * using them for only the button is what made the two disagree).
+ */
+function locationQuery(loc: ClinicLocation, clinicName: string): string {
+  const addr = [loc.address, loc.city, loc.state, loc.zip].filter(Boolean).join(", ");
+  return [clinicName, addr].filter(Boolean).join(", ").trim() || (loc.label ?? clinicName);
+}
+
+function mapsEmbedUrl(query: string): string {
+  return `https://www.google.com/maps?q=${encodeURIComponent(query)}&output=embed`;
+}
+
+function mapsOpenUrl(query: string): string {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
 
 function locationTitle(loc: ClinicLocation, idx: number): string {
@@ -42,19 +59,23 @@ function addressLines(loc: ClinicLocation): string[] {
 /**
  * "Our Locations" — a card grid of every physical location a clinic runs.
  * Rendered only for multi-location clinics; the hero card already covers the
- * single-location case.
+ * single-location case. Anchored ("locations") so the hero's "+N more
+ * locations" link can jump straight here.
  */
 export function ClinicLocationsSection({
   locations,
-  fallbackBookUrl,
+  clinicName,
 }: {
   locations: ClinicLocation[];
-  fallbackBookUrl?: string | null;
+  clinicName: string;
 }) {
   if (!locations || locations.length <= 1) return null;
 
   return (
-    <section className="flex flex-col gap-[28px] px-0 sm:px-[24px] pt-[12px] pb-[24px]">
+    <section
+      id="locations"
+      className="flex flex-col gap-[28px] px-0 sm:px-[24px] pt-[12px] pb-[24px] scroll-mt-[110px]"
+    >
       <div className="flex items-baseline gap-3">
         <h2 className="font-fraunces italic text-[28px] sm:text-[34px] font-normal leading-[116.02%] tracking-[-0.04em] text-[#373634]">
           Our Locations
@@ -68,10 +89,11 @@ export function ClinicLocationsSection({
         {locations.map((loc, idx) => {
           const title = locationTitle(loc, idx);
           const addrLines = addressLines(loc);
-          const mapsUrl =
-            loc.google_maps_url ||
-            buildMapsUrl([loc.address, loc.city, loc.state, loc.zip]);
-          const book = loc.booking_url || fallbackBookUrl;
+          // Same query for the embed, the address link, and the "Open" button →
+          // all three land on the identical, correct location.
+          const query = locationQuery(loc, clinicName);
+          const embedUrl = mapsEmbedUrl(query);
+          const mapsUrl = mapsOpenUrl(query);
 
           return (
             <div
@@ -87,6 +109,19 @@ export function ClinicLocationsSection({
                     Primary
                   </span>
                 )}
+              </div>
+
+              {/* Google Maps embed — no API key needed */}
+              <div className="overflow-hidden rounded-[12px] border border-[#EDE3EA]">
+                <iframe
+                  src={embedUrl}
+                  title={`Map for ${title}`}
+                  width="100%"
+                  height="160"
+                  style={{ border: 0, display: "block" }}
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                />
               </div>
 
               <div className="flex flex-col gap-[12px]">
@@ -111,16 +146,6 @@ export function ClinicLocationsSection({
                   </div>
                 )}
 
-                {hasWeeklyHours(loc.hours) && (
-                  <div className="flex items-start gap-[8px]">
-                    <Clock
-                      className="h-[20px] w-[20px] shrink-0 text-[#EE97C6]"
-                      strokeWidth={1.5}
-                    />
-                    <WeeklyHours hours={loc.hours} className="flex-1" />
-                  </div>
-                )}
-
                 {loc.phone && (
                   <div className="flex items-center gap-[8px]">
                     <Phone
@@ -137,22 +162,20 @@ export function ClinicLocationsSection({
                 )}
               </div>
 
-              {book && (
-                <a
-                  href={book}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-auto flex h-[42px] items-center justify-center gap-[8px] rounded-[8px] bg-[linear-gradient(90deg,#DE7F4C_0%,#C341D7_100%)] px-[20px] transition-opacity hover:opacity-90"
-                >
-                  <span className="font-montserrat text-[13px] font-semibold leading-[17px] text-white">
-                    Book Appointment
-                  </span>
-                  <CalendarDays
-                    className="h-[18px] w-[18px] shrink-0 text-white"
-                    strokeWidth={1.5}
-                  />
-                </a>
-              )}
+              <a
+                href={mapsUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-auto flex h-[42px] items-center justify-center gap-[8px] rounded-[8px] bg-[linear-gradient(90deg,#DE7F4C_0%,#C341D7_100%)] px-[20px] transition-opacity hover:opacity-90"
+              >
+                <span className="font-montserrat text-[13px] font-semibold leading-[17px] text-white">
+                  Open in Google Maps
+                </span>
+                <MapPinned
+                  className="h-[18px] w-[18px] shrink-0 text-white"
+                  strokeWidth={1.5}
+                />
+              </a>
             </div>
           );
         })}
