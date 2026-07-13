@@ -121,7 +121,7 @@ export function TreatmentsNavDesktop({ className }: { className?: string }) {
                   {items.map((t) => (
                     <li key={t.slug}>
                       <Link
-                        href={`/treatments/${t.slug}`}
+                        href={`/search?q=${t.slug}`}
                         role="menuitem"
                         onClick={closeNow}
                         className="block text-sm text-[#383838] transition-colors hover:text-brand-magenta"
@@ -188,7 +188,7 @@ export function TreatmentsNavMobile({ onNavigate }: { onNavigate: () => void }) 
                 {items.map((t) => (
                   <li key={t.slug}>
                     <Link
-                      href={`/treatments/${t.slug}`}
+                      href={`/search?q=${t.slug}`}
                       onClick={onNavigate}
                       className="block text-sm text-white/90 transition-opacity hover:opacity-80"
                     >

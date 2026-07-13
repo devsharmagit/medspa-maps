@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { X, ChevronLeft, ChevronRight, Images } from "lucide-react";
+import { X, ChevronLeft, ChevronRight } from "lucide-react";
 
-interface GalleryImage {
+export interface GalleryImage {
   source_url: string;
   alt_text: string | null;
 }
@@ -19,7 +19,7 @@ function initials(name: string): string {
 }
 
 /** Full-screen image viewer with arrow / keyboard navigation + thumbnail strip. */
-function Lightbox({
+export function Lightbox({
   images,
   index,
   setIndex,

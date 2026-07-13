@@ -77,74 +77,98 @@ export async function extractViaGemini<T>(
     }
   }
 
-  const body = JSON.stringify({
-    systemInstruction: { parts: [{ text: opts.system }] },
-    contents: [{ role: "user", parts }],
-    tools: [
-      {
-        functionDeclarations: [
-          {
-            name: opts.toolName,
-            description: opts.toolDescription,
-            parameters: toGeminiSchema(opts.inputSchema),
-          },
-        ],
+  const buildBody = (temperature: number): string =>
+    JSON.stringify({
+      systemInstruction: { parts: [{ text: opts.system }] },
+      contents: [{ role: "user", parts }],
+      tools: [
+        {
+          functionDeclarations: [
+            {
+              name: opts.toolName,
+              description: opts.toolDescription,
+              parameters: toGeminiSchema(opts.inputSchema),
+            },
+          ],
+        },
+      ],
+      toolConfig: {
+        functionCallingConfig: { mode: "ANY", allowedFunctionNames: [opts.toolName] },
       },
-    ],
-    toolConfig: {
-      functionCallingConfig: { mode: "ANY", allowedFunctionNames: [opts.toolName] },
-    },
-    generationConfig: {
-      temperature: 0,
-      maxOutputTokens: opts.maxTokens ?? 2048,
-      // Disable "thinking" so the whole output budget goes to the function call
-      // (thinking tokens otherwise eat into maxOutputTokens and truncate args).
-      thinkingConfig: { thinkingBudget: 0 },
-    },
-  });
+      generationConfig: {
+        temperature,
+        maxOutputTokens: opts.maxTokens ?? 2048,
+        // Disable "thinking" so the whole output budget goes to the function call
+        // (thinking tokens otherwise eat into maxOutputTokens and truncate args).
+        thinkingConfig: { thinkingBudget: 0 },
+      },
+    });
 
   const url = `${API_BASE}/${model}:generateContent`;
-  let res: Response | null = null;
   const MAX_RETRIES = 4;
+  // Flash occasionally emits an unparseable call (finishReason=MALFORMED_FUNCTION_CALL).
+  // At temperature 0 an identical retry reproduces the identical failure, so
+  // malformed retries bump the temperature to escape it.
+  const MAX_MALFORMED_RETRIES = 2;
+  let malformed = 0;
+  let lastFinish: string | undefined;
   for (let attempt = 0; ; attempt++) {
-    res = await fetch(url, {
+    const res = await fetch(url, {
       method: "POST",
       headers: { "x-goog-api-key": key, "content-type": "application/json" },
-      body,
+      body: buildBody(malformed === 0 ? 0 : 0.4),
       signal: AbortSignal.timeout(120_000),
     });
-    if (res.ok || ![429, 500, 503].includes(res.status) || attempt >= MAX_RETRIES) break;
-    await res.body?.cancel().catch(() => {});
-    await sleep(Math.min(2 ** attempt * 1000, 30_000));
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => "");
+      // Fail FAST on a per-DAY free-tier exhaustion: retrying just burns the
+      // (already spent) daily request budget and wall-clock — the window won't
+      // reset within our backoff. Per-MINUTE throttles DO recover, so retry
+      // those. Distinguish by the quota id / message in the 429 body.
+      const isPerDay = res.status === 429 && /perday|per day|_per_day|requestsperday/i.test(errBody);
+      if ([429, 500, 503].includes(res.status) && attempt < MAX_RETRIES && !isPerDay) {
+        // Honor Gemini's OWN retry hint ("retryDelay":"41s" / "retry in 41.6s") —
+        // free-tier per-minute windows are ~40s+, longer than plain exponential
+        // backoff, so a fixed 15s ladder exhausts retries before the window
+        // resets. Sleep the hinted delay (+buffer), capped; else exponential.
+        const hint = errBody.match(/retry(?:delay)?["\s:]+(?:in\s+)?(\d+(?:\.\d+)?)\s*s/i);
+        const hintMs = hint ? Math.ceil(parseFloat(hint[1]) * 1000) + 1500 : 0;
+        const backoff = Math.min(2 ** attempt * 1000, 30_000);
+        await sleep(Math.min(Math.max(hintMs, backoff), 65_000));
+        continue;
+      }
+      throw new Error(`Gemini ${res.status}: ${errBody.slice(0, 400)}`);
+    }
+
+    const json = (await res.json()) as {
+      candidates?: Array<{
+        finishReason?: string;
+        content?: { parts?: Array<{ functionCall?: { name?: string; args?: unknown } }> };
+      }>;
+      usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number };
+    };
+
+    const cand = json.candidates?.[0];
+    const call = cand?.content?.parts?.find((p) => p.functionCall)?.functionCall;
+    if (!call || call.args === undefined) {
+      lastFinish = cand?.finishReason;
+      if (lastFinish === "MALFORMED_FUNCTION_CALL" && malformed < MAX_MALFORMED_RETRIES) {
+        malformed++;
+        await sleep(1000);
+        continue;
+      }
+      throw new Error(
+        `Gemini returned no functionCall for "${opts.toolName}" (finishReason=${lastFinish ?? "?"})`
+      );
+    }
+
+    return {
+      data: call.args as T,
+      model,
+      usage: {
+        input_tokens: json.usageMetadata?.promptTokenCount,
+        output_tokens: json.usageMetadata?.candidatesTokenCount,
+      },
+    };
   }
-
-  if (!res.ok) {
-    const errBody = await res.text().catch(() => "");
-    throw new Error(`Gemini ${res.status}: ${errBody.slice(0, 400)}`);
-  }
-
-  const json = (await res.json()) as {
-    candidates?: Array<{
-      finishReason?: string;
-      content?: { parts?: Array<{ functionCall?: { name?: string; args?: unknown } }> };
-    }>;
-    usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number };
-  };
-
-  const cand = json.candidates?.[0];
-  const call = cand?.content?.parts?.find((p) => p.functionCall)?.functionCall;
-  if (!call || call.args === undefined) {
-    throw new Error(
-      `Gemini returned no functionCall for "${opts.toolName}" (finishReason=${cand?.finishReason ?? "?"})`
-    );
-  }
-
-  return {
-    data: call.args as T,
-    model,
-    usage: {
-      input_tokens: json.usageMetadata?.promptTokenCount,
-      output_tokens: json.usageMetadata?.candidatesTokenCount,
-    },
-  };
 }

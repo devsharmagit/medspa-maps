@@ -24,7 +24,7 @@ async function main() {
       const r = await ingestClinicByDomain(domain);
       console.log(
         `${r.status} | model=${r.modelUsed || "-"}${r.escalated ? "(escalated)" : ""} | ` +
-          `locs=${r.locations} | geo=${r.geocoded} | imgs=${r.images} | providers=${r.providers ?? 0} | services=${r.services ?? 0}` +
+          `locs=${r.locations} | geo=${r.geocoded} | imgs=${r.images} | providers=${r.providers ?? 0} | services=${r.services ?? 0} | b&a=${r.beforeAfter ?? 0}` +
           `${r.note ? ` | ${r.note}` : ""}`
       );
     } catch (err) {

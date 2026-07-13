@@ -16,6 +16,7 @@ import {
   Globe,
   Mail,
   History,
+  Wand2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -23,6 +24,7 @@ const navItems = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/leads", label: "Leads", icon: Mail },
   { href: "/admin/clinics/new", label: "Add Clinic", icon: PlusCircle },
+  { href: "/admin/add-website", label: "Add Website (AI)", icon: Wand2 },
   { href: "/admin/g99", label: "G99 Import", icon: DatabaseZap },
   { href: "/admin/g99-websites", label: "G99 Websites", icon: Globe },
   { href: "/admin/clinics", label: "Clinics", icon: Store },

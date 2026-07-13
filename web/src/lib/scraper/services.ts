@@ -59,7 +59,12 @@ const ADDRESS_RE = /\b(ste|suite|blvd|ave|avenue|rd|road|dr|drive|ln|lane|hwy|pk
 export function extractServiceAnchors($: CheerioAPI, _baseUrl: string): ScrapedService[] {
   const out: ScrapedService[] = [];
   const seen = new Set<string>();
+  let baseDomain = "";
+  try {
+    baseDomain = new URL(_baseUrl).hostname.replace(/^www\./, "").toLowerCase();
+  } catch {}
   $("a").each((_, el) => {
+    const link = $(el);
     const text = cleanText($(el).text());
     if (!text) return;
     const lower = text.toLowerCase();
@@ -79,8 +84,30 @@ export function extractServiceAnchors($: CheerioAPI, _baseUrl: string): ScrapedS
     if (/^(our|the)\s/i.test(text) && !/therapy|treatment|facial|peel|laser/i.test(lower)) return;
     const slug = slugify(text);
     if (!slug || seen.has(slug)) return;
+
+    const href = (link.attr("href") ?? "").trim();
+    let abs: string | undefined;
+    if (href && !/^(#|tel:|mailto:|javascript:)/i.test(href)) {
+      try {
+        const u = new URL(href, _baseUrl);
+        const host = u.hostname.replace(/^www\./, "").toLowerCase();
+        const path = u.pathname.toLowerCase();
+        if (
+          host === baseDomain &&
+          !/\/(blog|news|shop|cart|checkout|privacy|terms|contact|about|team|locations?)(\/|$)/i.test(path)
+        ) {
+          abs = u.href;
+        }
+      } catch {}
+    }
+
     seen.add(slug);
-    out.push({ name: text, slug });
+    out.push({
+      name: text,
+      slug,
+      category: findAncestorMenuLabel(link) ?? undefined,
+      scraped_from_url: abs,
+    });
   });
   return out;
 }

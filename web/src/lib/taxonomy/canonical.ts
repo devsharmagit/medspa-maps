@@ -506,7 +506,7 @@ export const CANONICAL_CONCERNS: CanonicalConcern[] = [
   {
     name: "Wrinkles & Fine Lines",
     slug: "fine-lines-wrinkles",
-    aliases: ["wrinkle", "wrinkles", "fine line", "fine lines", "anti-aging", "anti aging"],
+    aliases: ["wrinkle", "wrinkles", "fine line", "fine lines", "anti-aging", "anti aging", "signs of aging", "visible signs of aging", "aging skin", "expression lines"],
     serviceSlugs: [
       "botox",
       "dermal-fillers",
@@ -641,6 +641,44 @@ const STREET_RE =
   /\b(st|street|ste|suite|ave|avenue|blvd|boulevard|rd|road|dr|drive|ln|lane|hwy|highway|pkwy|parkway|ct|court|pl|place|way|unit|fl|floor|bldg|building)\b/i;
 
 /**
+ * Leading nav/CTA/marketing phrases. gpt-4o-mini frequently scrapes these as
+ * "public" services ("View all Chemical Peels", "Explore Services",
+ * "Read the post…"). Anchored at the start so a real treatment that merely
+ * contains a word ("Laser Skin Resurfacing") is never caught.
+ */
+const NOISE_PREFIX_RE =
+  /^(view all|see all|explore|read (the|more)|shop |buy |meet (the|dr|our)|learn more|get (started|carded)|purchase |book |schedule |our |the glo|glo squad)\b/i;
+
+/** Leading-punctuation footer fragments, e.g. "| Privacy Policy". */
+const LEADING_JUNK_RE = /^[|/•·\-–—»›]+/;
+
+/**
+ * Generic category headers + non-treatment sections + out-of-scope
+ * diagnostics/retail/loyalty. These are never a searchable PUBLIC treatment
+ * label even when a site lists them in its services menu — they should map a
+ * clinic (alias) at most, never become their own catalog row. Matched on the
+ * normalized (punctuation-stripped, lowercased) string.
+ */
+const NON_SERVICE_JUNK = new Set<string>([
+  // section / category headers
+  "aesthetic services", "explore services", "our services", "all services",
+  "conditions", "concerns", "treatments", "our treatments", "services",
+  "wellness", "wellness services", "laser services", "laser wellness",
+  "laser and wellness", "medical lasers", "injectables", "skincare",
+  "medical grade skincare", "medical-grade skincare", "in the media",
+  "self assessment", "pre and post care", "products", "shop products",
+  // marketing / loyalty / billing / footer
+  "sitemap", "testimonials", "press release", "read the post", "rewards programs",
+  "vip membership", "purchase a gift", "payment plan", "cherry financing",
+  "financing", "gift card", "gift cards", "specials", "promotions",
+  "privacy policy", "terms and conditions", "meet the team", "meet the glo squad",
+  "raiderettes", "alle", "alle rewards", "brilliant distinctions",
+  // out-of-scope diagnostics / testing (not aesthetic treatments)
+  "diagnostic testing", "biological age testing", "cancer screening",
+  "gut health testing", "body composition analysis", "functional medicine",
+]);
+
+/**
  * isLikelyNoise(name) — true for scraper-junk that is clearly not a real
  * service (URLs, social handles, nav/CTA/legal chrome, street addresses,
  * city-only tokens, and out-of-range lengths). Conservative by design — it
@@ -689,6 +727,51 @@ export function isLikelyNoise(name: string): boolean {
     }
   }
 
+  return false;
+}
+
+/** trailing clinical credentials, stripped when comparing a name to providers */
+const CREDENTIALS_RE =
+  /,?\s*\b(rn|bsn|msn|np|fnp|fnp-?c|dnp|aprn|aprn-?bc|pa|pa-?c|md|do|do\.|do,|mbbs|phd|crna|lme|le|cma|facs|faad)\b\.?/gi;
+
+/**
+ * stripCredentials(name) — "Katie Stein, BSN" → "katie stein", so a scraped
+ * "service" that is really a staff member can be matched against the clinic's
+ * provider list.
+ */
+export function stripCredentials(name: string): string {
+  return normalize((name ?? "").replace(CREDENTIALS_RE, " "));
+}
+
+/**
+ * isServiceNoise(name) — deterministic backstop for the AI service path.
+ * True for scraped "services" that must NEVER become a public treatment label:
+ * everything isLikelyNoise() catches, PLUS leading nav/CTA phrases
+ * ("View all…", "Explore…"), footer fragments, generic category headers, and
+ * out-of-scope diagnostics/retail/loyalty. The AI (esp. a small model) mislabels
+ * these as public_decision='public'; this override is the guardrail that keeps
+ * them out of the catalog regardless of what the model said.
+ */
+export function isServiceNoise(name: string): boolean {
+  const raw = (name ?? "").trim();
+  // Structural non-services (safe: never a real treatment name). Deliberately
+  // does NOT use isLikelyNoise's city-token heuristic — that guesses against the
+  // curated 15 and so wrongly rejects real AI-grown treatments like
+  // "Regenerative Medicine" or "Microdermabrasion".
+  if (raw.length < 3 || raw.length > 60) return true;
+  if (!/[a-z]/i.test(raw)) return true;
+  if (/https?:\/\//i.test(raw)) return true;
+  if (/\b[a-z0-9.-]+\.(com|net|org|io|co|us|biz)\b/i.test(raw.toLowerCase())) return true;
+  if (/^@/.test(raw) || raw.includes("@")) return true;
+  if (/^[\d\s().+-]+$/.test(raw)) return true;
+  if (/\d/.test(raw) && STREET_RE.test(raw)) return true;
+  // nav / CTA / footer / category-header / testing / loyalty chrome
+  if (NOISE_PREFIX_RE.test(raw)) return true;
+  if (LEADING_JUNK_RE.test(raw)) return true;
+  const norm = normalize(raw);
+  if (!norm) return true;
+  if (NOISE_EXACT.has(norm)) return true;
+  if (NON_SERVICE_JUNK.has(norm)) return true;
   return false;
 }
 

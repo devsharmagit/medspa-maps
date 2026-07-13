@@ -38,8 +38,10 @@ const ProviderSchema = z.object({
 
 const ServiceSchema = z.object({
   raw_name: z.string(), // service exactly as written on the site (keep ®/™, brand words)
-  general_name: z.string().nullable(), // the general treatment name it maps to
+  general_name: z.string().nullable(), // public treatment name it maps to
   category: z.string().nullable(),
+  source_url: z.string().nullable(),
+  public_decision: z.enum(["public", "alias_only", "ignored"]).default("public"),
 });
 
 const ExtractSchema = z.object({
@@ -147,11 +149,17 @@ const TOOL_INPUT_SCHEMA: Record<string, unknown> = {
           raw_name: { type: "string", description: "The service EXACTLY as written on the site (keep ®/™ and brand words, e.g. 'Botox®', 'RUMA Gold Microchannel Treatment')" },
           general_name: {
             type: ["string", "null"],
-            description: "A concise GENERIC treatment category — NEVER a brand/drug name, no ®/™, no clinic-specific words. Prefer a KNOWN TREATMENT from the prompt. Group all variants under the same generic name (e.g. Semaglutide/Tirzepatide/Phentermine → 'Medical Weight Loss'; BPC-157/Sermorelin → 'Peptide Therapy'). null only if genuinely not a treatment.",
+            description: "The public/searchable treatment name. Use real market-recognized brand/device/drug names when patients search them (e.g. Dysport, Morpheus8, MiraDry). For clinic-owned names use the generic public treatment (e.g. RUMA Gold Microchannel Treatment → Microneedling). null only when public_decision is ignored.",
           },
           category: { type: ["string", "null"], description: "Group/category label if shown (e.g. 'Anti-Aging', 'Laser Treatment')" },
+          source_url: { type: ["string", "null"], description: "The service detail URL copied from SERVICE CANDIDATES when present; otherwise null." },
+          public_decision: {
+            type: "string",
+            enum: ["public", "alias_only", "ignored"],
+            description: "public = show/search this treatment label; alias_only = save/link it under general_name but do not expose raw_name as a public label; ignored = non-service/out-of-scope/junk such as dentistry, gift cards, shop/blog, category headings.",
+          },
         },
-        required: ["raw_name", "general_name", "category"],
+        required: ["raw_name", "general_name", "category", "source_url", "public_decision"],
       },
     },
     locations: {
@@ -217,8 +225,13 @@ SERVICES — from the page text + the SERVICE CANDIDATES list (nav + services pa
 - Extract only MED-SPA / aesthetic / wellness treatments a user would search a med-spa directory for: injectables, skin/laser/facials, body contouring, hair, medical weight loss, hormone/peptide therapy, IV/vitamin therapy, sexual wellness, regenerative (PRP/PRF), and similar.
 - EXCLUDE anything that is NOT an aesthetic/wellness treatment — OMIT it from the array entirely (do not include it with a null). In particular exclude urgent/primary/"quick" care visits (e.g. "Minor Quick Care", "Sick Visit", "Sinus Cocktail"), physicals (school/sports/DOT/employment), lab work / bloodwork / panels ("Laboratories"), vaccinations, diagnostics & body-composition/InBody assessments, and retail PRODUCT lines (e.g. "ZO Skin Health Skincare"). When the site groups these under a "Labs & Medical Services" / "Quick Care" / "Urgent Care" category, drop that whole group.
 - raw_name: the service EXACTLY as written (KEEP ®/™ and brand words, e.g. "Botox®", "Morpheus8", "RUMA Gold Microchannel Treatment").
-- general_name: a concise, GENERIC treatment category — NEVER a brand or drug name, no ®/™, no clinic-specific words. Prefer a KNOWN TREATMENT from the list below when it fits. Examples: "RUMA Gold Microchannel Treatment" → "Microneedling"; "Semaglutide"/"Tirzepatide"/"Phentermine"/"Qsymia" → "Medical Weight Loss"; "BPC-157"/"Sermorelin"/"CJC-1295" → "Peptide Therapy"; "Viagra"/"Cialis"/"GAINSWave" → "Sexual Wellness"; "Testosterone Replacement" → "Hormone Therapy". Group ALL variants of the same general treatment under the SAME generic name; NEVER name a general treatment after one specific brand or drug.
+- public_decision:
+  - "public" for real searchable treatment/service labels. Market-recognized brands, devices, drugs, and protocols CAN be public when users search them: Dysport, Sculptra, Radiesse, Renuva, Morpheus8, Sylfirm X RF Microneedling, MiraDry, BBL Laser, Exomind, EBOO/Ozone Therapy, IV Therapy, Hormone Therapy, Medical Weight Loss, etc.
+  - "alias_only" for clinic-owned or confusing proprietary names that should help match the clinic but should NOT become a public treatment label. Example: "RUMA Gold Microchannel Treatment" → general_name "Microneedling".
+  - "ignored" for category headings, blogs, shop, gift cards, specials, consultations, memberships, financing, and out-of-scope services. Cosmetic Dentistry / dental services are ALWAYS ignored for this directory.
+- general_name: the clean PUBLIC treatment name to show/search. For public brands/devices, keep the brand/device when patient-recognized ("Dysport", "Morpheus8", "MiraDry"). For alias_only, use the generic related treatment ("Microneedling"). For combined labels that name multiple treatments ("Sculptra & Radiesse"), return one service item per public treatment, sharing the source_url if known.
 - category: the group/category label the site shows (e.g. "Anti-Aging", "Laser Treatment"); else null.
+- source_url: copy the exact candidate URL when available.
 - Do NOT list category headers, memberships, gift cards, financing, or consultations as services. Do NOT invent services. Empty array if none.
 
 - Call the record_clinic tool exactly once with your result.`;
@@ -339,6 +352,73 @@ async function buildVisionImages(
   return fetched.filter((x): x is VisionImage => x !== null);
 }
 
+// ── Before/After classification (AI fallback) ─────────────────────────────────
+
+const BA_CLASSIFY_CAP = 12;
+
+/**
+ * Classify AMBIGUOUS gallery images (no filename signal) with one forced-tool
+ * vision call — returns the subset that are genuine before-&-after composite
+ * photos. Reuses the base64 transport + extractViaTool, so it routes through the
+ * configured provider (incl. Gemini). Returns the verbatim-validated URLs; []
+ * on any failure so the caller keeps just the heuristic-certain set.
+ */
+export async function classifyBeforeAfterImages(
+  candidates: Array<{ url: string; alt?: string | null }>
+): Promise<string[]> {
+  const shortlist = candidates
+    .filter((c) => /^https?:\/\//i.test(c.url))
+    .slice(0, BA_CLASSIFY_CAP);
+  if (shortlist.length === 0) return [];
+
+  const images: VisionImage[] = [];
+  await Promise.all(
+    shortlist.map(async (c) => {
+      const img = await fetchImageBase64(c.url);
+      if (img) {
+        images.push({
+          label: `IMAGE for ${c.url}${c.alt ? ` — alt: ${c.alt}` : ""}`,
+          source: { type: "base64", media_type: img.media_type, data: img.data },
+        });
+      }
+    })
+  );
+  if (images.length === 0) return [];
+
+  const system =
+    `You are shown candidate images from a medspa's photo gallery. A BEFORE-&-AFTER image is a SINGLE photo showing the same patient/body-area twice — a "before" and an "after", usually side-by-side or top/bottom, demonstrating a treatment result. Return ONLY the URLs (verbatim, from the labels shown) of images that are genuine before-&-after composites; EXCLUDE regular clinic/interior/team/product/logo/marketing photos. Call the record_before_after tool exactly once.`;
+  const user = `Which of the ${images.length} shown images are before-&-after composites? Return their exact URLs.`;
+  const candUrls = new Set(shortlist.map((c) => c.url));
+
+  try {
+    const { data } = await extractViaTool<{ before_after_urls?: unknown }>({
+      system,
+      user,
+      toolName: "record_before_after",
+      toolDescription: "Record which of the shown images are before-&-after composite photos.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          before_after_urls: {
+            type: "array",
+            items: { type: "string" },
+            description:
+              "URLs (verbatim from the shown image labels) that ARE before-&-after composites. [] if none.",
+          },
+        },
+        required: ["before_after_urls"],
+      },
+      maxTokens: 1024,
+      images,
+    });
+    const urls = Array.isArray(data?.before_after_urls) ? data.before_after_urls : [];
+    return urls.filter((u): u is string => typeof u === "string" && candUrls.has(u));
+  } catch {
+    return [];
+  }
+}
+
 export interface AiExtractOutput {
   data: ExtractedClinic;
   model: string;
@@ -378,7 +458,7 @@ export async function extractClinicDetails(
   const svcBlock = input.serviceCandidates?.length
     ? "\n\nSERVICE CANDIDATES (services linked in nav / on the services page — extract these plus any others in the text):\n" +
       input.serviceCandidates
-        .map((c) => `- ${c.name}${c.category ? ` [category: ${c.category}]` : ""}`)
+        .map((c) => `- ${c.name}${c.category ? ` [category: ${c.category}]` : ""}${c.url ? ` → ${c.url}` : ""}`)
         .join("\n")
     : "";
   const treatBlock = input.knownTreatments?.length

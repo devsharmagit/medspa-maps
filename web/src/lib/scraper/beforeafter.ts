@@ -14,6 +14,18 @@ const SKIP_RE =
   /(logo|icon|favicon|sprite|placeholder|avatar|badge|spacer|loader|carecredit|cherry|financing)/i;
 const CONTENT_EXT_RE = /\.(jpe?g|png|webp)(\?|$)/i;
 
+/**
+ * Matches a filename/URL that is unambiguously a before-&-after image, e.g.
+ * "Dysport-BeforeandAfter-Ruma.webp", "Botox-Before-After-B.webp",
+ * "lips_before_after.jpg", "B&A-1.webp". A match = 100% confidence (no AI needed).
+ */
+export const BA_FILENAME_RE = /before[\s._-]*(and[\s._-]*)?after|beforeafter|b[\s._-]*&[\s._-]*a\b|\bb2a\b/i;
+
+/** True when a URL/filename is a certain before/after image (per BA_FILENAME_RE). */
+export function isBeforeAfterUrl(url: string): boolean {
+  return BA_FILENAME_RE.test(url);
+}
+
 export function extractBeforeAfter(
   $: CheerioAPI,
   baseUrl: string

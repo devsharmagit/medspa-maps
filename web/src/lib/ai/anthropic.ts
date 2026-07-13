@@ -17,6 +17,12 @@ const ANTHROPIC_VERSION = "2023-06-01";
 
 /** Cheap default extraction model; override with INGEST_MODEL. */
 export function ingestModel(): string {
+  if (process.env.INGEST_PROVIDER?.trim().toLowerCase() === "openai") {
+    return process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini";
+  }
+  if (process.env.INGEST_PROVIDER?.trim().toLowerCase() === "gemini") {
+    return process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
+  }
   return process.env.INGEST_MODEL?.trim() || "claude-haiku-4-5";
 }
 
@@ -99,7 +105,12 @@ export async function extractViaTool<T>(
 ): Promise<ToolExtractResult<T>> {
   // Optional provider override (e.g. INGEST_PROVIDER=gemini) routes the SAME
   // forced-tool contract through a different backend without touching callers.
-  if (process.env.INGEST_PROVIDER?.trim().toLowerCase() === "gemini") {
+  const provider = process.env.INGEST_PROVIDER?.trim().toLowerCase();
+  if (provider === "openai") {
+    const { extractViaOpenAI } = await import("./openai");
+    return extractViaOpenAI<T>(opts);
+  }
+  if (provider === "gemini") {
     const { extractViaGemini } = await import("./gemini");
     return extractViaGemini<T>(opts);
   }

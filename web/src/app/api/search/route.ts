@@ -23,6 +23,33 @@ const STATE_NAME_TO_ABBR: Record<string, string> = Object.fromEntries(
   Object.entries(STATE_ABBR_TO_NAME).map(([abbr, name]) => [name.toUpperCase(), abbr])
 );
 
+// Broad concern → specific child concern slugs. Searching a broad concern also
+// returns clinics tagged with the narrower children. Kept in sync with the
+// AI-grown concern catalog after the 2026-07-13 cleanup (see cleanup-catalog.ts).
+const BROAD_CONCERN_CHILDREN: Record<string, string[]> = {
+  "fine-lines-wrinkles": [
+    "forehead-lines",
+    "frown-lines",
+    "crows-feet",
+    "bunny-lines",
+    "marionette-lines",
+    "nasolabial-folds",
+    "smile-lines",
+    "lip-flip",
+  ],
+  "skin-laxity-sagging": [
+    "brow-lift",
+    "jawline",
+    "masseter-tmj-face-slimming",
+    "platysma-vertical-neck-cords",
+  ],
+};
+
+function conditionSlugSet(slug: string): string[] {
+  const clean = slug.trim();
+  return [...new Set([clean, ...(BROAD_CONCERN_CHILDREN[clean] ?? [])])];
+}
+
 /**
  * Resolve a typed location string to coordinates using the in-memory postal
  * index (src/data/postal-codes-us.json — no DB round-trip). Handles "37203"
@@ -49,9 +76,15 @@ function resolveTypedLocation(
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
-  const q = searchParams.get("q") || "";
+  let q = searchParams.get("q") || "";
+  const condition = searchParams.get("condition") || "";
   const location = searchParams.get("location") || "";
   const tier = searchParams.get("tier") || "";
+
+  // Treatment+condition combos are NOT supported: when both arrive, the
+  // condition wins and q is dropped (the UI enforces this too — one grouped
+  // dropdown sets either q or condition, never both).
+  if (condition) q = "";
 
   // Geo / rating params
   const latRaw = searchParams.get("lat");
@@ -90,7 +123,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const conditions: string[] = ["c.is_active = TRUE", "b.is_active = TRUE"];
-    const params: (string | number)[] = [];
+    const params: (string | number | string[])[] = [];
     let paramIdx = 1;
 
     // Haversine distance in MILES from (lat,lng) origin, computed in SQL.
@@ -135,18 +168,61 @@ export async function GET(request: NextRequest) {
       // excludes null-coordinate clinics.
     }
 
-    // Service / treatment search — checks canonical services AND raw scraped names
+    // Service / treatment search — checks canonical services AND raw scraped
+    // names. raw_name is matched INDEPENDENTLY of catalog mapping so a clinic
+    // whose service didn't resolve to the catalog is still found by its raw
+    // offering (e.g. "botox", "dysport"). Canonical name/slug/category/aliases
+    // are gated behind a published, non-dental service row.
     if (q) {
       conditions.push(`(
-        s.name ILIKE $${paramIdx}
-        OR s.slug = $${paramIdx + 1}
-        OR s.category ILIKE $${paramIdx}
-        OR cs.raw_name ILIKE $${paramIdx}
+        cs.raw_name ILIKE $${paramIdx}
+        OR (s.id IS NOT NULL AND (
+          s.name ILIKE $${paramIdx}
+          OR s.slug = $${paramIdx + 1}
+          OR s.category ILIKE $${paramIdx}
+          OR EXISTS (
+            SELECT 1 FROM unnest(COALESCE(s.aliases, '{}')) AS a(alias)
+            WHERE a.alias ILIKE $${paramIdx}
+          )
+        ))
         OR c.name ILIKE $${paramIdx}
         OR b.name ILIKE $${paramIdx}
       )`);
       params.push(`%${q}%`, q);
       paramIdx += 2;
+    }
+
+    // Condition/concern search — strictly slug-based membership (scraped ∪
+    // manual − removed, mirroring concerns/queries.ts). NEVER derived from the
+    // clinic's services and no ILIKE over raw text: a clinic matches only when
+    // its own website evidenced the concern (or an admin asserted it).
+    // All active concerns qualify — including AI-grown unpublished ones.
+    if (condition) {
+      const conditionSlugs = conditionSlugSet(condition);
+      conditions.push(`(
+        EXISTS (
+          SELECT 1 FROM clinic_concerns cc
+          JOIN concerns con ON con.id = cc.concern_id
+          WHERE cc.clinic_id = c.id AND cc.is_active = TRUE
+            AND cc.source IN ('scraped', 'manual')
+            AND con.is_active = TRUE AND con.slug = ANY($${paramIdx}::text[])
+            AND (
+              cc.source = 'manual'
+              OR EXISTS (
+                SELECT 1 FROM clinic_concern_evidence ev
+                WHERE ev.clinic_id = cc.clinic_id AND ev.concern_id = cc.concern_id
+              )
+            )
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM clinic_concerns cc2
+          JOIN concerns con2 ON con2.id = cc2.concern_id
+          WHERE cc2.clinic_id = c.id AND cc2.is_active = TRUE
+            AND cc2.source = 'removed' AND con2.slug = ANY($${paramIdx}::text[])
+        )
+      )`);
+      params.push(conditionSlugs);
+      paramIdx++;
     }
 
     // Location search — checks both clinics table AND clinic_locations for
@@ -261,9 +337,13 @@ export async function GET(request: NextRequest) {
         (
           -- Only canonical-mapped services (skip unmatched scraped nav junk).
           SELECT COALESCE(json_agg(t), '[]'::json) FROM (
-            SELECT DISTINCT sv.name AS name, sv.slug AS slug
+          SELECT DISTINCT sv.name AS name, sv.slug AS slug
             FROM clinic_services cs2
-            JOIN services sv ON sv.id = cs2.service_id AND sv.is_active = TRUE
+            JOIN services sv ON sv.id = cs2.service_id
+              AND sv.is_active = TRUE
+              AND COALESCE(sv.is_published, true) = TRUE
+              AND COALESCE(sv.review_status, 'approved') = 'approved'
+              AND sv.name !~* '(dentistry|dental|orthodont|veneer)'
             WHERE cs2.clinic_id = c.id AND cs2.is_active = TRUE
             LIMIT 8
           ) t
@@ -275,14 +355,14 @@ export async function GET(request: NextRequest) {
           ORDER BY (role = 'cover') DESC, sort_order LIMIT 1
         ) AS cover_image_url,
         (
-          -- Photo strip for the card: cover first, then gallery, then before/after.
+          -- Photo strip for the card: cover first, then gallery.
           SELECT COALESCE(json_agg(url ORDER BY ord, so), '[]'::json) FROM (
             SELECT COALESCE(cdn_url, source_url) AS url,
-              CASE role WHEN 'cover' THEN 0 WHEN 'gallery' THEN 1 ELSE 2 END AS ord,
+              CASE role WHEN 'cover' THEN 0 ELSE 1 END AS ord,
               sort_order AS so
             FROM images
             WHERE entity_type = 'clinic' AND entity_id = c.id
-              AND role IN ('cover', 'gallery', 'before_after')
+              AND role IN ('cover', 'gallery')
               AND scrape_status = 'ok'
             ORDER BY ord, so
             LIMIT 12
@@ -324,7 +404,11 @@ export async function GET(request: NextRequest) {
         LIMIT 1
       ) ploc ON TRUE
       LEFT JOIN clinic_services cs ON cs.clinic_id = c.id AND cs.is_active = TRUE
-      LEFT JOIN services s ON s.id = cs.service_id AND s.is_active = TRUE
+      LEFT JOIN services s ON s.id = cs.service_id
+        AND s.is_active = TRUE
+        AND COALESCE(s.is_published, true) = TRUE
+        AND COALESCE(s.review_status, 'approved') = 'approved'
+        AND s.name !~* '(dentistry|dental|orthodont|veneer)'
       WHERE ${conditions.join(" AND ")}
       ORDER BY c.id, ${orderBy}
       LIMIT 50
@@ -371,6 +455,7 @@ export async function GET(request: NextRequest) {
       total: rows.length,
       query: {
         q,
+        condition,
         location,
         sort,
         tier,

@@ -22,6 +22,7 @@ import type { CheerioAPI } from "cheerio";
 import { query } from "@/lib/db";
 import { fetchHtml, load, normalizeUrl } from "@/lib/scraper/utils";
 import { extractImages, collectImageCandidates, type ImageCandidate } from "@/lib/scraper/images";
+import { isLandscapeImage } from "@/lib/scraper/image-size";
 import { extractProviders } from "@/lib/scraper/providers";
 import {
   extractServices,
@@ -55,6 +56,11 @@ import {
   type ExtractedLocation,
 } from "@/lib/ingest/ai-extract";
 import { discoverContentPages } from "@/lib/ingest/discover";
+import {
+  newBeforeAfterCandidates,
+  scanPageForBeforeAfter,
+  resolveBeforeAfter,
+} from "@/lib/ingest/before-after";
 
 export interface IngestResult {
   domain: string;
@@ -68,9 +74,27 @@ export interface IngestResult {
   g99Locations: number;
   providers?: number;
   services?: number;
+  beforeAfter?: number;
   modelUsed: string;
   escalated: boolean;
   note?: string;
+}
+
+/**
+ * Optional G99 provenance to stamp onto the saved business/clinic. This module
+ * NEVER queries G99 itself (website-only invariant) — the caller (e.g. the admin
+ * "Add website with AI" route) does the harvest-table lookup and passes the ids
+ * in, and saveClinicBundle applies the stamp.
+ */
+export interface IngestOptions {
+  /** Disable vision calls for targeted treatment/location repair runs. */
+  useVision?: boolean;
+  g99?: {
+    g99_clinic_id?: string | number | null;
+    g99_business_id?: string | number | null;
+    g99_tenant_id?: string | number | null;
+    google_place_id?: string | null;
+  };
 }
 
 /** Strip tags to plain text; tags → spaces so words/addresses never run together.
@@ -78,7 +102,7 @@ export interface IngestResult {
  *  which needs <head>/<style>/<script> intact (og:image, CSS-background heroes,
  *  preload-hero links, schema.org logo). Mutating it here silently gutted the
  *  cover/logo detection. */
-function htmlToText($: CheerioAPI): string {
+export function htmlToText($: CheerioAPI): string {
   const $c = load($.html());
   $c("script,style,noscript,svg,iframe,head").remove();
   const html = $c("body").html() ?? $c.html() ?? "";
@@ -143,7 +167,42 @@ function hoursArrayToMap(
   return Object.keys(map).length ? map : null;
 }
 
-export async function ingestClinicByDomain(domain: string): Promise<IngestResult> {
+function normalizeServiceOutput(s: SaveService): SaveService[] {
+  const raw = s.raw_name.replace(/[®™©]/g, "").replace(/\s+/g, " ").trim();
+  const lower = raw.toLowerCase();
+  if (/\b(dentistry|dental|orthodont|veneers?)\b/i.test(raw)) {
+    return [{ ...s, ignored: true, public_decision: "ignored" }];
+  }
+  if (/ruma\s+gold/i.test(raw)) {
+    return [{
+      ...s,
+      general_name: "Microneedling",
+      public_decision: "alias_only",
+      ignored: false,
+    }];
+  }
+  if (/sculptra\s*&\s*radiesse|sculptra\s+and\s+radiesse/i.test(raw)) {
+    return [
+      { ...s, raw_name: "Sculptra", general_name: "Sculptra", public_decision: "public", ignored: false },
+      { ...s, raw_name: "Radiesse", general_name: "Radiesse", public_decision: "public", ignored: false },
+    ];
+  }
+  if (/sylfirm\s*x.*rf\s*microneedling/i.test(raw)) {
+    return [{ ...s, general_name: "Sylfirm X RF Microneedling" }];
+  }
+  if (/everesse/i.test(raw) && /skin\s+tightening/i.test(raw)) {
+    return [{ ...s, general_name: "Everesse Skin Tightening" }];
+  }
+  if (/regenerative aesthetics.*prp\/prf/i.test(lower)) {
+    return [{ ...s, general_name: "PRP/PRF" }];
+  }
+  return [s];
+}
+
+export async function ingestClinicByDomain(
+  domain: string,
+  opts: IngestOptions = {}
+): Promise<IngestResult> {
   const base: IngestResult = {
     domain,
     status: "failed",
@@ -205,7 +264,15 @@ export async function ingestClinicByDomain(domain: string): Promise<IngestResult
       serviceCandidates.push({ name: c.name.trim(), category: c.category ?? null, url: c.scraped_from_url ?? null });
     }
   };
+
+  // Before/after candidates — collected across all pages, resolved after images.
+  // Homepage contributes only filename-certain matches (isHome suppresses the
+  // gallery sweep). Classification rules live in ingest/before-after.ts.
+  const baCands = newBeforeAfterCandidates();
+  scanPageForBeforeAfter(baCands, $home, finalUrl, { isHome: true, candidates: imageCandidates });
+
   addSvcCands(extractServicesFromNav($home, finalUrl));
+  addSvcCands(extractServiceAnchors($home, finalUrl));
   for (const u of await discoverContentPages($home, finalUrl)) {
     const r = await fetchHtml(u);
     if (!r) continue;
@@ -215,15 +282,18 @@ export async function ingestClinicByDomain(domain: string): Promise<IngestResult
     for (const c of collectBookingLinkCandidates($p, u)) {
       if (!bookingCandidates.some((b) => b.href === c.href)) bookingCandidates.push(c);
     }
-    addProvCands(collectImageCandidates($p, u));
+    const pageImgs = collectImageCandidates($p, u);
+    addProvCands(pageImgs);
     hProviders.push(...extractProviders($p, u));
     addSvcCands(extractServicesFromNav($p, u));
+    addSvcCands(extractServiceAnchors($p, u));
     if (SERVICES_URL_RE.test(u)) {
       const pageSvcs = extractServices($p, u);
       hServices.push(...pageSvcs);
       addSvcCands(pageSvcs);
       addSvcCands(extractServiceAnchors($p, u));
     }
+    scanPageForBeforeAfter(baCands, $p, u, { candidates: pageImgs });
     if (!hBooking) hBooking = extractBookingUrl($p, u);
     if (!hHours) hHours = extractHours($p, r.html);
   }
@@ -238,6 +308,7 @@ export async function ingestClinicByDomain(domain: string): Promise<IngestResult
   const aiInput = {
     domain, pages, imageCandidates, bookingCandidates, providerImageCandidates,
     serviceCandidates, knownTreatments,
+    useVision: opts.useVision,
   };
   let extracted: ExtractedClinic;
   let modelUsed: string;
@@ -294,10 +365,35 @@ export async function ingestClinicByDomain(domain: string): Promise<IngestResult
   const altOf = (u: string) => imageCandidates.find((c) => c.url === u)?.alt || null;
   const validImg = (u: string | null | undefined) => (u && candUrls.has(u) ? u : null);
 
-  const coverUrl = validImg(extracted.cover_image_url) ?? hCover?.source_url ?? null;
   const logoUrl = validImg(extracted.logo_url) ?? hLogo?.source_url ?? null;
   let galleryUrls = (extracted.gallery_image_urls ?? []).filter((u) => candUrls.has(u));
   if (galleryUrls.length === 0) galleryUrls = hGallery.map((g) => g.source_url);
+
+  // Cover DIMENSION check — the hero slot is landscape, so a portrait photo
+  // (e.g. a 706x1024 "welcome pic") must never become the cover, regardless of
+  // whether the AI or the heuristic picked it. Walk the ranked candidates (AI
+  // pick → heuristic pick → AI gallery picks) and take the first that probes
+  // landscape-or-square; unknown dims (unreachable/odd format) are accepted so
+  // a flaky host can't wipe the cover. If everything probes portrait, fall back
+  // to the original pick rather than shipping no cover at all.
+  const coverRanked = [
+    ...new Set(
+      [validImg(extracted.cover_image_url), hCover?.source_url, ...galleryUrls].filter(
+        (u): u is string => !!u && u !== logoUrl
+      )
+    ),
+  ];
+  // The hero slot is ~1.9:1, so demand a genuinely wide image (w/h ≥ 1.2) —
+  // squares and portraits fall through to the gallery.
+  let coverUrl: string | null = null;
+  for (const u of coverRanked) {
+    if ((await isLandscapeImage(u, { minRatio: 1.2 })) !== false) {
+      coverUrl = u;
+      break;
+    }
+  }
+  if (!coverUrl) coverUrl = coverRanked[0] ?? null;
+
   galleryUrls = galleryUrls.filter((u) => u !== coverUrl && u !== logoUrl);
 
   const images: SaveImages = {
@@ -308,6 +404,17 @@ export async function ingestClinicByDomain(domain: string): Promise<IngestResult
       ...galleryUrls.map((u) => ({ source_url: u, alt_text: altOf(u) })),
     ],
   };
+
+  // 4a) before/after — resolve the collected candidates (AI-classify the
+  //     uncertain, de-dup vs cover/logo/gallery, cap). De-dup is load-bearing:
+  //     the images unique key excludes role, so a URL already used as
+  //     cover/gallery would make the before_after insert a silent no-op.
+  const beforeAfter = await resolveBeforeAfter(baCands, {
+    excludeUrls: [logoUrl, coverUrl, ...galleryUrls].filter((u): u is string => !!u),
+    businessName,
+    domain,
+  });
+  images.before_after = beforeAfter;
 
   // 4b) booking + hours — AI pick (validated against the candidate lists) first,
   //     heuristic fallback second.
@@ -369,13 +476,20 @@ export async function ingestClinicByDomain(domain: string): Promise<IngestResult
   //     save layer resolves it to a canonical row (curated → DB catalog → create
   //     origin='ai'). Heuristic extractServices output is the fallback.
   const seenSvc = new Set<string>();
+  const svcUrlByName = new Map(
+    serviceCandidates.map((s) => [s.name.trim().toLowerCase(), s.url ?? null])
+  );
   let services: SaveService[] = (extracted.services ?? [])
     .filter((s) => s.raw_name?.trim())
-    .map((s) => ({
+    .flatMap((s) => normalizeServiceOutput({
       raw_name: s.raw_name.trim(),
       general_name: firstNonEmpty(s.general_name) ?? null,
       general_category: firstNonEmpty(s.category) ?? null,
-      scraped_from_url: finalUrl,
+      scraped_from_url:
+        firstNonEmpty(s.source_url, svcUrlByName.get(s.raw_name.trim().toLowerCase())) ??
+        finalUrl,
+      public_decision: s.public_decision,
+      ignored: s.public_decision === "ignored",
     }))
     .filter((s) => {
       const k = s.raw_name.toLowerCase();
@@ -383,6 +497,57 @@ export async function ingestClinicByDomain(domain: string): Promise<IngestResult
       seenSvc.add(k);
       return true;
     });
+  const serviceHomePath = (() => {
+    try {
+      return new URL(finalUrl).pathname.replace(/\/+$/, "") || "/";
+    } catch {
+      return "/";
+    }
+  })();
+  const seenSvcUrl = new Set(
+    services
+      .map((s) => s.scraped_from_url)
+      .filter((u): u is string => !!u)
+      .map((u) => {
+        try {
+          return new URL(u).href.replace(/\/+$/, "");
+        } catch {
+          return u.replace(/\/+$/, "");
+        }
+      })
+  );
+  for (const cand of serviceCandidates) {
+    if (!cand.url) continue;
+    const urlKey = (() => {
+      try {
+        return new URL(cand.url!).href.replace(/\/+$/, "");
+      } catch {
+        return cand.url!.replace(/\/+$/, "");
+      }
+    })();
+    if (seenSvcUrl.has(urlKey)) continue;
+    try {
+      const p = new URL(cand.url).pathname.replace(/\/+$/, "") || "/";
+      if (p === serviceHomePath || p === "/") continue;
+    } catch {}
+
+    const fallback = normalizeServiceOutput({
+      raw_name: cand.name.trim(),
+      general_name: cand.name.trim(),
+      general_category: cand.category ?? null,
+      scraped_from_url: cand.url,
+      public_decision: "public",
+      ignored: false,
+    }).filter((s) => !s.ignored);
+    if (fallback.length === 0) continue;
+    for (const s of fallback) {
+      const k = s.raw_name.toLowerCase();
+      if (seenSvc.has(k)) continue;
+      seenSvc.add(k);
+      services.push(s);
+    }
+    seenSvcUrl.add(urlKey);
+  }
   if (services.length === 0 && hServices.length > 0) {
     const seenH = new Set<string>();
     services = hServices
@@ -453,6 +618,9 @@ export async function ingestClinicByDomain(domain: string): Promise<IngestResult
     reviews: [],
     images,
     providers,
+    // G99 provenance (optional) — stamped by saveClinicBundle when the caller
+    // supplied a harvest-table match; absent for a plain website-only ingest.
+    ...(opts.g99 ?? {}),
   };
   const saved = await saveClinicBundle(bundle, { overwrite: true });
 
@@ -466,6 +634,7 @@ export async function ingestClinicByDomain(domain: string): Promise<IngestResult
     images: saved.images,
     providers: providers.length,
     services: saved.servicesMatched + saved.servicesAuto + saved.servicesUnmatched,
+    beforeAfter: beforeAfter.length,
     modelUsed,
     escalated,
   };

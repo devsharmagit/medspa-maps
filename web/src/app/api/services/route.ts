@@ -3,9 +3,16 @@ import pool from "@/lib/db";
 
 export async function GET() {
   try {
-    // Prefer canonical services table; fall back to distinct raw names from clinic_services
+    // Prefer public-approved canonical services; fall back to distinct raw names
+    // only when no service catalog exists.
     const canonical = await pool.query(
-      `SELECT id, name, slug FROM services WHERE is_active = TRUE ORDER BY name`
+      `SELECT id, name, slug
+         FROM services
+        WHERE is_active = TRUE
+          AND COALESCE(is_published, true) = TRUE
+          AND COALESCE(review_status, 'approved') = 'approved'
+          AND name !~* '(dentistry|dental|orthodont|veneer)'
+        ORDER BY name`
     );
 
     if (canonical.rows.length > 0) {
@@ -20,6 +27,7 @@ export async function GET() {
          slugify(raw_name)                  AS slug
        FROM clinic_services
        WHERE is_active = TRUE
+         AND service_id IS NULL
          AND length(raw_name) BETWEEN 3 AND 60
          AND raw_name ~ '^[A-Za-z]'
        ORDER BY raw_name`

@@ -6,6 +6,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { FeaturedClinic } from "@/lib/clinics/featured";
 import { useLocation } from "@/lib/location/location-context";
+import {
+  useTreatmentConditionOptions,
+  splitSearchSelection,
+} from "@/lib/search/search-options";
 import { toStateCode } from "@/lib/location/states";
 import { Button } from "@/components/ui/button";
 import {
@@ -332,25 +336,9 @@ export function FindClinicSection({ clinics }: { clinics: FeaturedClinic[] }) {
   const [location, setLocation] = useState("");
   const [locationGeo, setLocationGeo] = useState<{ lat: number; lng: number } | null>(null);
   const [selectedRating, setSelectedRating] = useState("");
-  const [serviceOptions, setServiceOptions] = useState<DropdownOption[]>([]);
-
-  // Fetch treatment options from the live catalog (same source as the hero bar
-  // and /search, so AI-grown treatments appear here too).
-  useEffect(() => {
-    fetch("/api/services")
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.services) {
-          setServiceOptions(
-            data.services.map((s: { name: string; slug: string }) => ({
-              label: s.name,
-              value: s.slug,
-            })),
-          );
-        }
-      })
-      .catch(() => {});
-  }, []);
+  // Grouped Treatments + Conditions options (same source as the hero bar and
+  // /search, so AI-grown treatments and concerns appear here too).
+  const serviceOptions = useTreatmentConditionOptions();
 
   // Prefill the location box ONLY after the visitor explicitly clicks "Use my
   // current location" (never from a position rehydrated from storage on load),
@@ -427,7 +415,10 @@ export function FindClinicSection({ clinics }: { clinics: FeaturedClinic[] }) {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     const params = new URLSearchParams();
-    if (selectedTreatment.trim()) params.set("q", selectedTreatment.trim());
+    // One dropdown holds EITHER a treatment (→ q) OR a condition (→ condition).
+    const { q, condition } = splitSearchSelection(selectedTreatment);
+    if (q) params.set("q", q);
+    if (condition) params.set("condition", condition);
     if (location.trim()) params.set("location", location.trim());
     if (selectedRating) params.set("rating", selectedRating);
     // Picked suggestion carries exact coordinates → instant radius search.
@@ -460,13 +451,13 @@ export function FindClinicSection({ clinics }: { clinics: FeaturedClinic[] }) {
               options={serviceOptions}
               value={selectedTreatment}
               onChange={setSelectedTreatment}
-              placeholder="Search treatments…"
+              placeholder="Treatment or condition…"
               icon={
                 <span className="flex size-5 items-center justify-center rounded-full bg-brand-magenta text-white">
                   <Sparkles className="size-3" aria-hidden />
                 </span>
               }
-              label="Treatment"
+              label="Treatment / Condition"
               allowFreeText
             />
           </div>

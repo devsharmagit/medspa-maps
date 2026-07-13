@@ -64,10 +64,10 @@ export async function getConcernData(slug: string): Promise<ConcernPageData | nu
       [c.id]
     ),
     pool.query(
-      // EFFECTIVE membership: a clinic appears for a concern when it is DERIVED
-      // (offers a service curated for this concern via concern_services) OR has
-      // an active manual override (clinic_concerns source='manual'), and is NOT
-      // suppressed by an active removed override (source='removed').
+      // EFFECTIVE membership: a clinic appears for a concern when its own
+      // website evidences it (clinic_concerns source='scraped') OR an admin
+      // added it (source='manual'), and it is NOT suppressed by an active
+      // removed override. Service-derived guessing is gone.
       `SELECT DISTINCT ON (cl.id)
          cl.id, cl.name, cl.slug, cl.city, cl.state, cl.website,
          cl.booking_url, cl.avg_rating, cl.review_count, cl.verified, cl.featured,
@@ -86,18 +86,18 @@ export async function getConcernData(slug: string): Promise<ConcernPageData | nu
          ) AS cover_image
        FROM clinics cl
        WHERE cl.is_active = true
-         AND (
-           EXISTS (
-             SELECT 1 FROM concern_services cs
-             JOIN clinic_services cls ON cls.service_id = cs.service_id AND cls.is_active = true
-             WHERE cs.concern_id = $1 AND cls.clinic_id = cl.id
+         AND EXISTS (
+           SELECT 1 FROM clinic_concerns cc
+         WHERE cc.clinic_id = cl.id AND cc.concern_id = $1
+           AND cc.source IN ('scraped','manual') AND cc.is_active = true
+           AND (
+             cc.source = 'manual'
+             OR EXISTS (
+               SELECT 1 FROM clinic_concern_evidence ev
+               WHERE ev.clinic_id = cc.clinic_id AND ev.concern_id = cc.concern_id
+             )
            )
-           OR EXISTS (
-             SELECT 1 FROM clinic_concerns cc
-             WHERE cc.clinic_id = cl.id AND cc.concern_id = $1
-               AND cc.source = 'manual' AND cc.is_active = true
-           )
-         )
+       )
          AND NOT EXISTS (
            SELECT 1 FROM clinic_concerns cc
            WHERE cc.clinic_id = cl.id AND cc.concern_id = $1

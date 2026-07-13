@@ -25,6 +25,11 @@ import {
   SearchableDropdown,
   type DropdownOption,
 } from "@/components/ui/searchable-dropdown";
+import {
+  useTreatmentConditionOptions,
+  splitSearchSelection,
+  conditionValue,
+} from "@/lib/search/search-options";
 import { useLocation } from "@/lib/location/location-context";
 import { toStateCode } from "@/lib/location/states";
 import { NOTICE_REFRESH_EVENT } from "@/components/location/usa-only-notice";
@@ -156,6 +161,7 @@ export function SearchResults() {
   const router = useRouter();
 
   const q = searchParams.get("q") || "";
+  const condition = searchParams.get("condition") || "";
   const location = searchParams.get("location") || "";
   const radius = searchParams.get("radius") || "";
   const rating = searchParams.get("rating") || "";
@@ -174,10 +180,13 @@ export function SearchResults() {
   // Track if we need to show a "share location" hint on the distance filter
   const [showShareHint, setShowShareHint] = useState(false);
 
-  // Search-bar state
-  const [searchService, setSearchService] = useState(q);
+  // Search-bar state. The single dropdown holds EITHER a treatment (plain
+  // value → q) OR a condition (encoded `c:<slug>` → condition) — never both.
+  const [searchService, setSearchService] = useState(
+    condition ? conditionValue(condition) : q
+  );
   const [searchState, setSearchState] = useState(location);
-  const [serviceOptions, setServiceOptions] = useState<DropdownOption[]>([]);
+  const serviceOptions = useTreatmentConditionOptions();
 
   // Detected visitor location (shared context). We do NOT auto-prompt — the user
   // opts in via "Use my current location" in the location field (handleNearMe).
@@ -204,23 +213,6 @@ export function SearchResults() {
   // its result into the right URL state (pin the visitor's own state + coords).
   const nearMeRef = useRef(false);
 
-  // Fetch service options for the dropdown
-  useEffect(() => {
-    fetch("/api/services")
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.services) {
-          setServiceOptions(
-            data.services.map((s: { name: string; slug: string }) => ({
-              label: s.name,
-              value: s.slug,
-            }))
-          );
-        }
-      })
-      .catch(() => {});
-  }, []);
-
   const fetchResults = useCallback(async () => {
     const myId = ++fetchIdRef.current;
     setLoading(true);
@@ -228,6 +220,7 @@ export function SearchResults() {
     try {
       const params = new URLSearchParams();
       if (q) params.set("q", q);
+      if (condition) params.set("condition", condition);
       if (location) params.set("location", location);
       if (sort) params.set("sort", sort);
       if (radius) params.set("radius", radius);
@@ -249,7 +242,9 @@ export function SearchResults() {
     } finally {
       if (myId === fetchIdRef.current) setLoading(false);
     }
-  }, [q, location, sort, radius, rating, lat, lng]);
+    // setState functions are stable; listed to satisfy the React Compiler's
+    // inferred dependencies (it refuses to memoize otherwise).
+  }, [q, condition, location, sort, radius, rating, lat, lng, setLoading, setError, setResults, setTotal]);
 
   useEffect(() => {
     fetchResults();
@@ -260,13 +255,13 @@ export function SearchResults() {
   // detected-state changes, so it never fights a manual edit.
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect */
-    setSearchService(q);
+    setSearchService(condition ? conditionValue(condition) : q);
     // Show the URL's location; otherwise the detected City, ST — but ONLY after an
     // explicit request (never from a position rehydrated at load).
     setSearchState(location || (requested ? cityStateLabel(userLoc) : ""));
     /* eslint-enable react-hooks/set-state-in-effect */
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, location, requested, userLoc?.city, userLoc?.stateCode]);
+  }, [q, condition, location, requested, userLoc?.city, userLoc?.stateCode]);
 
   // Replace (not push) filter changes so browser back goes to the previous PAGE,
   // not the previous filter state.
@@ -325,8 +320,12 @@ export function SearchResults() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
+    // The dropdown value is either a treatment (→ q) or a `c:<slug>` condition
+    // (→ condition); write one and clear the other (no combos supported).
+    const sel = splitSearchSelection(searchService);
     pushParams({
-      q: searchService.trim() || null,
+      q: sel.q || null,
+      condition: sel.condition || null,
       location: searchState.trim() || null,
     });
   };
@@ -483,8 +482,10 @@ export function SearchResults() {
   const stateName =
     STATES.find((s) => s.abbr.toLowerCase() === location.toLowerCase())?.name ||
     location;
-  const serviceName =
-    serviceOptions.find((s) => s.value === q)?.label || q || "Treatments";
+  const serviceName = condition
+    ? serviceOptions.find((s) => s.value === conditionValue(condition))?.label ||
+      condition
+    : serviceOptions.find((s) => s.value === q)?.label || q || "Treatments";
 
   // Which distance band (if any) is selected. Snap any radius to a band (exact,
   // else the smallest band that covers it) so a URL value like radius=10 — which
@@ -532,8 +533,13 @@ export function SearchResults() {
               options={serviceOptions}
               value={searchService}
               onChange={setSearchService}
-              onSelect={(opt) => updateParam("q", opt.value)}
-              placeholder="Treatment or clinic…"
+              onSelect={(opt) => {
+                // Picking auto-applies: a condition sets `condition` and clears
+                // `q`; a treatment does the reverse (combos unsupported).
+                const sel = splitSearchSelection(opt.value);
+                pushParams({ q: sel.q || null, condition: sel.condition || null });
+              }}
+              placeholder="Treatment, condition, or clinic…"
               className="flex-1"
               allowFreeText
             />
@@ -769,7 +775,11 @@ export function SearchResults() {
                 </Button>
               </div>
             ) : results.length === 0 ? (
-              <EmptyState q={q} location={stateName} onClear={clearFilters} />
+              <EmptyState
+                q={condition ? serviceName : q}
+                location={stateName}
+                onClear={clearFilters}
+              />
             ) : (
               <div className="flex flex-col gap-5">
                 {results.map((clinic) => (

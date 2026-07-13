@@ -74,7 +74,7 @@ function CountUp({
   return <>{display}{suffix}</>;
 }
 
-const stats = [
+const stats: Array<{ value: number; suffix: string; label: string; isDecimal?: boolean }> = [
   { value: 100, suffix: "+", label: "Verified Clinics" },
   { value: 100, suffix: "+", label: "Cities Covered" },
   { value: 48, suffix: "", label: "States Represented" },
@@ -121,7 +121,7 @@ export default function StatsSection() {
                   end={stat.value} 
                   suffix={stat.suffix} 
                   start={isVisible} 
-                  isDecimal={stat.isDecimal} 
+                  isDecimal={stat.isDecimal ?? false} 
                   duration={2500} 
                 />
               </span>

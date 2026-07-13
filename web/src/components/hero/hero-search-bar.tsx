@@ -5,14 +5,15 @@ import { useEffect, useState } from "react";
 import { MapPin, Search, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import {
-  SearchableDropdown,
-  type DropdownOption,
-} from "@/components/ui/searchable-dropdown";
+import { SearchableDropdown } from "@/components/ui/searchable-dropdown";
 import {
   LocationTypeahead,
   type LocationSelection,
 } from "@/components/ui/location-typeahead";
+import {
+  useTreatmentConditionOptions,
+  splitSearchSelection,
+} from "@/lib/search/search-options";
 import { useLocation } from "@/lib/location/location-context";
 import { cn } from "@/lib/utils";
 
@@ -24,7 +25,7 @@ export function HeroSearchBar({ className }: { className?: string }) {
   // Coordinates of the picked suggestion (null for free text — the search API
   // resolves bare zips / "City, ST" server-side as a fallback).
   const [locationGeo, setLocationGeo] = useState<{ lat: number; lng: number } | null>(null);
-  const [serviceOptions, setServiceOptions] = useState<DropdownOption[]>([]);
+  const serviceOptions = useTreatmentConditionOptions();
 
   // Prefill ONLY after the visitor clicks "Use my current location" and we
   // resolve a US city/state (unless they've already typed something). Never on a
@@ -43,27 +44,13 @@ export function HeroSearchBar({ className }: { className?: string }) {
     }
   }, [requested, userLocation?.city, userLocation?.stateCode, userLocation?.outsideUS]);
 
-  // Fetch services from DB
-  useEffect(() => {
-    fetch("/api/services")
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.services) {
-          setServiceOptions(
-            data.services.map((s: { name: string; slug: string }) => ({
-              label: s.name,
-              value: s.slug,
-            }))
-          );
-        }
-      })
-      .catch(() => {});
-  }, []);
-
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     const params = new URLSearchParams();
-    if (service.trim()) params.set("q", service.trim());
+    // One dropdown holds EITHER a treatment (→ q) OR a condition (→ condition).
+    const { q, condition } = splitSearchSelection(service);
+    if (q) params.set("q", q);
+    if (condition) params.set("condition", condition);
     if (location.trim()) params.set("location", location.trim());
     // Picked suggestion carries exact coordinates → instant radius search.
     if (locationGeo) {
@@ -92,13 +79,13 @@ export function HeroSearchBar({ className }: { className?: string }) {
           options={serviceOptions}
           value={service}
           onChange={setService}
-          placeholder="Search treatments…"
+          placeholder="Treatment or condition…"
           icon={
             <span className="flex size-5 items-center justify-center rounded-full bg-brand-magenta text-white">
               <Sparkles className="size-3" aria-hidden />
             </span>
           }
-          label="Treatment"
+          label="Treatment / Condition"
           allowFreeText
         />
       </div>

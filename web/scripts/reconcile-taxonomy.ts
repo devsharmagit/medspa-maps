@@ -11,7 +11,8 @@
  *      service_id / match_status / match_confidence reflect the 15. 'ignored' rows
  *      are left untouched.
  *   4. UPSERT the 10 concerns (+ overview/details editorial from CONCERN_CATALOG).
- *   5. HARD-DELETE every concern outside the Phase-0 set (drops the test concern).
+ *   5. HARD-DELETE every origin='seed' concern outside the Phase-0 set (AI-grown
+ *      origin='ai' concerns from the concerns ingest survive re-runs).
  *   6. REBUILD concern_services from the curated CANONICAL_CONCERNS.serviceSlugs map.
  *   7. Recompute hero_rating / hero_review_count for every service.
  *
@@ -135,14 +136,14 @@ async function reconcile() {
       const ed = editorialBySlug.get(def.slug);
       await client.query(
         `INSERT INTO concerns
-           (name, slug, overview, details, aliases, data_source, is_published, is_active, updated_at)
-         VALUES ($1,$2,$3,$4::jsonb,$5,'curated',true,true,NOW())
+           (name, slug, overview, details, aliases, data_source, is_published, is_active, origin, updated_at)
+         VALUES ($1,$2,$3,$4::jsonb,$5,'curated',true,true,'seed',NOW())
          ON CONFLICT (slug) DO UPDATE SET
            name=EXCLUDED.name,
            overview=COALESCE(EXCLUDED.overview, concerns.overview),
            details=COALESCE(EXCLUDED.details, concerns.details),
            aliases=EXCLUDED.aliases,
-           is_published=true, is_active=true, updated_at=NOW()`,
+           is_published=true, is_active=true, origin='seed', updated_at=NOW()`,
         [
           def.name, def.slug, ed?.overview ?? null,
           ed ? JSON.stringify(ed.details) : null, def.aliases,
@@ -154,7 +155,7 @@ async function reconcile() {
     // ── 5. DELETE concerns outside the Phase-0 set ───────────────────────────
     const concernSlugs = CANONICAL_CONCERNS.map((c) => c.slug);
     const delCon = await client.query(
-      `DELETE FROM concerns WHERE slug <> ALL($1::text[]) RETURNING slug`,
+      `DELETE FROM concerns WHERE slug <> ALL($1::text[]) AND origin = 'seed' RETURNING slug`,
       [concernSlugs]
     );
     console.log(

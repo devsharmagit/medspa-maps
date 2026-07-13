@@ -270,8 +270,11 @@ export async function rescrapeClinic(clinicId: string): Promise<RescrapeClinicRe
       }
 
       // ── image refresh ─────────────────────────────────────────────────────
-      // Replace SCRAPED image rows (cover/gallery/before_after) with this run's
-      // set so cover/junk fixes propagate on rescrape. Two protections:
+      // Replace SCRAPED cover/gallery rows with this run's set so cover/junk
+      // fixes propagate on rescrape. before_after is INTENTIONALLY excluded:
+      // this rescrape path's detector never produces before/after images, so
+      // deleting them here would wipe them every night — they're refreshed only
+      // by the AI ingest (ingestClinicByDomain). Two protections:
       //   * skip entirely when the scrape found no images (parse hiccup must
       //     never wipe a clinic's gallery — mirrors the zero-services safety)
       //   * curated rows (cdn_url or storage_key set → uploaded/processed by
@@ -293,7 +296,7 @@ export async function rescrapeClinic(clinicId: string): Promise<RescrapeClinicRe
         await client.query(
           `DELETE FROM images
             WHERE entity_type = 'clinic' AND entity_id = $1
-              AND role IN ('cover', 'gallery', 'before_after')
+              AND role IN ('cover', 'gallery')
               AND cdn_url IS NULL AND storage_key IS NULL`,
           [clinicId]
         );

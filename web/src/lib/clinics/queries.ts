@@ -57,6 +57,9 @@ export interface ClinicPageData {
   };
   locations: ClinicLocation[];
   treatments: { name: string; slug: string | null; price_from: number | null; price_unit: string | null }[];
+  /** Evidence-based concerns this clinic treats (scraped ∪ manual − removed),
+   *  each with the treatments its own website pairs with the concern. */
+  concerns: { name: string; slug: string }[];
   gallery: { source_url: string; alt_text: string | null }[];
   gallery_total: number;
   before_after: { source_url: string; alt_text: string | null }[];
@@ -107,7 +110,7 @@ export async function getClinicData(slug: string): Promise<ClinicPageData | null
   if (clinic.rows.length === 0) return null;
   const c = clinic.rows[0];
 
-  const [gallery, galleryCount, beforeAfter, beforeAfterCount, treatments, reviews, locationsResult, providersResult] = await Promise.all([
+  const [gallery, galleryCount, beforeAfter, beforeAfterCount, treatments, concerns, reviews, locationsResult, providersResult] = await Promise.all([
     pool.query(
       `SELECT source_url, alt_text
        FROM images
@@ -149,11 +152,40 @@ export async function getClinicData(slug: string): Promise<ClinicPageData | null
          SELECT DISTINCT ON (s.id)
            s.name, s.slug, cls.price_from, cls.price_unit
          FROM clinic_services cls
-         JOIN services s ON s.id = cls.service_id AND s.is_active = true
+         JOIN services s ON s.id = cls.service_id
+          AND s.is_active = true
+          AND COALESCE(s.is_published, true) = true
+          AND COALESCE(s.review_status, 'approved') = 'approved'
+          AND s.name !~* '(dentistry|dental|orthodont|veneer)'
          WHERE cls.clinic_id = $1 AND cls.is_active = true
          ORDER BY s.id, cls.price_from ASC NULLS LAST
        ) t
        ORDER BY t.name`,
+      [c.id]
+    ),
+    pool.query(
+      // Evidence-based concerns: website-scraped (source='scraped') plus admin
+      // manual additions, minus admin 'removed' suppressions. Never derived
+      // from services. Display is the condition name only — the treatment
+      // pairing stays in clinic_concern_evidence but is not surfaced here.
+      `SELECT co.name, co.slug
+       FROM clinic_concerns cc
+       JOIN concerns co ON co.id = cc.concern_id AND co.is_active = true
+       WHERE cc.clinic_id = $1 AND cc.is_active = true
+         AND cc.source IN ('scraped','manual')
+         AND (
+           cc.source = 'manual'
+           OR EXISTS (
+             SELECT 1 FROM clinic_concern_evidence ev
+             WHERE ev.clinic_id = cc.clinic_id AND ev.concern_id = cc.concern_id
+           )
+         )
+         AND NOT EXISTS (
+           SELECT 1 FROM clinic_concerns cr
+           WHERE cr.clinic_id = cc.clinic_id AND cr.concern_id = cc.concern_id
+             AND cr.source = 'removed' AND cr.is_active = true
+         )
+       ORDER BY co.name`,
       [c.id]
     ),
     pool.query(
@@ -231,6 +263,7 @@ export async function getClinicData(slug: string): Promise<ClinicPageData | null
       stat_patients: c.stat_patients,
     },
     treatments: treatments.rows,
+    concerns: concerns.rows,
     gallery: gallery.rows,
     gallery_total: galleryCount.rows[0]?.total ?? 0,
     before_after: beforeAfter.rows,

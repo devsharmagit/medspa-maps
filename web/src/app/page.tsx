@@ -10,7 +10,7 @@ import { ArticleSection } from "@/components/hero/article-section";
 import StatsSection from "@/components/hero/stat-section";
 import { getFeaturedClinics } from "@/lib/clinics/featured";
 import { getPopularTreatments } from "@/lib/treatments/popular";
-import { getAllProviders } from "@/lib/providers/queries";
+import { SPOTLIGHT_PROVIDERS } from "@/lib/providers/spotlight-static";
 import Image from "next/image";
 
 // Queries the database, so it can't be prerendered at Docker build time —
@@ -18,11 +18,13 @@ import Image from "next/image";
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const [popularTreatments, featuredClinics, spotlightProviders] = await Promise.all([
+  const [popularTreatments, featuredClinics] = await Promise.all([
     getPopularTreatments(),
     getFeaturedClinics(5),
-    getAllProviders(5, { requireImage: true }),
   ]);
+  // Static owner-of-each-featured-clinic list (no runtime query) — see
+  // src/lib/providers/spotlight-static.ts.
+  const spotlightProviders = SPOTLIGHT_PROVIDERS;
 
   return (
     <main className="relative flex flex-1 flex-col items-center bg-[#FDFDFD] gap-10 isolate w-full overflow-x-clip">

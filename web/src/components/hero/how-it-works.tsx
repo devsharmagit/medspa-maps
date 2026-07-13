@@ -6,7 +6,7 @@ const steps = [
   {
     id: 1,
     title: "SEARCH",
-    description: "Find treatments & clinic near you!",
+    description: "Find treatments & clinics near you!",
     number: "1",
     svg: "/images/landingpage/1.svg",
     leftOffset: -15,
@@ -14,7 +14,7 @@ const steps = [
   {
     id: 2,
     title: "COMPARE",
-    description: "Compare prices revives & results.",
+    description: "Compare reviews & results.",
     number: "2",
     svg: "/images/landingpage/2.svg",
     leftOffset: -24.25,
@@ -22,7 +22,7 @@ const steps = [
   {
     id: 3,
     title: "BOOK",
-    description: "Book your appointment online.",
+    description: "Book an appointment on their website.",
     number: "3",
     svg: "/images/landingpage/3.svg",
     leftOffset: -10.5,

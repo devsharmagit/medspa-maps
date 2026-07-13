@@ -7,13 +7,14 @@ import { useState, useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
 import { TreatmentsNavDesktop, TreatmentsNavMobile } from "@/components/hero/treatments-nav";
+import { ConditionsNavDesktop, ConditionsNavMobile } from "@/components/hero/conditions-nav";
 import { scrollToListYourMedspa } from "@/lib/scroll-to-list-your-medspa";
 import { cn } from "@/lib/utils";
 
 const navLinks = [
-  { label: "Treatments", href: "/treatments", hasDropdown: true },
+  { label: "Treatments", href: "/treatments", dropdown: "treatments" },
   { label: "Clinics", href: "/search" },
-  { label: "Conditions", href: "/conditions" },
+  { label: "Conditions", href: "/conditions", dropdown: "conditions" },
 ] as const;
 
 export function HeroHeader({ className }: { className?: string }) {
@@ -69,10 +70,14 @@ export function HeroHeader({ className }: { className?: string }) {
         </Link>
 
         <nav className="hidden items-center gap-7 xl:flex" aria-label="Main">
-          {navLinks.map((link) =>
-            "hasDropdown" in link && link.hasDropdown ? (
-              <TreatmentsNavDesktop key={link.label} />
-            ) : (
+          {navLinks.map((link) => {
+            if ("dropdown" in link && link.dropdown === "treatments") {
+              return <TreatmentsNavDesktop key={link.label} />;
+            }
+            if ("dropdown" in link && link.dropdown === "conditions") {
+              return <ConditionsNavDesktop key={link.label} />;
+            }
+            return (
               <Link
                 key={link.label}
                 href={link.href}
@@ -80,8 +85,8 @@ export function HeroHeader({ className }: { className?: string }) {
               >
                 {link.label}
               </Link>
-            ),
-          )}
+            );
+          })}
         </nav>
 
         <div className="flex items-center gap-2 sm:gap-[9px]">
@@ -117,10 +122,14 @@ export function HeroHeader({ className }: { className?: string }) {
       >
         <div className="border-t border-white/15 bg-gradient-to-r from-[#7b2d6b] via-[#9b3a6e] to-[#b6663f] px-4 pb-6 pt-2 sm:px-6">
           <nav className="flex flex-col" aria-label="Mobile">
-            {navLinks.map((link) =>
-              "hasDropdown" in link && link.hasDropdown ? (
-                <TreatmentsNavMobile key={link.label} onNavigate={() => setMenuOpen(false)} />
-              ) : (
+            {navLinks.map((link) => {
+              if ("dropdown" in link && link.dropdown === "treatments") {
+                return <TreatmentsNavMobile key={link.label} onNavigate={() => setMenuOpen(false)} />;
+              }
+              if ("dropdown" in link && link.dropdown === "conditions") {
+                return <ConditionsNavMobile key={link.label} onNavigate={() => setMenuOpen(false)} />;
+              }
+              return (
                 <Link
                   key={link.label}
                   href={link.href}
@@ -129,8 +138,8 @@ export function HeroHeader({ className }: { className?: string }) {
                 >
                   {link.label}
                 </Link>
-              ),
-            )}
+              );
+            })}
           </nav>
           <Button
             variant="outline"

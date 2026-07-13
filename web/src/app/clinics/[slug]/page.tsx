@@ -14,10 +14,12 @@ import { Footer } from "@/components/footer";
 import { getClinicData } from "@/lib/clinics/queries";
 import { toStateCode } from "@/lib/location/states";
 import { ClinicGallery } from "./gallery";
+import { ClinicBeforeAfterCarousel } from "./before-after";
 import { ClinicLocationsSection } from "./locations";
 import { HoursCard } from "./hours";
 import { OtherProvidersCarousel } from "@/components/shared/other-providers-carousel";
 import { ClinicTreatmentsCarousel } from "@/components/shared/clinic-treatments-carousel";
+import { ClinicConcernsSection } from "./concerns-section";
 import { ClinicReviewsSection } from "@/components/shared/clinic-reviews-section";
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
 import { ClinicSocialLinks } from "@/components/shared/clinic-social-links";
@@ -91,7 +93,7 @@ export default async function ClinicPage({
   const data = await getClinicData(slug);
   if (!data) notFound();
 
-  const { clinic, locations, treatments, gallery, gallery_total, reviews, stats } =
+  const { clinic, locations, treatments, concerns, gallery, gallery_total, before_after, reviews, stats } =
     data;
 
   const primaryLoc = locations.find((l) => l.is_primary) ?? locations[0] ?? null;
@@ -346,6 +348,9 @@ export default async function ClinicPage({
           clinicName={clinic.name}
         />
 
+        {/* ── Concerns (evidence-based, from the clinic's own website) ── */}
+        <ClinicConcernsSection concerns={concerns} clinicName={clinic.name} />
+
         {/* ── About + Stats ── */}
         <section className="flex flex-col gap-[36px] px-0 sm:px-[24px] pt-[36px] pb-[36px]">
           <h2 className="font-fraunces italic text-[28px] sm:text-[34px] font-normal leading-[116.02%] tracking-[-0.04em] text-[#373634]">
@@ -421,7 +426,12 @@ export default async function ClinicPage({
           </div>
         </section>
 
-        {/* ── Our Locations (multi-location clinics only) ── */}
+        {/* ── Before & After ── */}
+        {before_after.length > 0 && (
+          <ClinicBeforeAfterCarousel images={before_after} name={clinic.name} />
+        )}
+
+        {/* ── Our Locations ── */}
         <ClinicLocationsSection locations={locations} clinicName={clinic.name} />
 
         {/* ── Meet Experts ── */}
@@ -431,6 +441,7 @@ export default async function ClinicPage({
             providers={data.providers}
             bookUrl={bookUrl ?? "#"}
             clinicPhone={clinic.phone}
+            linkToProfile={false}
           />
         )}
 

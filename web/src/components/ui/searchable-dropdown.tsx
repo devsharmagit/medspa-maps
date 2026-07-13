@@ -7,6 +7,9 @@ import { cn } from "@/lib/utils";
 export interface DropdownOption {
   label: string;
   value: string;
+  /** Optional group heading; consecutive options sharing a group render under
+   *  one non-interactive header row (e.g. "Treatments" / "Conditions"). */
+  group?: string;
 }
 
 interface SearchableDropdownProps {
@@ -187,10 +190,21 @@ export function SearchableDropdown({
             filtered.map((option, idx) => {
               const isSelected = option.value === value;
               const isHighlighted = idx === highlightedIdx;
+              const showGroupHeader =
+                !!option.group && option.group !== filtered[idx - 1]?.group;
 
-              return (
+              return [
+                showGroupHeader ? (
+                  <li
+                    key={`__group-${option.group}`}
+                    aria-hidden="true"
+                    className="px-4 pb-1 pt-2.5 text-[10px] font-semibold uppercase tracking-widest text-brand-muted/70 select-none"
+                  >
+                    {option.group}
+                  </li>
+                ) : null,
                 <li
-                  key={option.value}
+                  key={`${option.group ?? ""}${option.value}`}
                   role="option"
                   aria-selected={isSelected}
                   onClick={() => handleSelect(option)}
@@ -208,8 +222,8 @@ export function SearchableDropdown({
                   {isSelected && (
                     <Check className="size-3.5 shrink-0 text-brand-magenta" />
                   )}
-                </li>
-              );
+                </li>,
+              ];
             })
           )}
         </ul>
