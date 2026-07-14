@@ -96,6 +96,7 @@ export async function getFeaturedClinics(limit = 5): Promise<FeaturedClinic[]> {
      JOIN businesses b ON b.id = c.business_id
      WHERE c.is_active = TRUE AND b.is_active = TRUE
      ORDER BY
+       (c.slug = 'ruma-medical') DESC,
        c.featured DESC,
        COALESCE(c.avg_rating, c.ext_rating) DESC NULLS LAST,
        c.review_count DESC NULLS LAST

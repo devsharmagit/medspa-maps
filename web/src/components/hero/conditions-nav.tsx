@@ -49,8 +49,9 @@ export function ConditionsNavDesktop({ className }: { className?: string }) {
       onMouseLeave={closeSoon}
       onBlur={handleBlur}
     >
-      <Link
-        href="/conditions"
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
         onFocus={openNow}
         onKeyDown={(e) => {
           if (e.key === "Escape") closeNow();
@@ -64,7 +65,7 @@ export function ConditionsNavDesktop({ className }: { className?: string }) {
           className={cn("size-3.5 transition-transform duration-200", open ? "rotate-0" : "rotate-[-90deg]")}
           aria-hidden
         />
-      </Link>
+      </button>
 
       <div
         role="menu"
@@ -96,8 +97,8 @@ export function ConditionsNavDesktop({ className }: { className?: string }) {
 
 /**
  * Mobile accordion for the "Conditions" row inside the slide-down mobile menu
- * (hover doesn't apply below xl). Tapping the label navigates like any other
- * nav row; tapping the chevron expands the same 10-condition list in place.
+ * (hover doesn't apply below xl). Tapping the label or chevron expands the same
+ * 10-condition list in place.
  */
 export function ConditionsNavMobile({ onNavigate }: { onNavigate: () => void }) {
   const [expanded, setExpanded] = useState(false);
@@ -105,13 +106,14 @@ export function ConditionsNavMobile({ onNavigate }: { onNavigate: () => void }) 
   return (
     <div className="border-b border-white/10">
       <div className="flex items-center justify-between py-3.5">
-        <Link
-          href="/conditions"
-          onClick={onNavigate}
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
           className="text-base font-medium text-white transition-opacity hover:opacity-80"
+          aria-expanded={expanded}
         >
           Conditions
-        </Link>
+        </button>
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}

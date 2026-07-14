@@ -6,11 +6,11 @@ import Link from "next/link";
 import { useRef, useState, useEffect } from "react";
 
 const categories = [
-  { name: "Treatments", count: 24 },
-  { name: "Skin Care", count: 15 },
-  { name: "Wellness", count: 56 },
-  { name: "Business Tips", count: 22 },
-  { name: "Patient Guide", count: 15 },
+  { name: "Treatments" },
+  { name: "Skin Care" },
+  { name: "Wellness" },
+  { name: "Business Tips" },
+  { name: "Patient Guide" },
 ];
 
 const articles = [
@@ -176,9 +176,6 @@ export function ArticleSection() {
                   <div className="flex flex-col items-center gap-[3px] w-full">
                     <span className="font-montserrat font-medium text-[13px] sm:text-[15px] leading-[116.02%] tracking-[0.02em] text-[#393939] text-center w-full truncate">
                       {cat.name}
-                    </span>
-                    <span className="font-montserrat font-normal text-[11px] sm:text-[12px] leading-[138%] tracking-[0.02em] text-[#727272] text-center">
-                      {cat.count} Articles
                     </span>
                   </div>
                 </div>

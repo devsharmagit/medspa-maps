@@ -2,26 +2,17 @@ import { MapPin, MapPinned, Phone } from "lucide-react";
 import type { ClinicLocation } from "@/lib/clinics/queries";
 import { toStateCode } from "@/lib/location/states";
 
-/**
- * ONE query per location = clinic name + full address. Google resolves this to
- * the exact business pin, and driving BOTH the embed and the "Open in Google
- * Maps" link from the same query keeps them pointing at the identical place.
- *
- * We deliberately use neither the stored lat/lng (Nominatim geocode — observed
- * up to ~1km off the real pin) nor the scraped maps short link (accurate, but
- * `maps.app.goo.gl` links are frame-blocked, so they can't be embedded — and
- * using them for only the button is what made the two disagree).
- */
-function locationQuery(loc: ClinicLocation, clinicName: string): string {
+function addressQuery(loc: ClinicLocation, clinicName: string): string {
   const addr = [loc.address, loc.city, loc.state, loc.zip].filter(Boolean).join(", ");
-  return [clinicName, addr].filter(Boolean).join(", ").trim() || (loc.label ?? clinicName);
+  return addr || (loc.label ? `${loc.label}, ${clinicName}` : clinicName);
 }
 
 function mapsEmbedUrl(query: string): string {
   return `https://www.google.com/maps?q=${encodeURIComponent(query)}&output=embed`;
 }
 
-function mapsOpenUrl(query: string): string {
+function mapsOpenUrl(loc: ClinicLocation, query: string): string {
+  if (loc.google_maps_url) return loc.google_maps_url;
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
 
@@ -89,11 +80,9 @@ export function ClinicLocationsSection({
         {locations.map((loc, idx) => {
           const title = locationTitle(loc, idx);
           const addrLines = addressLines(loc);
-          // Same query for the embed, the address link, and the "Open" button →
-          // all three land on the identical, correct location.
-          const query = locationQuery(loc, clinicName);
+          const query = addressQuery(loc, clinicName);
           const embedUrl = mapsEmbedUrl(query);
-          const mapsUrl = mapsOpenUrl(query);
+          const mapsUrl = mapsOpenUrl(loc, query);
 
           return (
             <div

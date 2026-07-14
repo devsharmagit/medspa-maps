@@ -1,5 +1,5 @@
 /**
- * ai/anthropic.ts — minimal Anthropic Messages API client (server-only).
+ * ai/anthropic.ts — forced-tool extraction router plus legacy Anthropic client.
  *
  * Uses the paid ANTHROPIC_API_KEY (a real `sk-ant-…` Claude key) directly against
  * https://api.anthropic.com/v1/messages via fetch (no SDK dependency).
@@ -15,19 +15,13 @@
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
 
-/** Cheap default extraction model; override with INGEST_MODEL. */
+/** Cheap default extraction model; override with OPENAI_MODEL. */
 export function ingestModel(): string {
-  if (process.env.INGEST_PROVIDER?.trim().toLowerCase() === "openai") {
-    return process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini";
-  }
-  if (process.env.INGEST_PROVIDER?.trim().toLowerCase() === "gemini") {
-    return process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
-  }
-  return process.env.INGEST_MODEL?.trim() || "claude-haiku-4-5";
+  return process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini";
 }
 
 /** Stronger model we escalate to when a cheap-model result fails validation. */
-export const ESCALATION_MODEL = "claude-sonnet-5";
+export const ESCALATION_MODEL = process.env.OPENAI_ESCALATION_MODEL?.trim() || "gpt-4o";
 
 export interface ToolExtractOptions {
   system: string;
@@ -103,78 +97,9 @@ async function postWithRetry(key: string, body: string): Promise<Response> {
 export async function extractViaTool<T>(
   opts: ToolExtractOptions
 ): Promise<ToolExtractResult<T>> {
-  // Optional provider override (e.g. INGEST_PROVIDER=gemini) routes the SAME
-  // forced-tool contract through a different backend without touching callers.
-  const provider = process.env.INGEST_PROVIDER?.trim().toLowerCase();
-  if (provider === "openai") {
-    const { extractViaOpenAI } = await import("./openai");
-    return extractViaOpenAI<T>(opts);
-  }
-  if (provider === "gemini") {
-    const { extractViaGemini } = await import("./gemini");
-    return extractViaGemini<T>(opts);
-  }
-
-  const key = process.env.ANTHROPIC_API_KEY?.trim();
-  if (!key) throw new Error("ANTHROPIC_API_KEY is not set");
-  const model = opts.model || ingestModel();
-
-  // When images are supplied, send a content-block array: the prompt text, then
-  // each image preceded by its label (URL + context) so the model can return the
-  // chosen URL verbatim. Otherwise send `user` as a plain string (text-only).
-  const content: string | ContentBlock[] = opts.images?.length
-    ? [
-        { type: "text", text: opts.user },
-        ...opts.images.flatMap((img): ContentBlock[] => [
-          { type: "text", text: img.label },
-          { type: "image", source: img.source },
-        ]),
-      ]
-    : opts.user;
-
-  const body = JSON.stringify({
-    model,
-    max_tokens: opts.maxTokens ?? 2048,
-    system: opts.system,
-    tools: [
-      {
-        name: opts.toolName,
-        description: opts.toolDescription,
-        input_schema: opts.inputSchema,
-      },
-    ],
-    tool_choice: { type: "tool", name: opts.toolName },
-    messages: [{ role: "user", content }],
-  });
-
-  // Retry 429 (rate limit) and 529 (overloaded) with backoff. Vision calls are
-  // ~15K input tokens — over some orgs' per-minute token budget — so a bare call
-  // would fail without honouring retry-after.
-  const res = await postWithRetry(key, body);
-
-  if (!res.ok) {
-    const errBody = await res.text().catch(() => "");
-    throw new Error(`Anthropic ${res.status}: ${errBody.slice(0, 400)}`);
-  }
-
-  const json = (await res.json()) as {
-    stop_reason?: string;
-    content?: Array<{ type: string; name?: string; input?: unknown }>;
-    usage?: { input_tokens?: number; output_tokens?: number };
-  };
-
-  if (json.stop_reason === "refusal") {
-    throw new Error("Anthropic declined the request (refusal)");
-  }
-
-  const block = (json.content ?? []).find(
-    (b) => b.type === "tool_use" && b.name === opts.toolName
-  );
-  if (!block || block.input === undefined) {
-    throw new Error(
-      `No tool_use block for "${opts.toolName}" (stop_reason=${json.stop_reason})`
-    );
-  }
-
-  return { data: block.input as T, model, usage: json.usage ?? null };
+  // OpenAI is the only active ingest backend. Ignore stale INGEST_PROVIDER
+  // values from local .env files so admin imports never fall into Gemini or
+  // Anthropic by accident.
+  const { extractViaOpenAI } = await import("./openai");
+  return extractViaOpenAI<T>(opts);
 }

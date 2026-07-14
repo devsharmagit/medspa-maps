@@ -121,8 +121,8 @@ export default async function ClinicPage({
   // Fall back to the representative location's map link/address, since the
   // clinic row carries no headline address (every location lives on its own).
   const mapsUrl =
-    clinic.google_maps_url ||
     primaryLoc?.google_maps_url ||
+    clinic.google_maps_url ||
     buildMapsUrl([
       primaryLoc?.address ?? clinic.address,
       primaryLoc?.city ?? clinic.city,
@@ -179,7 +179,7 @@ export default async function ClinicPage({
               {/* Logo + name */}
               <div className="flex items-center gap-3 sm:gap-[16px]">
                 {clinic.logo_url ? (
-                  <div className="flex h-[84px] w-[96px] sm:h-[106px] sm:w-[122px] shrink-0 items-center justify-center overflow-hidden rounded-[16px] border border-[#E5C7DA] bg-white p-2">
+                  <div className="flex h-[84px] w-[96px] sm:h-[106px] sm:w-[122px] shrink-0 items-center justify-center overflow-hidden rounded-[16px] border border-[#E5C7DA] bg-gradient-to-br from-[#d96f8e] to-[#9b3a9b] p-2">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={clinic.logo_url}

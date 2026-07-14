@@ -10,7 +10,6 @@ import {
   Building2,
   CheckCircle2,
   ExternalLink,
-  HeartPulse,
   ImageIcon,
   Loader2,
   MapPin,
@@ -23,7 +22,6 @@ import {
   adminGet,
   adminPatch,
   adminPost,
-  adminPut,
 } from "@/lib/admin/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,7 +33,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { computeEditableCoverage } from "@/lib/treatments/coverage";
 import { ClinicReviewsManager } from "@/components/admin/clinic-reviews-manager";
 
 const BRAND = "#9b3a9b";
@@ -77,16 +74,6 @@ interface ImageRef {
   role?: string;
   sort_order?: number;
   alt_text?: string | null;
-}
-
-interface TreatmentRef {
-  id: string;
-  service_id: string | null;
-  service_slug: string | null;
-  service_name: string | null;
-  raw_name: string;
-  description: string | null;
-  match_status: string | null;
 }
 
 interface LocationRef {
@@ -146,10 +133,7 @@ interface ClinicFull {
   stat_patients: string | null;
   is_active: boolean;
   images: ImageRef[];
-  treatments: TreatmentRef[];
   locations: LocationRef[];
-  service_slugs?: string[];
-  effective_concern_slugs?: string[];
 }
 
 interface FormState {
@@ -314,8 +298,6 @@ export default function EditClinicPage(props: {
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
-  const [selectedTreatmentSlugs, setSelectedTreatmentSlugs] = useState<string[]>([]);
-  const [selectedConcernSlugs, setSelectedConcernSlugs] = useState<string[]>([]);
   const [isActive, setIsActive] = useState(true);
   const [locations, setLocations] = useState<LocationForm[]>([]);
   const [deletedLocationIds, setDeletedLocationIds] = useState<string[]>([]);
@@ -369,18 +351,6 @@ export default function EditClinicPage(props: {
             return (a.sort_order ?? 0) - (b.sort_order ?? 0);
           });
 
-        setSelectedTreatmentSlugs(
-          Array.from(
-            new Set(
-              (c.treatments ?? [])
-                .map((t) => t.service_slug)
-                .filter((slug): slug is string => Boolean(slug))
-            )
-          )
-        );
-        setSelectedConcernSlugs(
-          Array.from(new Set(c.effective_concern_slugs ?? []))
-        );
         setIsActive(c.is_active);
         setLocations(loadedLocations);
         setDeletedLocationIds([]);
@@ -430,10 +400,7 @@ export default function EditClinicPage(props: {
     [locations]
   );
 
-  const coverage = useMemo(
-    () => computeEditableCoverage(selectedTreatmentSlugs, selectedConcernSlugs),
-    [selectedTreatmentSlugs, selectedConcernSlugs]
-  );
+
 
   function markDirty() {
     setSaved(false);
@@ -528,29 +495,7 @@ export default function EditClinicPage(props: {
     markDirty();
   }
 
-  function addTreatment(slug: string) {
-    setSelectedTreatmentSlugs((prev) =>
-      prev.includes(slug) ? prev : [...prev, slug]
-    );
-    markDirty();
-  }
-
-  function removeTreatment(slug: string) {
-    setSelectedTreatmentSlugs((prev) => prev.filter((item) => item !== slug));
-    markDirty();
-  }
-
-  function addConcern(slug: string) {
-    setSelectedConcernSlugs((prev) =>
-      prev.includes(slug) ? prev : [...prev, slug]
-    );
-    markDirty();
-  }
-
-  function removeConcern(slug: string) {
-    setSelectedConcernSlugs((prev) => prev.filter((item) => item !== slug));
-    markDirty();
-  }
+ 
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -659,13 +604,9 @@ export default function EditClinicPage(props: {
         })),
       });
 
-      await adminPut<TreatmentRef[]>(`/clinics/${id}/services`, {
-        service_slugs: selectedTreatmentSlugs,
-      });
+   
 
-      await adminPut(`/clinics/${id}/concerns`, {
-        concern_slugs: selectedConcernSlugs,
-      });
+    
 
       setSaved(true);
       setDeletedLocationIds([]);
@@ -1065,120 +1006,7 @@ export default function EditClinicPage(props: {
         </CardContent>
       </Card>
 
-      <Card className="border-slate-200 shadow-sm">
-        <CardHeader className="border-b border-slate-100 bg-slate-50/50 pb-4">
-          <CardTitle className="flex items-center gap-2 text-base font-semibold text-slate-800">
-            <Sparkles size={16} style={{ color: BRAND }} />
-            Priority treatment coverage
-            <Badge
-              variant="secondary"
-              className="font-normal"
-              style={{ backgroundColor: `${BRAND}1a`, color: BRAND }}
-            >
-              {coverage.treatmentCount} / {coverage.treatmentTotal}
-            </Badge>
-          </CardTitle>
-          <p className="text-xs text-slate-500">
-            Which of the {coverage.treatmentTotal} priority treatments this clinic offers, and the concerns it treats. Click a chip to add or remove.
-          </p>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-5 p-6">
-          <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
-              Offered ({coverage.presentTreatments.length})
-            </p>
-            {coverage.presentTreatments.length === 0 ? (
-              <p className="text-sm text-slate-500">No priority treatments selected yet.</p>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {coverage.presentTreatments.map((t) => (
-                  <button
-                    key={t.slug}
-                    type="button"
-                    onClick={() => removeTreatment(t.slug)}
-                    className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600"
-                    title="Remove treatment"
-                  >
-                    <CheckCircle2 size={12} />
-                    {t.name}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {coverage.missingTreatments.length > 0 && (
-            <div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
-                Not offered ({coverage.missingTreatments.length})
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {coverage.missingTreatments.map((t) => (
-                  <button
-                    key={t.slug}
-                    type="button"
-                    onClick={() => addTreatment(t.slug)}
-                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-400 transition-colors hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
-                    title="Add treatment"
-                  >
-                    {t.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
-              Treats these concerns ({coverage.presentConcerns.length})
-            </p>
-            {coverage.presentConcerns.length === 0 ? (
-              <p className="text-sm text-slate-500">No priority concerns selected yet.</p>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {coverage.presentConcerns.map((c) => (
-                  <button
-                    key={c.slug}
-                    type="button"
-                    onClick={() => removeConcern(c.slug)}
-                    className="flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600"
-                    style={{
-                      borderColor: `${BRAND}4d`,
-                      backgroundColor: `${BRAND}1a`,
-                      color: BRAND,
-                    }}
-                    title="Remove concern"
-                  >
-                    <HeartPulse size={12} />
-                    {c.name}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {coverage.missingConcerns.length > 0 && (
-            <div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
-                Add a concern ({coverage.missingConcerns.length})
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {coverage.missingConcerns.map((c) => (
-                  <button
-                    key={c.slug}
-                    type="button"
-                    onClick={() => addConcern(c.slug)}
-                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-400 transition-colors hover:border-[#9b3a9b]/40 hover:bg-[#9b3a9b]/10 hover:text-[#9b3a9b]"
-                    title="Add concern"
-                  >
-                    {c.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+     
 
       <ClinicReviewsManager clinicId={id} />
 

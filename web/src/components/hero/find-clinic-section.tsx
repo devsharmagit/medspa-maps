@@ -1,6 +1,6 @@
 "use client";
 
-import { MapPin, Search, Sparkles, Star } from "lucide-react";
+import { HeartPulse, MapPin, Search, Sparkles, Star } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -20,6 +20,7 @@ import {
   LocationTypeahead,
   type LocationSelection,
 } from "@/components/ui/location-typeahead";
+import { cn } from "@/lib/utils";
 
 // ─── Distance helpers ───────────────────────────────────────────────────────
 
@@ -316,8 +317,17 @@ const RATING_OPTIONS: DropdownOption[] = [
 
 export function FindClinicSection({ clinics }: { clinics: FeaturedClinic[] }) {
   const router = useRouter();
+  const orderedClinics = useMemo(
+    () =>
+      [...clinics].sort((a, b) => {
+        if (a.slug === "ruma-medical") return -1;
+        if (b.slug === "ruma-medical") return 1;
+        return 0;
+      }),
+    [clinics],
+  );
   const [current, setCurrent] = useState(0);
-  const total = clinics.length;
+  const total = orderedClinics.length;
   const { status, location: userLoc, requested, requestLocation } = useLocation();
 
   // We can only offer distance features when we KNOW the visitor is in the USA.
@@ -332,6 +342,7 @@ export function FindClinicSection({ clinics }: { clinics: FeaturedClinic[] }) {
   // Filter states — mirrors the hero search bar's fields exactly (treatment
   // dropdown + location typeahead + rating), so behavior stays consistent
   // across the two search entry points.
+  const [searchMode, setSearchMode] = useState<"treatment" | "condition">("treatment");
   const [selectedTreatment, setSelectedTreatment] = useState("");
   const [location, setLocation] = useState("");
   const [locationGeo, setLocationGeo] = useState<{ lat: number; lng: number } | null>(null);
@@ -339,6 +350,9 @@ export function FindClinicSection({ clinics }: { clinics: FeaturedClinic[] }) {
   // Grouped Treatments + Conditions options (same source as the hero bar and
   // /search, so AI-grown treatments and concerns appear here too).
   const serviceOptions = useTreatmentConditionOptions();
+  const treatmentOptions = serviceOptions.filter((option) => option.group === "Treatments");
+  const conditionOptions = serviceOptions.filter((option) => option.group === "Conditions");
+  const activeOptions = searchMode === "treatment" ? treatmentOptions : conditionOptions;
 
   // Prefill the location box ONLY after the visitor explicitly clicks "Use my
   // current location" (never from a position rehydrated from storage on load),
@@ -397,7 +411,7 @@ export function FindClinicSection({ clinics }: { clinics: FeaturedClinic[] }) {
 
   // Attach a viewer-relative distance label to each clinic (US visitors only).
   const displayClinics: DisplayClinic[] = useMemo(() => {
-    return clinics.map((c) => {
+    return orderedClinics.map((c) => {
       let distanceLabel: string | null = null;
       if (inUS && c.lat != null && c.lng != null) {
         const miles = milesBetween(userLoc!.lat, userLoc!.lng, c.lat, c.lng);
@@ -405,7 +419,7 @@ export function FindClinicSection({ clinics }: { clinics: FeaturedClinic[] }) {
       }
       return { ...c, distanceLabel };
     });
-  }, [clinics, inUS, userLoc]);
+  }, [orderedClinics, inUS, userLoc]);
 
   const handleLocationChange = (sel: LocationSelection) => {
     setLocation(sel.value);
@@ -415,10 +429,13 @@ export function FindClinicSection({ clinics }: { clinics: FeaturedClinic[] }) {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     const params = new URLSearchParams();
-    // One dropdown holds EITHER a treatment (→ q) OR a condition (→ condition).
-    const { q, condition } = splitSearchSelection(selectedTreatment);
-    if (q) params.set("q", q);
-    if (condition) params.set("condition", condition);
+    if (searchMode === "treatment") {
+      if (selectedTreatment.trim()) params.set("q", selectedTreatment.trim());
+    } else {
+      const { condition } = splitSearchSelection(selectedTreatment);
+      const conditionValue = condition || selectedTreatment.trim();
+      if (conditionValue) params.set("condition", conditionValue);
+    }
     if (location.trim()) params.set("location", location.trim());
     if (selectedRating) params.set("rating", selectedRating);
     // Picked suggestion carries exact coordinates → instant radius search.
@@ -427,6 +444,11 @@ export function FindClinicSection({ clinics }: { clinics: FeaturedClinic[] }) {
       params.set("lng", String(locationGeo.lng));
     }
     router.push(`/search?${params.toString()}`);
+  };
+
+  const chooseMode = (mode: "treatment" | "condition") => {
+    setSearchMode(mode);
+    setSelectedTreatment("");
   };
 
   if (total === 0) return null;
@@ -440,24 +462,59 @@ export function FindClinicSection({ clinics }: { clinics: FeaturedClinic[] }) {
 
       {/* ── Search Bar — mirrors the hero search bar (treatment + location +
           rating, one Search button; no separate Clear/Apply) ── */}
-      <div className="flex w-full justify-center px-4 lg:px-8">
+      <div className="flex w-full flex-col items-center gap-3 px-4 lg:px-8">
+        <div className="inline-flex items-center gap-2 rounded-full border border-[#eadcea] bg-white p-1 shadow-[0_8px_30px_rgba(203,151,206,0.16)]">
+          <span className="pl-3 pr-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-brand-muted">
+            Search for
+          </span>
+          <button
+            type="button"
+            onClick={() => chooseMode("treatment")}
+            className={cn(
+              "flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-semibold uppercase tracking-[0.08em] transition-colors",
+              searchMode === "treatment"
+                ? "bg-brand-magenta text-white shadow-sm"
+                : "text-brand-muted hover:bg-brand-magenta/8 hover:text-brand-magenta",
+            )}
+          >
+            <Sparkles className="size-3.5" aria-hidden />
+            Treatment
+          </button>
+          <button
+            type="button"
+            onClick={() => chooseMode("condition")}
+            className={cn(
+              "flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-semibold uppercase tracking-[0.08em] transition-colors",
+              searchMode === "condition"
+                ? "bg-brand-magenta text-white shadow-sm"
+                : "text-brand-muted hover:bg-brand-magenta/8 hover:text-brand-magenta",
+            )}
+          >
+            <HeartPulse className="size-3.5" aria-hidden />
+            Condition
+          </button>
+        </div>
         <form
           onSubmit={handleSearch}
-          className="relative flex w-full max-w-[1100px] flex-col rounded-[18px] bg-white shadow-lg sm:flex-row sm:items-stretch sm:h-[75px]"
+          className="relative flex w-full max-w-[1100px] flex-col rounded-[18px] bg-white shadow-lg sm:h-[75px] sm:flex-row sm:items-stretch"
         >
-          {/* Treatments */}
+          {/* Treatment / condition */}
           <div className="flex flex-1 flex-col justify-center gap-2 px-5 py-4 sm:py-0 sm:pl-6">
             <SearchableDropdown
-              options={serviceOptions}
+              options={activeOptions}
               value={selectedTreatment}
               onChange={setSelectedTreatment}
-              placeholder="Treatment or condition…"
+              placeholder={searchMode === "treatment" ? "Search treatments…" : "Search conditions…"}
               icon={
                 <span className="flex size-5 items-center justify-center rounded-full bg-brand-magenta text-white">
-                  <Sparkles className="size-3" aria-hidden />
+                  {searchMode === "treatment" ? (
+                    <Sparkles className="size-3" aria-hidden />
+                  ) : (
+                    <HeartPulse className="size-3" aria-hidden />
+                  )}
                 </span>
               }
-              label="Treatment / Condition"
+              label={searchMode === "treatment" ? "Treatment" : "Condition"}
               allowFreeText
             />
           </div>

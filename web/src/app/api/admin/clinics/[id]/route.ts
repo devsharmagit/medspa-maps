@@ -4,7 +4,6 @@ import { requireAdmin } from "@/lib/admin/auth";
 import { query, queryOne, withTransaction } from "@/lib/db";
 import { ApiError } from "@/lib/errors";
 import { successResponse, handleApiError } from "@/lib/api-response";
-import { getEffectiveConcernSlugs } from "@/lib/concerns/clinic-concerns";
 
 // Editable clinic columns. Pricing + provider fields are intentionally excluded.
 const patchSchema = z
@@ -197,24 +196,11 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
       [id]
     );
 
-    // Matched canonical treatments the clinic offers (for preloading the editor).
-    const service_slugs = Array.from(
-      new Set(
-        treatments
-          .filter((t) => t.service_slug && t.match_status === "matched")
-          .map((t) => t.service_slug as string)
-      )
-    );
-
-    const effective_concern_slugs = await getEffectiveConcernSlugs(id);
-
     return successResponse({
       ...clinic,
       images,
       treatments,
       locations,
-      service_slugs,
-      effective_concern_slugs,
     });
   } catch (err) {
     return handleApiError(err);

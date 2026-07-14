@@ -11,10 +11,17 @@ import {
   Building2,
   MapPin,
   Sparkles,
+  CheckCircle2,
+  XCircle,
+  Download,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -23,9 +30,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { adminGet } from "@/lib/admin/client";
+import { adminGet, adminPost } from "@/lib/admin/client";
 
 const BRAND = "#9b3a9b";
+const PAGE_SIZE_OPTIONS = [25, 50, 100];
 
 // One row per unique medspa website.
 interface G99Website {
@@ -38,7 +46,23 @@ interface G99Website {
   business_name: string | null;
   clinic_name: string | null;
   specialization: string | null;
+  imported: boolean;
+  imported_clinic_id: string | null;
 }
+
+type ImportFilter = "all" | "imported" | "not-imported";
+
+type ImportResponse =
+  | {
+      outcome: "blocked";
+      domain: string;
+      duplicate: Array<{ id: string; name: string; slug: string; website: string | null }>;
+    }
+  | {
+      outcome: "ingested";
+      domain: string;
+      result: { status: "saved" | "skipped" | "failed"; clinicId?: string | null };
+    };
 
 function StatChip({ label, value, color }: { label: string; value: number; color: string }) {
   return (
@@ -59,6 +83,11 @@ export default function G99WebsitesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [importFilter, setImportFilter] = useState<ImportFilter>("all");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [importing, setImporting] = useState<string | null>(null);
+  const [importMessage, setImportMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -83,26 +112,88 @@ export default function G99WebsitesPage() {
   const stats = useMemo(() => {
     let clinics = 0;
     let multi = 0;
+    let imported = 0;
     for (const r of rows) {
       clinics += r.clinic_count;
       if (r.clinic_count > 1) multi++;
+      if (r.imported) imported++;
     }
-    return { websites: rows.length, clinics, multi };
+    return { websites: rows.length, clinics, multi, imported };
   }, [rows]);
 
   const filtered = useMemo(() => {
+    let result = rows;
+
+    // Import filter
+    if (importFilter === "imported") {
+      result = result.filter((r) => r.imported);
+    } else if (importFilter === "not-imported") {
+      result = result.filter((r) => !r.imported);
+    }
+
+    // Search filter
     const q = search.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter(
-      (r) =>
-        r.domain.toLowerCase().includes(q) ||
-        (r.business_name ?? "").toLowerCase().includes(q) ||
-        (r.clinic_name ?? "").toLowerCase().includes(q) ||
-        (r.specialization ?? "").toLowerCase().includes(q) ||
-        r.g99_business_ids.some((t) => t.includes(q)) ||
-        r.g99_clinic_ids.some((c) => c.includes(q))
-    );
-  }, [rows, search]);
+    if (q) {
+      result = result.filter(
+        (r) =>
+          r.domain.toLowerCase().includes(q) ||
+          (r.business_name ?? "").toLowerCase().includes(q) ||
+          (r.clinic_name ?? "").toLowerCase().includes(q) ||
+          (r.specialization ?? "").toLowerCase().includes(q) ||
+          r.g99_business_ids.some((t) => t.includes(q)) ||
+          r.g99_clinic_ids.some((c) => c.includes(q))
+      );
+    }
+
+    return result;
+  }, [rows, search, importFilter]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [search, importFilter, pageSize]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const paginatedRows = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
+
+  const startItem = filtered.length === 0 ? 0 : (safePage - 1) * pageSize + 1;
+  const endItem = Math.min(safePage * pageSize, filtered.length);
+
+  const importWebsite = async (row: G99Website) => {
+    if (row.imported || importing) return;
+    setImporting(row.domain);
+    setError(null);
+    setImportMessage(null);
+    try {
+      const data = await adminPost<ImportResponse>("/g99-websites", { domain: row.domain });
+      if (data.outcome === "ingested" && data.result.status === "saved") {
+        setRows((prev) =>
+          prev.map((r) =>
+            r.domain === row.domain
+              ? { ...r, imported: true, imported_clinic_id: data.result.clinicId ?? null }
+              : r
+          )
+        );
+        setImportMessage(`Imported ${row.domain}.`);
+      } else if (data.outcome === "blocked") {
+        setRows((prev) =>
+          prev.map((r) =>
+            r.domain === row.domain
+              ? { ...r, imported: true, imported_clinic_id: data.duplicate[0]?.id ?? null }
+              : r
+          )
+        );
+        setImportMessage(`${row.domain} is already in the directory.`);
+      } else {
+        setImportMessage(`${row.domain} was not imported (${data.result.status}).`);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Import failed.");
+    } finally {
+      setImporting(null);
+    }
+  };
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-5 pb-16">
@@ -115,7 +206,7 @@ export default function G99WebsitesPage() {
           </h2>
           <p className="text-sm text-slate-500">
             Unique <strong>medspa</strong> clinic websites from the Growth99 database — filtered
-            to valid, non-test businesses (dental & other specialties excluded). Click a row for
+            to valid, non-test businesses (dental &amp; other specialties excluded). Click a row for
             the live G99 record.
           </p>
         </div>
@@ -124,6 +215,7 @@ export default function G99WebsitesPage() {
             <StatChip label="unique websites" value={stats.websites} color="#334155" />
             <StatChip label="G99 clinics" value={stats.clinics} color="#059669" />
             <StatChip label="multi-location" value={stats.multi} color="#0369a1" />
+            <StatChip label="imported" value={stats.imported} color="#7c3aed" />
           </div>
         )}
       </div>
@@ -131,14 +223,37 @@ export default function G99WebsitesPage() {
       {/* Toolbar */}
       <Card className="border-slate-200 shadow-sm">
         <CardContent className="p-3">
-          <div className="relative">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <Input
-              placeholder="Search by website, business, specialization, or G99 ID…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="h-9 border-slate-200 bg-white pl-9"
-            />
+          <div className="flex items-center gap-3">
+            <div className="relative flex-1">
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Input
+                placeholder="Search by website, clinic, specialization, or G99 ID..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="h-9 border-slate-200 bg-white pl-9"
+              />
+            </div>
+            <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 p-0.5">
+              {(
+                [
+                  { value: "all", label: "All" },
+                  { value: "imported", label: "Imported" },
+                  { value: "not-imported", label: "Not Imported" },
+                ] as const
+              ).map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => setImportFilter(opt.value)}
+                  className={`rounded-md px-3 py-1.5 text-xs font-medium transition-all ${
+                    importFilter === opt.value
+                      ? "bg-white text-slate-900 shadow-sm"
+                      : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -153,6 +268,13 @@ export default function G99WebsitesPage() {
         <div className="flex items-start gap-2.5 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
           <AlertTriangle size={16} className="mt-0.5 shrink-0" />
           <span>{error}</span>
+        </div>
+      )}
+
+      {importMessage && !error && (
+        <div className="flex items-start gap-2.5 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
+          <CheckCircle2 size={16} className="mt-0.5 shrink-0" />
+          <span>{importMessage}</span>
         </div>
       )}
 
@@ -172,21 +294,21 @@ export default function G99WebsitesPage() {
                       Website
                     </TableHead>
                     <TableHead className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                      Business
-                    </TableHead>
-                    <TableHead className="text-xs font-semibold uppercase tracking-wider text-slate-500">
                       Specialization
+                    </TableHead>
+                    <TableHead className="w-[100px] text-xs font-semibold uppercase tracking-wider text-slate-500">
+                      Status
                     </TableHead>
                     <TableHead className="w-[110px] text-xs font-semibold uppercase tracking-wider text-slate-500">
                       Locations
                     </TableHead>
-                    <TableHead className="w-[150px] text-xs font-semibold uppercase tracking-wider text-slate-500">
-                      G99 business(es)
+                    <TableHead className="w-[110px] text-right text-xs font-semibold uppercase tracking-wider text-slate-500">
+                      Import
                     </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.map((r) => (
+                  {paginatedRows.map((r) => (
                     <TableRow
                       key={r.domain}
                       onClick={() => router.push(`/admin/g99-websites/${encodeURIComponent(r.domain)}`)}
@@ -207,14 +329,6 @@ export default function G99WebsitesPage() {
                       </TableCell>
 
                       <TableCell>
-                        <span className="truncate text-sm text-slate-700">
-                          {r.business_name || r.clinic_name || (
-                            <span className="italic text-slate-400">Unknown</span>
-                          )}
-                        </span>
-                      </TableCell>
-
-                      <TableCell>
                         {r.specialization ? (
                           <span className="inline-flex items-center gap-1 text-[13px] text-slate-600">
                             <Sparkles size={11} className="text-slate-400" />
@@ -222,6 +336,26 @@ export default function G99WebsitesPage() {
                           </span>
                         ) : (
                           <span className="text-slate-300">—</span>
+                        )}
+                      </TableCell>
+
+                      <TableCell>
+                        {r.imported ? (
+                          <span
+                            className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium"
+                            style={{ backgroundColor: "#dcfce7", color: "#15803d" }}
+                          >
+                            <CheckCircle2 size={11} />
+                            Imported
+                          </span>
+                        ) : (
+                          <span
+                            className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium"
+                            style={{ backgroundColor: "#fef3c7", color: "#92400e" }}
+                          >
+                            <XCircle size={11} />
+                            Not imported
+                          </span>
                         )}
                       </TableCell>
 
@@ -238,14 +372,31 @@ export default function G99WebsitesPage() {
                         </span>
                       </TableCell>
 
-                      <TableCell>
-                        <span className="font-mono text-xs text-slate-500">
-                          {r.g99_business_ids.length === 0
-                            ? "—"
-                            : r.g99_business_ids.length <= 2
-                              ? r.g99_business_ids.map((t) => `#${t}`).join(", ")
-                              : `#${r.g99_business_ids[0]} +${r.g99_business_ids.length - 1}`}
-                        </span>
+                      <TableCell className="text-right">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={r.imported ? "outline" : "gradient"}
+                          disabled={r.imported || importing === r.domain || !!importing}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void importWebsite(r);
+                          }}
+                        >
+                          {importing === r.domain ? (
+                            <>
+                              <Loader2 className="animate-spin" /> Importing
+                            </>
+                          ) : r.imported ? (
+                            <>
+                              <CheckCircle2 /> Done
+                            </>
+                          ) : (
+                            <>
+                              <Download /> Import
+                            </>
+                          )}
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -256,11 +407,77 @@ export default function G99WebsitesPage() {
         </Card>
       )}
 
+      {/* Pagination */}
       {!loading && !error && filtered.length > 0 && (
-        <p className="text-xs text-slate-400">
-          Showing {filtered.length.toLocaleString()} of {stats.websites.toLocaleString()} unique
-          medspa websites
-        </p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <p className="text-xs text-slate-500">
+              Showing {startItem.toLocaleString()}–{endItem.toLocaleString()} of{" "}
+              {filtered.length.toLocaleString()}{" "}
+              {filtered.length !== stats.websites && (
+                <span className="text-slate-400">
+                  (filtered from {stats.websites.toLocaleString()})
+                </span>
+              )}
+            </p>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-slate-400">Rows:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => setPageSize(Number(e.target.value))}
+                className="h-7 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-600 outline-none focus:border-purple-300 focus:ring-1 focus:ring-purple-200"
+              >
+                {PAGE_SIZE_OPTIONS.map((size) => (
+                  <option key={size} value={size}>
+                    {size}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="icon-xs"
+              disabled={safePage <= 1}
+              onClick={() => setPage(1)}
+              title="First page"
+            >
+              <ChevronsLeft size={14} />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon-xs"
+              disabled={safePage <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              title="Previous page"
+            >
+              <ChevronLeft size={14} />
+            </Button>
+            <span className="px-2.5 text-xs font-medium text-slate-600">
+              {safePage} / {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="icon-xs"
+              disabled={safePage >= totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              title="Next page"
+            >
+              <ChevronRight size={14} />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon-xs"
+              disabled={safePage >= totalPages}
+              onClick={() => setPage(totalPages)}
+              title="Last page"
+            >
+              <ChevronsRight size={14} />
+            </Button>
+          </div>
+        </div>
       )}
     </div>
   );

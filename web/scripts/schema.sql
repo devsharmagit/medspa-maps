@@ -166,6 +166,20 @@ CREATE TABLE IF NOT EXISTS public.clinic_services (
     match_confidence numeric
 );
 
+CREATE TABLE IF NOT EXISTS public.clinic_service_concerns (
+    id uuid DEFAULT public.uuid_generate_v4() NOT NULL,
+    clinic_id uuid NOT NULL,
+    service_id uuid NOT NULL,
+    concern_id uuid NOT NULL,
+    source text DEFAULT 'scraped'::text NOT NULL,
+    raw_service_name text,
+    raw_concern_name text,
+    source_url text,
+    is_active boolean DEFAULT true NOT NULL,
+    extracted_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS public.clinics (
     id uuid DEFAULT public.uuid_generate_v4() NOT NULL,
     business_id uuid NOT NULL,
@@ -483,6 +497,17 @@ ALTER TABLE public.clinic_services ADD COLUMN IF NOT EXISTS price_from numeric;
 ALTER TABLE public.clinic_services ADD COLUMN IF NOT EXISTS price_unit text;
 ALTER TABLE public.clinic_services ADD COLUMN IF NOT EXISTS match_status text DEFAULT 'unmatched'::text;
 ALTER TABLE public.clinic_services ADD COLUMN IF NOT EXISTS match_confidence numeric;
+ALTER TABLE public.clinic_service_concerns ADD COLUMN IF NOT EXISTS id uuid DEFAULT uuid_generate_v4();
+ALTER TABLE public.clinic_service_concerns ADD COLUMN IF NOT EXISTS clinic_id uuid;
+ALTER TABLE public.clinic_service_concerns ADD COLUMN IF NOT EXISTS service_id uuid;
+ALTER TABLE public.clinic_service_concerns ADD COLUMN IF NOT EXISTS concern_id uuid;
+ALTER TABLE public.clinic_service_concerns ADD COLUMN IF NOT EXISTS source text DEFAULT 'scraped'::text;
+ALTER TABLE public.clinic_service_concerns ADD COLUMN IF NOT EXISTS raw_service_name text;
+ALTER TABLE public.clinic_service_concerns ADD COLUMN IF NOT EXISTS raw_concern_name text;
+ALTER TABLE public.clinic_service_concerns ADD COLUMN IF NOT EXISTS source_url text;
+ALTER TABLE public.clinic_service_concerns ADD COLUMN IF NOT EXISTS is_active boolean DEFAULT true;
+ALTER TABLE public.clinic_service_concerns ADD COLUMN IF NOT EXISTS extracted_at timestamp with time zone DEFAULT now();
+ALTER TABLE public.clinic_service_concerns ADD COLUMN IF NOT EXISTS updated_at timestamp with time zone DEFAULT now();
 ALTER TABLE public.clinics ADD COLUMN IF NOT EXISTS id uuid DEFAULT uuid_generate_v4();
 ALTER TABLE public.clinics ADD COLUMN IF NOT EXISTS business_id uuid;
 ALTER TABLE public.clinics ADD COLUMN IF NOT EXISTS name text;
@@ -712,6 +737,16 @@ ALTER TABLE ONLY public.clinic_concerns
 EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
 DO $$ BEGIN
+ALTER TABLE ONLY public.clinic_service_concerns
+    ADD CONSTRAINT clinic_service_concerns_clinic_service_concern_source_key UNIQUE (clinic_id, service_id, concern_id, source);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
+
+DO $$ BEGIN
+ALTER TABLE ONLY public.clinic_service_concerns
+    ADD CONSTRAINT clinic_service_concerns_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
+
+DO $$ BEGIN
 ALTER TABLE ONLY public.clinic_locations
     ADD CONSTRAINT clinic_locations_pkey PRIMARY KEY (id);
 EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
@@ -846,6 +881,21 @@ EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN 
 DO $$ BEGIN
 ALTER TABLE ONLY public.clinic_concerns
     ADD CONSTRAINT clinic_concerns_concern_id_fkey FOREIGN KEY (concern_id) REFERENCES public.concerns(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
+
+DO $$ BEGIN
+ALTER TABLE ONLY public.clinic_service_concerns
+    ADD CONSTRAINT clinic_service_concerns_clinic_id_fkey FOREIGN KEY (clinic_id) REFERENCES public.clinics(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
+
+DO $$ BEGIN
+ALTER TABLE ONLY public.clinic_service_concerns
+    ADD CONSTRAINT clinic_service_concerns_service_id_fkey FOREIGN KEY (service_id) REFERENCES public.services(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
+
+DO $$ BEGIN
+ALTER TABLE ONLY public.clinic_service_concerns
+    ADD CONSTRAINT clinic_service_concerns_concern_id_fkey FOREIGN KEY (concern_id) REFERENCES public.concerns(id) ON DELETE CASCADE;
 EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
 DO $$ BEGIN
@@ -1029,6 +1079,12 @@ CREATE INDEX IF NOT EXISTS idx_clinic_service_changes_detected ON public.clinic_
 CREATE INDEX IF NOT EXISTS idx_clinic_service_changes_service ON public.clinic_service_changes USING btree (service_id);
 
 CREATE INDEX IF NOT EXISTS idx_clinic_service_changes_type ON public.clinic_service_changes USING btree (change_type);
+
+CREATE INDEX IF NOT EXISTS idx_clinic_service_concerns_clinic ON public.clinic_service_concerns USING btree (clinic_id);
+
+CREATE INDEX IF NOT EXISTS idx_clinic_service_concerns_service ON public.clinic_service_concerns USING btree (service_id);
+
+CREATE INDEX IF NOT EXISTS idx_clinic_service_concerns_concern ON public.clinic_service_concerns USING btree (concern_id);
 
 CREATE INDEX IF NOT EXISTS idx_clinic_services_clinic_id ON public.clinic_services USING btree (clinic_id);
 

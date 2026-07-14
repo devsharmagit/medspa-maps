@@ -164,22 +164,15 @@ export async function getClinicData(slug: string): Promise<ClinicPageData | null
       [c.id]
     ),
     pool.query(
-      // Evidence-based concerns: website-scraped (source='scraped') plus admin
-      // manual additions, minus admin 'removed' suppressions. Never derived
-      // from services. Display is the condition name only — the treatment
-      // pairing stays in clinic_concern_evidence but is not surfaced here.
+      // Website-scraped concerns plus admin manual additions, minus admin
+      // 'removed' suppressions. Unified treatment/concern ingest now allows
+      // standalone concerns even when no exact treatment is paired, so an active
+      // scraped clinic_concerns row is enough to render.
       `SELECT co.name, co.slug
        FROM clinic_concerns cc
        JOIN concerns co ON co.id = cc.concern_id AND co.is_active = true
        WHERE cc.clinic_id = $1 AND cc.is_active = true
          AND cc.source IN ('scraped','manual')
-         AND (
-           cc.source = 'manual'
-           OR EXISTS (
-             SELECT 1 FROM clinic_concern_evidence ev
-             WHERE ev.clinic_id = cc.clinic_id AND ev.concern_id = cc.concern_id
-           )
-         )
          AND NOT EXISTS (
            SELECT 1 FROM clinic_concerns cr
            WHERE cr.clinic_id = cc.clinic_id AND cr.concern_id = cc.concern_id

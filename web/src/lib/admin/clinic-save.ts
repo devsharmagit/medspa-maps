@@ -164,7 +164,14 @@ export interface ClinicBundle {
    */
   clinic?: SaveClinicLevel;
   locations: SaveLocation[];
-  services: SaveService[];
+  /**
+   * Treatments/services. OPTIONAL — omit entirely to leave this clinic's
+   * existing clinic_services untouched (e.g. a details-only re-ingest via
+   * ingestClinicByDomain, which no longer extracts services — see
+   * ingest/ingest-services.ts). Pass an array (even []) when the caller
+   * genuinely wants to overwrite the clinic's services with a fresh scrape.
+   */
+  services?: SaveService[];
   images?: SaveImages;
   /** Providers/practitioners (owner/CEO/founder first). Delete-then-insert on overwrite. */
   providers?: SaveProvider[];
@@ -275,6 +282,204 @@ async function uniqueClinicSlug(base: string, businessId: string): Promise<strin
     if (!existing) return slug;
     slug = `${base}-${n++}`;
   }
+}
+
+export interface SaveServicesResult {
+  matched: number;
+  auto: number;
+  unmatched: number;
+}
+
+/**
+ * saveClinicServices(clinicId, services, opts) — resolve + persist ONE clinic's
+ * treatment/service rows. Standalone and reusable: called by saveClinicBundle
+ * (the heuristic-scraper / admin-save / rescrape path, as part of a full bundle
+ * save) AND by ingestServicesByDomain (the AI treatments-only refresh path, see
+ * ingest/ingest-services.ts) — both need IDENTICAL resolution logic so a clinic's
+ * canonical mapping never depends on which caller touched it last.
+ *
+ * Resolution order per raw service: deterministic junk/staff-name backstop →
+ * admin override (mapped_slug) → public AI decision (own row / curated 15+
+ * aliases) → live DB catalog fuzzy → AI general_name fuzzy/create → unmatched
+ * (still stored by raw_name).
+ *
+ * overwrite (default true): deletes this clinic's existing clinic_services
+ * first, then re-inserts. When false, existing rows for OTHER raw_names are
+ * left alone (the per-raw_name upsert still refreshes a matching raw_name).
+ */
+export async function saveClinicServices(
+  clinicId: string,
+  services: SaveService[],
+  opts: { website?: string | null; providerNames?: string[]; overwrite?: boolean } = {}
+): Promise<SaveServicesResult> {
+  const overwrite = opts.overwrite ?? true;
+  const website = opts.website ?? null;
+
+  if (overwrite) {
+    await query(`DELETE FROM clinic_services WHERE clinic_id = $1`, [clinicId]);
+  }
+
+  // Load the live catalog once (curated 15 + previously AI-grown rows).
+  type CatRow = { id: string; name: string; slug: string; aliases: string[]; origin: string };
+  const catalog: CatRow[] = (
+    await query<{ id: string; name: string; slug: string; aliases: string[] | null; origin: string | null }>(
+      `SELECT id, name, slug, COALESCE(aliases, '{}') AS aliases, COALESCE(origin, 'seed') AS origin
+         FROM services WHERE is_active = true`
+    )
+  ).map((r) => ({ id: r.id, name: r.name, slug: r.slug, aliases: r.aliases ?? [], origin: r.origin ?? "seed" }));
+  const catBySlug = new Map(catalog.map((r) => [r.slug, r]));
+
+  const cleanName = (v: string) => v.replace(/[®™©]/g, "").replace(/\s+/g, " ").trim();
+  const uniqueServiceSlug = async (base: string): Promise<string> => {
+    const root = base || "treatment";
+    let slug = root;
+    let n = 2;
+    while (catBySlug.has(slug) || (await queryOne(`SELECT 1 FROM services WHERE slug = $1`, [slug]))) {
+      slug = `${root}-${n++}`;
+    }
+    return slug;
+  };
+  const addAiAlias = async (row: CatRow, rawName: string) => {
+    // Aliases are safe on both curated and AI rows: they improve raw-name search
+    // while the public label remains the vetted service row name.
+    const a = normalize(rawName);
+    if (!a || row.aliases.includes(a)) return;
+    row.aliases.push(a);
+    await query(
+      `UPDATE services SET aliases = array_append(COALESCE(aliases,'{}'), $2), updated_at = NOW()
+         WHERE id = $1 AND NOT ($2 = ANY(COALESCE(aliases,'{}')))`,
+      [row.id, a]
+    );
+  };
+  const createAiService = async (generalName: string, category: string | null, rawName: string): Promise<CatRow> => {
+    const name = cleanName(generalName) || cleanName(rawName);
+    const slug = await uniqueServiceSlug(slugify(name));
+    const aliases = [...new Set([normalize(rawName), normalize(name)].filter(Boolean))];
+    const ins = await queryOne<{ id: string }>(
+      `INSERT INTO services (name, slug, category, aliases, origin, is_published, review_status, is_active)
+       VALUES ($1,$2,$3,$4,'ai',true,'approved',true)
+       ON CONFLICT (slug) DO UPDATE SET updated_at = NOW()
+       RETURNING id`,
+      [name, slug, category, aliases]
+    );
+    const row: CatRow = { id: ins!.id, name, slug, aliases, origin: "ai" };
+    catalog.push(row);
+    catBySlug.set(slug, row);
+    return row;
+  };
+
+  // Normalized names of this clinic's own providers — a scraped "service" that
+  // is really a staff member (e.g. "Katie Stein, BSN", "Christina Fitch") must
+  // never become a treatment. Credentials are stripped so "Mara Costa, APRN-BC"
+  // matches the provider "Mara Costa".
+  const providerNorms = new Set((opts.providerNames ?? []).map((n) => stripCredentials(n ?? "")).filter(Boolean));
+
+  let matched = 0;
+  let auto = 0;
+  let unmatched = 0;
+  const seenRaw = new Set<string>();
+  for (const s of services) {
+    const raw = s.raw_name?.trim();
+    if (!raw) continue;
+    if (s.ignored) continue;
+    // Deterministic junk backstop: drop nav/CTA/footer/category-header/testing
+    // junk and staff names even if the AI marked them public_decision='public'.
+    // Not stored at all (no clinic_services row) — they are not offerings.
+    if (isServiceNoise(raw) || providerNorms.has(stripCredentials(raw))) continue;
+    const rawKey = raw.toLowerCase();
+    if (seenRaw.has(rawKey)) continue;
+    seenRaw.add(rawKey);
+
+    let serviceId: string | null = null;
+    let confidence = 0;
+    let matchStatus: "matched" | "auto" | "unmatched" = "unmatched";
+
+    const publicDecision = s.public_decision ?? "public";
+    const exactNameMatch = (name: string): CatRow | undefined => {
+      const n = normalize(name);
+      return catalog.find((row) => normalize(row.name) === n);
+    };
+    const mapByGeneralName = async (forceCreatePublic: boolean) => {
+      const gen = s.general_name?.trim();
+      if (!gen || gen.length < 3) return false;
+      const exact = exactNameMatch(gen);
+      const row = exact
+        ? exact
+        : forceCreatePublic
+          ? await createAiService(gen, s.general_category?.trim() || null, raw)
+          : (bestCatalogMatch(gen, catalog, 0.72)
+              ? catBySlug.get(bestCatalogMatch(gen, catalog, 0.72)!.entry.slug)!
+              : await createAiService(gen, s.general_category?.trim() || null, raw));
+      await addAiAlias(row, raw);
+      serviceId = row.id;
+      confidence = exact ? 1 : forceCreatePublic ? 0.92 : 0.9;
+      matchStatus = exact ? "matched" : "auto";
+      return true;
+    };
+
+    if (s.mapped_slug) {
+      const svc = catBySlug.get(s.mapped_slug)
+        ?? (await queryOne<{ id: string }>(`SELECT id FROM services WHERE slug = $1`, [s.mapped_slug]));
+      serviceId = svc?.id ?? null;
+      confidence = serviceId ? 1 : 0;
+      matchStatus = serviceId ? "matched" : "unmatched";
+    } else if (publicDecision === "public" && await mapByGeneralName(true)) {
+      // Public AI decision wins before the old alias matcher so real searchable
+      // brands/devices (Dysport, Morpheus8, MiraDry) do not collapse into broad
+      // buckets like Botox or Microneedling.
+    } else {
+      // 1. curated matcher — authoritative for the 15 + their brand aliases
+      const curated = matchService(raw);
+      const curatedRow = curated.slug ? catBySlug.get(curated.slug) : undefined;
+      if (curatedRow) {
+        serviceId = curatedRow.id;
+        confidence = curated.confidence;
+        matchStatus = curated.confidence >= 1 ? "matched" : "auto";
+      } else if (s.general_name && s.general_name.trim().length >= 3) {
+        // 2. The AI's GENERIC treatment name is authoritative for the long tail:
+        //    match it against the catalog (exact / ≥0.72) or create a new generic
+        //    bucket. This runs BEFORE any raw-name fuzzy so distinct variants
+        //    (Phentermine, Metformin, Semaglutide…) collapse into the clean
+        //    generic bucket the AI chose ("Medical Weight Loss") — not a
+        //    drug-named row that a raw fuzzy-match happened to land on.
+        await mapByGeneralName(false);
+      } else {
+        // 3. no AI suggestion (heuristic-fallback path) → fuzzy the raw name
+        //    against the live catalog; else leave unmatched (still stored by raw_name).
+        const dbHit = bestCatalogMatch(raw, catalog);
+        if (dbHit) {
+          const row = catBySlug.get(dbHit.entry.slug)!;
+          serviceId = row.id;
+          confidence = dbHit.confidence;
+          matchStatus = dbHit.confidence >= 1 ? "matched" : "auto";
+          await addAiAlias(row, raw);
+        } else {
+          matchStatus = "unmatched";
+        }
+      }
+    }
+    if (matchStatus === "matched") matched++;
+    else if (matchStatus === "auto") auto++;
+    else unmatched++;
+
+    await query(
+      `INSERT INTO clinic_services
+         (clinic_id, service_id, raw_name, description, match_status, match_confidence,
+          data_source, scraped_from_url, last_scraped_at)
+       VALUES ($1,$2,$3,$4,$5,$6,'scraped',$7,NOW())
+       ON CONFLICT (clinic_id, raw_name) DO UPDATE SET
+         service_id = EXCLUDED.service_id,
+         description = COALESCE(EXCLUDED.description, clinic_services.description),
+         match_status = EXCLUDED.match_status,
+         match_confidence = EXCLUDED.match_confidence,
+         last_scraped_at = NOW(),
+         updated_at = NOW()`,
+      [clinicId, serviceId, raw, s.description ?? null, matchStatus, confidence || null,
+       s.scraped_from_url ?? website]
+    );
+  }
+
+  return { matched, auto, unmatched };
 }
 
 /**
@@ -567,173 +772,22 @@ export async function saveClinicBundle(
     }
   }
 
-  // ── services (NEVER skip; unmatched → service_id NULL) ───────────────────
-  // Resolution order per raw service: admin override → curated matchService (the
-  // 15 + rich brand aliases) → live DB catalog (folds AI-grown treatments) →
-  // AI-proposed general_name (de-duped, else CREATE a new origin='ai' treatment).
-  if (overwrite) {
-    await query(`DELETE FROM clinic_services WHERE clinic_id = $1`, [clinicId]);
-  }
-
-  // Load the live catalog once (curated 15 + previously AI-grown rows).
-  type CatRow = { id: string; name: string; slug: string; aliases: string[]; origin: string };
-  const catalog: CatRow[] = (
-    await query<{ id: string; name: string; slug: string; aliases: string[] | null; origin: string | null }>(
-      `SELECT id, name, slug, COALESCE(aliases, '{}') AS aliases, COALESCE(origin, 'seed') AS origin
-         FROM services WHERE is_active = true`
-    )
-  ).map((r) => ({ id: r.id, name: r.name, slug: r.slug, aliases: r.aliases ?? [], origin: r.origin ?? "seed" }));
-  const catBySlug = new Map(catalog.map((r) => [r.slug, r]));
-
-  const cleanName = (v: string) => v.replace(/[®™©]/g, "").replace(/\s+/g, " ").trim();
-  const uniqueServiceSlug = async (base: string): Promise<string> => {
-    const root = base || "treatment";
-    let slug = root;
-    let n = 2;
-    while (catBySlug.has(slug) || (await queryOne(`SELECT 1 FROM services WHERE slug = $1`, [slug]))) {
-      slug = `${root}-${n++}`;
-    }
-    return slug;
-  };
-  const addAiAlias = async (row: CatRow, rawName: string) => {
-    // Aliases are safe on both curated and AI rows: they improve raw-name search
-    // while the public label remains the vetted service row name.
-    const a = normalize(rawName);
-    if (!a || row.aliases.includes(a)) return;
-    row.aliases.push(a);
-    await query(
-      `UPDATE services SET aliases = array_append(COALESCE(aliases,'{}'), $2), updated_at = NOW()
-         WHERE id = $1 AND NOT ($2 = ANY(COALESCE(aliases,'{}')))`,
-      [row.id, a]
-    );
-  };
-  const createAiService = async (generalName: string, category: string | null, rawName: string): Promise<CatRow> => {
-    const name = cleanName(generalName) || cleanName(rawName);
-    const slug = await uniqueServiceSlug(slugify(name));
-    const aliases = [...new Set([normalize(rawName), normalize(name)].filter(Boolean))];
-    const ins = await queryOne<{ id: string }>(
-      `INSERT INTO services (name, slug, category, aliases, origin, is_published, review_status, is_active)
-       VALUES ($1,$2,$3,$4,'ai',true,'approved',true)
-       ON CONFLICT (slug) DO UPDATE SET updated_at = NOW()
-       RETURNING id`,
-      [name, slug, category, aliases]
-    );
-    const row: CatRow = { id: ins!.id, name, slug, aliases, origin: "ai" };
-    catalog.push(row);
-    catBySlug.set(slug, row);
-    return row;
-  };
-
-  // Normalized names of this clinic's own providers — a scraped "service" that
-  // is really a staff member (e.g. "Katie Stein, BSN", "Christina Fitch") must
-  // never become a treatment. Credentials are stripped so "Mara Costa, APRN-BC"
-  // matches the provider "Mara Costa".
-  const providerNorms = new Set<string>();
-  for (const p of payload.providers ?? []) {
-    const n = stripCredentials(p.name ?? "");
-    if (n) providerNorms.add(n);
-  }
-
-  const seenRaw = new Set<string>();
-  for (const s of payload.services) {
-    const raw = s.raw_name?.trim();
-    if (!raw) continue;
-    if (s.ignored) continue;
-    // Deterministic junk backstop: drop nav/CTA/footer/category-header/testing
-    // junk and staff names even if the AI marked them public_decision='public'.
-    // Not stored at all (no clinic_services row) — they are not offerings.
-    if (isServiceNoise(raw) || providerNorms.has(stripCredentials(raw))) continue;
-    const rawKey = raw.toLowerCase();
-    if (seenRaw.has(rawKey)) continue;
-    seenRaw.add(rawKey);
-
-    let serviceId: string | null = null;
-    let confidence = 0;
-    let matchStatus: "matched" | "auto" | "unmatched" = "unmatched";
-
-    const publicDecision = s.public_decision ?? "public";
-    const exactNameMatch = (name: string): CatRow | undefined => {
-      const n = normalize(name);
-      return catalog.find((row) => normalize(row.name) === n);
-    };
-    const mapByGeneralName = async (forceCreatePublic: boolean) => {
-      const gen = s.general_name?.trim();
-      if (!gen || gen.length < 3) return false;
-      const exact = exactNameMatch(gen);
-      const row = exact
-        ? exact
-        : forceCreatePublic
-          ? await createAiService(gen, s.general_category?.trim() || null, raw)
-          : (bestCatalogMatch(gen, catalog, 0.72)
-              ? catBySlug.get(bestCatalogMatch(gen, catalog, 0.72)!.entry.slug)!
-              : await createAiService(gen, s.general_category?.trim() || null, raw));
-      await addAiAlias(row, raw);
-      serviceId = row.id;
-      confidence = exact ? 1 : forceCreatePublic ? 0.92 : 0.9;
-      matchStatus = exact ? "matched" : "auto";
-      return true;
-    };
-
-    if (s.mapped_slug) {
-      const svc = catBySlug.get(s.mapped_slug)
-        ?? (await queryOne<{ id: string }>(`SELECT id FROM services WHERE slug = $1`, [s.mapped_slug]));
-      serviceId = svc?.id ?? null;
-      confidence = serviceId ? 1 : 0;
-      matchStatus = serviceId ? "matched" : "unmatched";
-    } else if (publicDecision === "public" && await mapByGeneralName(true)) {
-      // Public AI decision wins before the old alias matcher so real searchable
-      // brands/devices (Dysport, Morpheus8, MiraDry) do not collapse into broad
-      // buckets like Botox or Microneedling.
-    } else {
-      // 1. curated matcher — authoritative for the 15 + their brand aliases
-      const curated = matchService(raw);
-      const curatedRow = curated.slug ? catBySlug.get(curated.slug) : undefined;
-      if (curatedRow) {
-        serviceId = curatedRow.id;
-        confidence = curated.confidence;
-        matchStatus = curated.confidence >= 1 ? "matched" : "auto";
-      } else if (s.general_name && s.general_name.trim().length >= 3) {
-        // 2. The AI's GENERIC treatment name is authoritative for the long tail:
-        //    match it against the catalog (exact / ≥0.72) or create a new generic
-        //    bucket. This runs BEFORE any raw-name fuzzy so distinct variants
-        //    (Phentermine, Metformin, Semaglutide…) collapse into the clean
-        //    generic bucket the AI chose ("Medical Weight Loss") — not a
-        //    drug-named row that a raw fuzzy-match happened to land on.
-        await mapByGeneralName(false);
-      } else {
-        // 3. no AI suggestion (heuristic-fallback path) → fuzzy the raw name
-        //    against the live catalog; else leave unmatched (still stored by raw_name).
-        const dbHit = bestCatalogMatch(raw, catalog);
-        if (dbHit) {
-          const row = catBySlug.get(dbHit.entry.slug)!;
-          serviceId = row.id;
-          confidence = dbHit.confidence;
-          matchStatus = dbHit.confidence >= 1 ? "matched" : "auto";
-          await addAiAlias(row, raw);
-        } else {
-          matchStatus = "unmatched";
-        }
-      }
-    }
-    if (matchStatus === "matched") result.servicesMatched++;
-    else if (matchStatus === "auto") result.servicesAuto++;
-    else result.servicesUnmatched++;
-
-    await query(
-      `INSERT INTO clinic_services
-         (clinic_id, service_id, raw_name, description, match_status, match_confidence,
-          data_source, scraped_from_url, last_scraped_at)
-       VALUES ($1,$2,$3,$4,$5,$6,'scraped',$7,NOW())
-       ON CONFLICT (clinic_id, raw_name) DO UPDATE SET
-         service_id = EXCLUDED.service_id,
-         description = COALESCE(EXCLUDED.description, clinic_services.description),
-         match_status = EXCLUDED.match_status,
-         match_confidence = EXCLUDED.match_confidence,
-         last_scraped_at = NOW(),
-         updated_at = NOW()`,
-      [clinicId, serviceId, raw, s.description ?? null, matchStatus, confidence || null,
-       s.scraped_from_url ?? website]
-    );
+  // ── services (skipped entirely when payload.services is omitted) ─────────
+  // Delegates to the standalone saveClinicServices() (shared with the AI
+  // treatments-only refresh, ingest/ingest-services.ts) so both callers resolve
+  // a raw name to the exact same canonical row. `services` is OPTIONAL on the
+  // bundle specifically so a details-only save (e.g. ingestClinicByDomain, which
+  // no longer extracts services) can never wipe a clinic's existing treatments —
+  // omit the field to leave clinic_services completely untouched.
+  if (payload.services !== undefined) {
+    const svcResult = await saveClinicServices(clinicId, payload.services, {
+      website,
+      providerNames: (payload.providers ?? []).map((p) => p.name),
+      overwrite,
+    });
+    result.servicesMatched += svcResult.matched;
+    result.servicesAuto += svcResult.auto;
+    result.servicesUnmatched += svcResult.unmatched;
   }
 
   // ── images (logo / gallery / before_after; source_url only) ──────────────

@@ -30,10 +30,20 @@ interface IngestResult {
   locations: number;
   images: number;
   providers?: number;
-  services?: number;
   beforeAfter?: number;
   modelUsed: string;
   escalated: boolean;
+  note?: string;
+}
+
+interface TreatmentsConcernsResult {
+  status: "saved" | "skipped" | "failed";
+  treatmentsFound: number;
+  servicesMatched: number;
+  servicesAuto: number;
+  servicesUnmatched: number;
+  concernsSaved: number;
+  mappingsSaved: number;
   note?: string;
 }
 
@@ -47,7 +57,13 @@ interface G99Attach {
 
 type IngestResponse =
   | { outcome: "blocked"; domain: string; duplicate: ExistingClinicRef[] }
-  | { outcome: "ingested"; domain: string; result: IngestResult; g99: G99Attach | null };
+  | {
+      outcome: "ingested";
+      domain: string;
+      result: IngestResult;
+      treatmentsConcerns: TreatmentsConcernsResult;
+      g99: G99Attach | null;
+    };
 
 export default function AddWebsitePage() {
   const [url, setUrl] = useState("");
@@ -82,7 +98,7 @@ export default function AddWebsitePage() {
         <p className="mt-1.5 text-sm text-slate-500">
           Paste a medspa website URL. AI scrapes the site — clinic details, all
           locations, images (incl. before/after), providers, and treatments — and
-          adds it to the directory. If the domain was harvested from G99, its
+          adds it to the directory with treatments and concerns. If the domain was harvested from G99, its
           clinic/business ids are linked automatically.
         </p>
       </div>
@@ -207,7 +223,15 @@ export default function AddWebsitePage() {
                   <Badge variant="secondary">{res.result.locations} locations</Badge>
                   <Badge variant="secondary">{res.result.images} images</Badge>
                   <Badge variant="secondary">{res.result.providers ?? 0} providers</Badge>
-                  <Badge variant="secondary">{res.result.services ?? 0} treatments</Badge>
+                  <Badge variant="secondary">
+                    {res.treatmentsConcerns.treatmentsFound} treatments
+                  </Badge>
+                  <Badge variant="secondary">
+                    {res.treatmentsConcerns.concernsSaved} concerns
+                  </Badge>
+                  <Badge variant="secondary">
+                    {res.treatmentsConcerns.mappingsSaved} treatment-concern pairs
+                  </Badge>
                   <Badge variant="secondary">{res.result.beforeAfter ?? 0} before/after</Badge>
                   <Badge variant="outline">
                     {res.result.modelUsed}

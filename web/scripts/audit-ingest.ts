@@ -24,7 +24,8 @@ import {
   condenseForConcerns,
   extractClinicConcerns,
 } from "../src/lib/ingest/ai-extract-concerns";
-import { extractClinicDetails } from "../src/lib/ingest/ai-extract";
+import { extractClinicServices } from "../src/lib/ingest/ai-extract-services";
+import { ingestServicesByDomain } from "../src/lib/ingest/ingest-services";
 import { ingestConcernsByDomain } from "../src/lib/ingest/ingest-concerns";
 import { validateConcerns, normText, type ClinicServiceRef } from "../src/lib/ingest/concern-validate";
 
@@ -212,12 +213,11 @@ async function main() {
       )
     ).map((r) => r.name);
 
-    const serviceOut = await extractClinicDetails({
+    const serviceOut = await extractClinicServices({
       domain,
       pages,
       serviceCandidates,
       knownTreatments,
-      useVision: false,
     });
     report.ai_service_dry_run = {
       model: serviceOut.model,
@@ -281,10 +281,12 @@ async function main() {
 
   if (repair) {
     const clinicRepair = await ingestClinicByDomain(domain, { useVision: false });
+    const servicesRepair = await ingestServicesByDomain(domain);
     const concernRepair = await ingestConcernsByDomain(domain);
     await query("REFRESH MATERIALIZED VIEW public.clinic_search_view");
     report.repair = {
       clinic: clinicRepair,
+      services: servicesRepair,
       concerns: {
         ...concernRepair,
         rejected: concernRepair.rejected.map((r) => ({

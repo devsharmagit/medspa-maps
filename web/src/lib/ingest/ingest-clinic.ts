@@ -1,7 +1,7 @@
 /**
- * ingest/ingest-clinic.ts — ingest ONE clinic website into the medspa-map DB.
+ * ingest/ingest-clinic.ts — ingest ONE clinic's DETAILS into the medspa-map DB.
  *
- * WEBSITE-ONLY pipeline (basic details + multi-location + providers + services;
+ * WEBSITE-ONLY pipeline (basic details + multi-location + providers + images;
  * NO reviews, and NO G99 database lookups):
  *   1. Fetch homepage + discovered locations/contact/about pages → cleaned text,
  *      and collect every Google-Maps anchor link on those pages.
@@ -14,6 +14,15 @@
  *   6. saveClinicBundle() — clinic-wide fields (booking/socials/about) live on the
  *      clinic; every location is independent (no primary); state stored full-name.
  *
+ * Treatments/services are DELIBERATELY NOT extracted here — run
+ * ingestServicesByDomain() (ingest/ingest-services.ts) separately, for the same
+ * reason concerns are separate: so treatments can be re-scraped/re-resolved on
+ * their own, without re-touching a clinic's details, and vice versa. For a
+ * brand-new clinic, run this first (it creates the clinic), then
+ * ingestServicesByDomain(), then optionally ingestConcernsByDomain() (which
+ * requires services to already exist). See ingest/ingest-treatments-concerns.ts
+ * for a single call that does both of the latter two.
+ *
  * The domain to ingest is chosen upstream (scripts/ingest-g99-batch.ts reads the
  * g99_clinic_websites harvest table). This module never queries G99.
  */
@@ -24,12 +33,6 @@ import { fetchHtml, load, normalizeUrl } from "@/lib/scraper/utils";
 import { extractImages, collectImageCandidates, type ImageCandidate } from "@/lib/scraper/images";
 import { isLandscapeImage } from "@/lib/scraper/image-size";
 import { extractProviders } from "@/lib/scraper/providers";
-import {
-  extractServices,
-  extractServicesFromNav,
-  extractServiceAnchors,
-} from "@/lib/scraper/services";
-import type { ScrapedService } from "@/lib/scraper/types";
 import { parseUSAddress, stateFullName } from "@/lib/address-parser";
 import { firstNonEmpty } from "@/lib/g99/overlay";
 import { geocodeAddress } from "@/lib/geocoder";
@@ -47,7 +50,6 @@ import {
   type SaveLocation,
   type SaveImages,
   type SaveProvider,
-  type SaveService,
 } from "@/lib/admin/clinic-save";
 import { ESCALATION_MODEL } from "@/lib/ai/anthropic";
 import {
@@ -62,6 +64,9 @@ import {
   resolveBeforeAfter,
 } from "@/lib/ingest/before-after";
 
+const GALLERY_PHOTO_CAP = 5;
+const PROVIDER_CAP = 10;
+
 export interface IngestResult {
   domain: string;
   status: "saved" | "skipped" | "failed";
@@ -73,7 +78,6 @@ export interface IngestResult {
   aiLocations: number;
   g99Locations: number;
   providers?: number;
-  services?: number;
   beforeAfter?: number;
   modelUsed: string;
   escalated: boolean;
@@ -167,38 +171,6 @@ function hoursArrayToMap(
   return Object.keys(map).length ? map : null;
 }
 
-function normalizeServiceOutput(s: SaveService): SaveService[] {
-  const raw = s.raw_name.replace(/[®™©]/g, "").replace(/\s+/g, " ").trim();
-  const lower = raw.toLowerCase();
-  if (/\b(dentistry|dental|orthodont|veneers?)\b/i.test(raw)) {
-    return [{ ...s, ignored: true, public_decision: "ignored" }];
-  }
-  if (/ruma\s+gold/i.test(raw)) {
-    return [{
-      ...s,
-      general_name: "Microneedling",
-      public_decision: "alias_only",
-      ignored: false,
-    }];
-  }
-  if (/sculptra\s*&\s*radiesse|sculptra\s+and\s+radiesse/i.test(raw)) {
-    return [
-      { ...s, raw_name: "Sculptra", general_name: "Sculptra", public_decision: "public", ignored: false },
-      { ...s, raw_name: "Radiesse", general_name: "Radiesse", public_decision: "public", ignored: false },
-    ];
-  }
-  if (/sylfirm\s*x.*rf\s*microneedling/i.test(raw)) {
-    return [{ ...s, general_name: "Sylfirm X RF Microneedling" }];
-  }
-  if (/everesse/i.test(raw) && /skin\s+tightening/i.test(raw)) {
-    return [{ ...s, general_name: "Everesse Skin Tightening" }];
-  }
-  if (/regenerative aesthetics.*prp\/prf/i.test(lower)) {
-    return [{ ...s, general_name: "PRP/PRF" }];
-  }
-  return [s];
-}
-
 export async function ingestClinicByDomain(
   domain: string,
   opts: IngestOptions = {}
@@ -247,23 +219,6 @@ export async function ingestClinicByDomain(
   const hProviders = extractProviders($home, finalUrl);
   let hBooking = extractBookingUrl($home, finalUrl);
   let hHours = extractHours($home, home.html);
-  // Service candidates: the nav mega-menu lists the full catalogue on every page;
-  // service pages add card/heading/list items. The AI maps these to general
-  // treatments; extractServices output is the heuristic fallback.
-  const SERVICES_URL_RE = /\/(services?|treatments?|menu|procedures|what-we-offer)/i;
-  const SVC_CAND_CAP = 80;
-  const serviceCandidates: Array<{ name: string; category?: string | null; url?: string | null }> = [];
-  const seenSvcCand = new Set<string>();
-  const hServices: ScrapedService[] = [];
-  const addSvcCands = (list: ScrapedService[]) => {
-    for (const c of list) {
-      const key = c.name?.trim().toLowerCase();
-      if (!key || seenSvcCand.has(key)) continue;
-      if (serviceCandidates.length >= SVC_CAND_CAP) break;
-      seenSvcCand.add(key);
-      serviceCandidates.push({ name: c.name.trim(), category: c.category ?? null, url: c.scraped_from_url ?? null });
-    }
-  };
 
   // Before/after candidates — collected across all pages, resolved after images.
   // Homepage contributes only filename-certain matches (isHome suppresses the
@@ -271,8 +226,6 @@ export async function ingestClinicByDomain(
   const baCands = newBeforeAfterCandidates();
   scanPageForBeforeAfter(baCands, $home, finalUrl, { isHome: true, candidates: imageCandidates });
 
-  addSvcCands(extractServicesFromNav($home, finalUrl));
-  addSvcCands(extractServiceAnchors($home, finalUrl));
   for (const u of await discoverContentPages($home, finalUrl)) {
     const r = await fetchHtml(u);
     if (!r) continue;
@@ -285,14 +238,6 @@ export async function ingestClinicByDomain(
     const pageImgs = collectImageCandidates($p, u);
     addProvCands(pageImgs);
     hProviders.push(...extractProviders($p, u));
-    addSvcCands(extractServicesFromNav($p, u));
-    addSvcCands(extractServiceAnchors($p, u));
-    if (SERVICES_URL_RE.test(u)) {
-      const pageSvcs = extractServices($p, u);
-      hServices.push(...pageSvcs);
-      addSvcCands(pageSvcs);
-      addSvcCands(extractServiceAnchors($p, u));
-    }
     scanPageForBeforeAfter(baCands, $p, u, { candidates: pageImgs });
     if (!hBooking) hBooking = extractBookingUrl($p, u);
     if (!hHours) hHours = extractHours($p, r.html);
@@ -300,14 +245,9 @@ export async function ingestClinicByDomain(
   addProvCands(imageCandidates); // homepage images as filler (some sites list team on home)
 
   // 2) AI extraction — website is the ONLY source (escalate once on failure /
-  //    when zero locations come back). knownTreatments shows the AI the live
-  //    catalog (curated 15 + AI-grown) so it reuses names before inventing new.
-  const knownTreatments = (
-    await query<{ name: string }>(`SELECT name FROM services WHERE is_active = true ORDER BY name`)
-  ).map((r) => r.name);
+  //    when zero locations come back).
   const aiInput = {
     domain, pages, imageCandidates, bookingCandidates, providerImageCandidates,
-    serviceCandidates, knownTreatments,
     useVision: opts.useVision,
   };
   let extracted: ExtractedClinic;
@@ -394,7 +334,9 @@ export async function ingestClinicByDomain(
   }
   if (!coverUrl) coverUrl = coverRanked[0] ?? null;
 
-  galleryUrls = galleryUrls.filter((u) => u !== coverUrl && u !== logoUrl);
+  galleryUrls = galleryUrls
+    .filter((u) => u !== coverUrl && u !== logoUrl)
+    .slice(0, GALLERY_PHOTO_CAP);
 
   const images: SaveImages = {
     logo: logoUrl ? { source_url: logoUrl, alt_text: altOf(logoUrl) } : null,
@@ -451,6 +393,7 @@ export async function ingestClinicByDomain(
       return true;
     });
   providers.sort((a, b) => (b.card_tagline ? 1 : 0) - (a.card_tagline ? 1 : 0));
+  providers = providers.slice(0, PROVIDER_CAP);
 
   // Fallback: if the AI returned no providers, use the heuristic extractor.
   if (providers.length === 0 && hProviders.length > 0) {
@@ -469,101 +412,8 @@ export async function ingestClinicByDomain(
         image_url: firstNonEmpty(p.photo_url) ?? null,
         card_tagline: null,
         is_verified: false,
-      }));
-  }
-
-  // 4d) services — AI extracts each raw_name + a general treatment mapping; the
-  //     save layer resolves it to a canonical row (curated → DB catalog → create
-  //     origin='ai'). Heuristic extractServices output is the fallback.
-  const seenSvc = new Set<string>();
-  const svcUrlByName = new Map(
-    serviceCandidates.map((s) => [s.name.trim().toLowerCase(), s.url ?? null])
-  );
-  let services: SaveService[] = (extracted.services ?? [])
-    .filter((s) => s.raw_name?.trim())
-    .flatMap((s) => normalizeServiceOutput({
-      raw_name: s.raw_name.trim(),
-      general_name: firstNonEmpty(s.general_name) ?? null,
-      general_category: firstNonEmpty(s.category) ?? null,
-      scraped_from_url:
-        firstNonEmpty(s.source_url, svcUrlByName.get(s.raw_name.trim().toLowerCase())) ??
-        finalUrl,
-      public_decision: s.public_decision,
-      ignored: s.public_decision === "ignored",
-    }))
-    .filter((s) => {
-      const k = s.raw_name.toLowerCase();
-      if (seenSvc.has(k)) return false;
-      seenSvc.add(k);
-      return true;
-    });
-  const serviceHomePath = (() => {
-    try {
-      return new URL(finalUrl).pathname.replace(/\/+$/, "") || "/";
-    } catch {
-      return "/";
-    }
-  })();
-  const seenSvcUrl = new Set(
-    services
-      .map((s) => s.scraped_from_url)
-      .filter((u): u is string => !!u)
-      .map((u) => {
-        try {
-          return new URL(u).href.replace(/\/+$/, "");
-        } catch {
-          return u.replace(/\/+$/, "");
-        }
-      })
-  );
-  for (const cand of serviceCandidates) {
-    if (!cand.url) continue;
-    const urlKey = (() => {
-      try {
-        return new URL(cand.url!).href.replace(/\/+$/, "");
-      } catch {
-        return cand.url!.replace(/\/+$/, "");
-      }
-    })();
-    if (seenSvcUrl.has(urlKey)) continue;
-    try {
-      const p = new URL(cand.url).pathname.replace(/\/+$/, "") || "/";
-      if (p === serviceHomePath || p === "/") continue;
-    } catch {}
-
-    const fallback = normalizeServiceOutput({
-      raw_name: cand.name.trim(),
-      general_name: cand.name.trim(),
-      general_category: cand.category ?? null,
-      scraped_from_url: cand.url,
-      public_decision: "public",
-      ignored: false,
-    }).filter((s) => !s.ignored);
-    if (fallback.length === 0) continue;
-    for (const s of fallback) {
-      const k = s.raw_name.toLowerCase();
-      if (seenSvc.has(k)) continue;
-      seenSvc.add(k);
-      services.push(s);
-    }
-    seenSvcUrl.add(urlKey);
-  }
-  if (services.length === 0 && hServices.length > 0) {
-    const seenH = new Set<string>();
-    services = hServices
-      .filter((s) => s.name?.trim())
-      .filter((s) => {
-        const k = s.name.toLowerCase();
-        if (seenH.has(k)) return false;
-        seenH.add(k);
-        return true;
-      })
-      .map((s) => ({
-        raw_name: s.name.trim(),
-        general_name: null,
-        general_category: s.category ?? null,
-        scraped_from_url: s.scraped_from_url ?? finalUrl,
-      }));
+      }))
+      .slice(0, PROVIDER_CAP);
   }
 
   // 5) geocode each location missing coordinates (Nominatim, rate-limited).
@@ -614,7 +464,10 @@ export async function ingestClinicByDomain(
     business: { name: firstNonEmpty(extracted.business_name, domain) ?? domain },
     clinic,
     locations: merged,
-    services,
+    // services intentionally OMITTED — this pipeline no longer extracts
+    // treatments (see ingest/ingest-services.ts); omitting the field (vs. [])
+    // means saveClinicBundle leaves clinic_services completely untouched, so a
+    // details-only re-ingest can never wipe out a clinic's treatments.
     reviews: [],
     images,
     providers,
@@ -633,7 +486,6 @@ export async function ingestClinicByDomain(
     geocoded,
     images: saved.images,
     providers: providers.length,
-    services: saved.servicesMatched + saved.servicesAuto + saved.servicesUnmatched,
     beforeAfter: beforeAfter.length,
     modelUsed,
     escalated,

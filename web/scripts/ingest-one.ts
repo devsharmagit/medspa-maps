@@ -4,12 +4,18 @@
  *   bun scripts/ingest-one.ts <domain-or-url> [more...]
  *   bun scripts/ingest-one.ts germaindermatology.com 88aestheticandwellness.com
  *
- * Runs the AI ingest pipeline on each arg, then refreshes the search matview.
+ * Runs the full pipeline on each arg — clinic DETAILS (ingestClinicByDomain:
+ * name/locations/images/providers/before-after) then TREATMENTS
+ * (ingestServicesByDomain, a separate call so treatments can be re-run alone
+ * later via scripts/ingest-services.ts) — then refreshes the search matview.
+ * Concerns are NOT part of this (run scripts/ingest-concerns.ts, or
+ * scripts/ingest-treatments-concerns.ts to do both at once).
  * Needs DATABASE_URL + ANTHROPIC_API_KEY in the environment / .env.
  */
 
 import pool, { query } from "../src/lib/db";
 import { ingestClinicByDomain } from "../src/lib/ingest/ingest-clinic";
+import { ingestServicesByDomain } from "../src/lib/ingest/ingest-services";
 
 async function main() {
   const domains = process.argv.slice(2);
@@ -22,9 +28,14 @@ async function main() {
     process.stdout.write(`→ ${domain} … `);
     try {
       const r = await ingestClinicByDomain(domain);
+      let svcNote = "services=skipped(no clinic)";
+      if (r.status === "saved") {
+        const s = await ingestServicesByDomain(domain);
+        svcNote = `services=${s.matched + s.auto + s.unmatched}`;
+      }
       console.log(
         `${r.status} | model=${r.modelUsed || "-"}${r.escalated ? "(escalated)" : ""} | ` +
-          `locs=${r.locations} | geo=${r.geocoded} | imgs=${r.images} | providers=${r.providers ?? 0} | services=${r.services ?? 0} | b&a=${r.beforeAfter ?? 0}` +
+          `locs=${r.locations} | geo=${r.geocoded} | imgs=${r.images} | providers=${r.providers ?? 0} | ${svcNote} | b&a=${r.beforeAfter ?? 0}` +
           `${r.note ? ` | ${r.note}` : ""}`
       );
     } catch (err) {

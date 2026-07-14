@@ -12,9 +12,9 @@ import { scrollToListYourMedspa } from "@/lib/scroll-to-list-your-medspa";
 import { cn } from "@/lib/utils";
 
 const navLinks = [
-  { label: "Treatments", href: "/treatments", dropdown: "treatments" },
+  { label: "Treatments", dropdown: "treatments" },
   { label: "Clinics", href: "/search" },
-  { label: "Conditions", href: "/conditions", dropdown: "conditions" },
+  { label: "Conditions", dropdown: "conditions" },
 ] as const;
 
 export function HeroHeader({ className }: { className?: string }) {

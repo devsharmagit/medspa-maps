@@ -1,10 +1,18 @@
 /**
- * ingest/ai-extract.ts — AI extraction of BASIC clinic details from page text.
+ * ingest/ai-extract.ts — AI extraction of CLINIC DETAILS from page text: basic
+ * business info, every physical location, images (cover/logo/gallery), booking,
+ * hours, and providers.
  *
  * The AI is the source of truth for correctness: it reads the actual page text
  * and returns each field / physical location in context (fixing the heuristic
- * scraper's address mis-attribution). It extracts ONLY basic clinic details +
- * every physical location — NOT treatments, providers, concerns, or reviews.
+ * scraper's address mis-attribution).
+ *
+ * Treatments/services and concerns are DELIBERATELY NOT part of this call —
+ * they live in their own extractors (ai-extract-services.ts, ai-extract-concerns.ts)
+ * behind their own standalone ingest modules (ingest-services.ts,
+ * ingest-concerns.ts), so a clinic's treatments/concerns can be refreshed
+ * without re-scraping/re-extracting its details, and vice versa. Reviews are
+ * not extracted anywhere in this pipeline.
  */
 
 import { z } from "zod";
@@ -36,14 +44,6 @@ const ProviderSchema = z.object({
   is_owner: z.boolean(),
 });
 
-const ServiceSchema = z.object({
-  raw_name: z.string(), // service exactly as written on the site (keep ®/™, brand words)
-  general_name: z.string().nullable(), // public treatment name it maps to
-  category: z.string().nullable(),
-  source_url: z.string().nullable(),
-  public_decision: z.enum(["public", "alias_only", "ignored"]).default("public"),
-});
-
 const ExtractSchema = z.object({
   business_name: z.string().nullable(),
   about: z.string().nullable(),
@@ -63,7 +63,6 @@ const ExtractSchema = z.object({
   gallery_image_urls: z.array(z.string()),
   working_hours: z.array(HourSchema),
   providers: z.array(ProviderSchema),
-  services: z.array(ServiceSchema),
   locations: z.array(LocationSchema),
 });
 
@@ -94,7 +93,7 @@ const TOOL_INPUT_SCHEMA: Record<string, unknown> = {
     gallery_image_urls: {
       type: "array",
       items: { type: "string" },
-      description: "Real clinic/treatment photo URLs (≤10), verbatim from IMAGE CANDIDATES; exclude logo/cover/promos",
+      description: "Real clinic/treatment photo URLs (≤5), verbatim from IMAGE CANDIDATES; exclude logo/cover/promos",
     },
     working_hours: {
       type: "array",
@@ -139,29 +138,6 @@ const TOOL_INPUT_SCHEMA: Record<string, unknown> = {
         required: ["name", "title", "image_url", "card_tagline", "is_owner"],
       },
     },
-    services: {
-      type: "array",
-      description: "MED-SPA / aesthetic / wellness treatments only (from nav + services page). OMIT non-aesthetic items entirely — urgent/primary/quick care, physicals, labs, vaccinations, diagnostics/body-composition, retail product lines. [] if none.",
-      items: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          raw_name: { type: "string", description: "The service EXACTLY as written on the site (keep ®/™ and brand words, e.g. 'Botox®', 'RUMA Gold Microchannel Treatment')" },
-          general_name: {
-            type: ["string", "null"],
-            description: "The public/searchable treatment name. Use real market-recognized brand/device/drug names when patients search them (e.g. Dysport, Morpheus8, MiraDry). For clinic-owned names use the generic public treatment (e.g. RUMA Gold Microchannel Treatment → Microneedling). null only when public_decision is ignored.",
-          },
-          category: { type: ["string", "null"], description: "Group/category label if shown (e.g. 'Anti-Aging', 'Laser Treatment')" },
-          source_url: { type: ["string", "null"], description: "The service detail URL copied from SERVICE CANDIDATES when present; otherwise null." },
-          public_decision: {
-            type: "string",
-            enum: ["public", "alias_only", "ignored"],
-            description: "public = show/search this treatment label; alias_only = save/link it under general_name but do not expose raw_name as a public label; ignored = non-service/out-of-scope/junk such as dentistry, gift cards, shop/blog, category headings.",
-          },
-        },
-        required: ["raw_name", "general_name", "category", "source_url", "public_decision"],
-      },
-    },
     locations: {
       type: "array",
       description: "Every distinct physical location (clinic address) on the site.",
@@ -185,7 +161,7 @@ const TOOL_INPUT_SCHEMA: Record<string, unknown> = {
     "business_name", "about", "tagline", "phone", "email", "booking_url",
     "instagram_url", "facebook_url", "tiktok_url", "youtube_url", "x_url",
     "linkedin_url", "yelp_url", "cover_image_url", "logo_url",
-    "gallery_image_urls", "working_hours", "providers", "services", "locations",
+    "gallery_image_urls", "working_hours", "providers", "locations",
   ],
 };
 
@@ -198,12 +174,12 @@ Rules:
   many. Give each location its own address, city, state (2-letter), zip, phone.
 - "about" is a 1–3 sentence description of the business. "tagline" is a short slogan.
 - Social URLs must be full URLs copied from the page text (else null).
-- Do NOT extract prices or reviews — ignore them. (Providers and services ARE extracted — see their sections below.)
+- Do NOT extract prices or reviews — ignore them. (Providers ARE extracted — see the PROVIDERS section below. Treatments/services and concerns are extracted by separate calls, not this one.)
 
 IMAGES — choose from the IMAGE CANDIDATES list (each line: [context] URL alt="..."). For the top candidates you are ALSO SHOWN THE ACTUAL IMAGE, each labeled with its URL. When an image is shown, judge it by WHAT YOU SEE (is it really a photo, a logo, or a promo graphic?), not just its filename or alt text:
 - cover_image_url: the ONE best hero/cover photo representing the clinic — a real, large banner/slider/hero photo or a representative interior/treatment photo. NEVER a logo, wordmark, icon, text/banner graphic, or a promo/sponsor/newsletter/coupon/award graphic.
 - logo_url: the clinic's actual logo or wordmark (usually context header or schema-logo, or a filename containing "logo"/"icon"); null if none.
-- gallery_image_urls: up to 10 REAL clinic/treatment/interior/team photos. EXCLUDE the logo, the cover, icons, text/banner graphics, and any promo/sponsor/newsletter/coupon/award graphics.
+- gallery_image_urls: up to 5 REAL clinic/treatment/interior/team photos. EXCLUDE the logo, the cover, icons, text/banner graphics, and any promo/sponsor/newsletter/coupon/award graphics.
 - Copy image URLs VERBATIM from the candidate list. NEVER invent, guess, or alter a URL. Omit anything not in the list.
 
 BOOKING — choose from the BOOKING LINK CANDIDATES list (each line: "label" → URL):
@@ -213,26 +189,13 @@ HOURS:
 - working_hours: opening hours parsed from the page text. One entry per day you can determine, day = MONDAY..SUNDAY (uppercase), times in 24-hour "HH:MM". For closed days set is_open=false with open/close null. Omit days not stated; empty array if no hours appear.
 
 PROVIDERS — from the team/about page text + the PROVIDER IMAGE CANDIDATES list:
-- Extract EVERY provider/practitioner/staff person NAMED on the site (a clinic may have one or many; the owner may appear alone on an About page).
+- Extract up to 10 provider/practitioner/staff people NAMED on the site (a clinic may have one or many; the owner may appear alone on an About page). Prefer clinical providers and the owner/medical director when more than 10 are listed.
 - name: the person's name only (no trailing credentials in this field).
 - title: their role/credentials as shown — PREFER the medical-professional designation (e.g. "DNP, FNP-C", "Aesthetic Injector", "Nurse Practitioner", "CEO, Medical Director, Founder").
 - image_url: their headshot — copy VERBATIM from PROVIDER IMAGE CANDIDATES, matched to the person (the filename often contains their name, e.g. SHELBY-HEADSHOT.webp → Shelby). null if no matching headshot.
 - is_owner: true for the owner / CEO / founder / medical director (the boss). Usually exactly one; false for everyone else.
 - card_tagline: a short tagline for the OWNER only (a founder/role emphasis or one-line descriptor from the site); null for all non-owners.
 - Do NOT invent people, and do NOT list services/locations as providers. Empty array if none.
-
-SERVICES — from the page text + the SERVICE CANDIDATES list (nav + services page):
-- Extract only MED-SPA / aesthetic / wellness treatments a user would search a med-spa directory for: injectables, skin/laser/facials, body contouring, hair, medical weight loss, hormone/peptide therapy, IV/vitamin therapy, sexual wellness, regenerative (PRP/PRF), and similar.
-- EXCLUDE anything that is NOT an aesthetic/wellness treatment — OMIT it from the array entirely (do not include it with a null). In particular exclude urgent/primary/"quick" care visits (e.g. "Minor Quick Care", "Sick Visit", "Sinus Cocktail"), physicals (school/sports/DOT/employment), lab work / bloodwork / panels ("Laboratories"), vaccinations, diagnostics & body-composition/InBody assessments, and retail PRODUCT lines (e.g. "ZO Skin Health Skincare"). When the site groups these under a "Labs & Medical Services" / "Quick Care" / "Urgent Care" category, drop that whole group.
-- raw_name: the service EXACTLY as written (KEEP ®/™ and brand words, e.g. "Botox®", "Morpheus8", "RUMA Gold Microchannel Treatment").
-- public_decision:
-  - "public" for real searchable treatment/service labels. Market-recognized brands, devices, drugs, and protocols CAN be public when users search them: Dysport, Sculptra, Radiesse, Renuva, Morpheus8, Sylfirm X RF Microneedling, MiraDry, BBL Laser, Exomind, EBOO/Ozone Therapy, IV Therapy, Hormone Therapy, Medical Weight Loss, etc.
-  - "alias_only" for clinic-owned or confusing proprietary names that should help match the clinic but should NOT become a public treatment label. Example: "RUMA Gold Microchannel Treatment" → general_name "Microneedling".
-  - "ignored" for category headings, blogs, shop, gift cards, specials, consultations, memberships, financing, and out-of-scope services. Cosmetic Dentistry / dental services are ALWAYS ignored for this directory.
-- general_name: the clean PUBLIC treatment name to show/search. For public brands/devices, keep the brand/device when patient-recognized ("Dysport", "Morpheus8", "MiraDry"). For alias_only, use the generic related treatment ("Microneedling"). For combined labels that name multiple treatments ("Sculptra & Radiesse"), return one service item per public treatment, sharing the source_url if known.
-- category: the group/category label the site shows (e.g. "Anti-Aging", "Laser Treatment"); else null.
-- source_url: copy the exact candidate URL when available.
-- Do NOT list category headers, memberships, gift cards, financing, or consultations as services. Do NOT invent services. Empty array if none.
 
 - Call the record_clinic tool exactly once with your result.`;
 
@@ -252,10 +215,6 @@ export interface AiExtractInput {
   bookingCandidates?: Array<{ href: string; text: string }>;
   /** Images from team/about pages (the AI matches provider headshots from these). */
   providerImageCandidates?: Array<{ url: string; alt: string; context: string }>;
-  /** Service/treatment names harvested from nav + services page (the AI maps these). */
-  serviceCandidates?: Array<{ name: string; category?: string | null; url?: string | null }>;
-  /** Current general-treatment names the AI should reuse before inventing new ones. */
-  knownTreatments?: string[];
   model?: string;
   /**
    * Show the top image candidates to the model as actual images (Claude vision)
@@ -455,27 +414,14 @@ export async function extractClinicDetails(
         .map((c) => `- ${c.url}${c.alt ? ` alt="${c.alt}"` : ""}`)
         .join("\n")
     : "";
-  const svcBlock = input.serviceCandidates?.length
-    ? "\n\nSERVICE CANDIDATES (services linked in nav / on the services page — extract these plus any others in the text):\n" +
-      input.serviceCandidates
-        .map((c) => `- ${c.name}${c.category ? ` [category: ${c.category}]` : ""}${c.url ? ` → ${c.url}` : ""}`)
-        .join("\n")
-    : "";
-  const treatBlock = input.knownTreatments?.length
-    ? "\n\nKNOWN TREATMENTS (map each service's general_name to one of these when it fits; otherwise propose a new generic name):\n" +
-      input.knownTreatments.map((t) => `- ${t}`).join("\n")
-    : "";
-
   const user = [
     `Website domain: ${input.domain}`,
     hintLines ? `\nKnown values from our records (confirm/improve; ignore if the site disagrees):\n${hintLines}` : "",
-    `\nPage text follows. Extract the clinic's basic details, ALL physical locations, ALL providers, and ALL services.\n`,
+    `\nPage text follows. Extract the clinic's basic details, ALL physical locations, and ALL providers.\n`,
     pageBlocks,
     imgBlock,
     bookBlock,
     provBlock,
-    svcBlock,
-    treatBlock,
   ].join("\n");
 
   const useVision =

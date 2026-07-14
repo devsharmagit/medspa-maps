@@ -624,7 +624,10 @@ const NOISE_EXACT = new Set<string>([
   "schedule now", "schedule a consultation", "get started", "learn more",
   "read more", "view all", "see all", "click here", "go to top", "back to top",
   "home", "about", "about us", "contact", "contact us", "menu", "search",
-  "login", "log in", "sign in", "sign up", "register",
+  "login", "log in", "sign in", "sign up", "register", "add to cart",
+  "email", "phone", "follow on instagram", "get in touch",
+  "start your transformation today", "view more testimonials", "what people say",
+  "scheduling", "long lasting results",
   // legal / footer
   "privacy policy", "privacy", "terms", "terms and conditions",
   "terms of service", "terms of use", "cookie policy", "accessibility",
@@ -673,6 +676,10 @@ const NON_SERVICE_JUNK = new Set<string>([
   "financing", "gift card", "gift cards", "specials", "promotions",
   "privacy policy", "terms and conditions", "meet the team", "meet the glo squad",
   "raiderettes", "alle", "alle rewards", "brilliant distinctions",
+  "add to cart", "email", "phone", "follow on instagram", "get in touch",
+  "start your transformation today", "view more testimonials", "what people say",
+  "scheduling", "long lasting results", "grounded in science fueled by art",
+  "clear",
   // out-of-scope diagnostics / testing (not aesthetic treatments)
   "diagnostic testing", "biological age testing", "cancer screening",
   "gut health testing", "body composition analysis", "functional medicine",
@@ -772,6 +779,12 @@ export function isServiceNoise(name: string): boolean {
   if (!norm) return true;
   if (NOISE_EXACT.has(norm)) return true;
   if (NON_SERVICE_JUNK.has(norm)) return true;
+  if (/[.!?]/.test(raw) && !/(prp|prf|bbl|ipl|rf|iv|pdo|qwo|ez|vi)\b/i.test(raw)) return true;
+  if (
+    /\b(diagnostics?|screening|test(?:ing)?|laborator(?:y|ies)|labs?|blood\s*work|bloodwork|panels?|body\s*scan|dexa|inbody|allergy|cancer)\b/i.test(raw)
+  ) {
+    return true;
+  }
   return false;
 }
 
