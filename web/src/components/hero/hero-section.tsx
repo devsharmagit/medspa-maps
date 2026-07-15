@@ -1,5 +1,7 @@
 import Image from "next/image";
+import Link from "next/link";
 
+import { Button } from "@/components/ui/button";
 import { HeroHeader } from "@/components/hero/hero-header";
 import { HeroSearchBar } from "@/components/hero/hero-search-bar";
 import { TreatmentCarousel } from "@/components/hero/treatment-carousel";
@@ -69,7 +71,12 @@ export function HeroSection() {
             </div>
 
             {/* Search */}
-            <HeroSearchBar className="max-w-[809px]" />
+            <div className="flex max-w-[809px] flex-col gap-3">
+              <HeroSearchBar />
+              <Button asChild variant="gradient" className="h-12 w-fit px-5 text-sm font-semibold">
+                <Link href="/skin-navigator">Find My Treatment</Link>
+              </Button>
+            </div>
 
             {/* Trust indicators */}
             <ul className="flex max-w-4xl flex-wrap items-center gap-x-5 gap-y-2 text-sm font-bold text-white">

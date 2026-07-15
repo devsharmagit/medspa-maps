@@ -151,6 +151,17 @@
   }
 }
 
+@keyframes navigatorStep {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -230,4 +241,3 @@
 .nav-arrow-btn:active {
   transform: translateY(-50%) scale(0.98);
 }
-
