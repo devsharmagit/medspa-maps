@@ -53,20 +53,35 @@ function conditionSlugSet(slug: string): string[] {
 /**
  * Resolve a typed location string to coordinates using the in-memory postal
  * index (src/data/postal-codes-us.json — no DB round-trip). Handles "37203"
- * (zip) and "Nashville, TN" (city, state). Plain city names stay on the
+ * (zip), "37203, TN" / "37203 TN" (zip + state — e.g. from a booking form
+ * autofill), and "Nashville, TN" (city, state). Plain city names stay on the
  * text-match path — the typeahead UI sends lat/lng when a suggestion is picked.
  */
 function resolveTypedLocation(
   location: string,
 ): { lat: number; lng: number } | null {
-  const zipMatch = location.match(/^\s*(\d{5})\s*$/);
-  if (zipMatch) {
-    const hit = lookupZip(zipMatch[1]);
+  const trimmed = location.trim();
+
+  // "37203" — plain zip
+  const zipOnly = trimmed.match(/^(\d{5})$/);
+  if (zipOnly) {
+    const hit = lookupZip(zipOnly[1]);
     return hit ? { lat: hit.lat, lng: hit.lng } : null;
   }
 
+  // "37203, TN" / "37203 TN" / "37203, Tennessee" — zip with a state alongside.
+  // The state just confirms/disambiguates; the zip's own coordinates win.
+  const zipState = trimmed.match(/^(\d{5})\s*,?\s*([A-Za-z .]{2,})$/);
+  if (zipState) {
+    const hit = lookupZip(zipState[1]);
+    if (hit) return { lat: hit.lat, lng: hit.lng };
+    // Zip not in our index but well-formed — fall through to try it as a
+    // "City, ST" match below would be wrong (it's digits), so just miss.
+    return null;
+  }
+
   // "City, ST" / "City, StateName" — specific enough to geocode locally.
-  const cityState = location.match(/^\s*(.+?)\s*,\s*([A-Za-z .]{2,})\s*$/);
+  const cityState = trimmed.match(/^(.+?)\s*,\s*([A-Za-z .]{2,})$/);
   if (cityState) {
     const hit = lookupCityState(cityState[1], cityState[2]);
     if (hit) return { lat: hit.lat, lng: hit.lng };

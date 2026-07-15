@@ -25,12 +25,14 @@ export interface LocationSelection {
 
 interface Suggestion {
   label: string;
-  kind: "zip" | "city";
+  kind: "zip" | "city" | "state";
   postal_code: string | null;
   city: string;
   state_code: string | null;
-  lat: number;
-  lng: number;
+  /** null for "state" — picking it runs a statewide text search, not a
+   *  radius from a point. */
+  lat: number | null;
+  lng: number | null;
 }
 
 interface LocationTypeaheadProps {
@@ -89,9 +91,15 @@ export function LocationTypeahead({
       const ctrl = new AbortController();
       abortRef.current = ctrl;
       try {
+        // cache: "no-store" — bypass the browser's HTTP cache outright. A
+        // response cached under an earlier, longer-lived Cache-Control (from
+        // before a suggestion-ranking fix) would otherwise keep being replayed
+        // for that exact query until it expires on its own, regardless of any
+        // server-side header change; explicit no-store here self-heals it
+        // immediately instead of requiring every visitor to hard-refresh.
         const res = await fetch(
           `/api/locations/suggest?q=${encodeURIComponent(q)}`,
-          { signal: ctrl.signal },
+          { signal: ctrl.signal, cache: "no-store" },
         );
         const data = await res.json();
         setSuggestions(data.suggestions ?? []);
@@ -138,7 +146,11 @@ export function LocationTypeahead({
       // Show the AREA, not the raw zip: picking "37203 — Nashville, TN"
       // displays (and puts in the URL) "Nashville, TN". The suggestion's exact
       // coordinates ride along, so the radius search still centers on the zip.
-      const urlValue = `${s.city}${s.state_code ? `, ${s.state_code}` : ""}`;
+      // A "state" pick carries no coordinates on purpose — it puts just the
+      // state code in the URL so the search API runs its statewide text
+      // match (STATE_ABBR_TO_NAME) across every clinic in the state, instead
+      // of a radius around one arbitrary point.
+      const urlValue = s.kind === "state" ? (s.state_code ?? s.city) : `${s.city}${s.state_code ? `, ${s.state_code}` : ""}`;
       onChange({ label: s.label, value: urlValue, lat: s.lat, lng: s.lng });
       setQuery("");
       setOpen(false);
@@ -165,6 +177,11 @@ export function LocationTypeahead({
       e.preventDefault();
       setHighlightedIdx((p) => Math.max(p - 1, 0));
     } else if (e.key === "Enter") {
+      // A typed US state ("Utah", "TX", "Texas") always gets its own "state"
+      // suggestion ranked first by the API — picking it runs a statewide
+      // search (no coordinates), so it's always safe for Enter to auto-select
+      // the top suggestion here, unlike a bare city match which could
+      // silently narrow a broader query down to one point.
       if (highlightedIdx >= 0 && suggestions[highlightedIdx]) {
         e.preventDefault();
         handleSelect(suggestions[highlightedIdx]);
