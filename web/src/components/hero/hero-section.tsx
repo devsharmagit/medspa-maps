@@ -1,16 +1,14 @@
 import Image from "next/image";
-import Link from "next/link";
 
-import { Button } from "@/components/ui/button";
 import { HeroHeader } from "@/components/hero/hero-header";
 import { HeroSearchBar } from "@/components/hero/hero-search-bar";
 import { TreatmentCarousel } from "@/components/hero/treatment-carousel";
 
 const trustItems = [
-  "10,000+ Verified Listings",
-  "Expert-Reviewed Content",
-  "2026 Award Winners",
-  "No Pay-to-Rank",
+  "100+ Medspa Listings",
+  "Editorially Curated Content",
+  "Top-Rated Providers",
+  "Unbiased Rankings",
 ] as const;
 
 
@@ -57,7 +55,7 @@ export function HeroSection() {
             {/* Headline */}
             <div className="max-w-[982px] space-y-4">
               <p className="max-w-[753px] text-base font-medium leading-snug text-[#fcfcfc]">
-                Explore 10,000+ vetted medspas, read expert treatment guides, and
+                Explore 100+ vetted medspas, read expert treatment guides, and
                 book with confidence. The most trusted resource for aesthetic
                 medicine patients.
               </p>
@@ -73,9 +71,6 @@ export function HeroSection() {
             {/* Search */}
             <div className="flex max-w-[809px] flex-col gap-3">
               <HeroSearchBar />
-              <Button asChild variant="gradient" className="h-12 w-fit px-5 text-sm font-semibold">
-                <Link href="/skin-navigator">Find My Treatment</Link>
-              </Button>
             </div>
 
             {/* Trust indicators */}

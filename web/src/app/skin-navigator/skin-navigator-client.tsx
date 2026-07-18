@@ -8,6 +8,7 @@ import {
   BadgeCheck,
   Camera,
   Check,
+  Clock,
   Loader2,
   MapPin,
   RotateCcw,
@@ -23,6 +24,7 @@ import {
   LocationTypeahead,
   type LocationSelection,
 } from "@/components/ui/location-typeahead";
+import { useLocation } from "@/lib/location/location-context";
 import {
   AGE_RANGES,
   GOAL_OPTIONS,
@@ -167,12 +169,23 @@ async function recordEvent(sessionId: string | null, eventName: string, step?: s
 export function SkinNavigatorClient() {
   const draftHydratedRef = useRef(false);
   const skipNextDraftSaveRef = useRef(false);
+  const stepFocusReadyRef = useRef(false);
+  const panelRef = useRef<HTMLDivElement>(null);
   const [state, setState] = useState<WizardState>(initialState);
   const [photos, setPhotos] = useState<PhotoState>(initialPhotoState);
   const [stepIndex, setStepIndex] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<NavigatorAnalyzeResponse | null>(null);
+  const [goalNote, setGoalNote] = useState("");
+  const [stepAnnouncement, setStepAnnouncement] = useState("");
+
+  const {
+    location: userLocation,
+    status: geoStatus,
+    requested: geoRequested,
+    requestLocation,
+  } = useLocation();
 
   const step = steps[stepIndex].key;
   const sessionId = result?.sessionId ?? null;
@@ -180,6 +193,44 @@ export function SkinNavigatorClient() {
   useEffect(() => {
     recordEvent(sessionId, eventNameForStep(step), step);
   }, [sessionId, step]);
+
+  // Announce step changes for screen readers and move focus into the new step.
+  useEffect(() => {
+    /* eslint-disable-next-line react-hooks/set-state-in-effect -- live-region text follows the active step */
+    setStepAnnouncement(`Step ${stepIndex + 1} of ${steps.length}: ${steps[stepIndex].label}`);
+    if (stepFocusReadyRef.current) {
+      panelRef.current?.focus();
+    } else {
+      stepFocusReadyRef.current = true;
+    }
+  }, [stepIndex]);
+
+  // When the user opts into "use my location", fill the location field once resolved.
+  useEffect(() => {
+    if (!geoRequested || userLocation?.outsideUS) return;
+    if (!userLocation?.city && !userLocation?.stateCode) return;
+    const label =
+      userLocation.city && userLocation.stateCode
+        ? `${userLocation.city}, ${userLocation.stateCode}`
+        : userLocation.stateName || userLocation.stateCode || "";
+    if (!label) return;
+    /* eslint-disable-next-line react-hooks/set-state-in-effect -- fill location after a deliberate geolocation grant */
+    setState((current) => ({
+      ...current,
+      basics: {
+        ...current.basics,
+        location: { label, value: label, lat: userLocation.lat ?? null, lng: userLocation.lng ?? null },
+      },
+    }));
+  }, [
+    geoRequested,
+    userLocation?.city,
+    userLocation?.stateCode,
+    userLocation?.stateName,
+    userLocation?.lat,
+    userLocation?.lng,
+    userLocation?.outsideUS,
+  ]);
 
   useEffect(() => {
     const draft = loadDraft();
@@ -209,6 +260,18 @@ export function SkinNavigatorClient() {
     return true;
   }, [state, step]);
 
+  const continueHint = useMemo(() => {
+    if (canContinue) return "";
+    if (step === "basics") {
+      const missing: string[] = [];
+      if (!state.basics.ageRange) missing.push("age range");
+      if (state.basics.location.value.trim().length < 2) missing.push("location");
+      return `Add your ${missing.join(" and ")} to continue.`;
+    }
+    if (step === "goals") return "Pick at least one goal to continue.";
+    return "";
+  }, [canContinue, step, state.basics.ageRange, state.basics.location.value]);
+
   const payload = useMemo(
     () => ({
       basics: {
@@ -235,12 +298,29 @@ export function SkinNavigatorClient() {
   };
 
   const toggleGoal = (slug: string) => {
+    const selected = state.goals.selected;
+    const alreadySelected = selected.includes(slug);
+    if (!alreadySelected && selected.length >= 8) {
+      setGoalNote("You can pick up to 8 goals.");
+      return;
+    }
+    setGoalNote("");
     setState((current) => {
-      const selected = current.goals.selected.includes(slug)
+      const next = current.goals.selected.includes(slug)
         ? current.goals.selected.filter((item) => item !== slug)
         : [...current.goals.selected, slug].slice(0, 8);
-      return { ...current, goals: { ...current.goals, selected } };
+      return { ...current, goals: { ...current.goals, selected: next } };
     });
+  };
+
+  const handleFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (submitting) return;
+    if (step === "photos") {
+      submit();
+    } else if (step !== "results") {
+      goNext();
+    }
   };
 
   const setPhoto = (file: File | null) => {
@@ -304,8 +384,13 @@ export function SkinNavigatorClient() {
     recordEvent(null, "navigator.retake");
   };
 
+  const totalUserSteps = steps.length - 1; // exclude the results screen from the "quick steps" count
+
   return (
     <section className="relative z-10 mx-auto flex w-full max-w-[1180px] flex-1 flex-col gap-6 px-4 pb-16 pt-6 sm:gap-8 sm:px-6 sm:pt-8 lg:px-8">
+      <p className="sr-only" role="status" aria-live="polite">
+        {stepAnnouncement}
+      </p>
       <div className="grid gap-5 pt-2 text-white sm:pt-4 lg:grid-cols-[1fr_360px] lg:items-end">
         <div className="max-w-3xl">
           <Badge className="mb-4 h-auto border-white/25 bg-white/15 px-3 py-1 text-white backdrop-blur">
@@ -318,6 +403,12 @@ export function SkinNavigatorClient() {
           <p className="mt-4 max-w-2xl text-base leading-7 text-white/86">
             Share a few basics and goals, then get cosmetic treatment ideas and nearby clinics.
           </p>
+          {step !== "results" && (
+            <p className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-white/80">
+              <Clock className="size-4" aria-hidden />
+              About 2 minutes • {totalUserSteps} quick steps
+            </p>
+          )}
         </div>
         <div className="rounded-lg border border-white/20 bg-white/12 p-4 text-sm leading-6 text-white backdrop-blur">
           {NAVIGATOR_DISCLAIMER}
@@ -326,9 +417,16 @@ export function SkinNavigatorClient() {
 
       <div className="rounded-lg border border-black/5 bg-white shadow-[0_20px_70px_rgba(46,31,51,0.12)]">
         <div className="border-b border-slate-100 px-4 py-4 sm:px-6">
-          <div className="grid grid-cols-5 gap-2">
+          <ol
+            className="grid grid-cols-5 gap-2"
+            aria-label={`Step ${stepIndex + 1} of ${steps.length}`}
+          >
             {steps.map((item, index) => (
-              <div key={item.key} className="min-w-0">
+              <li
+                key={item.key}
+                className="min-w-0"
+                aria-current={index === stepIndex ? "step" : undefined}
+              >
                 <div
                   className={cn(
                     "h-1.5 rounded-full",
@@ -344,85 +442,177 @@ export function SkinNavigatorClient() {
                   <span className="sm:hidden">{mobileStepLabels[item.key]}</span>
                   <span className="hidden sm:inline">{item.label}</span>
                 </div>
-              </div>
+              </li>
             ))}
+          </ol>
+        </div>
+
+        <form onSubmit={handleFormSubmit}>
+          <div
+            key={step}
+            ref={panelRef}
+            tabIndex={-1}
+            className="min-h-[520px] p-4 outline-none motion-safe:animate-[navigatorStep_260ms_ease-out] sm:p-6 lg:p-8"
+          >
+            {submitting ? (
+              <AnalyzingView hasPhoto={Boolean(photos.photo)} />
+            ) : (
+              <>
+                {step === "basics" && (
+                  <BasicsStep
+                    state={state}
+                    setState={setState}
+                    onUseMyLocation={() => requestLocation({ force: true })}
+                    locating={geoStatus === "prompting"}
+                  />
+                )}
+                {step === "goals" && (
+                  <GoalsStep
+                    state={state}
+                    setState={setState}
+                    toggleGoal={toggleGoal}
+                    goalNote={goalNote}
+                  />
+                )}
+                {step === "preferences" && (
+                  <PreferencesStep state={state} setState={setState} />
+                )}
+                {step === "photos" && (
+                  <PhotosStep
+                    photos={photos}
+                    setPhoto={setPhoto}
+                    submitting={submitting}
+                    submit={submit}
+                  />
+                )}
+                {step === "results" && result && (
+                  <ResultsStep
+                    result={result}
+                    location={state.basics.location}
+                    uploadedPhoto={photos.photo}
+                    reset={reset}
+                    editAnswers={() => setStepIndex(0)}
+                  />
+                )}
+              </>
+            )}
           </div>
-        </div>
 
-        <div
-          key={step}
-          className="min-h-[520px] p-4 motion-safe:animate-[navigatorStep_260ms_ease-out] sm:p-6 lg:p-8"
-        >
-          {step === "basics" && (
-            <BasicsStep state={state} setState={setState} />
-          )}
-          {step === "goals" && (
-            <GoalsStep state={state} setState={setState} toggleGoal={toggleGoal} />
-          )}
-          {step === "preferences" && (
-            <PreferencesStep state={state} setState={setState} />
-          )}
-          {step === "photos" && (
-            <PhotosStep
-              photos={photos}
-              setPhoto={setPhoto}
-              submitting={submitting}
-              submit={submit}
-            />
-          )}
-          {step === "results" && result && (
-            <ResultsStep
-              result={result}
-              location={state.basics.location}
-              uploadedPhoto={photos.photo}
-              reset={reset}
-              editAnswers={() => setStepIndex(0)}
-            />
-          )}
-        </div>
-
-        {step !== "results" && (
-          <div className="flex flex-col gap-3 border-t border-slate-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={goBack}
-              disabled={stepIndex === 0 || submitting}
-              className="h-11 px-4"
-            >
-              <ArrowLeft className="size-4" />
-              Back
-            </Button>
-            <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-              {error && <p className="max-w-lg text-sm text-red-600">{error}</p>}
-              {step === "photos" ? (
-                <Button
-                  type="button"
-                  variant="gradient"
-                  onClick={submit}
-                  disabled={submitting}
-                  className="h-11 px-5"
-                >
-                  {submitting ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
-                  {submitting ? "Analyzing" : "Get My Results"}
-                </Button>
-              ) : (
-                <Button
-                  type="button"
-                  variant="gradient"
-                  onClick={goNext}
-                  disabled={!canContinue || submitting}
-                  className="h-11 px-5"
-                >
-                  Continue
-                  <ArrowRight className="size-4" />
-                </Button>
-              )}
+          {step !== "results" && (
+            <div className="flex flex-col gap-3 border-t border-slate-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={goBack}
+                disabled={stepIndex === 0 || submitting}
+                className="h-11 px-4"
+              >
+                <ArrowLeft className="size-4" />
+                Back
+              </Button>
+              <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:gap-3">
+                {error && (
+                  <p role="alert" className="max-w-lg text-sm text-red-600">
+                    {error}
+                  </p>
+                )}
+                {!error && continueHint && (
+                  <p aria-live="polite" className="max-w-lg text-sm text-slate-500">
+                    {continueHint}
+                  </p>
+                )}
+                {step === "photos" ? (
+                  <Button
+                    type="submit"
+                    variant="gradient"
+                    disabled={submitting}
+                    className="h-11 px-5"
+                  >
+                    {submitting ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+                    {submitting ? "Analyzing" : "Get My Results"}
+                  </Button>
+                ) : (
+                  <Button
+                    type="submit"
+                    variant="gradient"
+                    disabled={!canContinue || submitting}
+                    className="h-11 px-5"
+                  >
+                    Continue
+                    <ArrowRight className="size-4" />
+                  </Button>
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </form>
       </div>
     </section>
+  );
+}
+
+function AnalyzingView({ hasPhoto }: { hasPhoto: boolean }) {
+  const messages = useMemo(
+    () =>
+      [
+        "Reviewing your goals",
+        hasPhoto ? "Looking over your photo" : "Weighing your preferences",
+        "Matching treatments to your profile",
+        "Finding clinics near you",
+      ].filter(Boolean) as string[],
+    [hasPhoto]
+  );
+  const [messageIndex, setMessageIndex] = useState(0);
+
+  useEffect(() => {
+    setMessageIndex(0);
+    const timer = setInterval(() => {
+      setMessageIndex((current) => Math.min(current + 1, messages.length - 1));
+    }, 2500);
+    return () => clearInterval(timer);
+  }, [messages.length]);
+
+  return (
+    <div className="space-y-8">
+      <div
+        role="status"
+        aria-live="polite"
+        className="flex items-center gap-3 rounded-lg border border-slate-100 bg-slate-50 p-5"
+      >
+        <Loader2 className="size-5 shrink-0 animate-spin text-brand-coral" />
+        <div>
+          <p className="font-heading text-lg font-medium text-slate-950">{messages[messageIndex]}…</p>
+          <p className="mt-1 text-sm text-slate-500">
+            This usually takes a few seconds. Please keep this tab open.
+          </p>
+        </div>
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        {[...Array(4)].map((_, index) => (
+          <ResultSkeletonCard key={index} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ResultSkeletonCard() {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white p-5">
+      <div className="flex items-center gap-2">
+        <div className="h-6 w-2/5 animate-pulse rounded-md bg-[#f0eaf0]" />
+        <div className="h-5 w-16 animate-pulse rounded-md bg-[#f5f0f5]" />
+      </div>
+      <div className="mt-4 space-y-2">
+        <div className="h-4 w-full animate-pulse rounded-md bg-[#f5f0f5]" />
+        <div className="h-4 w-4/5 animate-pulse rounded-md bg-[#f5f0f5]" />
+      </div>
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <div className="h-12 animate-pulse rounded-md bg-[#f5f0f5]" />
+        <div className="h-12 animate-pulse rounded-md bg-[#f5f0f5]" />
+      </div>
+      <div className="mt-5 h-10 w-full animate-pulse rounded-md bg-[#f0eaf0]" />
+    </div>
   );
 }
 
@@ -454,9 +644,13 @@ function StepShell({
 function BasicsStep({
   state,
   setState,
+  onUseMyLocation,
+  locating,
 }: {
   state: WizardState;
   setState: Dispatch<SetStateAction<WizardState>>;
+  onUseMyLocation: () => void;
+  locating: boolean;
 }) {
   return (
     <StepShell
@@ -472,6 +666,7 @@ function BasicsStep({
               <button
                 key={age}
                 type="button"
+                aria-pressed={state.basics.ageRange === age}
                 onClick={() =>
                   setState((current) => ({
                     ...current,
@@ -497,6 +692,8 @@ function BasicsStep({
           icon={<MapPin className="size-4 text-brand-coral" />}
           placeholder="Nashville, TN or 37203"
           inputClassName="h-12 rounded-lg !border !border-slate-300 bg-white px-4 shadow-sm focus:!border-brand-coral"
+          onUseMyLocation={onUseMyLocation}
+          locating={locating}
           onChange={(location) =>
             setState((current) => ({
               ...current,
@@ -544,11 +741,14 @@ function GoalsStep({
   state,
   setState,
   toggleGoal,
+  goalNote,
 }: {
   state: WizardState;
   setState: Dispatch<SetStateAction<WizardState>>;
   toggleGoal: (slug: string) => void;
+  goalNote: string;
 }) {
+  const selectedCount = state.goals.selected.length;
   return (
     <StepShell
       eyebrow="Step 2"
@@ -556,6 +756,16 @@ function GoalsStep({
       body="Pick a few that matter most. You can add a short note if the chips miss something."
     >
       <div className="space-y-6">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm font-semibold text-slate-900">
+            Your goals <span className="font-medium text-slate-500">({selectedCount}/8)</span>
+          </p>
+          {goalNote && (
+            <p aria-live="polite" className="text-sm text-brand-coral">
+              {goalNote}
+            </p>
+          )}
+        </div>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {GOAL_OPTIONS.map((goal) => {
             const selected = state.goals.selected.includes(goal.slug);
@@ -563,6 +773,7 @@ function GoalsStep({
               <button
                 key={goal.slug}
                 type="button"
+                aria-pressed={selected}
                 onClick={() => toggleGoal(goal.slug)}
                 className={cn(
                   "flex h-12 items-center justify-between rounded-lg border px-3 text-left text-sm font-semibold transition",
@@ -665,6 +876,7 @@ function ChoiceGroup({
           <button
             key={optionValue}
             type="button"
+            aria-pressed={value === optionValue}
             onClick={() => onChange(optionValue)}
             className={cn(
               "min-h-12 rounded-lg border px-3 text-sm font-semibold transition",
@@ -889,7 +1101,7 @@ function PhotoUploader({
               </div>
             )}
           </div>
-          {cameraError && <p className="text-sm text-red-600">{cameraError}</p>}
+          {cameraError && <p role="alert" className="text-sm text-red-600">{cameraError}</p>}
           <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
             <Button type="button" variant="outline" onClick={stopCamera} className="h-10">
               Cancel
@@ -927,7 +1139,7 @@ function PhotoUploader({
             />
           </label>
           {cameraError && (
-            <p className="text-sm text-red-600 sm:col-span-2">{cameraError}</p>
+            <p role="alert" className="text-sm text-red-600 sm:col-span-2">{cameraError}</p>
           )}
         </div>
       )}
@@ -962,11 +1174,18 @@ function ResultsStep({
   editAnswers: () => void;
 }) {
   const primaryTreatment = result.analysis.recommendedTreatments[0];
+  const secondaryTreatments = result.analysis.recommendedTreatments.slice(1);
   const locationLabel = location.value || location.label || "your area";
   const uploadedPhotoUrl = useMemo(
     () => (uploadedPhoto ? URL.createObjectURL(uploadedPhoto) : ""),
     [uploadedPhoto]
   );
+
+  const photoStatusText = result.analysis.photoObservations.provided
+    ? uploadedPhoto
+      ? "Photos were included in this analysis."
+      : "A photo was included in the original analysis. It was not saved, so it is not shown here."
+    : "Photos were not included in this analysis.";
 
   useEffect(() => {
     return () => {
@@ -1000,6 +1219,36 @@ function ResultsStep({
           </Button>
         </div>
       </div>
+
+      <section>
+        <h3 className="mb-4 text-xl font-bold text-slate-950">Recommended treatments</h3>
+        {primaryTreatment ? (
+          <>
+            <TreatmentCard
+              treatment={primaryTreatment}
+              location={location}
+              locationLabel={locationLabel}
+              variant="hero"
+            />
+            {secondaryTreatments.length > 0 && (
+              <div className="mt-4 grid gap-4 md:grid-cols-2">
+                {secondaryTreatments.map((treatment) => (
+                  <TreatmentCard
+                    key={`${treatment.slug}-${treatment.priority}`}
+                    treatment={treatment}
+                    location={location}
+                    locationLabel={locationLabel}
+                  />
+                ))}
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm leading-6 text-slate-600">
+            The AI did not return a specific treatment recommendation. You can still explore the full directory by treatment.
+          </div>
+        )}
+      </section>
 
       <div
         className={cn(
@@ -1050,11 +1299,7 @@ function ResultsStep({
         <section className="rounded-lg border border-slate-200 bg-white p-5">
           <h3 className="text-base font-bold text-slate-950">Photo notes</h3>
           <div className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
-            <p>
-              {result.analysis.photoObservations.provided
-                ? "Photos were included in this analysis."
-                : "Photos were not included in this analysis."}
-            </p>
+            <p>{photoStatusText}</p>
             {result.analysis.photoObservations.notes.map((note) => (
               <p key={note} className="rounded-lg bg-slate-50 p-3">{note}</p>
             ))}
@@ -1064,61 +1309,6 @@ function ResultsStep({
           </div>
         </section>
       </div>
-
-      <section>
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h3 className="text-xl font-bold text-slate-950">Recommended treatments</h3>
-          {primaryTreatment && (
-            <Button asChild variant="outline" className="h-10">
-              <Link href={treatmentSearchHref(primaryTreatment.name, location)}>
-                Search all clinics for this treatment
-              </Link>
-            </Button>
-          )}
-        </div>
-        <div className="grid gap-4 md:grid-cols-2">
-          {result.analysis.recommendedTreatments.map((treatment) => (
-            <article key={`${treatment.slug}-${treatment.priority}`} className="rounded-lg border border-slate-200 bg-white p-5">
-              <div className="flex flex-wrap items-center gap-2">
-                <h4 className="font-heading text-xl font-medium text-slate-950">{treatment.name}</h4>
-                <Badge variant="outline" className="h-auto px-2 py-0.5 capitalize">
-                  {treatment.priority}
-                </Badge>
-                <Badge className={cn("h-auto border px-2 py-0.5 capitalize", confidenceClass(treatment.confidence))}>
-                  {treatment.confidence} confidence
-                </Badge>
-              </div>
-              <p className="mt-3 text-sm leading-6 text-slate-600">{treatment.whyItFits}</p>
-              <div className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
-                <p className="rounded-lg bg-slate-50 p-3">
-                  <span className="font-semibold text-slate-950">Downtime: </span>
-                  {treatment.expectedDowntime}
-                </p>
-                <p className="rounded-lg bg-slate-50 p-3">
-                  <span className="font-semibold text-slate-950">Comfort: </span>
-                  {treatment.comfortNotes}
-                </p>
-              </div>
-              {treatment.cautions.length > 0 && (
-                <ul className="mt-4 space-y-2 text-sm leading-6 text-slate-600">
-                  {treatment.cautions.map((caution) => (
-                    <li key={caution} className="flex gap-2">
-                      <span className="mt-2 size-1.5 shrink-0 rounded-full bg-brand-coral" />
-                      {caution}
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <Button asChild variant="outline" className="mt-5 h-10 w-full">
-                <Link href={treatmentSearchHref(treatment.name, location)}>
-                  Search clinics in {locationLabel}
-                  <ArrowRight className="size-4" />
-                </Link>
-              </Button>
-            </article>
-          ))}
-        </div>
-      </section>
 
       <section>
         <div className="mb-4 flex flex-col gap-1">
@@ -1154,6 +1344,80 @@ function ResultsStep({
         </section>
       )}
     </div>
+  );
+}
+
+function TreatmentCard({
+  treatment,
+  location,
+  locationLabel,
+  variant = "default",
+}: {
+  treatment: NavigatorAnalyzeResponse["analysis"]["recommendedTreatments"][number];
+  location: LocationSelection;
+  locationLabel: string;
+  variant?: "default" | "hero";
+}) {
+  const hero = variant === "hero";
+  return (
+    <article
+      className={cn(
+        "rounded-lg border bg-white",
+        hero
+          ? "border-brand-coral/40 bg-gradient-to-br from-orange-50/70 to-fuchsia-50/50 p-6 shadow-sm"
+          : "border-slate-200 p-5"
+      )}
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <h4 className={cn("font-heading font-medium text-slate-950", hero ? "text-2xl" : "text-xl")}>
+          {treatment.name}
+        </h4>
+        <Badge variant="outline" className="h-auto px-2 py-0.5 capitalize">
+          {treatment.priority}
+        </Badge>
+        <Badge className={cn("h-auto border px-2 py-0.5 capitalize", confidenceClass(treatment.confidence))}>
+          {treatment.confidence} confidence
+        </Badge>
+      </div>
+      <p className={cn("mt-3 leading-6 text-slate-600", hero ? "text-base" : "text-sm")}>
+        {treatment.whyItFits}
+      </p>
+      <div className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
+        <p className={cn("rounded-lg p-3", hero ? "bg-white/70" : "bg-slate-50")}>
+          <span className="font-semibold text-slate-950">Downtime: </span>
+          {treatment.expectedDowntime}
+        </p>
+        <p className={cn("rounded-lg p-3", hero ? "bg-white/70" : "bg-slate-50")}>
+          <span className="font-semibold text-slate-950">Comfort: </span>
+          {treatment.comfortNotes}
+        </p>
+      </div>
+      {treatment.cautions.length > 0 && (
+        <ul className="mt-4 space-y-2 text-sm leading-6 text-slate-600">
+          {treatment.cautions.map((caution) => (
+            <li key={caution} className="flex gap-2">
+              <span className="mt-2 size-1.5 shrink-0 rounded-full bg-brand-coral" />
+              {caution}
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className={cn("mt-5 flex flex-col gap-2", hero && "sm:flex-row")}>
+        <Button asChild variant={hero ? "gradient" : "outline"} className="h-10 w-full">
+          <Link href={treatmentSearchHref(treatment.name, location)}>
+            Search clinics in {locationLabel}
+            <ArrowRight className="size-4" />
+          </Link>
+        </Button>
+        {hero && (
+          <Button asChild variant="outline" className="h-10 w-full">
+            <Link href={treatmentSearchHref(treatment.name, location)}>
+              Search all clinics for this treatment
+            </Link>
+          </Button>
+        )}
+      </div>
+    </article>
   );
 }
 
