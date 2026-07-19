@@ -3,7 +3,7 @@
  *
  * SCRAPED concerns = clinic_concerns rows with source='scraped' — asserted by
  *   the concerns ingest ONLY when the clinic's own website explicitly names the
- *   condition (verbatim evidence in clinic_concern_evidence).
+ *   condition.
  * EFFECTIVE concerns = (SCRAPED ∪ active source='manual') − (active source='removed').
  *
  * NOTE: concerns are NO LONGER derived from the clinic's services for display —

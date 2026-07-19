@@ -3,7 +3,6 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  BadgeCheck,
   CalendarDays,
   ChevronDown,
   Crown,
@@ -142,8 +141,6 @@ interface ClinicResult {
   ext_rating: number | null;
   ext_review_count: number | null;
   featured: boolean;
-  tier: string;
-  verified: boolean;
   booking_url: string | null;
   logo_url: string | null;
   services: ClinicService[];
@@ -1038,9 +1035,6 @@ function ClinicCard({ clinic }: { clinic: ClinicResult }) {
           <h3 className="line-clamp-1 text-lg font-semibold text-[#1a1a1a] transition-colors hover:text-brand-magenta">
             {clinic.clinic_name}
           </h3>
-          {clinic.verified && (
-            <BadgeCheck className="size-4 shrink-0 fill-brand-magenta text-white" />
-          )}
         </a>
 
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-[#727272]">

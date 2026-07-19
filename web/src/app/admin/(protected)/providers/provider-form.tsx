@@ -6,14 +6,11 @@ import Link from "next/link";
 import {
   Loader2,
   ArrowLeft,
-  Plus,
   Trash2,
   AlertCircle,
   BadgeCheck,
   Search,
   Check,
-  Square,
-  CheckSquare,
 } from "lucide-react";
 import { adminGet, adminPost, adminPut, adminDelete } from "@/lib/admin/client";
 import { Button } from "@/components/ui/button";
@@ -26,21 +23,10 @@ import { cn } from "@/lib/utils";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-interface ProviderCredential {
-  title: string;
-  institution: string;
-}
-
-interface ProviderSpecialty {
-  title: string;
-  description: string;
-}
-
 interface ClinicService {
   id: string;
   name: string;
   slug: string;
-  category: string | null;
   is_active: boolean;
 }
 
@@ -55,16 +41,9 @@ interface ProviderData {
   id: string;
   name: string;
   title: string | null;
-  bio: string | null;
   card_tagline: string | null;
-  review_rating: string | null;
-  review_count: number | null;
   image_url: string | null;
-  years_experience: number | null;
   is_verified: boolean;
-  highlights: string[];
-  credentials: ProviderCredential[];
-  specialties: ProviderSpecialty[];
   service_ids: string[];
   concern_ids: string[];
 }
@@ -72,16 +51,9 @@ interface ProviderData {
 interface FormState {
   name: string;
   title: string;
-  bio: string;
   card_tagline: string;
-  review_rating: string;
-  review_count: string;
   image_url: string;
-  years_experience: string;
   is_verified: boolean;
-  highlights: string[];
-  credentials: ProviderCredential[];
-  specialties: ProviderSpecialty[];
   selected_service_ids: string[];
   selected_concern_ids: string[];
 }
@@ -95,16 +67,9 @@ function emptyForm(): FormState {
   return {
     name: "",
     title: "",
-    bio: "",
     card_tagline: "",
-    review_rating: "",
-    review_count: "",
     image_url: "",
-    years_experience: "",
     is_verified: false,
-    highlights: [],
-    credentials: [],
-    specialties: [],
     selected_service_ids: [],
     selected_concern_ids: [],
   };
@@ -114,16 +79,9 @@ function formFromData(d: ProviderData): FormState {
   return {
     name: d.name,
     title: d.title ?? "",
-    bio: d.bio ?? "",
     card_tagline: d.card_tagline ?? "",
-    review_rating: d.review_rating != null ? String(d.review_rating) : "",
-    review_count: d.review_count != null ? String(d.review_count) : "",
     image_url: d.image_url ?? "",
-    years_experience: d.years_experience ? String(d.years_experience) : "",
     is_verified: d.is_verified,
-    highlights: d.highlights ?? [],
-    credentials: d.credentials ?? [],
-    specialties: d.specialties ?? [],
     selected_service_ids: d.service_ids ?? [],
     selected_concern_ids: d.concern_ids ?? [],
   };
@@ -149,7 +107,6 @@ export function ProviderForm({
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [highlightInput, setHighlightInput] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [treatmentSearch, setTreatmentSearch] = useState("");
 
@@ -184,48 +141,6 @@ export function ProviderForm({
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
-  // ── Highlights ────────────────────────────────────────────────────────────
-  function commitHighlight() {
-    const val = highlightInput.trim();
-    if (!val) return;
-    update("highlights", [...form.highlights, val]);
-    setHighlightInput("");
-  }
-
-  function removeHighlight(idx: number) {
-    update("highlights", form.highlights.filter((_, i) => i !== idx));
-  }
-
-  // ── Credentials ───────────────────────────────────────────────────────────
-  function addCredential() {
-    update("credentials", [...form.credentials, { title: "", institution: "" }]);
-  }
-
-  function updateCredential(idx: number, field: keyof ProviderCredential, value: string) {
-    const next = [...form.credentials];
-    next[idx] = { ...next[idx], [field]: value };
-    update("credentials", next);
-  }
-
-  function removeCredential(idx: number) {
-    update("credentials", form.credentials.filter((_, i) => i !== idx));
-  }
-
-  // ── Specialties ───────────────────────────────────────────────────────────
-  function addSpecialty() {
-    update("specialties", [...form.specialties, { title: "", description: "" }]);
-  }
-
-  function updateSpecialty(idx: number, field: keyof ProviderSpecialty, value: string) {
-    const next = [...form.specialties];
-    next[idx] = { ...next[idx], [field]: value };
-    update("specialties", next);
-  }
-
-  function removeSpecialty(idx: number) {
-    update("specialties", form.specialties.filter((_, i) => i !== idx));
-  }
-
   // ── Services multi-select ─────────────────────────────────────────────────
   function toggleService(id: string) {
     const selected = form.selected_service_ids;
@@ -255,16 +170,9 @@ export function ProviderForm({
     const payload = {
       name: form.name.trim(),
       title: form.title.trim() || null,
-      bio: form.bio.trim() || null,
       card_tagline: form.card_tagline.trim() || null,
-      review_rating: form.review_rating ? parseFloat(form.review_rating) : null,
-      review_count: form.review_count ? parseInt(form.review_count, 10) : 0,
       image_url: form.image_url.trim() || null,
-      years_experience: form.years_experience ? parseInt(form.years_experience, 10) : null,
       is_verified: form.is_verified,
-      highlights: form.highlights.filter(Boolean),
-      credentials: form.credentials.filter((c) => c.title || c.institution),
-      specialties: form.specialties.filter((s) => s.title || s.description),
       service_ids: form.selected_service_ids,
       concern_ids: form.selected_concern_ids,
     };
@@ -359,7 +267,7 @@ export function ProviderForm({
                   />
                 </div>
 
-                <div className="flex flex-col gap-1.5">
+                <div className="col-span-2 flex flex-col gap-1.5">
                   <Label htmlFor="prov-title">Title / Role</Label>
                   <Input
                     id="prov-title"
@@ -367,46 +275,6 @@ export function ProviderForm({
                     onChange={(e) => update("title", e.target.value)}
                     placeholder="e.g. Injectable Specialist"
                   />
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="prov-exp">Years of Experience</Label>
-                  <Input
-                    id="prov-exp"
-                    type="number"
-                    min={0}
-                    value={form.years_experience}
-                    onChange={(e) => update("years_experience", e.target.value)}
-                    placeholder="e.g. 10"
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="prov-rating">Customer Rating</Label>
-                  <Input
-                    id="prov-rating"
-                    type="number"
-                    min={0}
-                    max={5}
-                    step={0.1}
-                    value={form.review_rating}
-                    onChange={(e) => update("review_rating", e.target.value)}
-                    placeholder="e.g. 4.9"
-                  />
-                  <span className="text-xs text-slate-400">Star rating shown on the card (0–5).</span>
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="prov-review-count">Review Count</Label>
-                  <Input
-                    id="prov-review-count"
-                    type="number"
-                    min={0}
-                    value={form.review_count}
-                    onChange={(e) => update("review_count", e.target.value)}
-                    placeholder="e.g. 89"
-                  />
-                  <span className="text-xs text-slate-400">Number of reviews shown beside the rating.</span>
                 </div>
 
                 <div className="col-span-2 flex flex-col gap-1.5">
@@ -449,18 +317,6 @@ export function ProviderForm({
                     </div>
                   )}
                 </div>
-
-                <div className="col-span-2 flex flex-col gap-1.5">
-                  <Label htmlFor="prov-bio">Bio</Label>
-                  <textarea
-                    id="prov-bio"
-                    value={form.bio}
-                    onChange={(e) => update("bio", e.target.value)}
-                    rows={4}
-                    placeholder="Short professional biography…"
-                    className={TEXTAREA}
-                  />
-                </div>
               </div>
 
               {/* ── Verified badge toggle ──────────────────────────────────── */}
@@ -487,160 +343,12 @@ export function ProviderForm({
                 </span>
               </button>
 
-              <Separator />
-
-              {/* ── Highlights ─────────────────────────────────────────────── */}
-              <div className="flex flex-col gap-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label>Highlights</Label>
-                    <p className="text-xs text-slate-400 mt-0.5">Short badge-style strengths shown on the profile card.</p>
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {form.highlights.map((h, i) => (
-                    <Badge
-                      key={i}
-                      variant="secondary"
-                      className="gap-1 border border-pink-100 bg-pink-50 pr-1 text-purple-700"
-                    >
-                      {h}
-                      <button
-                        type="button"
-                        onClick={() => removeHighlight(i)}
-                        className="ml-1 rounded-full hover:text-red-600"
-                        aria-label={`Remove ${h}`}
-                      >×</button>
-                    </Badge>
-                  ))}
-                </div>
-                <div className="flex gap-2">
-                  <Input
-                    value={highlightInput}
-                    onChange={(e) => setHighlightInput(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitHighlight(); } }}
-                    placeholder='e.g. "Board Certified Nurse Practitioner"'
-                    className="flex-1"
-                  />
-                  <Button type="button" variant="outline" size="sm" onClick={commitHighlight}>
-                    <Plus size={14} /> Add
-                  </Button>
-                </div>
-              </div>
-
-              <Separator />
-
-              {/* ── Credentials & Education ────────────────────────────────── */}
-              <div className="flex flex-col gap-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label>Credentials & Education</Label>
-                    <p className="text-xs text-slate-400 mt-0.5">Degrees, certifications, and memberships.</p>
-                  </div>
-                  <Button type="button" variant="outline" size="sm" className="h-7 gap-1 px-2.5 text-xs border-slate-200" onClick={addCredential}>
-                    <Plus size={12} /> Add
-                  </Button>
-                </div>
-                {form.credentials.length === 0 ? (
-                  <p className="text-xs text-slate-400">No credentials yet.</p>
-                ) : (
-                  <div className="flex flex-col gap-2">
-                    {form.credentials.map((c, idx) => (
-                      <div key={idx} className="flex gap-2 rounded-lg border border-slate-200 bg-slate-50/40 p-3">
-                        <div className="flex flex-1 flex-col gap-2">
-                          <Input
-                            value={c.title}
-                            onChange={(e) => updateCredential(idx, "title", e.target.value)}
-                            placeholder="e.g. Board-Certified Nurse Practitioner"
-                            className="bg-white"
-                          />
-                          <Input
-                            value={c.institution}
-                            onChange={(e) => updateCredential(idx, "institution", e.target.value)}
-                            placeholder="e.g. American Nurses Credentialing Center (ANCC)"
-                            className="bg-white"
-                          />
-                        </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="shrink-0 self-start text-slate-400 hover:text-red-600"
-                          onClick={() => removeCredential(idx)}
-                        >
-                          <Trash2 size={14} />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <Separator />
-
-              {/* ── Specialties ───────────────────────────────────────────── */}
-              <div className="flex flex-col gap-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label>Specialties</Label>
-                    <p className="text-xs text-slate-400 mt-0.5">Treatment specialty areas with descriptions.</p>
-                  </div>
-                  <Button type="button" variant="outline" size="sm" className="h-7 gap-1 px-2.5 text-xs border-slate-200" onClick={addSpecialty}>
-                    <Plus size={12} /> Add
-                  </Button>
-                </div>
-                {form.specialties.length === 0 ? (
-                  <p className="text-xs text-slate-400">No specialties yet.</p>
-                ) : (
-                  <div className="flex flex-col gap-2">
-                    {form.specialties.map((s, idx) => (
-                      <div key={idx} className="flex gap-2 rounded-lg border border-slate-200 bg-slate-50/40 p-3">
-                        <div className="flex flex-1 flex-col gap-2">
-                          <Input
-                            value={s.title}
-                            onChange={(e) => updateSpecialty(idx, "title", e.target.value)}
-                            placeholder="e.g. Injectables"
-                            className="bg-white"
-                          />
-                          <textarea
-                            value={s.description}
-                            onChange={(e) => updateSpecialty(idx, "description", e.target.value)}
-                            rows={2}
-                            placeholder="Botox, Dysport, Xeomin, and dermal fillers for natural-looking results."
-                            className={cn(TEXTAREA, "bg-white")}
-                          />
-                        </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="shrink-0 self-start text-slate-400 hover:text-red-600"
-                          onClick={() => removeSpecialty(idx)}
-                        >
-                          <Trash2 size={14} />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
               {/* ── Treatments offered ────────────────────────────────────── */}
               {clinicServices.length > 0 && (() => {
                 const q = treatmentSearch.trim().toLowerCase();
                 const filtered = q
-                  ? clinicServices.filter((s) => s.name.toLowerCase().includes(q) || (s.category ?? "").toLowerCase().includes(q))
+                  ? clinicServices.filter((s) => s.name.toLowerCase().includes(q))
                   : clinicServices;
-
-                // Group by category
-                const grouped: Record<string, ClinicService[]> = {};
-                for (const svc of filtered) {
-                  const cat = svc.category || "Other";
-                  if (!grouped[cat]) grouped[cat] = [];
-                  grouped[cat].push(svc);
-                }
-                const categoryNames = Object.keys(grouped).sort((a, b) => a === "Other" ? 1 : b === "Other" ? -1 : a.localeCompare(b));
-
                 const selectedCount = form.selected_service_ids.length;
 
                 return (
@@ -671,82 +379,30 @@ export function ProviderForm({
                         />
                       </div>
 
-                      {/* Category groups */}
+                      {/* Treatment list */}
                       {filtered.length === 0 ? (
                         <p className="text-xs text-slate-400 py-3 text-center">
                           No treatments match &ldquo;{treatmentSearch}&rdquo;
                         </p>
                       ) : (
-                        <div className="flex flex-col gap-3">
-                          {categoryNames.map((cat) => {
-                            const items = grouped[cat];
-                            const allSelected = items.every((s) => form.selected_service_ids.includes(s.id));
-                            const someSelected = items.some((s) => form.selected_service_ids.includes(s.id));
-
-                            function toggleCategory() {
-                              if (allSelected) {
-                                // Deselect all in this category
-                                const catIds = new Set(items.map((s) => s.id));
-                                update("selected_service_ids", form.selected_service_ids.filter((id) => !catIds.has(id)));
-                              } else {
-                                // Select all in this category
-                                const catIds = items.map((s) => s.id);
-                                const merged = new Set([...form.selected_service_ids, ...catIds]);
-                                update("selected_service_ids", Array.from(merged));
-                              }
-                            }
-
+                        <div className="flex flex-wrap gap-2">
+                          {filtered.map((svc) => {
+                            const selected = form.selected_service_ids.includes(svc.id);
                             return (
-                              <div key={cat} className="rounded-lg border border-slate-200 overflow-hidden">
-                                {/* Category header */}
-                                <button
-                                  type="button"
-                                  onClick={toggleCategory}
-                                  className="flex w-full items-center gap-2.5 px-3 py-2 bg-slate-50/80 border-b border-slate-100 text-left transition-colors hover:bg-slate-100/80"
-                                >
-                                  {allSelected ? (
-                                    <CheckSquare size={15} className="text-purple-600 shrink-0" />
-                                  ) : someSelected ? (
-                                    <CheckSquare size={15} className="text-purple-400 shrink-0 opacity-60" />
-                                  ) : (
-                                    <Square size={15} className="text-slate-300 shrink-0" />
-                                  )}
-                                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">{cat}</span>
-                                  <span className="ml-auto text-[11px] text-slate-400">
-                                    {items.filter((s) => form.selected_service_ids.includes(s.id)).length}/{items.length}
-                                  </span>
-                                </button>
-                                {/* Treatment list */}
-                                <div className="divide-y divide-slate-100">
-                                  {items.map((svc) => {
-                                    const selected = form.selected_service_ids.includes(svc.id);
-                                    return (
-                                      <button
-                                        key={svc.id}
-                                        type="button"
-                                        onClick={() => toggleService(svc.id)}
-                                        className={cn(
-                                          "flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-sm transition-all",
-                                          selected
-                                            ? "bg-purple-50/60 text-purple-800"
-                                            : "bg-white text-slate-600 hover:bg-slate-50"
-                                        )}
-                                      >
-                                        {selected ? (
-                                          <span className="flex h-4.5 w-4.5 items-center justify-center rounded bg-gradient-to-br from-[#DE7F4C] to-[#C341D7] shrink-0">
-                                            <Check size={12} className="text-white" strokeWidth={3} />
-                                          </span>
-                                        ) : (
-                                          <span className="flex h-4.5 w-4.5 items-center justify-center rounded border border-slate-300 bg-white shrink-0" />
-                                        )}
-                                        <span className={cn("font-medium text-[13px]", selected && "text-purple-800")}>
-                                          {svc.name}
-                                        </span>
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              </div>
+                              <button
+                                key={svc.id}
+                                type="button"
+                                onClick={() => toggleService(svc.id)}
+                                className={cn(
+                                  "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[13px] font-medium transition-all",
+                                  selected
+                                    ? "border-purple-300 bg-purple-50 text-purple-800"
+                                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                                )}
+                              >
+                                {selected && <Check size={13} strokeWidth={3} className="text-purple-600" />}
+                                {svc.name}
+                              </button>
                             );
                           })}
                         </div>

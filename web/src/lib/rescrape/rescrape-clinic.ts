@@ -1,24 +1,20 @@
 /**
- * rescrape/rescrape-clinic.ts — re-scrape ONE clinic and reconcile its
- * treatments, recording every canonical add/remove into clinic_service_changes.
+ * rescrape/rescrape-clinic.ts — re-scrape ONE clinic and reconcile its treatments.
  *
  * Flow (per clinic):
- *   1. open a scrape_jobs row (status 'running')
- *   2. detectClinicServices() — live scrape, OUTSIDE any DB transaction
- *   3. SAFETY: if the site was unreachable (0 pages), abort WITHOUT touching
- *      treatments — a transient outage must never look like "removed everything"
- *   4. in ONE transaction:
+ *   1. detectClinicServices() — live scrape, OUTSIDE any DB transaction
+ *   2. SAFETY: if the site was unreachable (0 pages) or nothing parsed, abort
+ *      WITHOUT touching treatments — a transient outage or parse hiccup must
+ *      never look like "removed everything"
+ *   3. in ONE transaction:
  *        - snapshot the clinic's current canonical set (oldEffective)
  *        - upsert freshly-scraped raw services (reactivating reappearing ones)
- *        - soft-deactivate scraped rows that vanished from the site
- *        - re-read the canonical set (newEffective)
- *        - diff → added / removed, insert one change row each
- *        - bump clinics.last_scraped_at
- *   5. close the scrape_jobs row (completed / failed)
+ *        - soft-deactivate active rows that vanished from the site
+ *        - re-read the canonical set (newEffective) → diff added / removed
+ *        - refresh scraped cover/gallery images; bump clinics.last_scraped_at
  *
- * The diff is computed on the EFFECTIVE canonical set (any active clinic_services
- * row, scraped OR manual), but only 'scraped' rows are mutated — so admin-forced
- * treatments are never removed by the cron and never spuriously logged.
+ * The added/removed deltas are returned in the result. (The scrape_jobs and
+ * clinic_service_changes audit tables were removed in the 2026-07-18 simplification.)
  */
 
 import pool, { withTransaction } from "@/lib/db";
@@ -89,16 +85,7 @@ export async function rescrapeClinic(clinicId: string): Promise<RescrapeClinicRe
     return { ...base, ok: false, skipped: true, error: "clinic has no website" };
   }
 
-  // ── open a scrape job ───────────────────────────────────────────────────────
-  const jobId = (
-    await pool.query<{ id: string }>(
-      `INSERT INTO scrape_jobs (clinic_id, target_url, job_type, status, started_at)
-       VALUES ($1, $2, 'rescrape', 'running', NOW()) RETURNING id`,
-      [clinicId, clinic.website]
-    )
-  ).rows[0].id;
-  base.scrapeJobId = jobId;
-
+  // scrape_jobs tracking removed with the table; the run result is returned directly.
   try {
     // ── live scrape (no DB txn held during network I/O) ───────────────────────
     const detection = await detectClinicServices(clinic.website);
@@ -108,14 +95,6 @@ export async function rescrapeClinic(clinicId: string): Promise<RescrapeClinicRe
 
     // SAFETY: site unreachable → do NOT reconcile (would wipe all treatments).
     if (detection.pagesVisited === 0) {
-      await pool.query(
-        `UPDATE scrape_jobs
-            SET status = 'failed', finished_at = NOW(),
-                error_message = 'site unreachable (0 pages fetched)',
-                services_found = 0
-          WHERE id = $1`,
-        [jobId]
-      );
       return {
         ...base,
         ok: false,
@@ -133,29 +112,12 @@ export async function rescrapeClinic(clinicId: string): Promise<RescrapeClinicRe
     // parse change, not a clinic that dropped every treatment. Reconciling here
     // would soft-delete the clinic's entire menu on one bad parse, so we skip.
     if (freshServices.length === 0) {
-      await pool.query(
-        `UPDATE scrape_jobs
-            SET status = 'completed', finished_at = NOW(), services_found = 0,
-                error_message = 'no services parsed — treatments left unchanged'
-          WHERE id = $1`,
-        [jobId]
-      );
       return {
         ...base,
         ok: false,
         skipped: true,
         error: "no services parsed — treatments left unchanged",
       };
-    }
-
-    // best (highest-confidence) raw hit per canonical slug — for the change log.
-    const bestBySlug = new Map<string, { raw_name: string; confidence: number }>();
-    for (const s of freshServices) {
-      if (!s.slug) continue;
-      const cur = bestBySlug.get(s.slug);
-      if (!cur || s.confidence > cur.confidence) {
-        bestBySlug.set(s.slug, { raw_name: s.raw_name, confidence: s.confidence });
-      }
     }
 
     const { added, removed } = await withTransaction(async (client) => {
@@ -187,37 +149,24 @@ export async function rescrapeClinic(clinicId: string): Promise<RescrapeClinicRe
         const matchStatus = classify(serviceId, s.confidence);
         await client.query(
           `INSERT INTO clinic_services
-             (clinic_id, service_id, raw_name, description, match_status, match_confidence,
-              data_source, scraped_from_url, last_scraped_at, is_active)
-           VALUES ($1,$2,$3,$4,$5,$6,'scraped',$7,NOW(),true)
+             (clinic_id, service_id, raw_name, description, match_status, is_active)
+           VALUES ($1,$2,$3,$4,$5,true)
            ON CONFLICT (clinic_id, raw_name) DO UPDATE SET
              service_id = EXCLUDED.service_id,
              description = COALESCE(EXCLUDED.description, clinic_services.description),
              match_status = EXCLUDED.match_status,
-             match_confidence = EXCLUDED.match_confidence,
-             scraped_from_url = COALESCE(EXCLUDED.scraped_from_url, clinic_services.scraped_from_url),
-             last_scraped_at = NOW(),
              is_active = true,
              updated_at = NOW()`,
-          [
-            clinicId,
-            serviceId,
-            s.raw_name,
-            s.description,
-            matchStatus,
-            s.confidence || null,
-            s.scraped_from_url,
-          ]
+          [clinicId, serviceId, s.raw_name, s.description, matchStatus]
         );
       }
 
-      // soft-deactivate SCRAPED rows that vanished from the site this run.
-      // Manual rows (data_source='manual') are never touched by the cron.
+      // soft-deactivate rows that vanished from the site this run.
+      // (The scraped/manual distinction was removed with clinic_services.data_source.)
       await client.query(
         `UPDATE clinic_services
             SET is_active = false, updated_at = NOW()
           WHERE clinic_id = $1
-            AND data_source = 'scraped'
             AND is_active = true
             AND raw_name <> ALL($2::text[])`,
         [clinicId, freshRawNames]
@@ -242,30 +191,17 @@ export async function rescrapeClinic(clinicId: string): Promise<RescrapeClinicRe
       const addedOut: TreatmentDelta[] = [];
       const removedOut: TreatmentDelta[] = [];
 
+      // clinic_service_changes audit log removed with the table; deltas are still
+      // computed and returned in the result.
       for (const slug of addedSlugs) {
         const svc = svcBySlug.get(slug);
         if (!svc) continue;
-        const best = bestBySlug.get(slug);
-        await client.query(
-          `INSERT INTO clinic_service_changes
-             (clinic_id, service_id, service_slug, service_name, change_type,
-              raw_name, match_confidence, scrape_job_id)
-           VALUES ($1,$2,$3,$4,'added',$5,$6,$7)`,
-          [clinicId, svc.id, svc.slug, svc.name, best?.raw_name ?? null, best?.confidence ?? null, jobId]
-        );
         addedOut.push({ slug: svc.slug, name: svc.name });
       }
 
       for (const slug of removedSlugs) {
         const svc = svcBySlug.get(slug);
         if (!svc) continue;
-        await client.query(
-          `INSERT INTO clinic_service_changes
-             (clinic_id, service_id, service_slug, service_name, change_type,
-              raw_name, match_confidence, scrape_job_id)
-           VALUES ($1,$2,$3,$4,'removed',NULL,NULL,$5)`,
-          [clinicId, svc.id, svc.slug, svc.name, jobId]
-        );
         removedOut.push({ slug: svc.slug, name: svc.name });
       }
 
@@ -337,25 +273,9 @@ export async function rescrapeClinic(clinicId: string): Promise<RescrapeClinicRe
       return { added: addedOut, removed: removedOut };
     });
 
-    await pool.query(
-      `UPDATE scrape_jobs
-          SET status = 'completed', finished_at = NOW(), services_found = $2,
-              images_found = $3, error_message = NULL
-        WHERE id = $1`,
-      [jobId, base.servicesFound, base.imagesFound]
-    );
-
     return { ...base, added, removed, ok: true, skipped: false, error: null };
   } catch (err) {
     const message = err instanceof Error ? err.message : "unknown error";
-    await pool
-      .query(
-        `UPDATE scrape_jobs
-            SET status = 'failed', finished_at = NOW(), error_message = $2
-          WHERE id = $1`,
-        [jobId, message.slice(0, 500)]
-      )
-      .catch(() => {});
     return { ...base, ok: false, skipped: false, error: message };
   }
 }

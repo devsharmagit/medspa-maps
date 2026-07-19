@@ -35,7 +35,7 @@ export async function generateMetadata({
   const data = await getClinicData(slug);
   if (!data) return { title: "Clinic not found" };
   const { clinic } = data;
-  const loc = [clinic.city, clinic.state].filter(Boolean).join(", ");
+  const loc = data.stats.city ?? "";
   return {
     title: `${clinic.name} — Medspa Map`,
     description:
@@ -99,14 +99,15 @@ export default async function ClinicPage({
   const primaryLoc = locations.find((l) => l.is_primary) ?? locations[0] ?? null;
   const loc = primaryLoc
     ? [primaryLoc.city, primaryLoc.state].filter(Boolean).join(", ")
-    : [clinic.city, clinic.state].filter(Boolean).join(", ");
-  // Full postal address for the hero info row: street + "City, ST ZIP",
-  // sourced from the clinic row or its primary location (whichever has data).
+    : "";
+  // Full postal address for the hero info row: street + "City, ST ZIP".
+  // Addresses live only on clinic_locations now (clinic-level city/state/zip dropped);
+  // the clinic row still carries a free-text `address` for single-location fallback.
   const heroAddress = (() => {
-    const street = (clinic.address ?? primaryLoc?.address)?.trim() || null;
-    const city = clinic.city ?? primaryLoc?.city ?? null;
-    const state = clinic.state ?? primaryLoc?.state ?? null;
-    const zip = clinic.zip ?? primaryLoc?.zip ?? null;
+    const street = (primaryLoc?.address ?? clinic.address)?.trim() || null;
+    const city = primaryLoc?.city ?? null;
+    const state = primaryLoc?.state ?? null;
+    const zip = primaryLoc?.zip ?? null;
     const stateAbbr = state ? (toStateCode(state) ?? state) : null;
     const cityLine = [[city, stateAbbr].filter(Boolean).join(", "), zip]
       .filter(Boolean)
@@ -116,7 +117,7 @@ export default async function ClinicPage({
       street && city && street.toLowerCase().includes(city.toLowerCase());
     return [street, skipCityLine ? null : cityLine].filter(Boolean).join(", ") || null;
   })();
-  const isPremium = clinic.featured || clinic.verified;
+  const isPremium = clinic.featured;
   const todayHours = getTodayHours(clinic.hours);
   // Fall back to the representative location's map link/address, since the
   // clinic row carries no headline address (every location lives on its own).
@@ -125,33 +126,14 @@ export default async function ClinicPage({
     clinic.google_maps_url ||
     buildMapsUrl([
       primaryLoc?.address ?? clinic.address,
-      primaryLoc?.city ?? clinic.city,
-      primaryLoc?.state ?? clinic.state,
-      primaryLoc?.zip ?? clinic.zip,
+      primaryLoc?.city,
+      primaryLoc?.state,
+      primaryLoc?.zip,
     ]);
   const bookUrl = clinic.booking_url || clinic.website;
   // Excerpt shows the admin-provided tagline ONLY — no about-snippet fallback.
   // (Never present derived text as if it were a curated tagline.)
   const excerpt = clinic.tagline ?? null;
-
-  // Hero stats show ONLY values the admin explicitly entered (clinic.stat_*).
-  // Nothing is computed, defaulted, or invented: a blank stat is omitted, and
-  // if none were entered the whole stats row is hidden (see render below).
-  // Product decision — never display numbers the admin didn't actually provide.
-  const statsConfig = [
-    { value: clinic.stat_experts, line1: "CERTIFIED", line2: "EXPERT" },
-    { value: clinic.stat_cities, line1: "CITIES", line2: "COVERED" },
-    { value: clinic.stat_treatments, line1: "ADVANCED", line2: "TREATMENT" },
-    { value: clinic.stat_rating, line1: "AVERAGE", line2: "RATING" },
-    { value: clinic.stat_patients, line1: "PATIENT", line2: "TRANSFORMED" },
-  ]
-    .filter((s) => s.value != null && String(s.value).trim() !== "")
-    .map((s, i) => ({
-      value: String(s.value),
-      line1: s.line1,
-      line2: s.line2,
-      align: (i === 0 ? "start" : "center") as "start" | "center",
-    }));
 
   return (
     <main className="flex min-h-screen flex-col bg-[#FDFDFD] text-zinc-950 overflow-x-clip">
@@ -365,37 +347,6 @@ export default async function ClinicPage({
 
           {/* Weekly hours (clinic-wide) */}
           <HoursCard hours={clinic.hours} />
-
-          {/* Stats row — rendered only when the admin entered ≥1 stat */}
-          {statsConfig.length > 0 && (
-          <div className="flex flex-row flex-wrap items-center gap-y-6">
-            {statsConfig.map((stat, idx) => (
-              <div key={idx} className="flex items-center">
-                {idx > 0 && (
-                  <div className="hidden sm:block h-[109px] w-[1px] bg-[rgba(193,121,165,0.4)] mx-[20px] lg:mx-[30px]" />
-                )}
-                <div
-                  className={`flex flex-col ${
-                    stat.align === "start" ? "items-start" : "items-center"
-                  } min-w-[120px] sm:min-w-[150px]`}
-                >
-                  <span className="font-fraunces text-[42px] sm:text-[56px] font-light leading-[116.02%] text-[#373634]">
-                    {stat.value}
-                  </span>
-                  <span
-                    className={`font-montserrat text-[13px] sm:text-[16px] font-semibold leading-[116.02%] tracking-[0.1em] uppercase text-[#A8698B] ${
-                      stat.align === "center" ? "text-center" : ""
-                    }`}
-                  >
-                    {stat.line1}
-                    <br />
-                    {stat.line2}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-          )}
 
           {/* CTAs */}
           <div className="flex flex-row flex-wrap items-start gap-[16px]">

@@ -11,15 +11,14 @@
  *   "source_url": "https://...",
  *   "pages_visited": [...],
  *   "business": {
- *     ...businesses row fields,
- *     "logo_url": "https://...",        ← logo for the business
- *     "business_images": [...]          ← logo image rows for images table
+ *     "name": "...",                    ← display name (no local business row exists)
+ *     "logo_url": "https://..."         ← logo for the clinic
  *   },
  *   "clinics": [
  *     {
  *       ...clinics row fields,          ← address/city/state/zip/lat/lng differ per location
  *       "services": [...],              ← same services for all locations
- *       "images":   [...]               ← cover + gallery rows for images table
+ *       "images":   [...]               ← logo + cover + gallery rows (all entity_type='clinic')
  *     }
  *   ]
  * }
@@ -38,14 +37,10 @@ import type { ScrapeResult, ScrapedLocation, ScrapeContact } from "@/lib/scraper
 
 interface BusinessRow {
   name: string;
-  tier: "free";
-  verified: false;
   data_source: "scraped";
   is_active: true;
-  /** Convenience: logo URL so you don't need to dig into business_images */
+  /** Convenience: logo URL (the logo is emitted as a clinic image row). */
   logo_url?: string;
-  /** Logo image rows for the images table (entity_type = 'business') */
-  business_images: ImageRow[];
 }
 
 interface ClinicServiceRow {
@@ -64,7 +59,7 @@ interface ClinicServiceRow {
 }
 
 interface ImageRow {
-  entity_type: "clinic" | "business";
+  entity_type: "clinic";
   source_url: string;
   role: "cover" | "gallery" | "logo" | "before_after";
   alt_text?: string;
@@ -225,7 +220,8 @@ function buildClinic(
     scraped_from_url: svc.scraped_from_url ?? sourceUrl,
   }));
 
-  // Images → images rows for the clinic (cover + gallery only — logo goes on business)
+  // Images → image rows for the clinic. The logo is now a clinic image row too
+  // (role='logo'); there is no separate business entity for it.
   const clinicImages = result.images.filter((img) => img.role !== "logo");
   const logoUrl = result.images.find((img) => img.role === "logo")?.source_url;
 
@@ -246,7 +242,8 @@ function buildClinic(
     return score;
   }
 
-  const images: ImageRow[] = clinicImages.map((img, i) => ({
+  // Emit all images (including the logo) as entity_type='clinic' rows.
+  const images: ImageRow[] = result.images.map((img, i) => ({
     entity_type: "clinic" as const,
     source_url: img.source_url,
     role: img.role,
@@ -325,32 +322,15 @@ function shapeScrapeResult(result: ScrapeResult): ScrapeApiResponse {
       .replace(/-/g, " ")
       .replace(/\b\w/g, (c) => c.toUpperCase());
 
-  const domain = getDomain(url);
-
-  // Business-level logo
+  // Logo — emitted as a clinic image row inside each clinic (see buildClinic);
+  // here we only surface the convenience logo_url.
   const logoImage = images.find((img) => img.role === "logo");
-  const businessImages: ImageRow[] = logoImage
-    ? [
-        {
-          entity_type: "business",
-          source_url: logoImage.source_url,
-          role: "logo",
-          alt_text: logoImage.alt_text,
-          sort_order: 0,
-          scraped_domain: domain,
-          scrape_status: "pending",
-        },
-      ]
-    : [];
 
   const business: BusinessRow = {
     name: businessName,
-    tier: "free",
-    verified: false,
     data_source: "scraped",
     is_active: true,
     logo_url: logoImage?.source_url,
-    business_images: businessImages,
   };
 
   const isMultiLocation = locations.length > 1;

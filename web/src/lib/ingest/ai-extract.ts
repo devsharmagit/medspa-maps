@@ -17,6 +17,7 @@
 
 import { z } from "zod";
 import { extractViaTool } from "@/lib/ai/anthropic";
+import { BROWSER_UA } from "@/lib/scraper/utils";
 
 // ── Validated output shape ────────────────────────────────────────────────────
 const LocationSchema = z.object({
@@ -177,7 +178,7 @@ Rules:
 - Do NOT extract prices or reviews — ignore them. (Providers ARE extracted — see the PROVIDERS section below. Treatments/services and concerns are extracted by separate calls, not this one.)
 
 IMAGES — choose from the IMAGE CANDIDATES list (each line: [context] URL alt="..."). For the top candidates you are ALSO SHOWN THE ACTUAL IMAGE, each labeled with its URL. When an image is shown, judge it by WHAT YOU SEE (is it really a photo, a logo, or a promo graphic?), not just its filename or alt text:
-- cover_image_url: the ONE best hero/cover photo representing the clinic — a real, large banner/slider/hero photo or a representative interior/treatment photo. NEVER a logo, wordmark, icon, text/banner graphic, or a promo/sponsor/newsletter/coupon/award graphic.
+- cover_image_url: the ONE best hero/cover photo representing the clinic — a real, large banner/slider/hero photo or a representative interior/treatment photo. NEVER a logo, wordmark, icon, text/banner graphic, a social-share/og:image card (a logo centered on a plain/white background — common for the [og-image] candidate), or a promo/sponsor/newsletter/coupon/award graphic. If NONE of the candidates is a real hero/interior/treatment photo, return null rather than a logo or graphic.
 - logo_url: the clinic's actual logo or wordmark (usually context header or schema-logo, or a filename containing "logo"/"icon"); null if none.
 - gallery_image_urls: up to 5 REAL clinic/treatment/interior/team photos. EXCLUDE the logo, the cover, icons, text/banner graphics, and any promo/sponsor/newsletter/coupon/award graphics.
 - Copy image URLs VERBATIM from the candidate list. NEVER invent, guess, or alter a URL. Omit anything not in the list.
@@ -258,8 +259,14 @@ async function fetchImageBase64(
   url: string
 ): Promise<{ media_type: string; data: string } | null> {
   try {
+    // Browser-like UA: a self-identifying bot UA gets 403'd by the same WAFs that
+    // block HTML fetches (e.g. milfordmd), which starves the vision model of
+    // images and makes it fall back to picking the og:image/logo by context.
     const res = await fetch(url, {
-      headers: { "user-agent": "Mozilla/5.0 (compatible; medspa-map-ingest/1.0)" },
+      headers: {
+        "User-Agent": BROWSER_UA,
+        Accept: "image/avif,image/webp,image/png,image/*,*/*;q=0.8",
+      },
       signal: AbortSignal.timeout(15_000),
     });
     if (!res.ok) return null;

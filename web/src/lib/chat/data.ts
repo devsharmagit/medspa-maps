@@ -126,7 +126,7 @@ export async function searchClinics(args: SearchArgs): Promise<SearchResult> {
       : null;
   const limit = Math.min(Math.max(Number(args.limit) || 5, 1), 8);
 
-  const conditions: string[] = ["c.is_active = TRUE", "b.is_active = TRUE"];
+  const conditions: string[] = ["c.is_active = TRUE"];
   const params: (string | number)[] = [];
   let i = 1;
 
@@ -169,8 +169,7 @@ export async function searchClinics(args: SearchArgs): Promise<SearchResult> {
 
     if (abbr && fullName) {
       conditions.push(`(
-        c.state = $${i} OR c.state ILIKE $${i + 1}
-        OR EXISTS (
+        EXISTS (
           SELECT 1 FROM clinic_locations cl
           WHERE cl.clinic_id = c.id AND cl.is_active = true
             AND (cl.state = $${i} OR cl.state ILIKE $${i + 1})
@@ -180,8 +179,7 @@ export async function searchClinics(args: SearchArgs): Promise<SearchResult> {
       i += 2;
     } else {
       conditions.push(`(
-        c.city ILIKE $${i} OR c.state ILIKE $${i} OR c.zip ILIKE $${i}
-        OR EXISTS (
+        EXISTS (
           SELECT 1 FROM clinic_locations cl
           WHERE cl.clinic_id = c.id AND cl.is_active = true
             AND (cl.city ILIKE $${i} OR cl.state ILIKE $${i} OR cl.zip ILIKE $${i})
@@ -201,7 +199,7 @@ export async function searchClinics(args: SearchArgs): Promise<SearchResult> {
   const sql = `
     SELECT q.* FROM (
       SELECT DISTINCT ON (c.id)
-        c.id, c.slug, c.name, c.city, c.state, c.avg_rating, c.review_count,
+        c.id, c.slug, c.name, ploc.city, ploc.state, c.avg_rating, c.review_count,
         c.featured, c.booking_url,
         (
           SELECT COALESCE(json_agg(t.name), '[]'::json) FROM (
@@ -213,9 +211,15 @@ export async function searchClinics(args: SearchArgs): Promise<SearchResult> {
           ) t
         ) AS treatments
       FROM clinics c
-      JOIN businesses b ON b.id = c.business_id
       LEFT JOIN clinic_services cs ON cs.clinic_id = c.id AND cs.is_active = TRUE
       LEFT JOIN services s ON s.id = cs.service_id AND s.is_active = TRUE
+      LEFT JOIN LATERAL (
+        SELECT cl.city, cl.state
+        FROM clinic_locations cl
+        WHERE cl.clinic_id = c.id AND cl.is_active = true
+        ORDER BY cl.is_primary DESC, cl.sort_order NULLS LAST, cl.created_at
+        LIMIT 1
+      ) ploc ON true
       WHERE ${conditions.join(" AND ")}
       ORDER BY c.id
     ) q
@@ -294,7 +298,7 @@ export async function getClinicBySlug(
   if (!clean) return null;
   const sql = `
     SELECT
-      c.id, c.slug, c.name, c.city, c.state, c.avg_rating, c.review_count,
+      c.id, c.slug, c.name, ploc.city, ploc.state, c.avg_rating, c.review_count,
       c.booking_url,
       (
         SELECT COALESCE(json_agg(t.name), '[]'::json) FROM (
@@ -306,8 +310,14 @@ export async function getClinicBySlug(
         ) t
       ) AS services
     FROM clinics c
-    JOIN businesses b ON b.id = c.business_id
-    WHERE c.slug = $1 AND c.is_active = TRUE AND b.is_active = TRUE
+    LEFT JOIN LATERAL (
+      SELECT cl.city, cl.state
+      FROM clinic_locations cl
+      WHERE cl.clinic_id = c.id AND cl.is_active = true
+      ORDER BY cl.is_primary DESC, cl.sort_order NULLS LAST, cl.created_at
+      LIMIT 1
+    ) ploc ON true
+    WHERE c.slug = $1 AND c.is_active = TRUE
     LIMIT 1
   `;
   try {
@@ -342,13 +352,13 @@ export function getTreatmentInfo(query: string): TreatmentInfo {
   const cat = TREATMENT_CATALOG.find((t) => t.slug === m.slug);
   const treatsConcerns = CANONICAL_CONCERNS.filter((c) =>
     c.serviceSlugs.includes(m.slug!)
-  ).map((c) => ({ name: c.name, slug: c.slug, url: `/conditions/${c.slug}` }));
+  ).map((c) => ({ name: c.name, slug: c.slug, url: `/search?condition=${c.slug}` }));
 
   return {
     found: true,
     name: svc.name,
     slug: svc.slug,
-    url: `/treatments/${svc.slug}`,
+    url: `/search?q=${svc.slug}`,
     category: svc.category,
     summary: svc.summary,
     treatment_time: svc.treatment_time,
@@ -404,7 +414,7 @@ export function getConcernInfo(query: string): ConcernInfo {
   const recommended = c.serviceSlugs
     .map((slug) => {
       const s = CANONICAL_SERVICES.find((z) => z.slug === slug);
-      return s ? { name: s.name, slug, url: `/treatments/${slug}` } : null;
+      return s ? { name: s.name, slug, url: `/search?q=${slug}` } : null;
     })
     .filter((x): x is { name: string; slug: string; url: string } => x !== null);
 
@@ -412,7 +422,7 @@ export function getConcernInfo(query: string): ConcernInfo {
     found: true,
     name: c.name,
     slug: c.slug,
-    url: `/conditions/${c.slug}`,
+    url: `/search?condition=${c.slug}`,
     overview: cat?.overview ?? null,
     recommended_treatments: recommended,
   };

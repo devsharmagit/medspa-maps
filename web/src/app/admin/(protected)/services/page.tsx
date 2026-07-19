@@ -73,8 +73,7 @@ export default function ServicesPage() {
     return services.filter((s) => {
       return (
         s.name.toLowerCase().includes(q) ||
-        (s.category ?? "").toLowerCase().includes(q) ||
-        (s.aliases ?? []).some((a) => a.toLowerCase().includes(q))
+        s.slug.toLowerCase().includes(q)
       );
     });
   }, [services, search]);
@@ -146,7 +145,7 @@ export default function ServicesPage() {
           <div className="flex gap-2 max-w-sm relative">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
             <Input
-              placeholder="Search by name, category, alias…"
+              placeholder="Search by name or slug…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9 bg-white border-slate-200"
@@ -181,12 +180,6 @@ export default function ServicesPage() {
                     <TableHead className="text-slate-500 font-semibold text-xs uppercase tracking-wider">
                       Treatment
                     </TableHead>
-                    <TableHead className="text-slate-500 font-semibold text-xs uppercase tracking-wider">
-                      Category
-                    </TableHead>
-                    <TableHead className="text-slate-500 font-semibold text-xs uppercase tracking-wider">
-                      Aliases
-                    </TableHead>
                     <TableHead className="text-slate-500 font-semibold text-xs uppercase tracking-wider w-[90px]">
                       Clinics
                     </TableHead>
@@ -220,42 +213,6 @@ export default function ServicesPage() {
                             <span className="text-xs text-slate-400">{item.slug}</span>
                           </div>
                         </div>
-                      </TableCell>
-
-                      <TableCell>
-                        {item.category ? (
-                          <span className="text-[13px] text-slate-600">
-                            {item.category}
-                          </span>
-                        ) : (
-                          <span className="text-slate-400 text-[13px] italic">—</span>
-                        )}
-                      </TableCell>
-
-                      <TableCell>
-                        {item.aliases && item.aliases.length > 0 ? (
-                          <div className="flex flex-wrap gap-1 max-w-[260px]">
-                            {item.aliases.slice(0, 4).map((alias) => (
-                              <Badge
-                                key={alias}
-                                variant="secondary"
-                                className="bg-pink-50 text-purple-700 border border-pink-100"
-                              >
-                                {alias}
-                              </Badge>
-                            ))}
-                            {item.aliases.length > 4 && (
-                              <Badge
-                                variant="secondary"
-                                className="bg-slate-100 text-slate-500 border border-slate-200"
-                              >
-                                +{item.aliases.length - 4}
-                              </Badge>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-slate-400 text-[13px] italic">—</span>
-                        )}
                       </TableCell>
 
                       <TableCell>

@@ -41,9 +41,7 @@ interface ConcernListRow {
   id: string;
   name: string;
   slug: string;
-  is_published: boolean;
   is_active: boolean;
-  service_count: number;
 }
 
 export default function ConcernsPage() {
@@ -103,13 +101,13 @@ export default function ConcernsPage() {
 
   async function confirmToggle() {
     if (!pendingToggle) return;
-    const next = !pendingToggle.is_published;
+    const next = !pendingToggle.is_active;
     setToggling(true);
     try {
-      await adminPatch(`/concerns/${pendingToggle.id}`, { is_published: next });
+      await adminPatch(`/concerns/${pendingToggle.id}`, { is_active: next });
       setRows((prev) =>
         prev.map((r) =>
-          r.id === pendingToggle.id ? { ...r, is_published: next } : r
+          r.id === pendingToggle.id ? { ...r, is_active: next } : r
         )
       );
       setPendingToggle(null);
@@ -126,7 +124,7 @@ export default function ConcernsPage() {
         <div>
           <h2 className="text-lg font-semibold text-slate-900">Concerns</h2>
           <p className="text-sm text-slate-500">
-            Manage editorial concern pages and their linked services.
+            Manage the concern catalog.
           </p>
         </div>
         <Button asChild variant="gradient" size="sm" className="h-9 gap-1.5">
@@ -172,9 +170,6 @@ export default function ConcernsPage() {
                   <TableHead className="text-xs font-semibold uppercase tracking-wider text-slate-500">
                     Concern
                   </TableHead>
-                  <TableHead className="w-[140px] text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    Services
-                  </TableHead>
                   <TableHead className="w-[120px] text-xs font-semibold uppercase tracking-wider text-slate-500">
                     Status
                   </TableHead>
@@ -208,21 +203,15 @@ export default function ConcernsPage() {
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="text-sm text-slate-600">
-                      {item.service_count}{" "}
-                      <span className="text-slate-400">
-                        {item.service_count === 1 ? "service" : "services"}
-                      </span>
-                    </TableCell>
                     <TableCell>
                       <Badge
                         className={
-                          item.is_published
+                          item.is_active
                             ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
                             : "border border-slate-200 bg-slate-100 text-slate-500"
                         }
                       >
-                        {item.is_published ? "Published" : "Draft"}
+                        {item.is_active ? "Active" : "Inactive"}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -230,7 +219,7 @@ export default function ConcernsPage() {
                         className="flex items-center gap-1.5"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        {item.is_published ? (
+                        {item.is_active ? (
                           <Button
                             asChild
                             variant="outline"
@@ -250,7 +239,7 @@ export default function ConcernsPage() {
                             variant="outline"
                             size="sm"
                             disabled
-                            title="Publish this concern to view its public page"
+                            title="Activate this concern to view its public page"
                             className="h-7 gap-1 border-slate-200 px-2.5 text-xs text-slate-400"
                           >
                             <Eye size={12} /> View
@@ -271,13 +260,13 @@ export default function ConcernsPage() {
                           size="sm"
                           onClick={() => setPendingToggle(item)}
                           className={`h-7 gap-1 border px-2.5 text-xs ${
-                            item.is_published
+                            item.is_active
                               ? "border-amber-200 text-amber-700 hover:bg-amber-50"
                               : "border-emerald-200 text-emerald-700 hover:bg-emerald-50"
                           }`}
                         >
-                          {item.is_published ? <ToggleRight size={12} /> : <ToggleLeft size={12} />}
-                          {item.is_published ? "Unpublish" : "Publish"}
+                          {item.is_active ? <ToggleRight size={12} /> : <ToggleLeft size={12} />}
+                          {item.is_active ? "Deactivate" : "Activate"}
                         </Button>
                         <Button
                           variant="outline"
@@ -344,21 +333,20 @@ export default function ConcernsPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {pendingToggle?.is_published
-                ? "Unpublish concern?"
-                : "Publish concern?"}
+              {pendingToggle?.is_active
+                ? "Deactivate concern?"
+                : "Activate concern?"}
             </DialogTitle>
             <DialogDescription>
-              {pendingToggle?.is_published ? (
+              {pendingToggle?.is_active ? (
                 <>
-                  “{pendingToggle?.name}” will be hidden from the public site and
-                  its page will no longer be reachable. Nothing is deleted — you
-                  can re-publish anytime.
+                  “{pendingToggle?.name}” will be hidden from the public site.
+                  Nothing is deleted — you can re-activate anytime.
                 </>
               ) : (
                 <>
-                  “{pendingToggle?.name}” will be published and its page will go
-                  live on the public site.
+                  “{pendingToggle?.name}” will become active on the public site
+                  again.
                 </>
               )}
             </DialogDescription>
@@ -375,19 +363,19 @@ export default function ConcernsPage() {
               onClick={confirmToggle}
               disabled={toggling}
               className={
-                pendingToggle?.is_published
+                pendingToggle?.is_active
                   ? "gap-1.5 bg-amber-600 text-white hover:bg-amber-700"
                   : "gap-1.5 bg-emerald-600 text-white hover:bg-emerald-700"
               }
             >
               {toggling ? (
                 <Loader2 size={14} className="animate-spin" />
-              ) : pendingToggle?.is_published ? (
+              ) : pendingToggle?.is_active ? (
                 <ToggleLeft size={14} />
               ) : (
                 <ToggleRight size={14} />
               )}
-              {pendingToggle?.is_published ? "Unpublish" : "Publish"}
+              {pendingToggle?.is_active ? "Deactivate" : "Activate"}
             </Button>
           </DialogFooter>
         </DialogContent>

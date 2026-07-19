@@ -1,7 +1,6 @@
 "use client";
 
 import { ArrowLeft, ArrowRight, BadgeCheck, Calendar, Phone, Sparkles } from "lucide-react";
-import Link from "next/link";
 import { useRef, useState, useEffect } from "react";
 
 interface OtherProvider {
@@ -18,11 +17,12 @@ interface Props {
   providers: OtherProvider[];
   bookUrl: string;
   clinicPhone?: string | null;
-  /** Set false to render provider cards as static (no link to their profile page). */
+  /** Retained for API compatibility; provider profile pages no longer exist, so
+   *  cards are always static. */
   linkToProfile?: boolean;
 }
 
-export function OtherProvidersCarousel({ clinicName, title, providers, bookUrl, clinicPhone, linkToProfile = true }: Props) {
+export function OtherProvidersCarousel({ clinicName, title, providers, bookUrl, clinicPhone }: Props) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
@@ -125,7 +125,6 @@ export function OtherProvidersCarousel({ clinicName, title, providers, bookUrl, 
         >
           {providers.map((other) => {
             const { credentials, role } = parseTitle(other.title);
-            const providerSlug = other.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
             const cardClassName =
               "group relative flex w-[264px] shrink-0 snap-start flex-col overflow-hidden rounded-2xl bg-white transition-all duration-300 hover:-translate-y-1.5 hover:shadow-[0_16px_40px_rgba(207,93,154,0.18)]";
             const cardStyle = { boxShadow: "0 4px 20px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04)" };
@@ -193,23 +192,10 @@ export function OtherProvidersCarousel({ clinicName, title, providers, bookUrl, 
               </>
             );
 
-            if (!linkToProfile) {
-              return (
-                <div key={other.id} className={cardClassName} style={cardStyle}>
-                  {cardContent}
-                </div>
-              );
-            }
-
             return (
-              <Link
-                key={other.id}
-                href={`/providers/${other.id}/${providerSlug}`}
-                className={cardClassName}
-                style={cardStyle}
-              >
+              <div key={other.id} className={cardClassName} style={cardStyle}>
                 {cardContent}
-              </Link>
+              </div>
             );
           })}
         </div>

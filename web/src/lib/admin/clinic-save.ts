@@ -3,17 +3,18 @@
  *
  * saveClinicBundle() takes the SAVE-READY payload produced by
  * scrapeClinicPreview() (or assembled in the admin UI) and writes:
- *   - ONE business row
- *   - N clinic rows (one per payload.locations entry) keyed by website domain
- *   - clinic_services (each mapped via matchService → service_id/match_status/
- *     match_confidence; unmatched ones kept with service_id NULL)
- *   - images (logo / gallery / before_after — source_url only)
+ *   - ONE clinic row (business-less; g99_business_id/g99_tenant_id stamped
+ *     directly on the clinic) keyed by website domain
+ *   - clinic_locations (one row per payload.locations entry — all address/geo
+ *     lives here; the clinic row carries no headline city/state/zip/geo)
+ *   - clinic_services (each mapped via matchService → service_id/match_status;
+ *     unmatched ones kept with service_id NULL)
+ *   - images (logo / gallery / before_after — source_url only, entity_type='clinic')
  *   - reviews
- *   - concern_services links (derived from the curated CANONICAL_CONCERNS
- *     serviceSlugs map against the clinic's matched canonical services)
+ *   - providers
  *
  * Dedup / overwrite is keyed by WEBSITE DOMAIN: existing clinics whose website
- * resolves to the same hostname are reused. Providers and pricing are skipped.
+ * resolves to the same hostname are reused. Pricing is skipped.
  *
  * Pure DB logic (no HTTP/auth). Mirrors the upsert patterns in
  * scripts/ingest-all.ts.
@@ -28,7 +29,6 @@ import {
   normalize,
   isServiceNoise,
   stripCredentials,
-  CANONICAL_CONCERNS,
   CANONICAL_SERVICES,
 } from "@/lib/taxonomy/canonical";
 import { saveClinicConcerns } from "@/lib/concerns/clinic-concerns";
@@ -180,16 +180,6 @@ export interface ClinicBundle {
   ext_rating?: number | null;
   ext_review_count?: number | null;
   /**
-   * Admin-editable hero stat overrides (display strings, e.g. "20+", "10k+").
-   * When provided they are written to the clinic; when omitted the clinic page
-   * falls back to its computed/default value.
-   */
-  stat_experts?: string | null;
-  stat_cities?: string | null;
-  stat_treatments?: string | null;
-  stat_rating?: string | null;
-  stat_patients?: string | null;
-  /**
    * Optional admin overrides. When present they take precedence over the
    * auto-derive defaults:
    *  - treatment_slugs: ensure these canonical treatments are offered (matched,
@@ -202,8 +192,8 @@ export interface ClinicBundle {
   concern_slugs?: string[];
   /**
    * Optional G99 provenance. When importing from the G99 source DB, these stamp
-   * the hard link used by the imported-status cross-reference and dedup the
-   * business by g99_business_id.
+   * the hard link used by the imported-status cross-reference. They are written
+   * directly onto the clinic row (no local business row exists any more).
    */
   g99_clinic_id?: string | number | null;
   g99_business_id?: string | number | null;
@@ -213,8 +203,6 @@ export interface ClinicBundle {
 }
 
 export interface SaveClinicResult {
-  businessId: string;
-  businessCreated: boolean;
   clinics: Array<{ id: string; slug: string; created: boolean }>;
   servicesMatched: number;
   servicesAuto: number;
@@ -269,15 +257,15 @@ export async function findExistingClinicsByDomain(
   );
 }
 
-/** Unique clinic slug within a business (the natural key clinics(business_id, slug)). */
-async function uniqueClinicSlug(base: string, businessId: string): Promise<string> {
+/** Unique clinic slug — slug is now GLOBALLY unique on clinics (clinics_slug_key). */
+async function uniqueClinicSlug(base: string): Promise<string> {
   let slug = base || "clinic";
   let n = 2;
   // eslint-disable-next-line no-constant-condition
   while (true) {
     const existing = await queryOne<{ id: string }>(
-      `SELECT id FROM clinics WHERE business_id = $1 AND slug = $2`,
-      [businessId, slug]
+      `SELECT id FROM clinics WHERE slug = $1`,
+      [slug]
     );
     if (!existing) return slug;
     slug = `${base}-${n++}`;
@@ -313,20 +301,20 @@ export async function saveClinicServices(
   opts: { website?: string | null; providerNames?: string[]; overwrite?: boolean } = {}
 ): Promise<SaveServicesResult> {
   const overwrite = opts.overwrite ?? true;
-  const website = opts.website ?? null;
 
   if (overwrite) {
     await query(`DELETE FROM clinic_services WHERE clinic_id = $1`, [clinicId]);
   }
 
   // Load the live catalog once (curated 15 + previously AI-grown rows).
+  // The services catalog is now name/slug/origin only — no aliases column.
   type CatRow = { id: string; name: string; slug: string; aliases: string[]; origin: string };
   const catalog: CatRow[] = (
-    await query<{ id: string; name: string; slug: string; aliases: string[] | null; origin: string | null }>(
-      `SELECT id, name, slug, COALESCE(aliases, '{}') AS aliases, COALESCE(origin, 'seed') AS origin
+    await query<{ id: string; name: string; slug: string; origin: string | null }>(
+      `SELECT id, name, slug, COALESCE(origin, 'seed') AS origin
          FROM services WHERE is_active = true`
     )
-  ).map((r) => ({ id: r.id, name: r.name, slug: r.slug, aliases: r.aliases ?? [], origin: r.origin ?? "seed" }));
+  ).map((r) => ({ id: r.id, name: r.name, slug: r.slug, aliases: [], origin: r.origin ?? "seed" }));
   const catBySlug = new Map(catalog.map((r) => [r.slug, r]));
 
   const cleanName = (v: string) => v.replace(/[®™©]/g, "").replace(/\s+/g, " ").trim();
@@ -339,30 +327,17 @@ export async function saveClinicServices(
     }
     return slug;
   };
-  const addAiAlias = async (row: CatRow, rawName: string) => {
-    // Aliases are safe on both curated and AI rows: they improve raw-name search
-    // while the public label remains the vetted service row name.
-    const a = normalize(rawName);
-    if (!a || row.aliases.includes(a)) return;
-    row.aliases.push(a);
-    await query(
-      `UPDATE services SET aliases = array_append(COALESCE(aliases,'{}'), $2), updated_at = NOW()
-         WHERE id = $1 AND NOT ($2 = ANY(COALESCE(aliases,'{}')))`,
-      [row.id, a]
-    );
-  };
-  const createAiService = async (generalName: string, category: string | null, rawName: string): Promise<CatRow> => {
+  const createAiService = async (generalName: string, rawName: string): Promise<CatRow> => {
     const name = cleanName(generalName) || cleanName(rawName);
     const slug = await uniqueServiceSlug(slugify(name));
-    const aliases = [...new Set([normalize(rawName), normalize(name)].filter(Boolean))];
     const ins = await queryOne<{ id: string }>(
-      `INSERT INTO services (name, slug, category, aliases, origin, is_published, review_status, is_active)
-       VALUES ($1,$2,$3,$4,'ai',true,'approved',true)
+      `INSERT INTO services (name, slug, origin, is_active)
+       VALUES ($1,$2,'ai',true)
        ON CONFLICT (slug) DO UPDATE SET updated_at = NOW()
        RETURNING id`,
-      [name, slug, category, aliases]
+      [name, slug]
     );
-    const row: CatRow = { id: ins!.id, name, slug, aliases, origin: "ai" };
+    const row: CatRow = { id: ins!.id, name, slug, aliases: [], origin: "ai" };
     catalog.push(row);
     catBySlug.set(slug, row);
     return row;
@@ -391,7 +366,6 @@ export async function saveClinicServices(
     seenRaw.add(rawKey);
 
     let serviceId: string | null = null;
-    let confidence = 0;
     let matchStatus: "matched" | "auto" | "unmatched" = "unmatched";
 
     const publicDecision = s.public_decision ?? "public";
@@ -406,13 +380,11 @@ export async function saveClinicServices(
       const row = exact
         ? exact
         : forceCreatePublic
-          ? await createAiService(gen, s.general_category?.trim() || null, raw)
+          ? await createAiService(gen, raw)
           : (bestCatalogMatch(gen, catalog, 0.72)
               ? catBySlug.get(bestCatalogMatch(gen, catalog, 0.72)!.entry.slug)!
-              : await createAiService(gen, s.general_category?.trim() || null, raw));
-      await addAiAlias(row, raw);
+              : await createAiService(gen, raw));
       serviceId = row.id;
-      confidence = exact ? 1 : forceCreatePublic ? 0.92 : 0.9;
       matchStatus = exact ? "matched" : "auto";
       return true;
     };
@@ -421,7 +393,6 @@ export async function saveClinicServices(
       const svc = catBySlug.get(s.mapped_slug)
         ?? (await queryOne<{ id: string }>(`SELECT id FROM services WHERE slug = $1`, [s.mapped_slug]));
       serviceId = svc?.id ?? null;
-      confidence = serviceId ? 1 : 0;
       matchStatus = serviceId ? "matched" : "unmatched";
     } else if (publicDecision === "public" && await mapByGeneralName(true)) {
       // Public AI decision wins before the old alias matcher so real searchable
@@ -433,7 +404,6 @@ export async function saveClinicServices(
       const curatedRow = curated.slug ? catBySlug.get(curated.slug) : undefined;
       if (curatedRow) {
         serviceId = curatedRow.id;
-        confidence = curated.confidence;
         matchStatus = curated.confidence >= 1 ? "matched" : "auto";
       } else if (s.general_name && s.general_name.trim().length >= 3) {
         // 2. The AI's GENERIC treatment name is authoritative for the long tail:
@@ -450,9 +420,7 @@ export async function saveClinicServices(
         if (dbHit) {
           const row = catBySlug.get(dbHit.entry.slug)!;
           serviceId = row.id;
-          confidence = dbHit.confidence;
           matchStatus = dbHit.confidence >= 1 ? "matched" : "auto";
-          await addAiAlias(row, raw);
         } else {
           matchStatus = "unmatched";
         }
@@ -464,18 +432,14 @@ export async function saveClinicServices(
 
     await query(
       `INSERT INTO clinic_services
-         (clinic_id, service_id, raw_name, description, match_status, match_confidence,
-          data_source, scraped_from_url, last_scraped_at)
-       VALUES ($1,$2,$3,$4,$5,$6,'scraped',$7,NOW())
+         (clinic_id, service_id, raw_name, description, match_status)
+       VALUES ($1,$2,$3,$4,$5)
        ON CONFLICT (clinic_id, raw_name) DO UPDATE SET
          service_id = EXCLUDED.service_id,
          description = COALESCE(EXCLUDED.description, clinic_services.description),
          match_status = EXCLUDED.match_status,
-         match_confidence = EXCLUDED.match_confidence,
-         last_scraped_at = NOW(),
          updated_at = NOW()`,
-      [clinicId, serviceId, raw, s.description ?? null, matchStatus, confidence || null,
-       s.scraped_from_url ?? website]
+      [clinicId, serviceId, raw, s.description ?? null, matchStatus]
     );
   }
 
@@ -501,47 +465,14 @@ export async function saveClinicBundle(
     : `https://${payload.website}`;
   const bizName = payload.business.name?.trim() || domain;
 
-  // ── business (one per bundle) ──────────────────────────────────────────────
-  // Dedup priority: G99 business id (hard link) → name.
+  // G99 provenance — stamped directly onto the clinic row (no local business).
   const g99BusinessId = payload.g99_business_id != null ? String(payload.g99_business_id) : null;
   const g99TenantId = payload.g99_tenant_id != null ? String(payload.g99_tenant_id) : null;
-  let businessId: string;
-  let businessCreated = false;
-  const existingBiz = await queryOne<{ id: string }>(
-    g99BusinessId
-      ? `SELECT id FROM businesses WHERE g99_business_id = $1::bigint
-         UNION ALL SELECT id FROM businesses WHERE name = $2 ORDER BY 1 LIMIT 1`
-      : `SELECT id FROM businesses WHERE name = $1 ORDER BY created_at LIMIT 1`,
-    g99BusinessId ? [g99BusinessId, bizName] : [bizName]
-  );
-  if (existingBiz) {
-    businessId = existingBiz.id;
-    if (g99BusinessId) {
-      await query(
-        `UPDATE businesses SET
-            g99_business_id = COALESCE($2::bigint, g99_business_id),
-            g99_tenant_id   = COALESCE($3::bigint, g99_tenant_id),
-            last_synced_at  = NOW()
-          WHERE id = $1`,
-        [businessId, g99BusinessId, g99TenantId]
-      );
-    }
-  } else {
-    const ins = await queryOne<{ id: string }>(
-      `INSERT INTO businesses (name, tier, verified, data_source, g99_business_id, g99_tenant_id, last_synced_at)
-       VALUES ($1, 'free', false, 'scraped', $2::bigint, $3::bigint, NOW()) RETURNING id`,
-      [bizName, g99BusinessId, g99TenantId]
-    );
-    businessId = ins!.id;
-    businessCreated = true;
-  }
 
   // existing clinics for this domain (overwrite targets / dedup)
   const existingClinicIds = await findClinicsByDomain(domain);
 
   const result: SaveClinicResult = {
-    businessId,
-    businessCreated,
     clinics: [],
     servicesMatched: 0,
     servicesAuto: 0,
@@ -551,7 +482,6 @@ export async function saveClinicBundle(
     concernLinks: 0,
   };
 
-  // ── One clinic per business (not one per location) ──────────────────────────
   const clinicName = bizName;
   const slugBase = slugify(clinicName);
 
@@ -564,8 +494,9 @@ export async function saveClinicBundle(
 
   // Clinic-row field sources. In clinic-level mode (payload.clinic present) the
   // clinic-wide columns come from payload.clinic and the HEADLINE
-  // address/city/state/zip/geo/hours/maps are left blank; otherwise everything
-  // is derived from locations[0] (legacy admin/demo behaviour).
+  // address/hours/maps are left blank; otherwise everything is derived from
+  // locations[0] (legacy admin/demo behaviour). City/state/zip/geo now live
+  // ONLY on clinic_locations, never on the clinic row.
   const cl = payload.clinic;
   const clinicMode = cl != null;
   const cBookingUrl = clinicMode ? cl.booking_url ?? null : primaryLoc.booking_url ?? null;
@@ -581,11 +512,8 @@ export async function saveClinicBundle(
   const cLinkedin = clinicMode ? cl.linkedin_url ?? null : primaryLoc.linkedin_url ?? null;
   const cYelp = clinicMode ? cl.yelp_url ?? null : primaryLoc.yelp_url ?? null;
   const cGmb = clinicMode ? cl.google_my_business ?? null : primaryLoc.google_my_business ?? null;
-  // Headline location fields — blank in clinic-level mode.
+  // Headline address — blank in clinic-level mode.
   const cAddress = clinicMode ? null : primaryLoc.address ?? null;
-  const cCity = clinicMode ? null : primaryLoc.city ?? null;
-  const cState = clinicMode ? null : primaryLoc.state ?? null;
-  const cZip = clinicMode ? null : primaryLoc.zip ?? null;
   const cMapsUrl = clinicMode ? null : primaryLoc.maps_url ?? null;
   // Working hours: clinic-wide in clinic mode, else derived from primary loc.
   const cHours = clinicMode ? cl.hours ?? null : primaryLoc.hours ?? null;
@@ -600,23 +528,22 @@ export async function saveClinicBundle(
           website = $3,
           ${setOrOverwrite("booking_url", 4)},
           ${setOrOverwrite("address", 5)},
-          ${setOrOverwrite("city", 6)},
-          ${setOrOverwrite("state", 7)},
-          ${setOrOverwrite("zip", 8)},
-          ${setOrOverwrite("phone", 9)},
-          ${setOrOverwrite("email", 10)},
-          ${setOrOverwrite("about", 11)},
-          ${setOrOverwrite("instagram_url", 12)},
-          ${setOrOverwrite("facebook_url", 13)},
-          ${setOrOverwrite("tiktok_url", 14)},
-          ${setOrOverwrite("youtube_url", 15)},
-          ${setOrOverwrite("tagline", 16)},
-          ${setOrOverwrite("google_maps_url", 17)},
-          ${setOrOverwrite("x_url", 18)},
-          ${setOrOverwrite("linkedin_url", 19)},
-          ${setOrOverwrite("yelp_url", 20)},
-          ${setOrOverwrite("google_my_business", 21)},
-          hours = ${overwrite ? "$22::jsonb" : "COALESCE($22::jsonb, hours)"},
+          ${setOrOverwrite("phone", 6)},
+          ${setOrOverwrite("email", 7)},
+          ${setOrOverwrite("about", 8)},
+          ${setOrOverwrite("instagram_url", 9)},
+          ${setOrOverwrite("facebook_url", 10)},
+          ${setOrOverwrite("tiktok_url", 11)},
+          ${setOrOverwrite("youtube_url", 12)},
+          ${setOrOverwrite("tagline", 13)},
+          ${setOrOverwrite("google_maps_url", 14)},
+          ${setOrOverwrite("x_url", 15)},
+          ${setOrOverwrite("linkedin_url", 16)},
+          ${setOrOverwrite("yelp_url", 17)},
+          ${setOrOverwrite("google_my_business", 18)},
+          hours = ${overwrite ? "$19::jsonb" : "COALESCE($19::jsonb, hours)"},
+          g99_business_id = COALESCE($20::bigint, g99_business_id),
+          g99_tenant_id   = COALESCE($21::bigint, g99_tenant_id),
           data_source = 'scraped',
           last_scraped_at = NOW(),
           updated_at = NOW()
@@ -624,7 +551,6 @@ export async function saveClinicBundle(
       [
         clinicId, clinicName, website,
         cBookingUrl, cAddress,
-        cCity, cState, cZip,
         cPhone, cEmail, cAbout,
         cInstagram, cFacebook,
         cTiktok, cYoutube,
@@ -632,6 +558,7 @@ export async function saveClinicBundle(
         cX, cLinkedin,
         cYelp, cGmb,
         cHoursJson,
+        g99BusinessId, g99TenantId,
       ]
     );
     const existing = await queryOne<{ slug: string }>(
@@ -640,19 +567,18 @@ export async function saveClinicBundle(
     );
     slug = existing?.slug ?? slugBase;
   } else {
-    slug = await uniqueClinicSlug(slugBase, businessId);
+    slug = await uniqueClinicSlug(slugBase);
     const ins = await queryOne<{ id: string }>(
       `INSERT INTO clinics
-         (business_id, name, slug, website, booking_url, address, city, state, zip,
+         (name, slug, website, booking_url, address,
           phone, email, about, instagram_url, facebook_url, tiktok_url, youtube_url,
           tagline, google_maps_url, x_url, linkedin_url, yelp_url, google_my_business,
-          hours, data_source, verified, last_scraped_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23::jsonb,'scraped',false,NOW())
+          hours, g99_business_id, g99_tenant_id, data_source, last_scraped_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19::jsonb,$20::bigint,$21::bigint,'scraped',NOW())
        RETURNING id`,
       [
-        businessId, clinicName, slug, website,
+        clinicName, slug, website,
         cBookingUrl, cAddress,
-        cCity, cState, cZip,
         cPhone, cEmail, cAbout,
         cInstagram, cFacebook,
         cTiktok, cYoutube,
@@ -660,6 +586,7 @@ export async function saveClinicBundle(
         cX, cLinkedin,
         cYelp, cGmb,
         cHoursJson,
+        g99BusinessId, g99TenantId,
       ]
     );
     clinicId = ins!.id;
@@ -668,7 +595,7 @@ export async function saveClinicBundle(
 
   result.clinics.push({ id: clinicId, slug, created });
 
-  // ── G99 link stamp (hard link + place id) ──────────────────────────────────
+  // ── G99 clinic link stamp (hard link + place id) ────────────────────────────
   const g99ClinicId = payload.g99_clinic_id != null ? String(payload.g99_clinic_id) : null;
   if (g99ClinicId || payload.google_place_id) {
     await query(
@@ -681,17 +608,6 @@ export async function saveClinicBundle(
     );
   }
 
-  // geo + hours from primary location — legacy mode only. In clinic-level mode
-  // the clinic row carries no headline geo/hours (all lives in clinic_locations).
-  if (!clinicMode && primaryLoc.lat != null && primaryLoc.lng != null) {
-    await query(
-      `UPDATE clinics SET lat = $2::float8::numeric, lng = $3::float8::numeric,
-          geo = ST_SetSRID(ST_MakePoint($3::float8, $2::float8), 4326)::geography,
-          updated_at = NOW() WHERE id = $1`,
-      [clinicId, primaryLoc.lat, primaryLoc.lng]
-    );
-  }
-  // clinic-level hours are written via the INSERT/UPDATE above (all modes).
   if (payload.ext_rating != null) {
     await query(
       `UPDATE clinics SET ext_rating = $2, ext_review_count = $3 WHERE id = $1`,
@@ -699,41 +615,7 @@ export async function saveClinicBundle(
     );
   }
 
-  // hero stat overrides (display strings) — only fill the ones provided.
-  const statFields = [
-    payload.stat_experts,
-    payload.stat_cities,
-    payload.stat_treatments,
-    payload.stat_rating,
-    payload.stat_patients,
-  ];
-  if (statFields.some((v) => v !== undefined)) {
-    const norm = (v: string | null | undefined) => {
-      if (v === undefined) return undefined; // leave column untouched
-      const t = (v ?? "").trim();
-      return t.length > 0 ? t : null; // empty string clears the override
-    };
-    await query(
-      `UPDATE clinics SET
-          stat_experts    = COALESCE($2, stat_experts),
-          stat_cities     = COALESCE($3, stat_cities),
-          stat_treatments = COALESCE($4, stat_treatments),
-          stat_rating     = COALESCE($5, stat_rating),
-          stat_patients   = COALESCE($6, stat_patients),
-          updated_at = NOW()
-        WHERE id = $1`,
-      [
-        clinicId,
-        norm(payload.stat_experts) ?? null,
-        norm(payload.stat_cities) ?? null,
-        norm(payload.stat_treatments) ?? null,
-        norm(payload.stat_rating) ?? null,
-        norm(payload.stat_patients) ?? null,
-      ]
-    );
-  }
-
-  // ── clinic_locations (one row per location) ───────────────────────────────
+  // ── clinic_locations (one row per location; all address/geo lives here) ─────
   if (overwrite) {
     await query(`DELETE FROM clinic_locations WHERE clinic_id = $1`, [clinicId]);
   }
@@ -855,7 +737,7 @@ export async function saveClinicBundle(
 
   // ── optional admin override: ensure canonical treatments are offered ──────
   // Mirrors the services PUT route: each requested canonical slug becomes a
-  // matched clinic_services row (confidence 1, data_source 'manual').
+  // matched clinic_services row.
   if (payload.treatment_slugs && payload.treatment_slugs.length > 0) {
     const wanted = [
       ...new Set(payload.treatment_slugs.filter((s) => PRIORITY_SERVICE_SLUG_SET.has(s))),
@@ -868,13 +750,11 @@ export async function saveClinicBundle(
       for (const svc of svcRows) {
         await query(
           `INSERT INTO clinic_services
-             (clinic_id, service_id, raw_name, match_status, match_confidence, data_source, last_scraped_at, is_active)
-           VALUES ($1, $2, $3, 'matched', 1, 'manual', NOW(), true)
+             (clinic_id, service_id, raw_name, match_status, is_active)
+           VALUES ($1, $2, $3, 'matched', true)
            ON CONFLICT (clinic_id, raw_name) DO UPDATE SET
              service_id = EXCLUDED.service_id,
              match_status = 'matched',
-             match_confidence = 1,
-             data_source = 'manual',
              is_active = true,
              updated_at = NOW()`,
           [clinicId, svc.id, svc.name]
@@ -883,56 +763,11 @@ export async function saveClinicBundle(
     }
   }
 
-  // ── concern_services for this clinic's matched canonical services ────────
-  result.concernLinks += await deriveConcernServicesForClinic(clinicId);
-
   // ── optional admin override: persist effective concern set ────────────────
-  // When concern_slugs is provided, persist overrides relative to the derived
-  // set (additions=manual, removals=removed, deactivate stale). Otherwise the
-  // auto-derived membership above is the default.
+  // When concern_slugs is provided, persist overrides via saveClinicConcerns.
   if (payload.concern_slugs) {
     await saveClinicConcerns(clinicId, payload.concern_slugs);
   }
 
   return result;
-}
-
-/**
- * Link concerns to the canonical services this clinic actually offers (matched
- * service_id), using the curated CANONICAL_CONCERNS.serviceSlugs map (exact
- * slug membership). Because the map is the same one that seeds the global
- * concern_services table, this can only ever re-affirm curated links — it can
- * never introduce a concern↔service pairing outside the Phase-0 mapping.
- * display_order follows the curated order so it stays stable across clinics.
- */
-async function deriveConcernServicesForClinic(clinicId: string): Promise<number> {
-  const svcRows = await query<{ id: string; slug: string }>(
-    `SELECT DISTINCT s.id, s.slug
-       FROM services s
-       JOIN clinic_services cs ON cs.service_id = s.id
-      WHERE cs.clinic_id = $1 AND s.is_active = true`,
-    [clinicId]
-  );
-  if (svcRows.length === 0) return 0;
-
-  const idBySlug = new Map(svcRows.map((s) => [s.slug, s.id]));
-  let links = 0;
-  for (const def of CANONICAL_CONCERNS) {
-    const concern = await queryOne<{ id: string }>(
-      `SELECT id FROM concerns WHERE slug = $1`,
-      [def.slug]
-    );
-    if (!concern) continue;
-    for (let i = 0; i < def.serviceSlugs.length; i++) {
-      const serviceId = idBySlug.get(def.serviceSlugs[i]);
-      if (!serviceId) continue;
-      const res = await query<{ id: string }>(
-        `INSERT INTO concern_services (concern_id, service_id, display_order)
-         VALUES ($1,$2,$3) ON CONFLICT (concern_id, service_id) DO NOTHING RETURNING id`,
-        [concern.id, serviceId, i]
-      );
-      links += res.length;
-    }
-  }
-  return links;
 }

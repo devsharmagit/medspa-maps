@@ -13,29 +13,12 @@ import {
   deleteProvider,
 } from "@/lib/providers/queries";
 
-const credentialSchema = z.object({
-  title: z.string().min(1),
-  institution: z.string().min(1),
-});
-
-const specialtySchema = z.object({
-  title: z.string().min(1),
-  description: z.string(),
-});
-
 const updateProviderSchema = z.object({
   name: z.string().min(1).max(255).optional(),
   title: z.string().max(255).nullish(),
-  bio: z.string().nullish(),
   card_tagline: z.string().max(500).nullish(),
-  review_rating: z.number().min(0).max(5).nullish(),
-  review_count: z.number().int().min(0).nullish(),
   image_url: z.string().url("Must be a valid URL").nullish(),
-  years_experience: z.number().int().positive().nullish(),
   is_verified: z.boolean().optional(),
-  highlights: z.array(z.string()).optional(),
-  credentials: z.array(credentialSchema).optional(),
-  specialties: z.array(specialtySchema).optional(),
   service_ids: z.array(z.string().uuid()).optional(),
   concern_ids: z.array(z.string().uuid()).optional(),
 });
@@ -106,16 +89,9 @@ export async function PUT(
     const updated = await updateProvider(id, {
       ...(input.name !== undefined && { name: input.name }),
       title: input.title ?? undefined,
-      bio: input.bio ?? undefined,
       card_tagline: input.card_tagline ?? undefined,
-      review_rating: input.review_rating ?? undefined,
-      review_count: input.review_count ?? undefined,
       image_url: input.image_url ?? undefined,
-      years_experience: input.years_experience ?? undefined,
       ...(input.is_verified !== undefined && { is_verified: input.is_verified }),
-      ...(input.highlights !== undefined && { highlights: input.highlights }),
-      ...(input.credentials !== undefined && { credentials: input.credentials }),
-      ...(input.specialties !== undefined && { specialties: input.specialties }),
       ...(input.service_ids !== undefined && { service_ids: input.service_ids }),
       ...(input.concern_ids !== undefined && { concern_ids: input.concern_ids }),
     });

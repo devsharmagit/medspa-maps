@@ -30,9 +30,6 @@ interface ClinicListItem {
   id: string;
   name: string;
   slug: string;
-  business_name: string;
-  city: string | null;
-  state: string | null;
   review_count: number;
   is_active: boolean;
   location_cities: string | null;
@@ -47,9 +44,7 @@ interface ClinicAggregates {
 }
 
 function clinicLocation(c: ClinicListItem): string {
-  if (c.city && c.state) return `${c.city}, ${c.state}`;
-  if (c.location_cities) return c.location_cities;
-  return c.city ?? c.state ?? "—";
+  return c.location_cities || "—";
 }
 
 export default function ReviewsPage() {
@@ -82,7 +77,6 @@ export default function ReviewsPage() {
     return clinics.filter(
       (c) =>
         c.name.toLowerCase().includes(q) ||
-        (c.business_name ?? "").toLowerCase().includes(q) ||
         clinicLocation(c).toLowerCase().includes(q)
     );
   }, [clinics, search]);

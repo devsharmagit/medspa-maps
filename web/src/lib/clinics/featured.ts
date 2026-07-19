@@ -51,19 +51,13 @@ interface FeaturedRow {
 export async function getFeaturedClinics(limit = 5): Promise<FeaturedClinic[]> {
   const { rows } = await pool.query<FeaturedRow>(
     `SELECT
-       c.id, c.name, c.slug, c.city, c.state, c.verified, c.featured,
+       c.id, c.name, c.slug, ploc.city, ploc.state, FALSE AS verified, c.featured,
        c.avg_rating, c.review_count, c.ext_rating, c.ext_review_count,
-       c.booking_url, c.website, c.lat, c.lng,
-       COALESCE(
-         (SELECT source_url FROM images i
-            WHERE i.entity_type = 'clinic' AND i.entity_id = c.id
-              AND i.role = 'logo' AND i.scrape_status = 'ok'
-            ORDER BY i.sort_order LIMIT 1),
-         (SELECT source_url FROM images i
-            WHERE i.entity_type = 'business' AND i.entity_id = b.id
-              AND i.role = 'logo' AND i.scrape_status = 'ok'
-            ORDER BY i.sort_order LIMIT 1)
-       ) AS logo_url,
+       c.booking_url, c.website, ploc.lat, ploc.lng,
+       (SELECT source_url FROM images i
+          WHERE i.entity_type = 'clinic' AND i.entity_id = c.id
+            AND i.role = 'logo' AND i.scrape_status = 'ok'
+          ORDER BY i.sort_order LIMIT 1) AS logo_url,
        (
          SELECT COALESCE(cdn_url, source_url) FROM images
          WHERE entity_type = 'clinic' AND entity_id = c.id
@@ -93,8 +87,14 @@ export async function getFeaturedClinics(limit = 5): Promise<FeaturedClinic[]> {
          ) t
        ) AS services
      FROM clinics c
-     JOIN businesses b ON b.id = c.business_id
-     WHERE c.is_active = TRUE AND b.is_active = TRUE
+     LEFT JOIN LATERAL (
+       SELECT cl.city, cl.state, cl.lat, cl.lng
+       FROM clinic_locations cl
+       WHERE cl.clinic_id = c.id AND cl.is_active = TRUE
+       ORDER BY cl.is_primary DESC, cl.sort_order NULLS LAST, cl.created_at
+       LIMIT 1
+     ) ploc ON TRUE
+     WHERE c.is_active = TRUE
      ORDER BY
        (c.slug = 'ruma-medical') DESC,
        c.featured DESC,

@@ -6,7 +6,6 @@ import pool from "@/lib/db";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Store,
-  Building2,
   Sparkles,
   HeartPulse,
   Star,
@@ -31,7 +30,6 @@ export default async function AdminDashboardPage() {
 
   const { rows } = await pool.query<{
     clinics: string;
-    businesses: string;
     services: string;
     concerns: string;
     reviews: string;
@@ -39,7 +37,6 @@ export default async function AdminDashboardPage() {
   }>(`
     SELECT
       (SELECT count(*) FROM clinics)    AS clinics,
-      (SELECT count(*) FROM businesses) AS businesses,
       (SELECT count(*) FROM services)   AS services,
       (SELECT count(*) FROM concerns)   AS concerns,
       (SELECT count(*) FROM reviews)    AS reviews,
@@ -51,7 +48,6 @@ export default async function AdminDashboardPage() {
 
   const stats: StatCard[] = [
     { label: "Clinics", value: c.clinics, href: "/admin/clinics", icon: Store, tint: "from-rose-500/15 to-pink-500/15 text-rose-600" },
-    { label: "Businesses", value: c.businesses, href: "/admin/businesses", icon: Building2, tint: "from-orange-500/15 to-amber-500/15 text-orange-600" },
     { label: "Services", value: c.services, href: "/admin/services", icon: Sparkles, tint: "from-fuchsia-500/15 to-purple-500/15 text-fuchsia-600" },
     { label: "Concerns", value: c.concerns, href: "/admin/concerns", icon: HeartPulse, tint: "from-violet-500/15 to-purple-500/15 text-violet-600" },
     { label: "Reviews", value: c.reviews, href: "/admin/reviews", icon: Star, tint: "from-amber-500/15 to-yellow-500/15 text-amber-600" },

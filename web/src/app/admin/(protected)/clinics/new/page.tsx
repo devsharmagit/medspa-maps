@@ -17,7 +17,6 @@ import {
   Stethoscope,
   HeartPulse,
   Building2,
-  BarChart3,
   ExternalLink,
   ArrowLeft,
   ChevronDown,
@@ -135,7 +134,6 @@ interface AdminService {
   id: string;
   name: string;
   slug: string;
-  category: string | null;
 }
 
 // UI-side service row: tracks the user's canonical mapping + ignore decision.
@@ -153,8 +151,6 @@ interface SaveResultClinic {
 }
 
 interface SaveResult {
-  businessId: string;
-  businessCreated: boolean;
   clinics: SaveResultClinic[];
   servicesMatched: number;
   servicesAuto: number;
@@ -281,14 +277,6 @@ export default function NewClinicPage() {
   const [extRating, setExtRating] = useState<string>("");
   const [extReviewCount, setExtReviewCount] = useState<string>("");
   const [hoursState, setHoursState] = useState<Record<number, LocationHoursMap>>({});
-  // Hero stat overrides (display strings). Blank → auto-computed on the page.
-  const [heroStats, setHeroStats] = useState({
-    experts: "",
-    cities: "",
-    treatments: "",
-    rating: "",
-    patients: "",
-  });
 
   // business-level fields (sourced from locations[0] on scrape)
   const [businessTagline, setBusinessTagline] = useState('');
@@ -708,11 +696,6 @@ export default function NewClinicPage() {
       ext_rating: extRating.trim() === "" ? null : Number(extRating),
       ext_review_count:
         extReviewCount.trim() === "" ? null : parseInt(extReviewCount, 10),
-      stat_experts: heroStats.experts.trim() || null,
-      stat_cities: heroStats.cities.trim() || null,
-      stat_treatments: heroStats.treatments.trim() || null,
-      stat_rating: heroStats.rating.trim() || null,
-      stat_patients: heroStats.patients.trim() || null,
       treatment_slugs: selectedTreatmentSlugs,
       concern_slugs: selectedConcernSlugs,
       // G99 provenance (null on the manual URL path)
@@ -740,7 +723,6 @@ export default function NewClinicPage() {
     gallery,
     coverUrl,
     beforeAfter,
-    heroStats,
     selectedTreatmentSlugs,
     selectedConcernSlugs,
   ]);
@@ -778,7 +760,7 @@ export default function NewClinicPage() {
   );
 
   const serviceOptions: DropdownOption[] = canonicalServices.map((s) => ({
-    label: s.category ? `${s.name} · ${s.category}` : s.name,
+    label: s.name,
     value: s.slug,
   }));
 
@@ -1119,63 +1101,6 @@ export default function NewClinicPage() {
                   <Input value={businessSocials.google_my_business} onChange={(e) => setBusinessSocials(p => ({ ...p, google_my_business: e.target.value }))} className="h-9" placeholder="https://maps.google.com/…" />
                 </Field>
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Hero stats */}
-          <Card className="border-slate-200 shadow-sm">
-            <CardHeader className="border-b border-slate-100 bg-slate-50/50 pb-4">
-              <CardTitle className="flex items-center gap-2 text-base font-semibold text-slate-800">
-                <BarChart3 size={16} style={{ color: BRAND }} />
-                Hero stats
-              </CardTitle>
-              <CardDescription className="text-xs text-slate-500">
-                The five numbers shown in the “About + Stats” row on the clinic
-                page. Type the exact value to display (e.g. 20+, 10k+, 5.0).
-                Leave blank to auto-calculate.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="grid grid-cols-2 gap-4 p-6 sm:grid-cols-3">
-              <Field label="Certified experts">
-                <Input
-                  value={heroStats.experts}
-                  onChange={(e) => setHeroStats((p) => ({ ...p, experts: e.target.value }))}
-                  placeholder="auto — e.g. 20+"
-                  className="h-9"
-                />
-              </Field>
-              <Field label="Cities covered">
-                <Input
-                  value={heroStats.cities}
-                  onChange={(e) => setHeroStats((p) => ({ ...p, cities: e.target.value }))}
-                  placeholder="auto — e.g. 8"
-                  className="h-9"
-                />
-              </Field>
-              <Field label="Advanced treatments">
-                <Input
-                  value={heroStats.treatments}
-                  onChange={(e) => setHeroStats((p) => ({ ...p, treatments: e.target.value }))}
-                  placeholder="auto — e.g. 50+"
-                  className="h-9"
-                />
-              </Field>
-              <Field label="Average rating">
-                <Input
-                  value={heroStats.rating}
-                  onChange={(e) => setHeroStats((p) => ({ ...p, rating: e.target.value }))}
-                  placeholder="auto — e.g. 5.0"
-                  className="h-9"
-                />
-              </Field>
-              <Field label="Patients transformed">
-                <Input
-                  value={heroStats.patients}
-                  onChange={(e) => setHeroStats((p) => ({ ...p, patients: e.target.value }))}
-                  placeholder="auto — e.g. 10k+"
-                  className="h-9"
-                />
-              </Field>
             </CardContent>
           </Card>
 

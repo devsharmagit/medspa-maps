@@ -16,9 +16,7 @@ import { query, queryOne } from "@/lib/db";
 import { slugify } from "@/lib/scraper/utils";
 import {
   matchService,
-  normalize,
   isLikelyNoise,
-  type ServiceCategory,
 } from "@/lib/taxonomy/canonical";
 
 export interface UnmatchedSuggestion {
@@ -80,18 +78,16 @@ export interface MapResult {
 }
 
 /**
- * mapUnmatched(rawName, serviceId, { addAlias }) — point every clinic_services
- * row with this raw_name at an existing canonical service and mark them
- * matched. When addAlias (default true), append the normalized rawName to that
- * service's aliases[] so future scrapes resolve automatically.
+ * mapUnmatched(rawName, serviceId) — point every clinic_services row with this
+ * raw_name at an existing canonical service and mark them matched. The services
+ * catalog no longer carries an aliases column, so nothing is learned back onto
+ * the service; the mapping is the whole operation.
  */
 export async function mapUnmatched(
   rawName: string,
   serviceId: string,
-  opts: { addAlias?: boolean } = {}
+  _opts: { addAlias?: boolean } = {}
 ): Promise<MapResult> {
-  const addAlias = opts.addAlias ?? true;
-
   const svc = await queryOne<{ id: string }>(
     `SELECT id FROM services WHERE id = $1`,
     [serviceId]
@@ -102,7 +98,6 @@ export async function mapUnmatched(
     `UPDATE clinic_services
         SET service_id = $1,
             match_status = 'matched',
-            match_confidence = 1,
             updated_at = NOW()
       WHERE raw_name = $2
         AND (match_status = 'unmatched' OR service_id IS NULL)
@@ -110,37 +105,17 @@ export async function mapUnmatched(
     [serviceId, rawName]
   );
 
-  let aliasAdded = false;
-  if (addAlias) {
-    const norm = normalize(rawName);
-    if (norm) {
-      const res = await query<{ id: string }>(
-        `UPDATE services
-            SET aliases = array_append(COALESCE(aliases, '{}'), $2),
-                updated_at = NOW()
-          WHERE id = $1
-            AND NOT ($2 = ANY(COALESCE(aliases, '{}')))
-          RETURNING id`,
-        [serviceId, norm]
-      );
-      aliasAdded = res.length > 0;
-    }
-  }
-
   return {
     raw_name: rawName,
     service_id: serviceId,
     rows_updated: updated.length,
-    alias_added: aliasAdded,
+    alias_added: false,
   };
 }
 
 export interface PromoteFields {
   name: string;
   slug?: string;
-  category?: ServiceCategory;
-  summary?: string;
-  description?: string;
 }
 
 export interface PromoteResult extends MapResult {
@@ -149,9 +124,10 @@ export interface PromoteResult extends MapResult {
 }
 
 /**
- * promoteUnmatched(rawName, fields) — create a NEW canonical service (pending
- * review, unpublished) from the supplied fields, then map every clinic_services
- * row with this raw_name onto it. Slug derives from fields.slug or fields.name.
+ * promoteUnmatched(rawName, fields) — create a NEW canonical service from the
+ * supplied fields, then map every clinic_services row with this raw_name onto
+ * it. Slug derives from fields.slug or fields.name. The catalog is now
+ * name/slug/origin/is_active only.
  */
 export async function promoteUnmatched(
   rawName: string,
@@ -163,24 +139,14 @@ export async function promoteUnmatched(
   if (!slug) throw new Error("Could not derive a slug from the supplied name");
 
   const inserted = await queryOne<{ id: string }>(
-    `INSERT INTO services
-       (name, slug, category, summary, description, aliases,
-        is_published, review_status, is_active)
-     VALUES ($1, $2, $3, $4, $5, $6, false, 'pending', true)
+    `INSERT INTO services (name, slug, origin, is_active)
+     VALUES ($1, $2, 'manual', true)
      RETURNING id`,
-    [
-      name,
-      slug,
-      fields.category ?? null,
-      fields.summary ?? null,
-      fields.description ?? null,
-      [normalize(rawName)].filter(Boolean),
-    ]
+    [name, slug]
   );
   if (!inserted) throw new Error("Failed to create canonical service");
 
-  // map without re-adding the alias (already seeded above)
-  const mapped = await mapUnmatched(rawName, inserted.id, { addAlias: false });
+  const mapped = await mapUnmatched(rawName, inserted.id);
 
   return {
     ...mapped,

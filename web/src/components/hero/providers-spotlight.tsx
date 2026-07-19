@@ -48,7 +48,6 @@ function ChevronArrow({ color }: { color: string }) {
 function ProviderCard({ provider }: { provider: ConcernProvider }) {
   const specialty = provider.title || "Aesthetic Provider";
   const description = provider.card_tagline?.trim() || null;
-  const rating = provider.review_rating ?? provider.avg_rating;
 
   return (
     <div
@@ -87,33 +86,12 @@ function ProviderCard({ provider }: { provider: ConcernProvider }) {
           {/* Divider */}
           <div className="h-px w-full bg-[#DDC3DF]" />
 
-          {/* Experience + description + rating */}
+          {/* Description */}
           <div className="flex flex-col gap-3">
-            {provider.years_experience != null && (
-              <p className="font-montserrat text-[12px] font-semibold uppercase leading-[130%] tracking-[0.02em] text-[#616161]">
-                {provider.years_experience}+ years of Experience
-              </p>
-            )}
             {description && (
               <p className="font-montserrat text-[11px] leading-[138%] tracking-[0.02em] text-[#727272] line-clamp-3">
                 {description}
               </p>
-            )}
-            {rating && (
-              <div className="flex items-center gap-1">
-                <span className="font-montserrat text-[11px] leading-[138%] tracking-[0.02em] text-[#727272]">
-                  Customer Rating
-                </span>
-                <span className="font-inter text-[13px] font-medium leading-[21px] text-[#FFBA19]">★</span>
-                <span className="font-montserrat text-[12px] font-semibold uppercase leading-[130%] tracking-[0.02em] text-[#616161]">
-                  {rating}
-                </span>
-                {provider.review_count ? (
-                  <span className="font-montserrat text-[11px] leading-[138%] tracking-[0.02em] text-[#9A9A9A]">
-                    ({provider.review_count})
-                  </span>
-                ) : null}
-              </div>
             )}
           </div>
         </div>

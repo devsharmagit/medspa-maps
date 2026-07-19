@@ -118,7 +118,9 @@ export async function fetchRatingFromGooglePlaces(opts: {
   placeId?: string | null;
   query?: string | null; // e.g. "RUMA Medical, Lehi, UT"
 }): Promise<RatingResult | null> {
-  const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+  // Accept either spelling of the env var (GOOGLE_PLACES_API_KEY is canonical;
+  // GOOGLE_PLACE_API_KEY is a common variant).
+  const apiKey = process.env.GOOGLE_PLACES_API_KEY || process.env.GOOGLE_PLACE_API_KEY;
   if (!apiKey) return null;
 
   try {
@@ -180,9 +182,12 @@ export async function resolveClinicRating(opts: {
   placeId?: string | null;
   query?: string | null;
 }): Promise<RatingResult | null> {
-  if (opts.website) {
-    const fromSite = await fetchRatingFromWebsite(opts.website);
-    if (fromSite) return fromSite;
-  }
-  return fetchRatingFromGooglePlaces({ placeId: opts.placeId, query: opts.query });
+  const fromSite = opts.website ? await fetchRatingFromWebsite(opts.website) : null;
+  // A complete website rating (rating AND review count) wins — free and fast.
+  if (fromSite && fromSite.reviewCount != null) return fromSite;
+  // Otherwise fall through to Google Places, which always carries a review
+  // count. Prefer Google's complete result; only if Google finds nothing do we
+  // fall back to the website's count-less rating.
+  const fromGoogle = await fetchRatingFromGooglePlaces({ placeId: opts.placeId, query: opts.query });
+  return fromGoogle ?? fromSite;
 }

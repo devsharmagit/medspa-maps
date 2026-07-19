@@ -24,9 +24,6 @@ export interface ClinicPageData {
     tagline: string | null;
     about: string | null;
     address: string | null;
-    city: string | null;
-    state: string | null;
-    zip: string | null;
     phone: string | null;
     website: string | null;
     booking_url: string | null;
@@ -39,21 +36,12 @@ export interface ClinicPageData {
     x_url: string | null;
     linkedin_url: string | null;
     yelp_url: string | null;
-    founded_year: number | null;
     avg_rating: string | null;
     review_count: number;
     ext_rating: string | null;
     ext_review_count: number | null;
-    verified: boolean;
     featured: boolean;
     logo_url: string | null;
-    // Admin-editable hero stat overrides (display strings, e.g. "20+", "10k+").
-    // NULL → the clinic page falls back to its computed/default value.
-    stat_experts: string | null;
-    stat_cities: string | null;
-    stat_treatments: string | null;
-    stat_rating: string | null;
-    stat_patients: string | null;
   };
   locations: ClinicLocation[];
   treatments: { name: string; slug: string | null; price_from: number | null; price_unit: string | null }[];
@@ -84,25 +72,15 @@ export interface ClinicPageData {
 export async function getClinicData(slug: string): Promise<ClinicPageData | null> {
   const clinic = await pool.query(
     `SELECT
-       c.id, c.slug, c.name, c.tagline, c.about, c.address, c.city, c.state,
-       c.zip, c.phone, c.website, c.booking_url, c.google_maps_url, c.hours, c.instagram_url,
+       c.id, c.slug, c.name, c.tagline, c.about, c.address,
+       c.phone, c.website, c.booking_url, c.google_maps_url, c.hours, c.instagram_url,
        c.facebook_url, c.tiktok_url, c.youtube_url, c.x_url, c.linkedin_url, c.yelp_url,
-       c.founded_year, c.avg_rating,
-       c.review_count, c.ext_rating, c.ext_review_count, c.verified, c.featured,
-       c.stat_experts, c.stat_cities, c.stat_treatments, c.stat_rating, c.stat_patients,
-       c.business_id,
-       -- Logo: scraped logos live at the clinic level; fall back to the
-       -- business-level logo for synced records.
-       COALESCE(
-         (SELECT source_url FROM images i
-            WHERE i.entity_type = 'clinic' AND i.entity_id = c.id
-              AND i.role = 'logo' AND i.scrape_status = 'ok'
-            ORDER BY i.sort_order LIMIT 1),
-         (SELECT source_url FROM images i
-            WHERE i.entity_type = 'business' AND i.entity_id = c.business_id
-              AND i.role = 'logo' AND i.scrape_status = 'ok'
-            ORDER BY i.sort_order LIMIT 1)
-       ) AS logo_url
+       c.avg_rating,
+       c.review_count, c.ext_rating, c.ext_review_count, c.featured,
+       (SELECT source_url FROM images i
+          WHERE i.entity_type = 'clinic' AND i.entity_id = c.id
+            AND i.role = 'logo' AND i.scrape_status = 'ok'
+          ORDER BY i.sort_order LIMIT 1) AS logo_url
      FROM clinics c
      WHERE c.slug = $1 AND c.is_active = true`,
     [slug]
@@ -154,8 +132,6 @@ export async function getClinicData(slug: string): Promise<ClinicPageData | null
          FROM clinic_services cls
          JOIN services s ON s.id = cls.service_id
           AND s.is_active = true
-          AND COALESCE(s.is_published, true) = true
-          AND COALESCE(s.review_status, 'approved') = 'approved'
           AND s.name !~* '(dentistry|dental|orthodont|veneer)'
          WHERE cls.clinic_id = $1 AND cls.is_active = true
          ORDER BY s.id, cls.price_from ASC NULLS LAST
@@ -211,14 +187,18 @@ export async function getClinicData(slug: string): Promise<ClinicPageData | null
   ]);
 
   const treatments_count = treatments.rows.length;
+  const locations = locationsResult.rows.map((r) => ({
+    ...r,
+    lat: r.lat != null ? Number(r.lat) : null,
+    lng: r.lng != null ? Number(r.lng) : null,
+  })) as ClinicLocation[];
+  // City now lives at the location level (clinic-level city column was dropped).
+  const primaryCity =
+    (locations.find((l) => l.is_primary) ?? locations[0])?.city ?? null;
 
   return {
     // pg returns numeric columns as strings when no type parser is registered.
-    locations: locationsResult.rows.map((r) => ({
-      ...r,
-      lat: r.lat != null ? Number(r.lat) : null,
-      lng: r.lng != null ? Number(r.lng) : null,
-    })) as ClinicLocation[],
+    locations,
     clinic: {
       id: c.id,
       slug: c.slug,
@@ -226,9 +206,6 @@ export async function getClinicData(slug: string): Promise<ClinicPageData | null
       tagline: c.tagline,
       about: c.about,
       address: c.address,
-      city: c.city,
-      state: c.state,
-      zip: c.zip,
       phone: c.phone,
       website: c.website,
       booking_url: c.booking_url,
@@ -241,19 +218,12 @@ export async function getClinicData(slug: string): Promise<ClinicPageData | null
       x_url: c.x_url,
       linkedin_url: c.linkedin_url,
       yelp_url: c.yelp_url,
-      founded_year: c.founded_year,
       avg_rating: c.avg_rating,
       review_count: c.review_count,
       ext_rating: c.ext_rating,
       ext_review_count: c.ext_review_count,
-      verified: c.verified,
       featured: c.featured,
       logo_url: c.logo_url,
-      stat_experts: c.stat_experts,
-      stat_cities: c.stat_cities,
-      stat_treatments: c.stat_treatments,
-      stat_rating: c.stat_rating,
-      stat_patients: c.stat_patients,
     },
     treatments: treatments.rows,
     concerns: concerns.rows,
@@ -266,7 +236,7 @@ export async function getClinicData(slug: string): Promise<ClinicPageData | null
       treatments_count,
       review_count: c.ext_review_count ?? c.review_count,
       rating: c.ext_rating ?? c.avg_rating,
-      city: c.city,
+      city: primaryCity,
     },
     providers: providersResult.rows,
   } as ClinicPageData;

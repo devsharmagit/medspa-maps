@@ -137,7 +137,7 @@ export async function GET(request: NextRequest) {
   const sort = searchParams.get("sort") || (hasOrigin ? "distance" : "rating"); // distance | rating | name | reviews
 
   try {
-    const conditions: string[] = ["c.is_active = TRUE", "b.is_active = TRUE"];
+    const conditions: string[] = ["c.is_active = TRUE"];
     const params: (string | number | string[])[] = [];
     let paramIdx = 1;
 
@@ -166,10 +166,7 @@ export async function GET(request: NextRequest) {
           )
         )
         FROM (
-          SELECT c.lat::float AS lat, c.lng::float AS lng
-          WHERE c.lat IS NOT NULL AND c.lng IS NOT NULL
-          UNION ALL
-          SELECT cl2.lat::float, cl2.lng::float
+          SELECT cl2.lat::float AS lat, cl2.lng::float AS lng
           FROM clinic_locations cl2
           WHERE cl2.clinic_id = c.id AND cl2.is_active = TRUE
             AND cl2.lat IS NOT NULL AND cl2.lng IS NOT NULL
@@ -194,24 +191,16 @@ export async function GET(request: NextRequest) {
         OR (s.id IS NOT NULL AND (
           s.name ILIKE $${paramIdx}
           OR s.slug = $${paramIdx + 1}
-          OR s.category ILIKE $${paramIdx}
-          OR EXISTS (
-            SELECT 1 FROM unnest(COALESCE(s.aliases, '{}')) AS a(alias)
-            WHERE a.alias ILIKE $${paramIdx}
-          )
         ))
         OR c.name ILIKE $${paramIdx}
-        OR b.name ILIKE $${paramIdx}
       )`);
       params.push(`%${q}%`, q);
       paramIdx += 2;
     }
 
-    // Condition/concern search — strictly slug-based membership (scraped ∪
-    // manual − removed, mirroring concerns/queries.ts). NEVER derived from the
-    // clinic's services and no ILIKE over raw text: a clinic matches only when
-    // its own website evidenced the concern (or an admin asserted it).
-    // All active concerns qualify — including AI-grown unpublished ones.
+    // Condition/concern search — slug-based membership (scraped ∪ manual −
+    // removed). A clinic matches when it lists the concern; no evidence-quote
+    // gate (that table was removed). All active concerns qualify.
     if (condition) {
       const conditionSlugs = conditionSlugSet(condition);
       conditions.push(`(
@@ -221,13 +210,6 @@ export async function GET(request: NextRequest) {
           WHERE cc.clinic_id = c.id AND cc.is_active = TRUE
             AND cc.source IN ('scraped', 'manual')
             AND con.is_active = TRUE AND con.slug = ANY($${paramIdx}::text[])
-            AND (
-              cc.source = 'manual'
-              OR EXISTS (
-                SELECT 1 FROM clinic_concern_evidence ev
-                WHERE ev.clinic_id = cc.clinic_id AND ev.concern_id = cc.concern_id
-              )
-            )
         )
         AND NOT EXISTS (
           SELECT 1 FROM clinic_concerns cc2
@@ -250,37 +232,24 @@ export async function GET(request: NextRequest) {
       const abbr = STATE_ABBR_TO_NAME[upper] ? upper : STATE_NAME_TO_ABBR[upper];
       const fullName = abbr ? STATE_ABBR_TO_NAME[abbr] : undefined;
       if (abbr && fullName) {
-        conditions.push(`(
-          c.state = $${paramIdx} OR c.state ILIKE $${paramIdx + 1}
-          OR EXISTS (
+        conditions.push(`
+          EXISTS (
             SELECT 1 FROM clinic_locations cl
             WHERE cl.clinic_id = c.id AND cl.is_active = true
               AND (cl.state = $${paramIdx} OR cl.state ILIKE $${paramIdx + 1})
-          )
-        )`);
+          )`);
         params.push(abbr, fullName);
         paramIdx += 2;
       } else {
-        conditions.push(`(
-          c.city ILIKE $${paramIdx}
-          OR c.state ILIKE $${paramIdx}
-          OR c.zip ILIKE $${paramIdx}
-          OR EXISTS (
+        conditions.push(`
+          EXISTS (
             SELECT 1 FROM clinic_locations cl
             WHERE cl.clinic_id = c.id AND cl.is_active = true
               AND (cl.city ILIKE $${paramIdx} OR cl.state ILIKE $${paramIdx} OR cl.zip ILIKE $${paramIdx})
-          )
-        )`);
+          )`);
         params.push(`%${location}%`);
         paramIdx++;
       }
-    }
-
-    // Tier filter
-    if (tier && ["free", "featured", "elite"].includes(tier)) {
-      conditions.push(`c.tier = $${paramIdx}`);
-      params.push(tier);
-      paramIdx++;
     }
 
     // Rating filter — minimum rating (internal avg, else external/Google).
@@ -318,31 +287,26 @@ export async function GET(request: NextRequest) {
         ${distanceExpr} AS distance_miles,
         c.name AS clinic_name,
         c.slug AS clinic_slug,
-        -- Address/city/state/zip/phone: the clinics columns are often NULL
-        -- (imported data lives in clinic_locations) — fall back to the primary
-        -- active location so cards always have a display address.
+        -- Address/city/state/zip/phone live in clinic_locations now; use the
+        -- primary active location (clinic-level address kept as street fallback).
         COALESCE(c.address, ploc.address) AS address,
-        COALESCE(c.city,    ploc.city)    AS city,
-        COALESCE(c.state,   ploc.state)   AS state,
-        COALESCE(c.zip,     ploc.zip)     AS zip,
-        COALESCE(c.phone,   ploc.phone)   AS phone,
+        ploc.city  AS city,
+        ploc.state AS state,
+        ploc.zip   AS zip,
+        COALESCE(c.phone, ploc.phone) AS phone,
         c.website,
-        c.lat,
-        c.lng,
+        ploc.lat,
+        ploc.lng,
         c.avg_rating,
         c.review_count,
         c.ext_rating,
         c.ext_review_count,
         c.featured,
-        c.tier,
-        c.verified,
         c.about,
         c.hours,
         c.booking_url,
         c.google_place_id,
         c.instagram_url,
-        b.id AS business_id,
-        b.name AS business_name,
         (
           SELECT COALESCE(cdn_url, source_url) FROM images
           WHERE entity_type = 'clinic' AND entity_id = c.id
@@ -356,8 +320,6 @@ export async function GET(request: NextRequest) {
             FROM clinic_services cs2
             JOIN services sv ON sv.id = cs2.service_id
               AND sv.is_active = TRUE
-              AND COALESCE(sv.is_published, true) = TRUE
-              AND COALESCE(sv.review_status, 'approved') = 'approved'
               AND sv.name !~* '(dentistry|dental|orthodont|veneer)'
             WHERE cs2.clinic_id = c.id AND cs2.is_active = TRUE
             LIMIT 8
@@ -398,9 +360,8 @@ export async function GET(request: NextRequest) {
           ) loc
         ) AS locations
       FROM clinics c
-      JOIN businesses b ON b.id = c.business_id
       LEFT JOIN LATERAL (
-        SELECT cl.address, cl.city, cl.state, cl.zip, cl.phone
+        SELECT cl.address, cl.city, cl.state, cl.zip, cl.phone, cl.lat, cl.lng
         FROM clinic_locations cl
         WHERE cl.clinic_id = c.id AND cl.is_active = TRUE
         ORDER BY ${
@@ -421,8 +382,6 @@ export async function GET(request: NextRequest) {
       LEFT JOIN clinic_services cs ON cs.clinic_id = c.id AND cs.is_active = TRUE
       LEFT JOIN services s ON s.id = cs.service_id
         AND s.is_active = TRUE
-        AND COALESCE(s.is_published, true) = TRUE
-        AND COALESCE(s.review_status, 'approved') = 'approved'
         AND s.name !~* '(dentistry|dental|orthodont|veneer)'
       WHERE ${conditions.join(" AND ")}
       ORDER BY c.id, ${orderBy}

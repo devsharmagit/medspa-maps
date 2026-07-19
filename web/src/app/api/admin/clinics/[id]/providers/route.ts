@@ -6,29 +6,12 @@ import { query } from "@/lib/db";
 import { successResponse, handleApiError } from "@/lib/api-response";
 import { createProvider, getProvidersByClinicId } from "@/lib/providers/queries";
 
-const credentialSchema = z.object({
-  title: z.string().min(1),
-  institution: z.string().min(1),
-});
-
-const specialtySchema = z.object({
-  title: z.string().min(1),
-  description: z.string(),
-});
-
 const createProviderSchema = z.object({
   name: z.string().min(1, "Provider name is required").max(255),
   title: z.string().max(255).nullish(),
-  bio: z.string().nullish(),
   card_tagline: z.string().max(500).nullish(),
-  review_rating: z.number().min(0).max(5).nullish(),
-  review_count: z.number().int().min(0).nullish(),
   image_url: z.string().url("Must be a valid URL").nullish(),
-  years_experience: z.number().int().positive().nullish(),
   is_verified: z.boolean().optional(),
-  highlights: z.array(z.string()).optional(),
-  credentials: z.array(credentialSchema).optional(),
-  specialties: z.array(specialtySchema).optional(),
   service_ids: z.array(z.string().uuid()).optional(),
   concern_ids: z.array(z.string().uuid()).optional(),
 });
@@ -94,16 +77,9 @@ export async function POST(
     const provider = await createProvider(id, {
       name: input.name,
       title: input.title ?? null,
-      bio: input.bio ?? null,
       card_tagline: input.card_tagline ?? null,
-      review_rating: input.review_rating ?? null,
-      review_count: input.review_count ?? 0,
       image_url: input.image_url ?? null,
-      years_experience: input.years_experience ?? null,
       is_verified: input.is_verified ?? false,
-      highlights: input.highlights ?? [],
-      credentials: input.credentials ?? [],
-      specialties: input.specialties ?? [],
       service_ids: input.service_ids ?? [],
       concern_ids: input.concern_ids ?? [],
     });

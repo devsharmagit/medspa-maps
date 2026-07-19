@@ -42,10 +42,6 @@ interface ClinicListItem {
   id: string;
   name: string;
   slug: string;
-  business_id: string;
-  business_name: string;
-  city: string | null;
-  state: string | null;
   review_count: number;
   is_active: boolean;
   featured: boolean;
@@ -94,9 +90,7 @@ export default function ClinicsPage() {
     return clinics.filter(
       (c) =>
         c.name.toLowerCase().includes(q) ||
-        c.business_name.toLowerCase().includes(q) ||
-        (c.city ?? "").toLowerCase().includes(q) ||
-        (c.state ?? "").toLowerCase().includes(q)
+        (c.location_cities ?? "").toLowerCase().includes(q)
     );
   }, [clinics, search]);
 
@@ -201,7 +195,7 @@ export default function ClinicsPage() {
                     Clinic Name
                   </TableHead>
                   <TableHead className="text-slate-500 font-semibold text-xs uppercase tracking-wider">
-                    Business
+                    Locations
                   </TableHead>
                   <TableHead className="text-slate-500 font-semibold text-xs uppercase tracking-wider w-[150px]">
                     G99 ID
@@ -242,12 +236,13 @@ export default function ClinicsPage() {
                     </TableCell>
 
                     <TableCell>
-                      <Link
-                        href={`/admin/businesses/${item.business_id}`}
-                        className="text-[13px] text-slate-600 hover:text-brand-purple transition-colors"
-                      >
-                        {item.business_name}
-                      </Link>
+                      <span className="text-[13px] text-slate-600">
+                        {item.location_cities
+                          ? item.location_cities
+                          : item.location_count > 0
+                            ? `${item.location_count} location${item.location_count > 1 ? "s" : ""}`
+                            : "—"}
+                      </span>
                     </TableCell>
 
                     <TableCell>

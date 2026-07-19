@@ -5,12 +5,12 @@ import { successResponse, handleApiError } from "@/lib/api-response";
 export const dynamic = "force-dynamic";
 
 /**
- * GET /api/concerns — list of published concerns for nav / index pages.
+ * GET /api/concerns — list of active concerns for nav / index pages.
  *
  * GET /api/concerns?scope=search — options for the search "Condition" dropdown:
- * ALL active concerns (published or not — AI-grown ones included) that at least
- * one clinic actually treats (active scraped/manual membership), so the dropdown
- * never offers a zero-result option. Returns `{slug, name}` only.
+ * ALL active concerns (AI-grown ones included) that at least one clinic actually
+ * treats (active scraped/manual membership), so the dropdown never offers a
+ * zero-result option. Returns `{slug, name}` only.
  */
 export async function GET(req: NextRequest) {
   try {
@@ -23,13 +23,6 @@ export async function GET(req: NextRequest) {
               SELECT 1 FROM clinic_concerns cc
               WHERE cc.concern_id = c.id AND cc.is_active = true
                 AND cc.source IN ('scraped', 'manual')
-                AND (
-                  cc.source = 'manual'
-                  OR EXISTS (
-                    SELECT 1 FROM clinic_concern_evidence ev
-                    WHERE ev.clinic_id = cc.clinic_id AND ev.concern_id = cc.concern_id
-                  )
-                )
             )
           ORDER BY c.name`
       );
@@ -37,14 +30,9 @@ export async function GET(req: NextRequest) {
     }
 
     const { rows } = await pool.query(
-      `SELECT c.slug, c.name, c.overview,
-         (SELECT count(*)::int FROM concern_services cs WHERE cs.concern_id = c.id) AS service_count,
-         (SELECT source_url FROM images i
-            WHERE i.entity_type = 'concern' AND i.entity_id = c.id
-              AND i.role = 'before_after' AND i.scrape_status = 'ok'
-            ORDER BY i.sort_order LIMIT 1) AS image
+      `SELECT c.slug, c.name
        FROM concerns c
-       WHERE c.is_active = true AND c.is_published = true
+       WHERE c.is_active = true
        ORDER BY c.name`
     );
     return successResponse({ concerns: rows, count: rows.length });

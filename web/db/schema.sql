@@ -2,8 +2,9 @@
 -- PostgreSQL database dump
 --
 
+\restrict cy9KavMYyfPWWmaGvNiputYHERUwR5lBedC7sMhxnbXh6CjAiflZTXyRRplaaFV
 
--- Dumped from database version 18.4 (eaf151e)
+-- Dumped from database version 18.4 (709c4c3)
 -- Dumped by pg_dump version 18.4 (Homebrew)
 
 SET statement_timeout = 0;
@@ -19,68 +20,17 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 --
--- Name: pg_trgm; Type: EXTENSION; Schema: -; Owner: -
+-- Name: public; Type: SCHEMA; Schema: -; Owner: -
 --
 
-CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;
-
-
---
--- Name: EXTENSION pg_trgm; Type: COMMENT; Schema: -; Owner: -
---
-
+CREATE SCHEMA public;
 
 
 --
--- Name: pgcrypto; Type: EXTENSION; Schema: -; Owner: -
+-- Name: SCHEMA public; Type: COMMENT; Schema: -; Owner: -
 --
 
-CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
-
-
---
--- Name: EXTENSION pgcrypto; Type: COMMENT; Schema: -; Owner: -
---
-
-
-
---
--- Name: postgis; Type: EXTENSION; Schema: -; Owner: -
---
-
-CREATE EXTENSION IF NOT EXISTS postgis WITH SCHEMA public;
-
-
---
--- Name: EXTENSION postgis; Type: COMMENT; Schema: -; Owner: -
---
-
-
-
---
--- Name: unaccent; Type: EXTENSION; Schema: -; Owner: -
---
-
-CREATE EXTENSION IF NOT EXISTS unaccent WITH SCHEMA public;
-
-
---
--- Name: EXTENSION unaccent; Type: COMMENT; Schema: -; Owner: -
---
-
-
-
---
--- Name: uuid-ossp; Type: EXTENSION; Schema: -; Owner: -
---
-
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA public;
-
-
---
--- Name: EXTENSION "uuid-ossp"; Type: COMMENT; Schema: -; Owner: -
---
-
+COMMENT ON SCHEMA public IS 'standard public schema';
 
 
 --
@@ -143,20 +93,6 @@ END;
 $$;
 
 
---
--- Name: update_medspa_leads_updated_at(); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.update_medspa_leads_updated_at() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
-END;
-$$;
-
-
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
@@ -174,23 +110,40 @@ CREATE TABLE public.admin_users (
 
 
 --
--- Name: businesses; Type: TABLE; Schema: public; Owner: -
+-- Name: ai_navigator_events; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.businesses (
-    id uuid DEFAULT public.uuid_generate_v4() NOT NULL,
-    name text NOT NULL,
-    tier text DEFAULT 'free'::text NOT NULL,
-    tier_expires_at timestamp with time zone,
-    verified boolean DEFAULT false NOT NULL,
-    verified_at timestamp with time zone,
-    data_source text DEFAULT 'manual'::text NOT NULL,
-    g99_business_id bigint,
-    g99_tenant_id bigint,
-    last_synced_at timestamp with time zone,
-    is_active boolean DEFAULT true NOT NULL,
+CREATE TABLE public.ai_navigator_events (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    session_id uuid,
+    event_name text NOT NULL,
+    step text,
+    payload jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: ai_navigator_sessions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.ai_navigator_sessions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    anonymous_id text,
+    ip_hash text,
+    user_agent text,
+    request jsonb NOT NULL,
+    photo_count integer DEFAULT 0 NOT NULL,
+    vision_included boolean DEFAULT false NOT NULL,
+    ai_response jsonb,
+    matched_clinic_ids uuid[] DEFAULT '{}'::uuid[] NOT NULL,
+    model text,
+    input_tokens integer,
+    output_tokens integer,
+    latency_ms integer,
+    error_code text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
+    expires_at timestamp with time zone DEFAULT (now() + '90 days'::interval) NOT NULL
 );
 
 
@@ -240,6 +193,21 @@ CREATE TABLE public.clinic_locations (
 
 
 --
+-- Name: clinic_service_concerns; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.clinic_service_concerns (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    clinic_id uuid NOT NULL,
+    service_id uuid NOT NULL,
+    concern_id uuid NOT NULL,
+    is_active boolean DEFAULT true NOT NULL,
+    extracted_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
 -- Name: clinic_services; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -249,16 +217,12 @@ CREATE TABLE public.clinic_services (
     service_id uuid,
     raw_name text NOT NULL,
     description text,
-    data_source text DEFAULT 'scraped'::text NOT NULL,
-    scraped_from_url text,
-    last_scraped_at timestamp with time zone,
     is_active boolean DEFAULT true NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     price_from numeric,
     price_unit text,
-    match_status text DEFAULT 'unmatched'::text,
-    match_confidence numeric
+    match_status text DEFAULT 'unmatched'::text
 );
 
 
@@ -268,19 +232,12 @@ CREATE TABLE public.clinic_services (
 
 CREATE TABLE public.clinics (
     id uuid DEFAULT public.uuid_generate_v4() NOT NULL,
-    business_id uuid NOT NULL,
     name text NOT NULL,
     slug text NOT NULL,
     website text NOT NULL,
     booking_url text,
     address text,
-    city text,
-    state text,
-    zip text,
     country text DEFAULT 'US'::text,
-    geo public.geography(Point,4326),
-    lat numeric(10,7),
-    lng numeric(10,7),
     phone text,
     email text,
     about text,
@@ -294,8 +251,6 @@ CREATE TABLE public.clinics (
     google_my_business text,
     google_place_id text,
     hours jsonb,
-    tier text DEFAULT 'free'::text NOT NULL,
-    verified boolean DEFAULT false NOT NULL,
     featured boolean DEFAULT false NOT NULL,
     avg_rating numeric(3,2),
     review_count integer DEFAULT 0 NOT NULL,
@@ -309,13 +264,45 @@ CREATE TABLE public.clinics (
     ext_rating numeric(3,2),
     ext_review_count integer,
     tagline text,
-    founded_year integer,
     google_maps_url text,
-    stat_experts text,
-    stat_cities text,
-    stat_treatments text,
-    stat_rating text,
-    stat_patients text
+    ext_rating_source text,
+    ext_rating_updated_at timestamp with time zone,
+    g99_business_id bigint,
+    g99_tenant_id bigint
+);
+
+
+--
+-- Name: concerns; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.concerns (
+    id uuid DEFAULT public.uuid_generate_v4() NOT NULL,
+    name text NOT NULL,
+    slug text NOT NULL,
+    is_active boolean DEFAULT true NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    origin text DEFAULT 'seed'::text NOT NULL
+);
+
+
+--
+-- Name: g99_clinic_websites; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.g99_clinic_websites (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    domain text NOT NULL,
+    website text NOT NULL,
+    g99_clinic_ids bigint[] DEFAULT '{}'::bigint[] NOT NULL,
+    g99_business_ids bigint[] DEFAULT '{}'::bigint[] NOT NULL,
+    clinic_count integer DEFAULT 0 NOT NULL,
+    business_count integer DEFAULT 0 NOT NULL,
+    business_name text,
+    clinic_name text,
+    specialization text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
 
@@ -343,220 +330,41 @@ CREATE TABLE public.images (
 
 
 --
--- Name: services; Type: TABLE; Schema: public; Owner: -
+-- Name: postal_codes; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.services (
-    id uuid DEFAULT public.uuid_generate_v4() NOT NULL,
-    name text NOT NULL,
-    slug text NOT NULL,
-    category text,
-    is_active boolean DEFAULT true NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    summary text,
-    description text,
-    price_from numeric,
-    price_unit text,
-    treatment_time text,
-    results_timeline text,
-    results_duration text,
-    recovery_time text,
-    aliases text[],
-    hero_rating numeric(3,2),
-    hero_review_count integer,
-    is_published boolean DEFAULT true,
-    review_status text DEFAULT 'approved'::text,
-    faqs jsonb DEFAULT '[]'::jsonb,
-    origin text DEFAULT 'seed'::text NOT NULL
-);
-
-
---
--- Name: clinic_search_view; Type: MATERIALIZED VIEW; Schema: public; Owner: -
---
-
-CREATE MATERIALIZED VIEW public.clinic_search_view AS
- SELECT c.id AS clinic_id,
-    c.business_id,
-    c.name AS clinic_name,
-    c.slug AS clinic_slug,
-    b.name AS business_name,
-    c.address,
-    c.city,
-    c.state,
-    c.zip,
-    c.country,
-    c.lat,
-    c.lng,
-    c.geo,
-    c.phone,
-    c.website,
-    c.booking_url,
-    c.about,
-    c.instagram_url,
-    c.facebook_url,
-    c.google_place_id,
-    c.yelp_url,
-    c.hours,
-    c.tier,
-    c.verified,
-    c.featured,
-    c.avg_rating,
-    c.review_count,
-    COALESCE(array_agg(DISTINCT COALESCE(sv.name, cs.raw_name)) FILTER (WHERE (cs.is_active = true)), '{}'::text[]) AS service_names,
-    COALESCE(array_agg(DISTINCT COALESCE(sv.slug, public.slugify(cs.raw_name))) FILTER (WHERE (cs.is_active = true)), '{}'::text[]) AS service_slugs,
-    ( SELECT i.source_url
-           FROM public.images i
-          WHERE ((i.entity_type = 'clinic'::text) AND (i.entity_id = c.id) AND (i.role = 'cover'::text) AND (i.scrape_status = 'ok'::text))
-          ORDER BY i.sort_order
-         LIMIT 1) AS cover_image_url,
-    ( SELECT i.source_url
-           FROM public.images i
-          WHERE ((i.entity_type = 'business'::text) AND (i.entity_id = c.business_id) AND (i.role = 'logo'::text) AND (i.scrape_status = 'ok'::text))
-          ORDER BY i.sort_order
-         LIMIT 1) AS logo_url
-   FROM (((public.clinics c
-     JOIN public.businesses b ON ((b.id = c.business_id)))
-     LEFT JOIN public.clinic_services cs ON ((cs.clinic_id = c.id)))
-     LEFT JOIN public.services sv ON ((sv.id = cs.service_id)))
-  WHERE ((c.is_active = true) AND (b.is_active = true))
-  GROUP BY c.id, c.business_id, c.name, c.slug, b.name, c.address, c.city, c.state, c.zip, c.country, c.lat, c.lng, c.geo, c.phone, c.website, c.booking_url, c.about, c.instagram_url, c.facebook_url, c.google_place_id, c.yelp_url, c.hours, c.tier, c.verified, c.featured, c.avg_rating, c.review_count
-  WITH NO DATA;
-
-
---
--- Name: clinic_service_changes; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.clinic_service_changes (
-    id uuid DEFAULT public.uuid_generate_v4() NOT NULL,
-    clinic_id uuid NOT NULL,
-    service_id uuid,
-    service_slug text NOT NULL,
-    service_name text NOT NULL,
-    change_type text NOT NULL,
-    raw_name text,
-    match_confidence numeric,
-    scrape_job_id uuid,
-    detected_at timestamp with time zone DEFAULT now() NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT clinic_service_changes_change_type_check CHECK ((change_type = ANY (ARRAY['added'::text, 'removed'::text])))
-);
-
-
---
--- Name: concern_services; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.concern_services (
-    id uuid DEFAULT public.uuid_generate_v4() NOT NULL,
-    concern_id uuid NOT NULL,
-    service_id uuid NOT NULL,
-    display_order smallint DEFAULT 0 NOT NULL,
+CREATE TABLE public.postal_codes (
+    id bigint NOT NULL,
+    country_code text DEFAULT 'US'::text NOT NULL,
+    postal_code text NOT NULL,
+    place_name text NOT NULL,
+    state_name text,
+    state_code text,
+    county text,
+    lat numeric(9,6),
+    lng numeric(9,6),
+    source text DEFAULT 'geonames'::text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
 
 --
--- Name: concerns; Type: TABLE; Schema: public; Owner: -
+-- Name: postal_codes_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.concerns (
-    id uuid DEFAULT public.uuid_generate_v4() NOT NULL,
-    name text NOT NULL,
-    slug text NOT NULL,
-    overview text,
-    details jsonb,
-    faqs jsonb,
-    meta_title text,
-    meta_description text,
-    schema_markup jsonb,
-    data_source text DEFAULT 'scraped'::text NOT NULL,
-    source_url text,
-    is_published boolean DEFAULT true NOT NULL,
-    is_active boolean DEFAULT true NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    aliases text[]
-);
+CREATE SEQUENCE public.postal_codes_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
 
 
 --
--- Name: listing_claims; Type: TABLE; Schema: public; Owner: -
+-- Name: postal_codes_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
-CREATE TABLE public.listing_claims (
-    id uuid DEFAULT public.uuid_generate_v4() NOT NULL,
-    business_id uuid NOT NULL,
-    contact_name text NOT NULL,
-    contact_email text NOT NULL,
-    contact_phone text,
-    spa_name text,
-    status text DEFAULT 'pending'::text NOT NULL,
-    verification_token text,
-    verified_at timestamp with time zone,
-    approved_at timestamp with time zone,
-    rejected_at timestamp with time zone,
-    rejection_reason text,
-    source_page text,
-    utm_source text,
-    utm_medium text,
-    utm_campaign text,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
--- Name: medspa_leads; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.medspa_leads (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    full_name text NOT NULL,
-    business_email text NOT NULL,
-    business_name text NOT NULL,
-    phone text,
-    message text,
-    status text DEFAULT 'new'::text,
-    notes text,
-    source text DEFAULT 'website'::text,
-    ip_address text,
-    user_agent text,
-    created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now(),
-    contacted_at timestamp with time zone,
-    is_active boolean DEFAULT true,
-    CONSTRAINT medspa_leads_status_check CHECK ((status = ANY (ARRAY['new'::text, 'contacted'::text, 'qualified'::text, 'converted'::text, 'rejected'::text])))
-);
-
-
---
--- Name: TABLE medspa_leads; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.medspa_leads IS 'Stores business leads from the "List your medspa" form';
-
-
---
--- Name: provider_concerns; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.provider_concerns (
-    provider_id uuid NOT NULL,
-    concern_id uuid NOT NULL
-);
-
-
---
--- Name: provider_services; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.provider_services (
-    provider_id uuid NOT NULL,
-    service_id uuid NOT NULL
-);
+ALTER SEQUENCE public.postal_codes_id_seq OWNED BY public.postal_codes.id;
 
 
 --
@@ -568,19 +376,12 @@ CREATE TABLE public.providers (
     clinic_id uuid NOT NULL,
     name text NOT NULL,
     title text,
-    bio text,
     image_url text,
-    years_experience integer,
     is_verified boolean DEFAULT false NOT NULL,
-    highlights jsonb DEFAULT '[]'::jsonb NOT NULL,
-    credentials jsonb DEFAULT '[]'::jsonb NOT NULL,
-    specialties jsonb DEFAULT '[]'::jsonb NOT NULL,
     is_active boolean DEFAULT true NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    card_tagline text,
-    review_rating numeric(2,1),
-    review_count integer DEFAULT 0 NOT NULL
+    card_tagline text
 );
 
 
@@ -611,23 +412,70 @@ CREATE TABLE public.reviews (
 
 
 --
--- Name: scrape_jobs; Type: TABLE; Schema: public; Owner: -
+-- Name: services; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.scrape_jobs (
+CREATE TABLE public.services (
     id uuid DEFAULT public.uuid_generate_v4() NOT NULL,
-    clinic_id uuid NOT NULL,
-    target_url text NOT NULL,
-    job_type text NOT NULL,
-    status text DEFAULT 'pending'::text NOT NULL,
-    started_at timestamp with time zone,
-    finished_at timestamp with time zone,
-    error_message text,
-    services_found integer DEFAULT 0,
-    images_found integer DEFAULT 0,
+    name text NOT NULL,
+    slug text NOT NULL,
+    is_active boolean DEFAULT true NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    origin text DEFAULT 'seed'::text NOT NULL
 );
+
+
+--
+-- Name: postal_codes id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.postal_codes ALTER COLUMN id SET DEFAULT nextval('public.postal_codes_id_seq'::regclass);
+
+
+--
+-- Name: clinics clinics_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.clinics
+    ADD CONSTRAINT clinics_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: clinic_search_view; Type: MATERIALIZED VIEW; Schema: public; Owner: -
+--
+
+CREATE MATERIALIZED VIEW public.clinic_search_view AS
+ SELECT c.id AS clinic_id,
+    c.name AS clinic_name,
+    c.slug AS clinic_slug,
+    c.website,
+    c.booking_url,
+    c.about,
+    c.phone,
+    c.avg_rating,
+    c.review_count,
+    c.ext_rating,
+    c.ext_review_count,
+    c.featured,
+    COALESCE(array_agg(DISTINCT COALESCE(sv.name, cs.raw_name)) FILTER (WHERE (cs.is_active = true)), '{}'::text[]) AS service_names,
+    COALESCE(array_agg(DISTINCT COALESCE(sv.slug, public.slugify(cs.raw_name))) FILTER (WHERE (cs.is_active = true)), '{}'::text[]) AS service_slugs,
+    ( SELECT i.source_url
+           FROM public.images i
+          WHERE ((i.entity_type = 'clinic'::text) AND (i.entity_id = c.id) AND (i.role = 'cover'::text) AND (i.scrape_status = 'ok'::text))
+          ORDER BY i.sort_order
+         LIMIT 1) AS cover_image_url,
+    ( SELECT i.source_url
+           FROM public.images i
+          WHERE ((i.entity_type = 'clinic'::text) AND (i.entity_id = c.id) AND (i.role = 'logo'::text) AND (i.scrape_status = 'ok'::text))
+          ORDER BY i.sort_order
+         LIMIT 1) AS logo_url
+   FROM ((public.clinics c
+     LEFT JOIN public.clinic_services cs ON ((cs.clinic_id = c.id)))
+     LEFT JOIN public.services sv ON ((sv.id = cs.service_id)))
+  WHERE (c.is_active = true)
+  GROUP BY c.id
+  WITH NO DATA;
 
 
 --
@@ -647,27 +495,19 @@ ALTER TABLE ONLY public.admin_users
 
 
 --
--- Name: businesses businesses_g99_business_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: ai_navigator_events ai_navigator_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.businesses
-    ADD CONSTRAINT businesses_g99_business_id_key UNIQUE (g99_business_id);
-
-
---
--- Name: businesses businesses_g99_tenant_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.businesses
-    ADD CONSTRAINT businesses_g99_tenant_id_key UNIQUE (g99_tenant_id);
+ALTER TABLE ONLY public.ai_navigator_events
+    ADD CONSTRAINT ai_navigator_events_pkey PRIMARY KEY (id);
 
 
 --
--- Name: businesses businesses_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: ai_navigator_sessions ai_navigator_sessions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.businesses
-    ADD CONSTRAINT businesses_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.ai_navigator_sessions
+    ADD CONSTRAINT ai_navigator_sessions_pkey PRIMARY KEY (id);
 
 
 --
@@ -695,11 +535,11 @@ ALTER TABLE ONLY public.clinic_locations
 
 
 --
--- Name: clinic_service_changes clinic_service_changes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: clinic_service_concerns clinic_service_concerns_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.clinic_service_changes
-    ADD CONSTRAINT clinic_service_changes_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.clinic_service_concerns
+    ADD CONSTRAINT clinic_service_concerns_pkey PRIMARY KEY (id);
 
 
 --
@@ -719,14 +559,6 @@ ALTER TABLE ONLY public.clinic_services
 
 
 --
--- Name: clinics clinics_business_id_slug_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.clinics
-    ADD CONSTRAINT clinics_business_id_slug_key UNIQUE (business_id, slug);
-
-
---
 -- Name: clinics clinics_g99_clinic_id_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -735,27 +567,11 @@ ALTER TABLE ONLY public.clinics
 
 
 --
--- Name: clinics clinics_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: clinics clinics_slug_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.clinics
-    ADD CONSTRAINT clinics_pkey PRIMARY KEY (id);
-
-
---
--- Name: concern_services concern_services_concern_id_service_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.concern_services
-    ADD CONSTRAINT concern_services_concern_id_service_id_key UNIQUE (concern_id, service_id);
-
-
---
--- Name: concern_services concern_services_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.concern_services
-    ADD CONSTRAINT concern_services_pkey PRIMARY KEY (id);
+    ADD CONSTRAINT clinics_slug_key UNIQUE (slug);
 
 
 --
@@ -775,6 +591,22 @@ ALTER TABLE ONLY public.concerns
 
 
 --
+-- Name: g99_clinic_websites g99_clinic_websites_domain_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.g99_clinic_websites
+    ADD CONSTRAINT g99_clinic_websites_domain_key UNIQUE (domain);
+
+
+--
+-- Name: g99_clinic_websites g99_clinic_websites_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.g99_clinic_websites
+    ADD CONSTRAINT g99_clinic_websites_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: images images_entity_type_entity_id_source_url_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -791,43 +623,19 @@ ALTER TABLE ONLY public.images
 
 
 --
--- Name: listing_claims listing_claims_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: postal_codes postal_codes_country_code_postal_code_place_name_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.listing_claims
-    ADD CONSTRAINT listing_claims_pkey PRIMARY KEY (id);
-
-
---
--- Name: listing_claims listing_claims_verification_token_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.listing_claims
-    ADD CONSTRAINT listing_claims_verification_token_key UNIQUE (verification_token);
+ALTER TABLE ONLY public.postal_codes
+    ADD CONSTRAINT postal_codes_country_code_postal_code_place_name_key UNIQUE (country_code, postal_code, place_name);
 
 
 --
--- Name: medspa_leads medspa_leads_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: postal_codes postal_codes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.medspa_leads
-    ADD CONSTRAINT medspa_leads_pkey PRIMARY KEY (id);
-
-
---
--- Name: provider_concerns provider_concerns_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.provider_concerns
-    ADD CONSTRAINT provider_concerns_pkey PRIMARY KEY (provider_id, concern_id);
-
-
---
--- Name: provider_services provider_services_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.provider_services
-    ADD CONSTRAINT provider_services_pkey PRIMARY KEY (provider_id, service_id);
+ALTER TABLE ONLY public.postal_codes
+    ADD CONSTRAINT postal_codes_pkey PRIMARY KEY (id);
 
 
 --
@@ -863,14 +671,6 @@ ALTER TABLE ONLY public.reviews
 
 
 --
--- Name: scrape_jobs scrape_jobs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.scrape_jobs
-    ADD CONSTRAINT scrape_jobs_pkey PRIMARY KEY (id);
-
-
---
 -- Name: services services_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -887,31 +687,31 @@ ALTER TABLE ONLY public.services
 
 
 --
--- Name: idx_businesses_g99_id; Type: INDEX; Schema: public; Owner: -
+-- Name: idx_ai_navigator_events_name_created; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_businesses_g99_id ON public.businesses USING btree (g99_business_id);
-
-
---
--- Name: idx_businesses_is_active; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_businesses_is_active ON public.businesses USING btree (is_active);
+CREATE INDEX idx_ai_navigator_events_name_created ON public.ai_navigator_events USING btree (event_name, created_at DESC);
 
 
 --
--- Name: idx_businesses_tenant_id; Type: INDEX; Schema: public; Owner: -
+-- Name: idx_ai_navigator_events_session; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_businesses_tenant_id ON public.businesses USING btree (g99_tenant_id);
+CREATE INDEX idx_ai_navigator_events_session ON public.ai_navigator_events USING btree (session_id);
 
 
 --
--- Name: idx_businesses_tier; Type: INDEX; Schema: public; Owner: -
+-- Name: idx_ai_navigator_sessions_created; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_businesses_tier ON public.businesses USING btree (tier);
+CREATE INDEX idx_ai_navigator_sessions_created ON public.ai_navigator_sessions USING btree (created_at DESC);
+
+
+--
+-- Name: idx_ai_navigator_sessions_expires; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ai_navigator_sessions_expires ON public.ai_navigator_sessions USING btree (expires_at);
 
 
 --
@@ -964,34 +764,6 @@ CREATE INDEX idx_clinic_locations_state ON public.clinic_locations USING btree (
 
 
 --
--- Name: idx_clinic_service_changes_clinic; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_clinic_service_changes_clinic ON public.clinic_service_changes USING btree (clinic_id);
-
-
---
--- Name: idx_clinic_service_changes_detected; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_clinic_service_changes_detected ON public.clinic_service_changes USING btree (detected_at DESC);
-
-
---
--- Name: idx_clinic_service_changes_service; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_clinic_service_changes_service ON public.clinic_service_changes USING btree (service_id);
-
-
---
--- Name: idx_clinic_service_changes_type; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_clinic_service_changes_type ON public.clinic_service_changes USING btree (change_type);
-
-
---
 -- Name: idx_clinic_services_clinic_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1020,38 +792,10 @@ CREATE INDEX idx_clinic_services_service_id ON public.clinic_services USING btre
 
 
 --
--- Name: idx_clinics_business_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_clinics_business_id ON public.clinics USING btree (business_id);
-
-
---
--- Name: idx_clinics_city; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_clinics_city ON public.clinics USING btree (lower(city));
-
-
---
--- Name: idx_clinics_fts; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_clinics_fts ON public.clinics USING gin (to_tsvector('english'::regconfig, ((COALESCE(name, ''::text) || ' '::text) || COALESCE(city, ''::text))));
-
-
---
 -- Name: idx_clinics_g99_id; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_clinics_g99_id ON public.clinics USING btree (g99_clinic_id);
-
-
---
--- Name: idx_clinics_geo; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_clinics_geo ON public.clinics USING gist (geo);
 
 
 --
@@ -1069,52 +813,10 @@ CREATE INDEX idx_clinics_is_active ON public.clinics USING btree (is_active);
 
 
 --
--- Name: idx_clinics_slug; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_clinics_slug ON public.clinics USING btree (business_id, slug);
-
-
---
--- Name: idx_clinics_state; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_clinics_state ON public.clinics USING btree (lower(state));
-
-
---
--- Name: idx_clinics_tier; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_clinics_tier ON public.clinics USING btree (tier);
-
-
---
 -- Name: idx_clinics_website; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_clinics_website ON public.clinics USING btree (website);
-
-
---
--- Name: idx_concern_services_concern; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_concern_services_concern ON public.concern_services USING btree (concern_id);
-
-
---
--- Name: idx_concern_services_service; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_concern_services_service ON public.concern_services USING btree (service_id);
-
-
---
--- Name: idx_concerns_published; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_concerns_published ON public.concerns USING btree (is_published, is_active);
 
 
 --
@@ -1125,17 +827,24 @@ CREATE INDEX idx_concerns_slug ON public.concerns USING btree (slug);
 
 
 --
--- Name: idx_csv_avg_rating; Type: INDEX; Schema: public; Owner: -
+-- Name: idx_csc_clinic; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_csv_avg_rating ON public.clinic_search_view USING btree (avg_rating DESC);
+CREATE INDEX idx_csc_clinic ON public.clinic_service_concerns USING btree (clinic_id);
 
 
 --
--- Name: idx_csv_city; Type: INDEX; Schema: public; Owner: -
+-- Name: idx_csc_concern; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_csv_city ON public.clinic_search_view USING btree (lower(city));
+CREATE INDEX idx_csc_concern ON public.clinic_service_concerns USING btree (concern_id);
+
+
+--
+-- Name: idx_csc_service; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_csc_service ON public.clinic_service_concerns USING btree (service_id);
 
 
 --
@@ -1146,13 +855,6 @@ CREATE UNIQUE INDEX idx_csv_clinic_id ON public.clinic_search_view USING btree (
 
 
 --
--- Name: idx_csv_geo; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_csv_geo ON public.clinic_search_view USING gist (geo);
-
-
---
 -- Name: idx_csv_service_slugs; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1160,17 +862,10 @@ CREATE INDEX idx_csv_service_slugs ON public.clinic_search_view USING gin (servi
 
 
 --
--- Name: idx_csv_state; Type: INDEX; Schema: public; Owner: -
+-- Name: idx_g99_clinic_websites_domain; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_csv_state ON public.clinic_search_view USING btree (lower(state));
-
-
---
--- Name: idx_csv_tier; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_csv_tier ON public.clinic_search_view USING btree (tier);
+CREATE INDEX idx_g99_clinic_websites_domain ON public.g99_clinic_websites USING btree (domain);
 
 
 --
@@ -1199,76 +894,6 @@ CREATE INDEX idx_images_scrape_status ON public.images USING btree (scrape_statu
 --
 
 CREATE INDEX idx_images_scraped_domain ON public.images USING btree (scraped_domain);
-
-
---
--- Name: idx_listing_claims_business_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_listing_claims_business_id ON public.listing_claims USING btree (business_id);
-
-
---
--- Name: idx_listing_claims_email; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_listing_claims_email ON public.listing_claims USING btree (contact_email);
-
-
---
--- Name: idx_listing_claims_status; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_listing_claims_status ON public.listing_claims USING btree (status);
-
-
---
--- Name: idx_medspa_leads_created_at; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_medspa_leads_created_at ON public.medspa_leads USING btree (created_at DESC);
-
-
---
--- Name: idx_medspa_leads_email; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_medspa_leads_email ON public.medspa_leads USING btree (business_email);
-
-
---
--- Name: idx_medspa_leads_status; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_medspa_leads_status ON public.medspa_leads USING btree (status);
-
-
---
--- Name: idx_provider_concerns_concern; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_provider_concerns_concern ON public.provider_concerns USING btree (concern_id);
-
-
---
--- Name: idx_provider_concerns_provider; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_provider_concerns_provider ON public.provider_concerns USING btree (provider_id);
-
-
---
--- Name: idx_provider_services_provider; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_provider_services_provider ON public.provider_services USING btree (provider_id);
-
-
---
--- Name: idx_provider_services_service; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_provider_services_service ON public.provider_services USING btree (service_id);
 
 
 --
@@ -1314,41 +939,6 @@ CREATE INDEX idx_reviews_service ON public.reviews USING btree (service_id);
 
 
 --
--- Name: idx_scrape_jobs_clinic_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_scrape_jobs_clinic_id ON public.scrape_jobs USING btree (clinic_id);
-
-
---
--- Name: idx_scrape_jobs_created; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_scrape_jobs_created ON public.scrape_jobs USING btree (created_at DESC);
-
-
---
--- Name: idx_scrape_jobs_status; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_scrape_jobs_status ON public.scrape_jobs USING btree (status);
-
-
---
--- Name: idx_scrape_jobs_type; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_scrape_jobs_type ON public.scrape_jobs USING btree (job_type);
-
-
---
--- Name: idx_services_category; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_services_category ON public.services USING btree (category);
-
-
---
 -- Name: idx_services_is_active; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1363,10 +953,24 @@ CREATE INDEX idx_services_slug ON public.services USING btree (slug);
 
 
 --
--- Name: businesses trg_businesses_updated_at; Type: TRIGGER; Schema: public; Owner: -
+-- Name: postal_codes_place_trgm_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE TRIGGER trg_businesses_updated_at BEFORE UPDATE ON public.businesses FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+CREATE INDEX postal_codes_place_trgm_idx ON public.postal_codes USING gin (lower(place_name) public.gin_trgm_ops);
+
+
+--
+-- Name: postal_codes_state_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX postal_codes_state_idx ON public.postal_codes USING btree (state_code);
+
+
+--
+-- Name: postal_codes_zip_prefix_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX postal_codes_zip_prefix_idx ON public.postal_codes USING btree (country_code, postal_code text_pattern_ops);
 
 
 --
@@ -1412,13 +1016,6 @@ CREATE TRIGGER trg_images_updated_at BEFORE UPDATE ON public.images FOR EACH ROW
 
 
 --
--- Name: listing_claims trg_listing_claims_updated_at; Type: TRIGGER; Schema: public; Owner: -
---
-
-CREATE TRIGGER trg_listing_claims_updated_at BEFORE UPDATE ON public.listing_claims FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
-
-
---
 -- Name: providers trg_providers_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -1440,13 +1037,6 @@ CREATE TRIGGER trg_reviews_updated_at BEFORE UPDATE ON public.reviews FOR EACH R
 
 
 --
--- Name: scrape_jobs trg_scrape_jobs_updated_at; Type: TRIGGER; Schema: public; Owner: -
---
-
-CREATE TRIGGER trg_scrape_jobs_updated_at BEFORE UPDATE ON public.scrape_jobs FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
-
-
---
 -- Name: services trg_services_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -1454,10 +1044,11 @@ CREATE TRIGGER trg_services_updated_at BEFORE UPDATE ON public.services FOR EACH
 
 
 --
--- Name: medspa_leads trigger_update_medspa_leads_updated_at; Type: TRIGGER; Schema: public; Owner: -
+-- Name: ai_navigator_events ai_navigator_events_session_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-CREATE TRIGGER trigger_update_medspa_leads_updated_at BEFORE UPDATE ON public.medspa_leads FOR EACH ROW EXECUTE FUNCTION public.update_medspa_leads_updated_at();
+ALTER TABLE ONLY public.ai_navigator_events
+    ADD CONSTRAINT ai_navigator_events_session_id_fkey FOREIGN KEY (session_id) REFERENCES public.ai_navigator_sessions(id) ON DELETE SET NULL;
 
 
 --
@@ -1485,27 +1076,27 @@ ALTER TABLE ONLY public.clinic_locations
 
 
 --
--- Name: clinic_service_changes clinic_service_changes_clinic_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: clinic_service_concerns clinic_service_concerns_clinic_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.clinic_service_changes
-    ADD CONSTRAINT clinic_service_changes_clinic_id_fkey FOREIGN KEY (clinic_id) REFERENCES public.clinics(id) ON DELETE CASCADE;
-
-
---
--- Name: clinic_service_changes clinic_service_changes_scrape_job_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.clinic_service_changes
-    ADD CONSTRAINT clinic_service_changes_scrape_job_id_fkey FOREIGN KEY (scrape_job_id) REFERENCES public.scrape_jobs(id) ON DELETE SET NULL;
+ALTER TABLE ONLY public.clinic_service_concerns
+    ADD CONSTRAINT clinic_service_concerns_clinic_id_fkey FOREIGN KEY (clinic_id) REFERENCES public.clinics(id) ON DELETE CASCADE;
 
 
 --
--- Name: clinic_service_changes clinic_service_changes_service_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: clinic_service_concerns clinic_service_concerns_concern_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.clinic_service_changes
-    ADD CONSTRAINT clinic_service_changes_service_id_fkey FOREIGN KEY (service_id) REFERENCES public.services(id) ON DELETE SET NULL;
+ALTER TABLE ONLY public.clinic_service_concerns
+    ADD CONSTRAINT clinic_service_concerns_concern_id_fkey FOREIGN KEY (concern_id) REFERENCES public.concerns(id) ON DELETE CASCADE;
+
+
+--
+-- Name: clinic_service_concerns clinic_service_concerns_service_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.clinic_service_concerns
+    ADD CONSTRAINT clinic_service_concerns_service_id_fkey FOREIGN KEY (service_id) REFERENCES public.services(id) ON DELETE CASCADE;
 
 
 --
@@ -1522,70 +1113,6 @@ ALTER TABLE ONLY public.clinic_services
 
 ALTER TABLE ONLY public.clinic_services
     ADD CONSTRAINT clinic_services_service_id_fkey FOREIGN KEY (service_id) REFERENCES public.services(id) ON DELETE SET NULL;
-
-
---
--- Name: clinics clinics_business_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.clinics
-    ADD CONSTRAINT clinics_business_id_fkey FOREIGN KEY (business_id) REFERENCES public.businesses(id) ON DELETE RESTRICT;
-
-
---
--- Name: concern_services concern_services_concern_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.concern_services
-    ADD CONSTRAINT concern_services_concern_id_fkey FOREIGN KEY (concern_id) REFERENCES public.concerns(id) ON DELETE CASCADE;
-
-
---
--- Name: concern_services concern_services_service_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.concern_services
-    ADD CONSTRAINT concern_services_service_id_fkey FOREIGN KEY (service_id) REFERENCES public.services(id) ON DELETE CASCADE;
-
-
---
--- Name: listing_claims listing_claims_business_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.listing_claims
-    ADD CONSTRAINT listing_claims_business_id_fkey FOREIGN KEY (business_id) REFERENCES public.businesses(id) ON DELETE CASCADE;
-
-
---
--- Name: provider_concerns provider_concerns_concern_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.provider_concerns
-    ADD CONSTRAINT provider_concerns_concern_id_fkey FOREIGN KEY (concern_id) REFERENCES public.concerns(id) ON DELETE CASCADE;
-
-
---
--- Name: provider_concerns provider_concerns_provider_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.provider_concerns
-    ADD CONSTRAINT provider_concerns_provider_id_fkey FOREIGN KEY (provider_id) REFERENCES public.providers(id) ON DELETE CASCADE;
-
-
---
--- Name: provider_services provider_services_provider_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.provider_services
-    ADD CONSTRAINT provider_services_provider_id_fkey FOREIGN KEY (provider_id) REFERENCES public.providers(id) ON DELETE CASCADE;
-
-
---
--- Name: provider_services provider_services_service_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.provider_services
-    ADD CONSTRAINT provider_services_service_id_fkey FOREIGN KEY (service_id) REFERENCES public.services(id) ON DELETE CASCADE;
 
 
 --
@@ -1621,97 +1148,8 @@ ALTER TABLE ONLY public.reviews
 
 
 --
--- Name: scrape_jobs scrape_jobs_clinic_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.scrape_jobs
-    ADD CONSTRAINT scrape_jobs_clinic_id_fkey FOREIGN KEY (clinic_id) REFERENCES public.clinics(id) ON DELETE CASCADE;
-
-
---
 -- PostgreSQL database dump complete
 --
 
+\unrestrict cy9KavMYyfPWWmaGvNiputYHERUwR5lBedC7sMhxnbXh6CjAiflZTXyRRplaaFV
 
---
--- Name: g99_clinic_websites; Type: TABLE; Schema: public; Owner: -
---
--- Phase-0 discovery store: ONE ROW PER UNIQUE clinic website.
--- Populated by scripts/g99/harvest_websites.py from G99 PROD, filtered to valid
--- (non-deleted) businesses with a MEDSPA specialization (not dental-only, not
--- test/internal). Junk/placeholder websites (growth99, instagram, …) are excluded.
--- Each row keeps the arrays of every G99 clinic id + business (tenant) id at that
--- website; full per-clinic detail is fetched LIVE from G99 prod by those ids.
---
-CREATE TABLE IF NOT EXISTS public.g99_clinic_websites (
-    id               uuid DEFAULT public.uuid_generate_v4() NOT NULL,
-    domain           text NOT NULL,
-    website          text NOT NULL,
-    g99_clinic_ids   bigint[] DEFAULT '{}'::bigint[] NOT NULL,
-    g99_business_ids bigint[] DEFAULT '{}'::bigint[] NOT NULL,
-    clinic_count     integer DEFAULT 0 NOT NULL,
-    business_count   integer DEFAULT 0 NOT NULL,
-    business_name    text,
-    clinic_name      text,
-    specialization   text,
-    created_at       timestamp with time zone DEFAULT now() NOT NULL
-);
-
-ALTER TABLE ONLY public.g99_clinic_websites
-    ADD CONSTRAINT g99_clinic_websites_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.g99_clinic_websites
-    ADD CONSTRAINT g99_clinic_websites_domain_key UNIQUE (domain);
-
-CREATE INDEX IF NOT EXISTS idx_g99_clinic_websites_domain ON public.g99_clinic_websites USING btree (domain);
-
---
--- AI Treatment Navigator analytics/session tables
---
-
-CREATE TABLE IF NOT EXISTS public.ai_navigator_sessions (
-    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-    anonymous_id text,
-    ip_hash text,
-    user_agent text,
-    request jsonb NOT NULL,
-    photo_count integer DEFAULT 0 NOT NULL,
-    vision_included boolean DEFAULT false NOT NULL,
-    ai_response jsonb,
-    matched_clinic_ids uuid[] DEFAULT '{}'::uuid[] NOT NULL,
-    model text,
-    input_tokens integer,
-    output_tokens integer,
-    latency_ms integer,
-    error_code text,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    expires_at timestamp with time zone DEFAULT (now() + interval '90 days') NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS public.ai_navigator_events (
-    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-    session_id uuid REFERENCES public.ai_navigator_sessions(id) ON DELETE SET NULL,
-    event_name text NOT NULL,
-    step text,
-    payload jsonb DEFAULT '{}'::jsonb NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_ai_navigator_sessions_created
-    ON public.ai_navigator_sessions USING btree (created_at DESC);
-
-CREATE INDEX IF NOT EXISTS idx_ai_navigator_sessions_expires
-    ON public.ai_navigator_sessions USING btree (expires_at);
-
-CREATE INDEX IF NOT EXISTS idx_ai_navigator_events_session
-    ON public.ai_navigator_events USING btree (session_id);
-
-CREATE INDEX IF NOT EXISTS idx_ai_navigator_events_name_created
-    ON public.ai_navigator_events USING btree (event_name, created_at DESC);
-
-
-
---
--- Populate the (empty) materialized view so the app can query it.
---
-REFRESH MATERIALIZED VIEW public.clinic_search_view;

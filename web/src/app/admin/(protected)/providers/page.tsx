@@ -47,7 +47,7 @@ interface ProviderListItem {
   title: string | null;
   image_url: string | null;
   is_verified: boolean;
-  years_experience: number | null;
+  card_tagline: string | null;
   is_active: boolean;
   created_at: string;
   clinic_name: string;

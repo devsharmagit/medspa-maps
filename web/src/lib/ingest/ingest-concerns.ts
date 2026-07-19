@@ -2,9 +2,10 @@
  * ingest/ingest-concerns.ts — refresh ONLY a clinic's evidence-based concerns.
  *
  * Touches nothing but the concern layer of an EXISTING clinic (keyed by website
- * domain): clinic_concerns rows with source='scraped' + their evidence rows in
- * clinic_concern_evidence. Locations / images / providers / services are never
- * modified. Idempotent replace: prior scraped state is deleted and re-asserted.
+ * domain): clinic_concerns rows with source='scraped'. Locations / images /
+ * providers / services are never modified. Idempotent replace: prior scraped
+ * state is deleted and re-asserted. Evidence quotes are still verified in-memory
+ * to gate which concerns are asserted, but are no longer persisted.
  *
  * Flow: resolve clinic → fetch homepage → discoverConcernPages (condition pages
  * + per-treatment pages, nav hrefs included) → one text-only forced-tool AI call
@@ -163,17 +164,16 @@ async function loadConcernCatalog(): Promise<ConcernCatRow[]> {
     id: string;
     name: string;
     slug: string;
-    aliases: string[] | null;
     origin: string | null;
   }>(
-    `SELECT id, name, slug, COALESCE(aliases, '{}') AS aliases, COALESCE(origin, 'seed') AS origin
+    `SELECT id, name, slug, COALESCE(origin, 'seed') AS origin
        FROM concerns WHERE is_active = true`
   );
   return rows.map((r) => ({
     id: r.id,
     name: r.name,
     slug: r.slug,
-    aliases: r.aliases ?? [],
+    aliases: [],
     origin: r.origin ?? "seed",
   }));
 }
@@ -247,8 +247,6 @@ export async function ingestConcernsByDomain(
       WHERE cs.clinic_id = $1 AND cs.is_active = true
         AND s.id IS NOT NULL
         AND s.is_active = true
-        AND COALESCE(s.is_published, true) = true
-        AND COALESCE(s.review_status, 'approved') = 'approved'
         AND s.name !~* '(dentistry|dental|orthodont|veneer)'`,
     [clinicId]
   );
@@ -325,17 +323,6 @@ export async function ingestConcernsByDomain(
     }
     return s;
   };
-  const addAiAlias = async (row: ConcernCatRow, rawPhrase: string) => {
-    if (row.origin !== "ai") return; // never mutate curated/seed rows
-    const a = normalize(rawPhrase);
-    if (!a || a === normalize(row.name) || row.aliases.includes(a)) return;
-    row.aliases.push(a);
-    await query(
-      `UPDATE concerns SET aliases = array_append(COALESCE(aliases,'{}'), $2), updated_at = NOW()
-         WHERE id = $1 AND NOT ($2 = ANY(COALESCE(aliases,'{}')))`,
-      [row.id, a]
-    );
-  };
   const createdConcerns: string[] = [];
   const exactConcernRow = (name: string): ConcernCatRow | null => {
     const n = normalize(name);
@@ -373,17 +360,14 @@ export async function ingestConcernsByDomain(
   const createAiConcern = async (name: string): Promise<ConcernCatRow> => {
     const clean = displayConcernName(name);
     const s = await uniqueConcernSlug(clean);
-    const aliases = [...new Set([normalize(clean)].filter(Boolean))];
-    // is_published=false: AI-grown concerns have no editorial copy, so they stay
-    // off the /conditions index until curated; clinic chips still use them.
     const ins = await queryOne<{ id: string }>(
-      `INSERT INTO concerns (name, slug, aliases, data_source, origin, is_published, is_active)
-       VALUES ($1,$2,$3,'scraped','ai',false,true)
+      `INSERT INTO concerns (name, slug, origin, is_active)
+       VALUES ($1,$2,'ai',true)
        ON CONFLICT (slug) DO UPDATE SET updated_at = NOW()
        RETURNING id`,
-      [clean, s, aliases]
+      [clean, s]
     );
-    const row: ConcernCatRow = { id: ins!.id, name: clean, slug: s, aliases, origin: "ai" };
+    const row: ConcernCatRow = { id: ins!.id, name: clean, slug: s, aliases: [], origin: "ai" };
     catalog.push(row);
     createdConcerns.push(clean);
     return row;
@@ -392,22 +376,20 @@ export async function ingestConcernsByDomain(
   const resolved: Array<{ row: ConcernCatRow; concern: ValidatedConcern }> = [];
   for (const concern of accepted) {
     const row = await resolveConcernRow(concern.general_name);
-    for (const ev of concern.evidences) await addAiAlias(row, ev.raw_phrase);
     // Two general names can land on the same catalog row — merge their evidence.
     const existing = resolved.find((r) => r.row.id === row.id);
     if (existing) existing.concern.evidences.push(...concern.evidences);
     else resolved.push({ row, concern });
   }
 
-  // 6) persist — replace this clinic's scraped concern state ONLY.
+  // 6) persist — replace this clinic's scraped concern membership ONLY.
   //    'manual' rows are left alone; 'removed' rows are admin suppressions and
-  //    are never flipped back by the ingest (evidence rows still recorded).
-  await query(`DELETE FROM clinic_concern_evidence WHERE clinic_id = $1`, [clinicId]);
+  //    are never flipped back by the ingest.
   await query(
     `DELETE FROM clinic_concerns WHERE clinic_id = $1 AND source = 'scraped'`,
     [clinicId]
   );
-  for (const { row, concern } of resolved) {
+  for (const { row } of resolved) {
     await query(
       `INSERT INTO clinic_concerns (clinic_id, concern_id, source, is_active)
        VALUES ($1, $2, 'scraped', true)
@@ -418,28 +400,6 @@ export async function ingestConcernsByDomain(
        WHERE clinic_concerns.source <> 'removed'`,
       [clinicId, row.id]
     );
-    for (const ev of concern.evidences) {
-      await query(
-        `INSERT INTO clinic_concern_evidence
-           (clinic_id, concern_id, raw_phrase, evidence_quote, source_url,
-            paired_treatments, paired_service_ids)
-         VALUES ($1,$2,$3,$4,$5,$6,$7::uuid[])
-         ON CONFLICT (clinic_id, concern_id, source_url, raw_phrase) DO UPDATE SET
-           evidence_quote = EXCLUDED.evidence_quote,
-           paired_treatments = EXCLUDED.paired_treatments,
-           paired_service_ids = EXCLUDED.paired_service_ids,
-           extracted_at = NOW()`,
-        [
-          clinicId,
-          row.id,
-          ev.raw_phrase,
-          ev.evidence_quote,
-          ev.source_url,
-          ev.paired_treatments,
-          ev.paired_service_ids,
-        ]
-      );
-    }
   }
 
   return {

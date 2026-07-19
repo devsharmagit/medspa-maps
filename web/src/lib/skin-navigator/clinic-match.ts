@@ -36,7 +36,6 @@ interface ClinicMatchRow {
   review_count: string | number | null;
   ext_rating: string | number | null;
   ext_review_count: string | number | null;
-  verified: boolean | null;
   cover_image_url: string | null;
   logo_url: string | null;
   distance_miles: string | number | null;
@@ -127,8 +126,6 @@ async function validServiceWeights(weights: ServiceWeight[]): Promise<ServiceWei
      FROM services
      WHERE slug = ANY($1::text[])
        AND is_active = true
-       AND COALESCE(is_published, true) = true
-       AND COALESCE(review_status, 'approved') = 'approved'
        AND name !~* '(dentistry|dental|orthodont|veneer)'`,
     [weights.map((w) => w.slug)]
   );
@@ -143,7 +140,6 @@ function scoreClinic(row: {
   ext_rating?: number | string | null;
   review_count?: number | string | null;
   ext_review_count?: number | string | null;
-  verified?: boolean | null;
 }, hasOrigin: boolean): number {
   const serviceWeight = Number(row.best_service_weight ?? 0);
   const treatmentScore = Math.min(45, (serviceWeight / 100) * 45);
@@ -156,11 +152,10 @@ function scoreClinic(row: {
 
   const rating = Number(row.avg_rating ?? row.ext_rating ?? 0);
   const ratingScore = Math.min(15, Math.max(0, rating / 5) * 15);
-  const verifiedScore = row.verified ? 10 : 0;
   const reviewCount = Number(row.review_count ?? row.ext_review_count ?? 0);
   const reviewScore = Math.min(5, Math.log10(reviewCount + 1) * 1.7);
 
-  return Math.round((treatmentScore + distanceScore + ratingScore + verifiedScore + reviewScore) * 10) / 10;
+  return Math.round((treatmentScore + distanceScore + ratingScore + reviewScore) * 10) / 10;
 }
 
 function mapClinicRow(row: ClinicMatchRow, hasOrigin: boolean): NavigatorClinicMatch {
@@ -197,7 +192,7 @@ function mapClinicRow(row: ClinicMatchRow, hasOrigin: boolean): NavigatorClinicM
     zip: row.zip,
     rating,
     reviewCount: Number(row.review_count ?? row.ext_review_count ?? 0),
-    verified: Boolean(row.verified),
+    verified: false,
     coverImageUrl: row.cover_image_url,
     logoUrl: row.logo_url,
     matchedTreatments,
@@ -232,10 +227,7 @@ async function matchByTreatments(
         )
       )
       FROM (
-        SELECT c.lat::float AS lat, c.lng::float AS lng
-        WHERE c.lat IS NOT NULL AND c.lng IS NOT NULL
-        UNION ALL
-        SELECT cl2.lat::float, cl2.lng::float
+        SELECT cl2.lat::float AS lat, cl2.lng::float AS lng
         FROM clinic_locations cl2
         WHERE cl2.clinic_id = c.id AND cl2.is_active = true
           AND cl2.lat IS NOT NULL AND cl2.lng IS NOT NULL
@@ -253,9 +245,7 @@ async function matchByTreatments(
     const codeParam = params.length - 1;
     const nameParam = params.length;
     filters.push(`(
-      c.state = $${codeParam}
-      OR c.state ILIKE $${nameParam}
-      OR EXISTS (
+      EXISTS (
         SELECT 1 FROM clinic_locations cl_state
         WHERE cl_state.clinic_id = c.id AND cl_state.is_active = true
           AND (cl_state.state = $${codeParam} OR cl_state.state ILIKE $${nameParam})
@@ -265,10 +255,7 @@ async function matchByTreatments(
     params.push(`%${location.text}%`);
     const textParam = params.length;
     filters.push(`(
-      c.city ILIKE $${textParam}
-      OR c.state ILIKE $${textParam}
-      OR c.zip ILIKE $${textParam}
-      OR EXISTS (
+      EXISTS (
         SELECT 1 FROM clinic_locations cl_text
         WHERE cl_text.clinic_id = c.id AND cl_text.is_active = true
           AND (
@@ -291,14 +278,13 @@ async function matchByTreatments(
       c.name AS clinic_name,
       c.slug AS clinic_slug,
       COALESCE(c.address, ploc.address) AS address,
-      COALESCE(c.city, ploc.city) AS city,
-      COALESCE(c.state, ploc.state) AS state,
-      COALESCE(c.zip, ploc.zip) AS zip,
+      ploc.city AS city,
+      ploc.state AS state,
+      ploc.zip AS zip,
       c.avg_rating,
       c.review_count,
       c.ext_rating,
       c.ext_review_count,
-      c.verified,
       (
         SELECT COALESCE(i.cdn_url, i.source_url)
         FROM images i
@@ -309,27 +295,15 @@ async function matchByTreatments(
         ORDER BY (i.role = 'cover') DESC, i.sort_order
         LIMIT 1
       ) AS cover_image_url,
-      COALESCE(
-        (
-          SELECT COALESCE(i.cdn_url, i.source_url)
-          FROM images i
-          WHERE i.entity_type = 'clinic'
-            AND i.entity_id = c.id
-            AND i.role = 'logo'
-            AND i.scrape_status = 'ok'
-          ORDER BY i.sort_order
-          LIMIT 1
-        ),
-        (
-          SELECT COALESCE(i.cdn_url, i.source_url)
-          FROM images i
-          WHERE i.entity_type = 'business'
-            AND i.entity_id = c.business_id
-            AND i.role = 'logo'
-            AND i.scrape_status = 'ok'
-          ORDER BY i.sort_order
-          LIMIT 1
-        )
+      (
+        SELECT COALESCE(i.cdn_url, i.source_url)
+        FROM images i
+        WHERE i.entity_type = 'clinic'
+          AND i.entity_id = c.id
+          AND i.role = 'logo'
+          AND i.scrape_status = 'ok'
+        ORDER BY i.sort_order
+        LIMIT 1
       ) AS logo_url,
       ${distanceExpr} AS distance_miles,
       MAX(requested.weight) AS best_service_weight,
@@ -339,12 +313,9 @@ async function matchByTreatments(
         '[]'::jsonb
       ) AS matched_treatments
     FROM clinics c
-    JOIN businesses b ON b.id = c.business_id AND b.is_active = true
     JOIN clinic_services cs ON cs.clinic_id = c.id AND cs.is_active = true
     JOIN services s ON s.id = cs.service_id
       AND s.is_active = true
-      AND COALESCE(s.is_published, true) = true
-      AND COALESCE(s.review_status, 'approved') = 'approved'
       AND s.name !~* '(dentistry|dental|orthodont|veneer)'
     JOIN requested ON requested.slug = s.slug
     LEFT JOIN LATERAL (
@@ -391,10 +362,7 @@ async function matchByConcerns(
         )))
       )
       FROM (
-        SELECT c.lat::float AS lat, c.lng::float AS lng
-        WHERE c.lat IS NOT NULL AND c.lng IS NOT NULL
-        UNION ALL
-        SELECT cl2.lat::float, cl2.lng::float
+        SELECT cl2.lat::float AS lat, cl2.lng::float AS lng
         FROM clinic_locations cl2
         WHERE cl2.clinic_id = c.id AND cl2.is_active = true
           AND cl2.lat IS NOT NULL AND cl2.lng IS NOT NULL
@@ -412,9 +380,7 @@ async function matchByConcerns(
     const codeParam = params.length - 1;
     const nameParam = params.length;
     filters.push(`(
-      c.state = $${codeParam}
-      OR c.state ILIKE $${nameParam}
-      OR EXISTS (
+      EXISTS (
         SELECT 1 FROM clinic_locations cl_state
         WHERE cl_state.clinic_id = c.id AND cl_state.is_active = true
           AND (cl_state.state = $${codeParam} OR cl_state.state ILIKE $${nameParam})
@@ -424,10 +390,7 @@ async function matchByConcerns(
     params.push(`%${location.text}%`);
     const textParam = params.length;
     filters.push(`(
-      c.city ILIKE $${textParam}
-      OR c.state ILIKE $${textParam}
-      OR c.zip ILIKE $${textParam}
-      OR EXISTS (
+      EXISTS (
         SELECT 1 FROM clinic_locations cl_text
         WHERE cl_text.clinic_id = c.id AND cl_text.is_active = true
           AND (
@@ -446,14 +409,13 @@ async function matchByConcerns(
       c.name AS clinic_name,
       c.slug AS clinic_slug,
       COALESCE(c.address, ploc.address) AS address,
-      COALESCE(c.city, ploc.city) AS city,
-      COALESCE(c.state, ploc.state) AS state,
-      COALESCE(c.zip, ploc.zip) AS zip,
+      ploc.city AS city,
+      ploc.state AS state,
+      ploc.zip AS zip,
       c.avg_rating,
       c.review_count,
       c.ext_rating,
       c.ext_review_count,
-      c.verified,
       (
         SELECT COALESCE(i.cdn_url, i.source_url)
         FROM images i
@@ -464,27 +426,15 @@ async function matchByConcerns(
         ORDER BY (i.role = 'cover') DESC, i.sort_order
         LIMIT 1
       ) AS cover_image_url,
-      COALESCE(
-        (
-          SELECT COALESCE(i.cdn_url, i.source_url)
-          FROM images i
-          WHERE i.entity_type = 'clinic'
-            AND i.entity_id = c.id
-            AND i.role = 'logo'
-            AND i.scrape_status = 'ok'
-          ORDER BY i.sort_order
-          LIMIT 1
-        ),
-        (
-          SELECT COALESCE(i.cdn_url, i.source_url)
-          FROM images i
-          WHERE i.entity_type = 'business'
-            AND i.entity_id = c.business_id
-            AND i.role = 'logo'
-            AND i.scrape_status = 'ok'
-          ORDER BY i.sort_order
-          LIMIT 1
-        )
+      (
+        SELECT COALESCE(i.cdn_url, i.source_url)
+        FROM images i
+        WHERE i.entity_type = 'clinic'
+          AND i.entity_id = c.id
+          AND i.role = 'logo'
+          AND i.scrape_status = 'ok'
+        ORDER BY i.sort_order
+        LIMIT 1
       ) AS logo_url,
       ${distanceExpr} AS distance_miles,
       55 AS best_service_weight,
@@ -494,8 +444,6 @@ async function matchByConcerns(
           FROM clinic_services cs
           JOIN services s ON s.id = cs.service_id
             AND s.is_active = true
-            AND COALESCE(s.is_published, true) = true
-            AND COALESCE(s.review_status, 'approved') = 'approved'
             AND s.name !~* '(dentistry|dental|orthodont|veneer)'
           WHERE cs.clinic_id = c.id AND cs.is_active = true
           LIMIT 5
@@ -503,7 +451,6 @@ async function matchByConcerns(
         '[]'::jsonb
       ) AS matched_treatments
     FROM clinics c
-    JOIN businesses b ON b.id = c.business_id AND b.is_active = true
     LEFT JOIN LATERAL (
       SELECT cl.address, cl.city, cl.state, cl.zip
       FROM clinic_locations cl
@@ -521,15 +468,6 @@ async function matchByConcerns(
           AND cc.source IN ('scraped', 'manual')
           AND con.is_active = true
           AND con.slug = ANY($1::text[])
-          AND (
-            cc.source = 'manual'
-            OR EXISTS (
-              SELECT 1
-              FROM clinic_concern_evidence ev
-              WHERE ev.clinic_id = cc.clinic_id
-                AND ev.concern_id = cc.concern_id
-            )
-          )
       )
       AND NOT EXISTS (
         SELECT 1

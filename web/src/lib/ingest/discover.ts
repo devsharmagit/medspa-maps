@@ -9,7 +9,7 @@
  */
 
 import type { CheerioAPI } from "cheerio";
-import { fetchHtml, getBase } from "@/lib/scraper/utils";
+import { fetchHtml, getBase, cleanText, toAbsolute } from "@/lib/scraper/utils";
 import { discoverPages, pageGuesses } from "@/lib/scraper/pages";
 
 const LOC_RE = /\/(locations?|our-locations|find-us|visit-us)(\/|$|\?)/i;
@@ -152,7 +152,28 @@ export async function discoverContentPages(
 // plus the canonical-concern vocabulary. Condition-named pages are the highest-
 // confidence concern evidence there is.
 const CONCERN_HUB_RE =
-  /\/(concerns?|conditions?|skin-concerns?|what-we-treat|we-treat|i-want-to-treat|self-assessments?)(\/|$|\?)/i;
+  /\/(concerns?|conditions?|skin-concerns?|conditions?-(?:we-)?treat(?:ed|ment|ments)?|conditions?-treated|what-we-treat|we-treat|i-want-to-treat|self-assessments?)(\/|$|\?)/i;
+
+// Nav anchor whose TEXT names a conditions/concerns section (e.g. milfordmd's
+// "CONDITIONS WE TREAT"). Anchor text is a stronger signal than the URL shape.
+const CONDITIONS_NAV_TEXT_RE =
+  /^(skin\s+)?(concerns?|conditions?)(\s+(we\s+)?treat(ed)?)?$|^what\s+we\s+treat$/i;
+
+/** Scan the homepage nav for a link to a dedicated conditions/concerns section.
+ *  Returns same-host hrefs whose anchor text names such a section. */
+function conditionsNavLinks($home: CheerioAPI, homeUrl: string, sameHost: (u: string) => boolean): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  $home("a[href]").each((_i, el) => {
+    const text = cleanText($home(el).text());
+    if (!text || !CONDITIONS_NAV_TEXT_RE.test(text)) return;
+    const abs = toAbsolute($home(el).attr("href") ?? "", homeUrl);
+    if (!abs || !sameHost(abs) || seen.has(abs)) return;
+    seen.add(abs);
+    out.push(abs);
+  });
+  return out;
+}
 const CONCERN_WORD_RE =
   /\/((?:[a-z0-9]+-)*(?:acne|scarr?ing|scars?|rosacea|melasma|hyperpigmentation|pigmentation|dark-spots?|sun-damage|wrinkles?|fine-lines?|sagging|laxity|loose-skin|double-chin|cellulite|stretch-marks?|hair-loss|hair-thinning|hyperhidrosis|sweating|dark-circles?|dull-skin|dry-skin|oily-skin|large-pores?|enlarged-pores?|volume-loss|thin-lips?|jowls)(?:-[a-z0-9]+)*)(\/|$|\?)/i;
 // Per-treatment detail pages ("addresses concerns like…" prose lives here). The
@@ -200,7 +221,7 @@ export async function discoverConcernPages(
   homeUrl: string,
   extraServiceUrls: string[] = [],
   budget: ConcernPageBudget = {}
-): Promise<{ concernPages: string[]; servicePages: string[] }> {
+): Promise<{ concernPages: string[]; servicePages: string[]; hasConditionsSection: boolean }> {
   // Generous defaults: with blog posts excluded and no per-clinic concern cap,
   // the page budget shouldn't be what silently drops a treated condition.
   const maxConcern = budget.concernPages ?? 6;
@@ -226,6 +247,11 @@ export async function discoverConcernPages(
   const candidates = new Set<string>();
   const nav = discoverPages($home, homeUrl);
   if (nav.services) candidates.add(nav.services);
+  // A conditions/concerns link in the site nav (by anchor text) is the clearest
+  // signal the clinic organizes content by condition. Those hrefs are the
+  // highest-confidence concern pages.
+  const navConditionLinks = conditionsNavLinks($home, homeUrl, (u) => host(u) === homeHost);
+  for (const u of navConditionLinks) candidates.add(u);
   // NOTE: no URL guesses — dead guesses (e.g. /treatments 404) would eat the
   // fetch budget. Sitemap / WP-REST / nav / passed-in hrefs carry real URLs.
   const [smEntries, wpUrls] = await Promise.all([
@@ -265,10 +291,14 @@ export async function discoverConcernPages(
     return matches.slice(0, cap).map((m) => m.u);
   };
 
-  const concernPages = [
-    ...takeAll(CONCERN_HUB_RE, maxConcern),
-    ...takeAll(CONCERN_WORD_RE, maxConcern),
-  ].slice(0, maxConcern);
+  const hubPages = takeAll(CONCERN_HUB_RE, maxConcern);
+  const wordPages = takeAll(CONCERN_WORD_RE, maxConcern);
+  const concernPages = [...hubPages, ...wordPages].slice(0, maxConcern);
   const servicePages = takeAll(SERVICE_DETAIL_RE, maxService);
-  return { concernPages, servicePages };
+  // A dedicated conditions section exists when: the nav explicitly links one, a
+  // conditions/concerns HUB page was found, or several distinct condition-named
+  // pages exist (a real section, not one stray condition-named URL).
+  const hasConditionsSection =
+    navConditionLinks.length > 0 || hubPages.length > 0 || wordPages.length >= 3;
+  return { concernPages, servicePages, hasConditionsSection };
 }

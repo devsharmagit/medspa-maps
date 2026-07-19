@@ -14,7 +14,7 @@ import {
   extractServicesFromNav,
 } from "@/lib/scraper/services";
 import type { ScrapedService } from "@/lib/scraper/types";
-import { bestCatalogMatch, fuzzyScore, isServiceNoise, normalize, type CatalogEntry } from "@/lib/taxonomy/canonical";
+import { bestCatalogMatch, isServiceNoise, isConcernNoise, normalize, type CatalogEntry } from "@/lib/taxonomy/canonical";
 import {
   findClinicsByDomain,
   saveClinicServices,
@@ -29,8 +29,10 @@ import { extractClinicTreatmentsConcerns } from "@/lib/ingest/ai-extract-treatme
 import type {
   ExtractedStandaloneConcern,
   ExtractedTreatment,
-  ExtractedTreatmentConcernMapping,
 } from "@/lib/ingest/ai-extract-treatments-concerns";
+
+/** A concern the clinic treats, detected deterministically (not via the LLM). */
+interface DetectedConcern { name: string; source_url: string | null }
 
 const SERVICES_URL_RE = /\/(services?|treatments?|menu|procedures|what-we-offer)/i;
 const SVC_CAND_CAP = 80;
@@ -51,13 +53,6 @@ interface ConcernCatRow extends CatalogEntry {
   id: string;
   origin: string;
   aliases: string[];
-}
-
-interface ClinicServiceRow {
-  service_id: string | null;
-  raw_name: string;
-  canonical_name: string | null;
-  scraped_from_url: string | null;
 }
 
 export interface PersistedTreatmentConcern {
@@ -111,51 +106,42 @@ async function loadConcernCatalog(): Promise<ConcernCatRow[]> {
     id: string;
     name: string;
     slug: string;
-    aliases: string[] | null;
     origin: string | null;
   }>(
-    `SELECT id, name, slug, COALESCE(aliases, '{}') AS aliases, COALESCE(origin, 'seed') AS origin
+    `SELECT id, name, slug, COALESCE(origin, 'seed') AS origin
        FROM concerns WHERE is_active = true`
   );
   return rows.map((r) => ({
     id: r.id,
     name: r.name,
     slug: r.slug,
-    aliases: r.aliases ?? [],
+    aliases: [],
     origin: r.origin ?? "seed",
   }));
 }
 
-async function ensureClinicServiceConcernTable(): Promise<void> {
-  await query(`
-    CREATE TABLE IF NOT EXISTS clinic_service_concerns (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-      clinic_id uuid NOT NULL REFERENCES clinics(id) ON DELETE CASCADE,
-      service_id uuid NOT NULL REFERENCES services(id) ON DELETE CASCADE,
-      concern_id uuid NOT NULL REFERENCES concerns(id) ON DELETE CASCADE,
-      source text NOT NULL DEFAULT 'scraped',
-      raw_service_name text,
-      raw_concern_name text,
-      source_url text,
-      is_active boolean NOT NULL DEFAULT true,
-      extracted_at timestamptz NOT NULL DEFAULT now(),
-      updated_at timestamptz NOT NULL DEFAULT now(),
-      UNIQUE (clinic_id, service_id, concern_id, source)
-    )`
-  );
-  await query(`CREATE INDEX IF NOT EXISTS idx_csc_clinic ON clinic_service_concerns (clinic_id)`);
-  await query(`CREATE INDEX IF NOT EXISTS idx_csc_service ON clinic_service_concerns (service_id)`);
-  await query(`CREATE INDEX IF NOT EXISTS idx_csc_concern ON clinic_service_concerns (concern_id)`);
+/** Coarse content fingerprint to catch near-duplicate templated pages (e.g.
+ *  per-city SEO clones) that share the same body — dedup by URL alone misses them. */
+function contentKey(text: string): string {
+  const t = text.toLowerCase().replace(/\s+/g, " ").trim();
+  if (t.length < 200) return `s:${t}`; // short pages: exact
+  return `${t.length}:${t.slice(0, 160)}:${t.slice(-160)}`;
 }
 
 function pushPage(
   pages: Array<{ url: string; text: string }>,
   seen: Set<string>,
   url: string,
-  text: string
+  text: string,
+  seenContent?: Set<string>
 ): void {
   const key = url.replace(/\/+$/, "").toLowerCase();
   if (seen.has(key) || pages.length >= PAGE_CAP) return;
+  if (seenContent) {
+    const ck = contentKey(text);
+    if (ck && seenContent.has(ck)) { seen.add(key); return; } // near-dup body — skip
+    if (ck) seenContent.add(ck);
+  }
   seen.add(key);
   pages.push({ url, text });
 }
@@ -173,6 +159,8 @@ function dedupeUrls(urls: string[], cap: number): string[] {
   return out;
 }
 
+const pageUrlKey = (u: string): string => u.replace(/\/+$/, "").toLowerCase();
+
 async function collectPagesAndCandidates(
   rawDomain: string,
   clinicWebsite: string | null
@@ -180,6 +168,13 @@ async function collectPagesAndCandidates(
   finalUrl: string;
   pages: Array<{ url: string; text: string }>;
   serviceCandidates: Array<{ name: string; category?: string | null; url?: string | null }>;
+  /** true when the site has a dedicated conditions/concerns section. */
+  hasConditionsSection: boolean;
+  /** urlKeys of condition/hub pages (+ homepage) — the trusted concern source. */
+  concernPageKeys: Set<string>;
+  /** crawl health: how many extra pages we tried vs. actually fetched. */
+  pagesRequested: number;
+  pagesFetchedOk: number;
 }> {
   const startUrl = normalizeUrl(clinicWebsite || rawDomain);
   const domain = websiteDomain(rawDomain);
@@ -192,7 +187,10 @@ async function collectPagesAndCandidates(
 
   const pages: Array<{ url: string; text: string }> = [];
   const seenPages = new Set<string>();
-  pushPage(pages, seenPages, finalUrl, htmlToText($home));
+  const seenContent = new Set<string>();
+  // Treatments/concerns pass: strip nav/header/footer chrome (pure boilerplate
+  // repeated on every page) so the model sees the real service/condition copy.
+  pushPage(pages, seenPages, finalUrl, htmlToText($home, { stripChrome: true }), seenContent);
 
   const serviceCandidates: Array<{ name: string; category?: string | null; url?: string | null }> = [];
   const seenSvc = new Set<string>();
@@ -236,13 +234,19 @@ async function collectPagesAndCandidates(
   });
 
   const neurotoxinUrls = navServiceUrls.filter((u) => NEUROTOXIN_PAGE_RE.test(u));
+  // Concern/condition pages FIRST so they're never crowded out of the fetch
+  // budget by a large service-page set — critical for conditions-led sites where
+  // those pages ARE the concern source.
   const urls = dedupeUrls([
+    ...concernDiscovery.concernPages,
     ...neurotoxinUrls,
     ...navServiceUrls,
     ...concernDiscovery.servicePages,
-    ...concernDiscovery.concernPages,
     ...contentPages,
   ], FETCH_URL_CAP);
+  // Trusted concern-source pages for conditions-led sites: homepage + condition pages.
+  const concernPageKeys = new Set<string>([pageUrlKey(finalUrl)]);
+  for (const u of concernDiscovery.concernPages) concernPageKeys.add(pageUrlKey(u));
   tcLog(domain, "fetch-plan", {
     candidateUrls:
       neurotoxinUrls.length +
@@ -272,7 +276,10 @@ async function collectPagesAndCandidates(
       if (!r) continue;
       fetched++;
       const $p = load(r.html);
-      pushPage(pages, seenPages, r.finalUrl || u, htmlToText($p));
+      const finalKey = pageUrlKey(r.finalUrl || u);
+      // Keep concernPageKeys aligned to the page's FINAL (post-redirect) url.
+      if (concernPageKeys.has(pageUrlKey(u))) concernPageKeys.add(finalKey);
+      pushPage(pages, seenPages, r.finalUrl || u, htmlToText($p, { stripChrome: true }), seenContent);
       addSvcCands(extractServicesFromNav($p, u));
       addSvcCands(extractServiceAnchors($p, u));
       if (SERVICES_URL_RE.test(u)) addSvcCands(extractServices($p, u));
@@ -292,10 +299,19 @@ async function collectPagesAndCandidates(
     fetched,
     pages: pages.length,
     serviceCandidates: serviceCandidates.length,
+    hasConditionsSection: concernDiscovery.hasConditionsSection,
     ms: Date.now() - started,
   });
 
-  return { finalUrl, pages, serviceCandidates };
+  return {
+    finalUrl,
+    pages,
+    serviceCandidates,
+    hasConditionsSection: concernDiscovery.hasConditionsSection,
+    concernPageKeys,
+    pagesRequested: attempted,
+    pagesFetchedOk: fetched,
+  };
 }
 
 function pageBatches(pages: Array<{ url: string; text: string }>): Array<Array<{ url: string; text: string }>> {
@@ -340,52 +356,17 @@ async function resolveConcernRow(
   ) {
     slug = `${root}-${i++}`;
   }
-  const aliases = [...new Set([normalize(clean)].filter(Boolean))];
   const row = await queryOne<{ id: string }>(
-    `INSERT INTO concerns (name, slug, aliases, data_source, origin, is_published, is_active)
-     VALUES ($1,$2,$3,'scraped','ai',false,true)
+    `INSERT INTO concerns (name, slug, origin, is_active)
+     VALUES ($1,$2,'ai',true)
      ON CONFLICT (slug) DO UPDATE SET updated_at = NOW()
      RETURNING id`,
-    [clean, slug, aliases]
+    [clean, slug]
   );
-  const created: ConcernCatRow = { id: row!.id, name: clean, slug, aliases, origin: "ai" };
+  const created: ConcernCatRow = { id: row!.id, name: clean, slug, aliases: [], origin: "ai" };
   catalog.push(created);
   createdConcerns.push(clean);
   return created;
-}
-
-function findServiceForMapping(
-  mapping: ExtractedTreatmentConcernMapping,
-  services: ClinicServiceRow[]
-): ClinicServiceRow | null {
-  const names = [
-    mapping.service_raw_name,
-    mapping.service_general_name,
-  ].filter((v): v is string => !!v && v.trim().length > 0);
-  let best: { row: ClinicServiceRow; score: number } | null = null;
-  for (const name of names) {
-    const n = normalize(name);
-    if (!n) continue;
-    for (const row of services) {
-      if (!row.service_id) continue;
-      const candidates = [row.raw_name, row.canonical_name].filter((v): v is string => !!v);
-      for (const cand of candidates) {
-        const c = normalize(cand);
-        if (!c) continue;
-        const score = c === n || c.includes(n) || n.includes(c) ? 1 : fuzzyScore(c, n);
-        if (!best || score > best.score) best = { row, score };
-      }
-    }
-  }
-  if (best && best.score >= 0.72) return best.row;
-  if (mapping.source_url) {
-    const urlKey = mapping.source_url.replace(/\/+$/, "").toLowerCase();
-    const byUrl = services.find(
-      (s) => s.service_id && s.scraped_from_url?.replace(/\/+$/, "").toLowerCase() === urlKey
-    );
-    if (byUrl) return byUrl;
-  }
-  return null;
 }
 
 const NEUROTOXIN_PAGE_RE =
@@ -405,49 +386,25 @@ const NEUROTOXIN_TREATMENT_AREAS: Array<{ name: string; pattern: RegExp }> = [
   { name: "Masseter (TMJ) / Face Slimming", pattern: /\b(masseter|tmj|face slimming)\b/i },
 ];
 
-function urlKey(url: string): string {
-  return url.trim().replace(/\/+$/, "").toLowerCase();
-}
-
-function serviceForPage(url: string, services: ClinicServiceRow[]): ClinicServiceRow | null {
-  const pageKey = urlKey(url);
-  return (
-    services.find((s) => s.service_id && s.scraped_from_url && urlKey(s.scraped_from_url) === pageKey) ??
-    null
-  );
-}
-
-function deterministicNeurotoxinMappings(
-  pages: Array<{ url: string; text: string }>,
-  services: ClinicServiceRow[]
-): ExtractedTreatmentConcernMapping[] {
-  const mappings: ExtractedTreatmentConcernMapping[] = [];
+/** Deterministically detect neurotoxin-treated concern areas (forehead lines,
+ *  crow's feet, …) from the text of pages that are about botox/tox/neurotoxin.
+ *  These are high-precision concerns; emitted directly (no treatment pairing). */
+function deterministicNeurotoxinConcerns(
+  pages: Array<{ url: string; text: string }>
+): DetectedConcern[] {
+  const out: DetectedConcern[] = [];
   const seen = new Set<string>();
-
   for (const page of pages) {
-    const service = serviceForPage(page.url, services);
-    if (!service) continue;
-
-    const serviceName = service.canonical_name || service.raw_name;
-    const pageContext = `${page.url} ${service.raw_name} ${service.canonical_name ?? ""} ${page.text.slice(0, 1000)}`;
+    const pageContext = `${page.url} ${page.text.slice(0, 1500)}`;
     if (!NEUROTOXIN_PAGE_RE.test(pageContext)) continue;
-
     for (const area of NEUROTOXIN_TREATMENT_AREAS) {
       if (!area.pattern.test(page.text)) continue;
-      const key = `${page.url}|${serviceName}|${area.name}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      mappings.push({
-        service_raw_name: service.raw_name,
-        service_general_name: serviceName,
-        concern_raw_phrase: area.name,
-        concern_general_name: area.name,
-        source_url: page.url,
-      });
+      if (seen.has(area.name)) continue;
+      seen.add(area.name);
+      out.push({ name: area.name, source_url: page.url });
     }
   }
-
-  return mappings;
+  return out;
 }
 
 export async function ingestTreatmentsAndConcernsByDomain(
@@ -473,9 +430,6 @@ export async function ingestTreatmentsAndConcernsByDomain(
     modelUsed: "",
     usage: null,
   };
-
-  await ensureClinicServiceConcernTable();
-  tcLog(domain, "table-ready", { ms: Date.now() - started });
 
   const clinicIds = await findClinicsByDomain(domain);
   if (clinicIds.length === 0) {
@@ -523,7 +477,6 @@ export async function ingestTreatmentsAndConcernsByDomain(
   const extracted = {
     treatments: [] as ExtractedTreatment[],
     concerns: [] as ExtractedStandaloneConcern[],
-    mappings: [] as ExtractedTreatmentConcernMapping[],
   };
   const usage = { input_tokens: 0, output_tokens: 0 };
   let modelUsed = "";
@@ -553,7 +506,6 @@ export async function ingestTreatmentsAndConcernsByDomain(
     });
     extracted.treatments.push(...out.treatments);
     extracted.concerns.push(...out.concerns);
-    extracted.mappings.push(...out.mappings);
     modelUsed ||= out.model;
     usage.input_tokens += out.usage?.input_tokens ?? 0;
     usage.output_tokens += out.usage?.output_tokens ?? 0;
@@ -562,7 +514,6 @@ export async function ingestTreatmentsAndConcernsByDomain(
       model: out.model,
       treatments: out.treatments.length,
       concerns: out.concerns.length,
-      mappings: out.mappings.length,
       inputTokens: out.usage?.input_tokens ?? null,
       outputTokens: out.usage?.output_tokens ?? null,
       batchMs: Date.now() - batchStarted,
@@ -665,6 +616,73 @@ export async function ingestTreatmentsAndConcernsByDomain(
     ms: Date.now() - started,
   });
 
+  // ── Build the concern set ──────────────────────────────────────────────────
+  // Conditions-led sites (dedicated "Conditions We Treat" section): trust ONLY
+  // concerns sourced from the condition pages (or with no explicit source) and
+  // DROP anything the model pulled off a service/treatment page; also skip the
+  // service-page neurotoxin heuristic. Services-led sites keep the full inference.
+  const detected: DetectedConcern[] = [];
+  for (const c of extracted.concerns) {
+    const src = c.source_url?.trim() || null;
+    if (collected.hasConditionsSection && src && !collected.concernPageKeys.has(pageUrlKey(src))) {
+      continue; // sourced from a service/other page — ignore on conditions-led sites
+    }
+    detected.push({ name: c.general_name?.trim() || c.raw_phrase?.trim() || "", source_url: src });
+  }
+  if (!collected.hasConditionsSection) {
+    detected.push(...deterministicNeurotoxinConcerns(collected.pages));
+  }
+
+  const createdConcerns: string[] = [];
+  const standaloneConcernRows = new Map<string, {
+    row: ConcernCatRow;
+    raw_phrase: string;
+    source_url: string | null;
+  }>();
+  for (const c of detected) {
+    const cleanName = c.name?.trim();
+    if (!cleanName || normalize(cleanName).length < 3) continue;
+    if (isConcernNoise(cleanName)) continue; // treatments/procedures/chrome are not concerns
+    const row = await resolveConcernRow(concernCatalog, createdConcerns, cleanName);
+    if (!standaloneConcernRows.has(row.id)) {
+      standaloneConcernRows.set(row.id, { row, raw_phrase: cleanName, source_url: c.source_url });
+    }
+  }
+  tcLog(domain, "concerns-prepared", {
+    hasConditionsSection: collected.hasConditionsSection,
+    extractedConcerns: extracted.concerns.length,
+    concernsToSave: standaloneConcernRows.size,
+    ms: Date.now() - started,
+  });
+
+  // ── Degrade guard ──────────────────────────────────────────────────────────
+  // If a partly-failed crawl came back with drastically less than what's already
+  // stored, do NOT wipe good data — skip and keep the existing rows.
+  const existing = await queryOne<{ svc: number; con: number }>(
+    `SELECT
+       (SELECT count(*) FROM clinic_services WHERE clinic_id = $1 AND is_active = true)::int AS svc,
+       (SELECT count(*) FROM clinic_concerns WHERE clinic_id = $1 AND is_active = true AND source IN ('scraped','manual'))::int AS con`,
+    [clinicId]
+  );
+  const crawlHealth = collected.pagesRequested > 0 ? collected.pagesFetchedOk / collected.pagesRequested : 1;
+  const svcCollapse = (existing?.svc ?? 0) >= 5 && services.length < existing!.svc * 0.5;
+  const conCollapse = (existing?.con ?? 0) >= 5 && standaloneConcernRows.size < existing!.con * 0.5;
+  if (crawlHealth < 0.6 && (svcCollapse || conCollapse)) {
+    tcLog(domain, "degrade-guard-skip", {
+      crawlHealth, existing, newServices: services.length, newConcerns: standaloneConcernRows.size,
+      ms: Date.now() - started,
+    });
+    return {
+      ...base,
+      clinicId,
+      slug,
+      status: "skipped",
+      pagesFetched: collected.pages.length,
+      note: `degraded crawl (health ${(crawlHealth * 100).toFixed(0)}%, ${collected.pagesFetchedOk}/${collected.pagesRequested} pages); kept existing data`,
+    };
+  }
+
+  // ── Save services ──────────────────────────────────────────────────────────
   const providerRows = await query<{ name: string }>(
     `SELECT name FROM providers WHERE clinic_id = $1 AND is_active = true`,
     [clinicId]
@@ -682,77 +700,9 @@ export async function ingestTreatmentsAndConcernsByDomain(
     ms: Date.now() - started,
   });
 
-  const clinicServices = await query<ClinicServiceRow>(
-    `SELECT cs.service_id, cs.raw_name, s.name AS canonical_name, cs.scraped_from_url
-       FROM clinic_services cs
-       LEFT JOIN services s ON s.id = cs.service_id
-      WHERE cs.clinic_id = $1 AND cs.is_active = true`,
-    [clinicId]
-  );
-  const deterministicMappings = deterministicNeurotoxinMappings(collected.pages, clinicServices);
-  const allMappings = [...extracted.mappings, ...deterministicMappings];
-  tcLog(domain, "mappings-prepared", {
-    aiMappings: extracted.mappings.length,
-    deterministicMappings: deterministicMappings.length,
-    clinicServices: clinicServices.length,
-    ms: Date.now() - started,
-  });
-
-  const createdConcerns: string[] = [];
-  const standaloneConcernRows = new Map<string, {
-    row: ConcernCatRow;
-    raw_phrase: string;
-    source_url: string | null;
-  }>();
-  const associations: PersistedTreatmentConcern[] = [];
-  const seenAssoc = new Set<string>();
-  const addStandaloneConcern = async (
-    rawPhrase: string,
-    generalName: string,
-    sourceUrl: string | null
-  ) => {
-    const cleanName = generalName?.trim() || rawPhrase?.trim();
-    if (!cleanName || normalize(cleanName).length < 3) return;
-    const row = await resolveConcernRow(concernCatalog, createdConcerns, cleanName);
-    if (!standaloneConcernRows.has(row.id)) {
-      standaloneConcernRows.set(row.id, {
-        row,
-        raw_phrase: rawPhrase || row.name,
-        source_url: sourceUrl,
-      });
-    }
-  };
-
-  for (const concern of extracted.concerns) {
-    await addStandaloneConcern(concern.raw_phrase, concern.general_name, concern.source_url);
-  }
-
-  for (const mapping of allMappings) {
-    await addStandaloneConcern(mapping.concern_raw_phrase, mapping.concern_general_name, mapping.source_url);
-    const svc = findServiceForMapping(mapping, clinicServices);
-    if (!svc?.service_id) continue;
-    const concernName = mapping.concern_general_name?.trim() || mapping.concern_raw_phrase?.trim();
-    if (!concernName || normalize(concernName).length < 3) continue;
-    const concern = await resolveConcernRow(concernCatalog, createdConcerns, concernName);
-    const key = `${svc.service_id}|${concern.id}`;
-    if (seenAssoc.has(key)) continue;
-    seenAssoc.add(key);
-    associations.push({
-      service_id: svc.service_id,
-      service_name: svc.canonical_name || svc.raw_name,
-      concern_id: concern.id,
-      concern_name: concern.name,
-      raw_service_name: mapping.service_raw_name || svc.raw_name,
-      raw_concern_name: mapping.concern_raw_phrase,
-      source_url: mapping.source_url,
-    });
-  }
-
+  // ── Save concerns (replace scraped membership; preserve manual/removed) ─────
   await withTransaction(async (client) => {
-    await client.query(`DELETE FROM clinic_concern_evidence WHERE clinic_id = $1`, [clinicId]);
-    await client.query(`DELETE FROM clinic_service_concerns WHERE clinic_id = $1 AND source = 'scraped'`, [clinicId]);
     await client.query(`DELETE FROM clinic_concerns WHERE clinic_id = $1 AND source = 'scraped'`, [clinicId]);
-
     for (const { row } of standaloneConcernRows.values()) {
       await client.query(
         `INSERT INTO clinic_concerns (clinic_id, concern_id, source, is_active)
@@ -765,42 +715,9 @@ export async function ingestTreatmentsAndConcernsByDomain(
         [clinicId, row.id]
       );
     }
-
-    for (const assoc of associations) {
-      await client.query(
-        `INSERT INTO clinic_concerns (clinic_id, concern_id, source, is_active)
-         VALUES ($1, $2, 'scraped', true)
-         ON CONFLICT (clinic_id, concern_id) DO UPDATE SET
-           source = 'scraped',
-           is_active = true,
-           updated_at = NOW()
-         WHERE clinic_concerns.source <> 'removed'`,
-        [clinicId, assoc.concern_id]
-      );
-      await client.query(
-        `INSERT INTO clinic_service_concerns
-           (clinic_id, service_id, concern_id, source, raw_service_name, raw_concern_name, source_url, is_active)
-         VALUES ($1,$2,$3,'scraped',$4,$5,$6,true)
-         ON CONFLICT (clinic_id, service_id, concern_id, source) DO UPDATE SET
-           raw_service_name = EXCLUDED.raw_service_name,
-           raw_concern_name = EXCLUDED.raw_concern_name,
-           source_url = EXCLUDED.source_url,
-           is_active = true,
-           updated_at = NOW()`,
-        [
-          clinicId,
-          assoc.service_id,
-          assoc.concern_id,
-          assoc.raw_service_name,
-          assoc.raw_concern_name,
-          assoc.source_url,
-        ]
-      );
-    }
   });
   tcLog(domain, "saved", {
-    standaloneConcerns: standaloneConcernRows.size,
-    associations: associations.length,
+    concernsSaved: standaloneConcernRows.size,
     createdConcerns: createdConcerns.length,
     ms: Date.now() - started,
   });
@@ -817,10 +734,10 @@ export async function ingestTreatmentsAndConcernsByDomain(
     servicesUnmatched: svcResult.unmatched,
     concernsFound: extracted.concerns.length,
     concernsSaved: standaloneConcernRows.size,
-    mappingsFound: allMappings.length,
-    mappingsSaved: associations.length,
+    mappingsFound: 0,
+    mappingsSaved: 0,
     createdConcerns,
-    associations,
+    associations: [],
     modelUsed,
     usage,
   };

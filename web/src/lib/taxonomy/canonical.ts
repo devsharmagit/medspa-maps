@@ -670,6 +670,11 @@ const NON_SERVICE_JUNK = new Set<string>([
   "laser and wellness", "medical lasers", "injectables", "skincare",
   "medical grade skincare", "medical-grade skincare", "in the media",
   "self assessment", "pre and post care", "products", "shop products",
+  // bare category headers (never a specific treatment label)
+  "surgical", "non surgical", "for men", "for women", "for her", "for him",
+  "face", "body", "skin", "hair", "laser", "lasers", "aesthetics", "aesthetic",
+  "medical spa", "med spa", "medical spa services", "neurowellness",
+  "regenerative", "skin resurfacing and skin tightening", "location", "locations",
   // marketing / loyalty / billing / footer
   "sitemap", "testimonials", "press release", "read the post", "rewards programs",
   "vip membership", "purchase a gift", "payment plan", "cherry financing",
@@ -683,6 +688,44 @@ const NON_SERVICE_JUNK = new Set<string>([
   // out-of-scope diagnostics / testing (not aesthetic treatments)
   "diagnostic testing", "biological age testing", "cancer screening",
   "gut health testing", "body composition analysis", "functional medicine",
+]);
+
+// Financing / loyalty / rewards brands & programs — never a treatment.
+// (Substring match, so "Allē Cherry", "Cherry Financing", "Alle Rewards" etc.
+// are all caught even when combined with other words.)
+const FINANCING_LOYALTY_RE =
+  /\b(all[eē]|allergan rewards|cherry|care\s?credit|patient\s?fi|klarna|affirm|sunbit|greensky|scratchpay|prosper\s?healthcare|financ(?:e|ing)|payment\s?plans?|rewards?\s?program|loyalty|membership|brilliant\s?distinctions|aspire\s?rewards|gift\s?cards?)\b/i;
+
+// Page / nav / form / social chrome (multi-word variants the exact set misses).
+const PAGE_NAV_RE =
+  /^(contact\b|location\b|directions\b|records?\s?request|request\s+(an?\s+)?appointment|patient\s+forms?|new\s+patient|opt\s?into|text\s?alerts?|free\s+skin\s+analysis|book\s+online)|\b(location|locations)\s*$|opens?\s+in\s+(a\s+)?new\s+(window|tab)|\bpage\s+opens\b/i;
+
+// Blog / SEO article & question titles ("How X…", "Why Y…", "Maintain your…").
+const BLOG_TITLE_RE =
+  /^(how|why|what|when|where|which|who|maintain(?:ing)?|protect(?:ing)?|understand(?:ing)?|everything\s+you|the\s+benefits|is|are|can|should|does)\b/i;
+
+// SEO location-suffix pages ("Botox in Orem", "Facelift in Bismarck, ND").
+const SEO_LOCATION_RE = /\b(?:in|near)\s+[A-Z][a-zA-Z.'-]+(?:,?\s+[A-Z]{2})?\s*$/;
+
+// Patient conditions/goals surfacing AS treatments (they belong in concerns).
+// Only GENERIC "<condition>" / "<condition> treatment" — a modality-specific
+// name like "Cellulite Laser Treatment" or "QWO Cellulite Treatment" is real.
+const CONDITION_AS_SERVICE = new Set<string>([
+  "acne scars", "acne scar", "acne scar treatment", "acne scar treatments",
+  "acne and scar treatments", "acne treatment", "hair loss treatment",
+  "cellulite treatment", "wrinkle treatment", "wrinkle treatments",
+  "melasma treatment", "rosacea treatment", "pigmentation treatment",
+  "sun damage treatment", "stretch mark treatment", "stretch mark treatments",
+  "toenail fungus", "double chin treatment",
+]);
+
+// Treatments/procedures/goals & bare body areas that are NOT patient concerns
+// (they leak into the concern catalog from menus/filler-area lists).
+const CONCERN_NON_CONDITION = new Set<string>([
+  "body contouring", "skin tightening", "skin rejuvenation", "body enhancement",
+  "face enhancement", "breast enhancement", "skin resurfacing",
+  "jawline", "jaw", "temples", "temple", "hands", "hand", "lips", "lip",
+  "face", "neck", "body", "cheeks", "cheek", "brows", "eyes",
 ]);
 
 /**
@@ -775,16 +818,50 @@ export function isServiceNoise(name: string): boolean {
   // nav / CTA / footer / category-header / testing / loyalty chrome
   if (NOISE_PREFIX_RE.test(raw)) return true;
   if (LEADING_JUNK_RE.test(raw)) return true;
+  // financing / loyalty programs, page-nav chrome, blog/SEO titles, and
+  // location-suffix SEO pages — none are real treatment labels.
+  if (FINANCING_LOYALTY_RE.test(raw)) return true;
+  if (PAGE_NAV_RE.test(raw)) return true;
+  if (BLOG_TITLE_RE.test(raw)) return true;
+  if (raw.includes(":")) return true; // "CoolTone: How It Works…" — a title, not a treatment
+  if (SEO_LOCATION_RE.test(raw)) return true;
   const norm = normalize(raw);
   if (!norm) return true;
   if (NOISE_EXACT.has(norm)) return true;
   if (NON_SERVICE_JUNK.has(norm)) return true;
+  if (CONDITION_AS_SERVICE.has(norm)) return true; // a concern, not a treatment
   if (/[.!?]/.test(raw) && !/(prp|prf|bbl|ipl|rf|iv|pdo|qwo|ez|vi)\b/i.test(raw)) return true;
   if (
     /\b(diagnostics?|screening|test(?:ing)?|laborator(?:y|ies)|labs?|blood\s*work|bloodwork|panels?|body\s*scan|dexa|inbody|allergy|cancer)\b/i.test(raw)
   ) {
     return true;
   }
+  return false;
+}
+
+/**
+ * isConcernNoise(name) — deterministic backstop for the AI concern path. True
+ * for chrome/financing/blog junk (shared with services) PLUS treatments,
+ * procedures, and bare body areas that are NOT patient conditions.
+ */
+export function isConcernNoise(name: string): boolean {
+  const raw = (name ?? "").trim();
+  if (raw.length < 3 || raw.length > 60) return true;
+  if (!/[a-z]/i.test(raw)) return true;
+  if (/https?:\/\//i.test(raw)) return true;
+  if (/^@/.test(raw) || raw.includes("@")) return true;
+  if (NOISE_PREFIX_RE.test(raw)) return true;
+  if (LEADING_JUNK_RE.test(raw)) return true;
+  if (FINANCING_LOYALTY_RE.test(raw)) return true;
+  if (PAGE_NAV_RE.test(raw)) return true;
+  if (BLOG_TITLE_RE.test(raw)) return true;
+  if (raw.includes(":")) return true;
+  if (SEO_LOCATION_RE.test(raw)) return true;
+  const norm = normalize(raw);
+  if (!norm) return true;
+  if (NOISE_EXACT.has(norm)) return true;
+  if (NON_SERVICE_JUNK.has(norm)) return true;
+  if (CONCERN_NON_CONDITION.has(norm)) return true;
   return false;
 }
 

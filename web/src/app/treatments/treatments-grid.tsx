@@ -10,7 +10,7 @@ import { treatmentImage } from "@/lib/images/catalog-images";
 function TreatmentCard({ t, index }: { t: TreatmentListItem; index: number }) {
   return (
     <Link
-      href={`/treatments/${t.slug}`}
+      href={`/search?q=${t.slug}`}
       className="group flex flex-col overflow-hidden rounded-[18px] border border-[#F0E2EC] bg-white shadow-[0px_6px_14px_rgba(170,78,179,0.06)] transition-all duration-300 hover:-translate-y-1 hover:border-[#E3CED8] hover:shadow-[0px_16px_34px_rgba(170,78,179,0.14)]"
     >
       <div className="relative h-[200px] w-full overflow-hidden bg-[linear-gradient(144.23deg,#F5F0F7_-33.1%,#FFFFFF_48.72%)]">
@@ -35,13 +35,8 @@ function TreatmentCard({ t, index }: { t: TreatmentListItem; index: number }) {
         <h3 className="mb-2 text-[19px] font-semibold tracking-[-0.01em] text-[#373634] transition-colors group-hover:text-[#9b3a6e]">
           {t.name}
         </h3>
-        {t.summary && (
-          <p className="mb-5 line-clamp-3 flex-1 text-[13.5px] leading-[1.6] text-[#6b6a68]">
-            {t.summary}
-          </p>
-        )}
         <div className="mt-auto inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#CF5B9D]">
-          View Treatment
+          Find Clinics
           <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" />
         </div>
       </div>
@@ -55,15 +50,8 @@ export function TreatmentsGrid({ treatments }: { treatments: TreatmentListItem[]
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return treatments;
-    return treatments.filter(
-      (t) =>
-        t.name.toLowerCase().includes(q) ||
-        (t.summary ?? "").toLowerCase().includes(q)
-    );
+    return treatments.filter((t) => t.name.toLowerCase().includes(q));
   }, [query, treatments]);
-
-  const featured = filtered.filter((t) => t.has_content);
-  const more = filtered.filter((t) => !t.has_content);
 
   return (
     <div>
@@ -85,31 +73,11 @@ export function TreatmentsGrid({ treatments }: { treatments: TreatmentListItem[]
         </div>
       </div>
 
-      {featured.length > 0 && (
-        <section className="mb-12">
-          {!query && (
-            <h2 className="mb-6 font-montserrat text-[22px] text-[#373634]">
-              Featured <span className="font-fraunces italic">Treatments</span>
-            </h2>
-          )}
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {featured.map((t, idx) => (
-              <TreatmentCard key={t.slug} t={t} index={idx} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {more.length > 0 && (
+      {filtered.length > 0 && (
         <section className="mb-4">
-          {!query && (
-            <h2 className="mb-6 font-montserrat text-[22px] text-[#373634]">
-              All <span className="font-fraunces italic">Treatments</span>
-            </h2>
-          )}
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {more.map((t, idx) => (
-              <TreatmentCard key={t.slug} t={t} index={featured.length + idx} />
+            {filtered.map((t, idx) => (
+              <TreatmentCard key={t.slug} t={t} index={idx} />
             ))}
           </div>
         </section>

@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   AlertTriangle,
-  BarChart3,
   Building2,
   CheckCircle2,
   ExternalLink,
@@ -97,7 +96,6 @@ interface LocationRef {
 
 interface ClinicFull {
   id: string;
-  business_id: string;
   name: string;
   slug: string;
   tagline: string | null;
@@ -106,12 +104,7 @@ interface ClinicFull {
   booking_url: string | null;
   google_maps_url: string | null;
   address: string | null;
-  city: string | null;
-  state: string | null;
-  zip: string | null;
   country: string | null;
-  lat: string | null;
-  lng: string | null;
   phone: string | null;
   email: string | null;
   hours: Record<string, unknown> | null;
@@ -125,12 +118,6 @@ interface ClinicFull {
   google_my_business: string | null;
   ext_rating: string | null;
   ext_review_count: number | null;
-  founded_year: number | null;
-  stat_experts: string | null;
-  stat_cities: string | null;
-  stat_treatments: string | null;
-  stat_rating: string | null;
-  stat_patients: string | null;
   is_active: boolean;
   images: ImageRef[];
   locations: LocationRef[];
@@ -152,12 +139,6 @@ interface FormState {
   google_my_business: string;
   ext_rating: string;
   ext_review_count: string;
-  founded_year: string;
-  stat_experts: string;
-  stat_cities: string;
-  stat_treatments: string;
-  stat_rating: string;
-  stat_patients: string;
 }
 
 interface LocationForm {
@@ -272,12 +253,7 @@ function fromClinicFallback(c: ClinicFull): LocationForm {
   return {
     ...emptyLocation(0),
     address: s(c.address),
-    city: s(c.city),
-    state: s(c.state),
-    zip: s(c.zip),
     country: s(c.country) || "US",
-    lat: s(c.lat),
-    lng: s(c.lng),
     phone: s(c.phone),
     email: s(c.email),
     booking_url: s(c.booking_url),
@@ -322,12 +298,6 @@ export default function EditClinicPage(props: {
     google_my_business: "",
     ext_rating: "",
     ext_review_count: "",
-    founded_year: "",
-    stat_experts: "",
-    stat_cities: "",
-    stat_treatments: "",
-    stat_rating: "",
-    stat_patients: "",
   });
 
   useEffect(() => {
@@ -375,12 +345,6 @@ export default function EditClinicPage(props: {
           google_my_business: s(c.google_my_business),
           ext_rating: s(c.ext_rating),
           ext_review_count: s(c.ext_review_count),
-          founded_year: s(c.founded_year),
-          stat_experts: s(c.stat_experts),
-          stat_cities: s(c.stat_cities),
-          stat_treatments: s(c.stat_treatments),
-          stat_rating: s(c.stat_rating),
-          stat_patients: s(c.stat_patients),
         });
         setError(null);
       })
@@ -516,8 +480,9 @@ export default function EditClinicPage(props: {
       normalizedLocations.find((loc) => loc.is_primary) ?? normalizedLocations[0];
     const ratingStr = form.ext_rating.trim();
     const reviewStr = form.ext_review_count.trim();
-    const foundedStr = form.founded_year.trim();
 
+    // Clinic-level address/geo now live ONLY on clinic_locations — the clinic
+    // row keeps a plain headline `address`/`country` but no city/state/zip/geo.
     const clinicPayload: Record<string, unknown> = {
       name: form.name.trim(),
       slug: form.slug.trim() || undefined,
@@ -527,12 +492,7 @@ export default function EditClinicPage(props: {
       about: nullable(form.about),
       tagline: nullable(form.tagline),
       address: nullable(primary.address),
-      city: nullable(primary.city),
-      state: nullable(primary.state),
-      zip: nullable(primary.zip),
       country: nullable(primary.country) ?? "US",
-      lat: numberOrNull(primary.lat),
-      lng: numberOrNull(primary.lng),
       phone: nullable(primary.phone),
       email: nullable(primary.email),
       instagram_url: nullable(form.instagram_url),
@@ -546,12 +506,6 @@ export default function EditClinicPage(props: {
       hours: hoursPayload(primary.hours),
       ext_rating: ratingStr === "" ? null : Number(ratingStr),
       ext_review_count: reviewStr === "" ? null : parseInt(reviewStr, 10),
-      founded_year: foundedStr === "" ? null : parseInt(foundedStr, 10),
-      stat_experts: nullable(form.stat_experts),
-      stat_cities: nullable(form.stat_cities),
-      stat_treatments: nullable(form.stat_treatments),
-      stat_rating: nullable(form.stat_rating),
-      stat_patients: nullable(form.stat_patients),
       is_active: isActive,
     };
 
@@ -702,15 +656,6 @@ export default function EditClinicPage(props: {
                 className="h-9"
               />
             </Field>
-            <Field label="Founded Year">
-              <Input
-                inputMode="numeric"
-                placeholder="e.g. 2018"
-                value={form.founded_year}
-                onChange={(e) => update("founded_year", e.target.value)}
-                className="h-9"
-              />
-            </Field>
             <Field label="Published">
               <label className="flex h-9 cursor-pointer items-center gap-2 rounded-lg border border-slate-200 px-3 text-sm text-slate-700">
                 <input
@@ -776,62 +721,6 @@ export default function EditClinicPage(props: {
               <Input value={form.google_my_business} onChange={(e) => update("google_my_business", e.target.value)} className="h-9" placeholder="https://maps.google.com/..." />
             </Field>
           </div>
-        </CardContent>
-      </Card>
-
-      <Card className="border-slate-200 shadow-sm">
-        <CardHeader className="border-b border-slate-100 bg-slate-50/50 pb-4">
-          <CardTitle className="flex items-center gap-2 text-base font-semibold text-slate-800">
-            <BarChart3 size={16} style={{ color: BRAND }} />
-            Hero stats
-          </CardTitle>
-          <p className="text-xs text-slate-500">
-            The five numbers shown in the “About + Stats” row on the clinic page.
-            Type the exact value to display (e.g. <code>20+</code>, <code>10k+</code>,{" "}
-            <code>5.0</code>). Leave a field blank to auto-calculate it.
-          </p>
-        </CardHeader>
-        <CardContent className="grid grid-cols-2 gap-4 p-6 sm:grid-cols-3">
-          <Field label="Certified experts">
-            <Input
-              value={form.stat_experts}
-              onChange={(e) => update("stat_experts", e.target.value)}
-              placeholder="auto — e.g. 20+"
-              className="h-9"
-            />
-          </Field>
-          <Field label="Cities covered">
-            <Input
-              value={form.stat_cities}
-              onChange={(e) => update("stat_cities", e.target.value)}
-              placeholder="auto — e.g. 8"
-              className="h-9"
-            />
-          </Field>
-          <Field label="Advanced treatments">
-            <Input
-              value={form.stat_treatments}
-              onChange={(e) => update("stat_treatments", e.target.value)}
-              placeholder="auto — e.g. 50+"
-              className="h-9"
-            />
-          </Field>
-          <Field label="Average rating">
-            <Input
-              value={form.stat_rating}
-              onChange={(e) => update("stat_rating", e.target.value)}
-              placeholder="auto — e.g. 5.0"
-              className="h-9"
-            />
-          </Field>
-          <Field label="Patients transformed">
-            <Input
-              value={form.stat_patients}
-              onChange={(e) => update("stat_patients", e.target.value)}
-              placeholder="auto — e.g. 10k+"
-              className="h-9"
-            />
-          </Field>
         </CardContent>
       </Card>
 

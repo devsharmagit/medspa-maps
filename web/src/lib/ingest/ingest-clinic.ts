@@ -63,6 +63,7 @@ import {
   scanPageForBeforeAfter,
   resolveBeforeAfter,
 } from "@/lib/ingest/before-after";
+import { resolveClinicRating } from "@/lib/ratings/fetch-rating";
 
 const GALLERY_PHOTO_CAP = 5;
 const PROVIDER_CAP = 10;
@@ -85,7 +86,7 @@ export interface IngestResult {
 }
 
 /**
- * Optional G99 provenance to stamp onto the saved business/clinic. This module
+ * Optional G99 provenance to stamp onto the saved clinic. This module
  * NEVER queries G99 itself (website-only invariant) — the caller (e.g. the admin
  * "Add website with AI" route) does the harvest-table lookup and passes the ids
  * in, and saveClinicBundle applies the stamp.
@@ -105,10 +106,19 @@ export interface IngestOptions {
  *  Operates on a DETACHED clone: the same $home is reused for image extraction,
  *  which needs <head>/<style>/<script> intact (og:image, CSS-background heroes,
  *  preload-hero links, schema.org logo). Mutating it here silently gutted the
- *  cover/logo detection. */
-export function htmlToText($: CheerioAPI): string {
+ *  cover/logo detection.
+ *
+ *  Always removes <nav> menus and cookie/consent banners (pure boilerplate noise
+ *  that repeats on every page and distracts the model). With `stripChrome`, also
+ *  removes <header>/<footer> — use that for the treatments/concerns pass, but NOT
+ *  for the details pass, where addresses/hours/phone frequently live in the footer. */
+export function htmlToText($: CheerioAPI, opts: { stripChrome?: boolean } = {}): string {
   const $c = load($.html());
   $c("script,style,noscript,svg,iframe,head").remove();
+  // Nav menus + cookie/consent/GDPR banners: always noise for extraction.
+  $c("nav,[role=navigation]").remove();
+  $c('[class*="cookie" i],[id*="cookie" i],[class*="consent" i],[id*="consent" i],[class*="gdpr" i],[id*="gdpr" i]').remove();
+  if (opts.stripChrome) $c("header,footer,[role=banner],[role=contentinfo]").remove();
   const html = $c("body").html() ?? $c.html() ?? "";
   return html
     .replace(/<[^>]+>/g, " ")
@@ -125,6 +135,27 @@ function locKey(l: SaveLocation): string {
   if (l.city) return `c:${l.city.toLowerCase().trim()}|${(l.state ?? "").toLowerCase()}`;
   if (l.address) return `a:${l.address.toLowerCase().replace(/\s+/g, " ").trim()}`;
   return "";
+}
+
+// Non-photo images that must NEVER be used as the hero cover (or gallery): the
+// classic "logo as cover" culprits (the og:image social-sharing card is a logo
+// on a plain background — landscape, so it passes the dimension check), partner
+// badges (CareCredit, financing), and text/banner/category-nav graphics. A hero
+// must be a real photo; if none qualifies we ship NO cover (clean placeholder)
+// rather than a graphic pretending to be one.
+const NON_PHOTO_IMG_RE =
+  /(?:^|[/_-])(logos?|wordmark|brand(?:ing)?|favicons?|icons?|badges?|seal|awards?|sponsors?|social[-_]?shar\w*|og[-_]?images?|url[-_]?images?|sharing|carecredit|patientfi|cherry(?:payments)?|financing|banners?|cta|categor(?:y|ies)|menu|text|placeholder|herospace|maps?|staticmaps?|mapbox|streetview|mock-?ups?|e-?books?|book-?mock)(?:[/_.-]|$)/i;
+
+function isNonPhotoImage(url: string | null | undefined, alt?: string | null): boolean {
+  if (!url) return false;
+  let file = url;
+  try {
+    file = new URL(url).pathname.split("/").pop() || url;
+  } catch {
+    /* keep raw */
+  }
+  if (NON_PHOTO_IMG_RE.test(file)) return true;
+  return !!alt && /\b(logo|carecredit|financing|award)\b/i.test(alt);
 }
 
 function toSaveLocation(x: {
@@ -266,7 +297,12 @@ export async function ingestClinicByDomain(
     escalated = true;
   }
   let aiLocs = extracted.locations.map(aiToLoc);
-  if (!escalated && aiLocs.length === 0) {
+  // Only escalate on zero-locations when the pages actually contain an address
+  // signal (a "<ST> <ZIP>" pattern) the cheap model may have missed. A genuinely
+  // address-less site (booking-only, no physical address on page) would otherwise
+  // trigger a full gpt-4o rerun on every ingest for nothing.
+  const hasAddressSignal = pages.some((p) => /\b[A-Z]{2}\s*,?\s*\d{5}(?:-\d{4})?\b/.test(p.text));
+  if (!escalated && aiLocs.length === 0 && hasAddressSignal) {
     const out = await extractClinicDetails({ ...aiInput, model: ESCALATION_MODEL, useVision: false });
     extracted = out.data;
     modelUsed = out.model;
@@ -308,6 +344,8 @@ export async function ingestClinicByDomain(
   const logoUrl = validImg(extracted.logo_url) ?? hLogo?.source_url ?? null;
   let galleryUrls = (extracted.gallery_image_urls ?? []).filter((u) => candUrls.has(u));
   if (galleryUrls.length === 0) galleryUrls = hGallery.map((g) => g.source_url);
+  // Never let a branding/social-share/badge image sit in the gallery either.
+  galleryUrls = galleryUrls.filter((u) => !isNonPhotoImage(u, altOf(u)));
 
   // Cover DIMENSION check — the hero slot is landscape, so a portrait photo
   // (e.g. a 706x1024 "welcome pic") must never become the cover, regardless of
@@ -319,7 +357,9 @@ export async function ingestClinicByDomain(
   const coverRanked = [
     ...new Set(
       [validImg(extracted.cover_image_url), hCover?.source_url, ...galleryUrls].filter(
-        (u): u is string => !!u && u !== logoUrl
+        // Exclude the logo AND any branding/social-share card so the hero is a
+        // real photo (or nothing) — never a logo masquerading as a cover.
+        (u): u is string => !!u && u !== logoUrl && !isNonPhotoImage(u, altOf(u))
       )
     ),
   ];
@@ -441,6 +481,29 @@ export async function ingestClinicByDomain(
     }
   }
 
+  // 5c) external rating + review count — free website schema.org AggregateRating
+  //     scrape first, then Google Places (New) fallback when a key is configured.
+  //     Best-effort: never fails the ingest, and a null result leaves any
+  //     existing ext_rating untouched (saveClinicBundle only writes when non-null).
+  let extRating: number | null = null;
+  let extReviewCount: number | null = null;
+  try {
+    const ratingQuery = [firstNonEmpty(extracted.business_name, domain), merged[0]?.city, merged[0]?.state]
+      .filter(Boolean)
+      .join(", ");
+    const r = await resolveClinicRating({
+      website: finalUrl,
+      placeId: opts.g99?.google_place_id ?? null,
+      query: ratingQuery || null,
+    });
+    if (r) {
+      extRating = r.rating;
+      extReviewCount = r.reviewCount;
+    }
+  } catch {
+    // ratings are best-effort — ignore failures
+  }
+
   // 6) persist — clinic-wide fields on the clinic; every location independent
   //    (no primary); services mapped to canonical treatments; no reviews.
   const clinic: SaveClinicLevel = {
@@ -463,6 +526,9 @@ export async function ingestClinicByDomain(
     website: finalUrl,
     business: { name: firstNonEmpty(extracted.business_name, domain) ?? domain },
     clinic,
+    // External rating + review count (best-effort, null when not found).
+    ext_rating: extRating,
+    ext_review_count: extReviewCount,
     locations: merged,
     // services intentionally OMITTED — this pipeline no longer extracts
     // treatments (see ingest/ingest-services.ts); omitting the field (vs. [])

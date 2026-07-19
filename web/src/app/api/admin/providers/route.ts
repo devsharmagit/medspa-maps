@@ -9,7 +9,7 @@ interface ProviderListItem {
   title: string | null;
   image_url: string | null;
   is_verified: boolean;
-  years_experience: number | null;
+  card_tagline: string | null;
   is_active: boolean;
   created_at: string;
   clinic_name: string;
@@ -22,7 +22,7 @@ export async function GET() {
 
     const providers = await query<ProviderListItem>(
       `SELECT p.id, p.clinic_id, p.name, p.title, p.image_url, p.is_verified,
-              p.years_experience, p.is_active, p.created_at, c.name AS clinic_name
+              p.card_tagline, p.is_active, p.created_at, c.name AS clinic_name
          FROM providers p
          JOIN clinics c ON c.id = p.clinic_id
         ORDER BY c.name ASC, p.name ASC`

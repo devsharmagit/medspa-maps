@@ -3,14 +3,12 @@ import pool from "@/lib/db";
 
 export async function GET() {
   try {
-    // Prefer public-approved canonical services; fall back to distinct raw names
+    // Prefer active canonical services; fall back to distinct raw names
     // only when no service catalog exists.
     const canonical = await pool.query(
       `SELECT id, name, slug
          FROM services
         WHERE is_active = TRUE
-          AND COALESCE(is_published, true) = TRUE
-          AND COALESCE(review_status, 'approved') = 'approved'
           AND name !~* '(dentistry|dental|orthodont|veneer)'
         ORDER BY name`
     );

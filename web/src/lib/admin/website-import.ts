@@ -28,16 +28,8 @@ function importLog(domain: string, stage: string, data?: Record<string, unknown>
 
 async function cleanupNewPartialClinic(clinicId?: string | null): Promise<void> {
   if (!clinicId) return;
-  const row = await query<{ business_id: string }>(
-    `SELECT business_id FROM clinics WHERE id = $1`,
-    [clinicId]
-  );
-  const businessId = row[0]?.business_id;
+  // Deleting the clinic cascades to its child rows (locations/services/etc.).
   await query(`DELETE FROM clinics WHERE id = $1`, [clinicId]);
-  if (businessId) {
-    const siblings = await query(`SELECT id FROM clinics WHERE business_id = $1 LIMIT 1`, [businessId]);
-    if (siblings.length === 0) await query(`DELETE FROM businesses WHERE id = $1`, [businessId]);
-  }
 }
 
 export async function importWebsiteWithAi(url: string): Promise<AdminWebsiteImportResponse> {

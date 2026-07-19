@@ -9,45 +9,21 @@ const patchSchema = z
   .object({
     name: z.string().min(1).max(255),
     slug: z.string().min(1).max(255),
-    category: z.string().max(255).nullable(),
-    aliases: z.array(z.string()),
-    summary: z.string().nullable(),
-    description: z.string().nullable(),
-    treatment_time: z.string().max(255).nullable(),
-    results_timeline: z.string().max(255).nullable(),
-    results_duration: z.string().max(255).nullable(),
-    recovery_time: z.string().max(255).nullable(),
-    faqs: z.array(z.unknown()).nullable(),
-    review_status: z.string().max(50).nullable(),
     is_active: z.boolean(),
   })
   .partial();
-
-// JSONB columns must be passed as JSON strings to the pg driver.
-const JSON_COLUMNS = new Set(["faqs"]);
 
 interface Service {
   id: string;
   name: string;
   slug: string;
-  category: string | null;
-  aliases: string[] | null;
-  summary: string | null;
-  description: string | null;
-  treatment_time: string | null;
-  results_timeline: string | null;
-  results_duration: string | null;
-  recovery_time: string | null;
-  faqs: unknown[] | null;
-  review_status: string | null;
+  origin: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
 }
 
-const SERVICE_COLUMNS = `id, name, slug, category, aliases, summary, description,
-  treatment_time, results_timeline, results_duration, recovery_time,
-  faqs, review_status, is_active, created_at, updated_at`;
+const SERVICE_COLUMNS = `id, name, slug, origin, is_active, created_at, updated_at`;
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -73,7 +49,7 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
   }
 }
 
-// PATCH /api/admin/services/[id] — update any editorial field
+// PATCH /api/admin/services/[id] — update name/slug/is_active
 export async function PATCH(req: NextRequest, { params }: RouteContext) {
   try {
     await requireAdmin();
@@ -88,8 +64,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
     const setClauses: string[] = [];
     const values: unknown[] = [];
     keys.forEach((key) => {
-      const raw = updates[key];
-      values.push(JSON_COLUMNS.has(key) && raw !== null ? JSON.stringify(raw) : raw);
+      values.push(updates[key]);
       setClauses.push(`${key} = $${values.length}`);
     });
     setClauses.push("updated_at = now()");
@@ -115,7 +90,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
 
 // DELETE /api/admin/services/[id] — permanent delete.
 // clinic_services / reviews links are nulled (ON DELETE SET NULL) and
-// concern_services / provider_services links cascade away.
+// clinic_service_concerns / provider_services links cascade away.
 export async function DELETE(_req: NextRequest, { params }: RouteContext) {
   try {
     await requireAdmin();

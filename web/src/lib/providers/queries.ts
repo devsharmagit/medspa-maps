@@ -9,7 +9,7 @@ export async function getProvidersByClinicId(
 ): Promise<ProviderSummary[]> {
   return query<ProviderSummary>(
     `SELECT id, clinic_id, name, title, image_url, is_verified,
-            years_experience, is_active, created_at
+            is_active, created_at
        FROM providers
       WHERE clinic_id = $1
       ORDER BY created_at ASC`,
@@ -17,42 +17,35 @@ export async function getProvidersByClinicId(
   );
 }
 
-/** Slim provider row used on the public concern page's provider grid. */
+/** Slim provider row used on the public provider grids. */
 export interface ConcernProvider {
   id: string;
   name: string;
   title: string | null;
   card_tagline: string | null;
   image_url: string | null;
-  years_experience: number | null;
   is_verified: boolean;
   clinic_slug: string;
   clinic_name: string;
-  avg_rating: string | null;
-  review_rating: string | null;
-  review_count: number;
 }
 
 /**
- * Fetch providers at clinics that treat the given concern.
- * Sorted (in JS) featured DESC, is_verified DESC, avg_rating DESC and capped.
+ * Fetch providers at clinics that treat the given concern, or explicitly linked
+ * to it. Sorted (in JS) featured-clinic DESC, is_verified DESC and capped.
  */
 export async function getProvidersByConcernId(
   concernId: string
 ): Promise<ConcernProvider[]> {
-  type Row = ConcernProvider & { featured: boolean; verified: boolean };
+  type Row = ConcernProvider & { featured: boolean };
 
-  // A provider shows on a concern page when ANY of these hold:
-  //  1. explicitly linked to the concern        (provider_concerns)
-  //  2. performs a treatment that treats it      (provider_services → concern_services)
-  //  3. works at a clinic that treats it         (clinic_services → concern_services)
-  // The explicit link (1) lets an admin define a provider for a concern even when
-  // their clinic doesn't otherwise cover it; (2)/(3) keep the list populated.
+  // A provider shows on a concern page when EITHER:
+  //  1. explicitly linked to the concern (provider_concerns), OR
+  //  2. works at a clinic with effective membership for the concern
+  //     (clinic_concerns, source scraped/manual, active).
   const rows = await query<Row>(
     `SELECT DISTINCT ON (pr.id)
-       pr.id, pr.name, pr.title, pr.card_tagline, pr.image_url, pr.years_experience,
-       pr.is_verified, pr.review_rating, pr.review_count,
-       cl.slug AS clinic_slug, cl.name AS clinic_name, cl.featured, cl.verified, cl.avg_rating
+       pr.id, pr.name, pr.title, pr.card_tagline, pr.image_url, pr.is_verified,
+       cl.slug AS clinic_slug, cl.name AS clinic_name, cl.featured
      FROM providers pr
      JOIN clinics cl ON cl.id = pr.clinic_id AND cl.is_active = true
      WHERE pr.is_active = true
@@ -62,15 +55,9 @@ export async function getProvidersByConcernId(
             WHERE pc.provider_id = pr.id AND pc.concern_id = $1
          )
          OR EXISTS (
-           SELECT 1 FROM provider_services ps
-             JOIN concern_services cs ON cs.service_id = ps.service_id
-            WHERE ps.provider_id = pr.id AND cs.concern_id = $1
-         )
-         OR EXISTS (
-           SELECT 1 FROM clinic_services cls
-             JOIN concern_services cs2 ON cs2.service_id = cls.service_id
-            WHERE cls.clinic_id = pr.clinic_id AND cls.is_active = true
-              AND cs2.concern_id = $1
+           SELECT 1 FROM clinic_concerns cc
+            WHERE cc.clinic_id = pr.clinic_id AND cc.concern_id = $1
+              AND cc.is_active = true AND cc.source IN ('scraped', 'manual')
          )
        )
      ORDER BY pr.id`,
@@ -81,46 +68,43 @@ export async function getProvidersByConcernId(
     .sort((a, b) => {
       if (a.featured !== b.featured) return a.featured ? -1 : 1;
       if (a.is_verified !== b.is_verified) return a.is_verified ? -1 : 1;
-      return (Number(b.avg_rating) || 0) - (Number(a.avg_rating) || 0);
+      return 0;
     })
     .slice(0, 12)
-    .map(({ featured: _featured, verified: _verified, ...p }) => p);
+    .map(({ featured: _featured, ...p }) => p);
 }
 
 /**
- * Fetch active providers, sorted by featured clinic status, then verified, then
- * rating. Pass `limit` to cap the result (e.g. the landing-page spotlight).
+ * Fetch active providers, sorted by featured clinic status, then verified.
+ * Pass `limit` to cap the result (e.g. the landing-page spotlight).
  */
 export async function getAllProviders(
   limit?: number,
   opts: { requireImage?: boolean } = {}
 ): Promise<ConcernProvider[]> {
-  type Row = ConcernProvider & { featured: boolean; verified: boolean };
+  type Row = ConcernProvider & { featured: boolean };
 
   const rows = await query<Row>(
     `SELECT
-       pr.id, pr.name, pr.title, pr.card_tagline, pr.image_url, pr.years_experience,
-       pr.is_verified, pr.review_rating, pr.review_count,
-       cl.slug AS clinic_slug, cl.name AS clinic_name, cl.featured, cl.verified, cl.avg_rating
+       pr.id, pr.name, pr.title, pr.card_tagline, pr.image_url, pr.is_verified,
+       cl.slug AS clinic_slug, cl.name AS clinic_name, cl.featured
      FROM providers pr
      JOIN clinics cl ON cl.id = pr.clinic_id AND cl.is_active = true
      WHERE pr.is_active = true
        ${opts.requireImage ? "AND pr.image_url IS NOT NULL AND pr.image_url <> ''" : ""}
-     ORDER BY cl.featured DESC, pr.is_verified DESC, pr.review_rating DESC NULLS LAST
+     ORDER BY cl.featured DESC, pr.is_verified DESC, pr.name
      ${limit != null ? "LIMIT $1" : ""}`,
     limit != null ? [limit] : []
   );
 
-  return rows.map(({ featured: _featured, verified: _verified, ...p }) => p);
+  return rows.map(({ featured: _featured, ...p }) => p);
 }
 
 /** Fetch a single full provider row by ID. */
 export async function getProviderById(id: string): Promise<Provider | null> {
   return queryOne<Provider>(
-    `SELECT id, clinic_id, name, title, bio, card_tagline, review_rating,
-            review_count, image_url, years_experience,
-            is_verified, highlights, credentials, specialties,
-            is_active, created_at, updated_at
+    `SELECT id, clinic_id, name, title, card_tagline, image_url,
+            is_verified, is_active, created_at, updated_at
        FROM providers
       WHERE id = $1`,
     [id]
@@ -159,45 +143,20 @@ export async function createProvider(
   const {
     name,
     title = null,
-    bio = null,
     card_tagline = null,
-    review_rating = null,
-    review_count = 0,
     image_url = null,
-    years_experience = null,
     is_verified = false,
-    highlights = [],
-    credentials = [],
-    specialties = [],
     service_ids = [],
     concern_ids = [],
   } = payload;
 
   const rows = await query<Provider>(
     `INSERT INTO providers
-       (clinic_id, name, title, bio, card_tagline, review_rating, review_count,
-        image_url, years_experience,
-        is_verified, highlights, credentials, specialties)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-     RETURNING id, clinic_id, name, title, bio, card_tagline, review_rating,
-               review_count, image_url, years_experience,
-               is_verified, highlights, credentials, specialties,
-               is_active, created_at, updated_at`,
-    [
-      clinicId,
-      name,
-      title,
-      bio,
-      card_tagline,
-      review_rating,
-      review_count ?? 0,
-      image_url,
-      years_experience,
-      is_verified,
-      JSON.stringify(highlights),
-      JSON.stringify(credentials),
-      JSON.stringify(specialties),
-    ]
+       (clinic_id, name, title, card_tagline, image_url, is_verified)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     RETURNING id, clinic_id, name, title, card_tagline, image_url,
+               is_verified, is_active, created_at, updated_at`,
+    [clinicId, name, title, card_tagline, image_url, is_verified]
   );
 
   const provider = rows[0];
@@ -219,57 +178,27 @@ export async function updateProvider(
   id: string,
   payload: Partial<ProviderPayload>
 ): Promise<Provider | null> {
-  const {
-    name,
-    title,
-    bio,
-    card_tagline,
-    review_rating,
-    review_count,
-    image_url,
-    years_experience,
-    is_verified,
-    highlights,
-    credentials,
-    specialties,
-    service_ids,
-    concern_ids,
-  } = payload;
+  const { name, title, card_tagline, image_url, is_verified, service_ids, concern_ids } =
+    payload;
 
   const rows = await query<Provider>(
     `UPDATE providers SET
-       name             = COALESCE($2, name),
-       title            = COALESCE($3, title),
-       bio              = COALESCE($4, bio),
-       card_tagline     = COALESCE($5, card_tagline),
-       review_rating    = COALESCE($6, review_rating),
-       review_count     = COALESCE($7, review_count),
-       image_url        = COALESCE($8, image_url),
-       years_experience = COALESCE($9, years_experience),
-       is_verified      = COALESCE($10, is_verified),
-       highlights       = COALESCE($11, highlights),
-       credentials      = COALESCE($12, credentials),
-       specialties      = COALESCE($13, specialties),
-       updated_at       = NOW()
+       name         = COALESCE($2, name),
+       title        = COALESCE($3, title),
+       card_tagline = COALESCE($4, card_tagline),
+       image_url    = COALESCE($5, image_url),
+       is_verified  = COALESCE($6, is_verified),
+       updated_at   = NOW()
      WHERE id = $1
-     RETURNING id, clinic_id, name, title, bio, card_tagline, review_rating,
-               review_count, image_url, years_experience,
-               is_verified, highlights, credentials, specialties,
-               is_active, created_at, updated_at`,
+     RETURNING id, clinic_id, name, title, card_tagline, image_url,
+               is_verified, is_active, created_at, updated_at`,
     [
       id,
       name ?? null,
       title !== undefined ? title : null,
-      bio !== undefined ? bio : null,
       card_tagline !== undefined ? card_tagline : null,
-      review_rating !== undefined ? review_rating : null,
-      review_count !== undefined ? review_count : null,
       image_url !== undefined ? image_url : null,
-      years_experience !== undefined ? years_experience : null,
       is_verified !== undefined ? is_verified : null,
-      highlights ? JSON.stringify(highlights) : null,
-      credentials ? JSON.stringify(credentials) : null,
-      specialties ? JSON.stringify(specialties) : null,
     ]
   );
 
@@ -294,7 +223,7 @@ export async function setProviderActive(
     `UPDATE providers SET is_active = $2, updated_at = NOW()
        WHERE id = $1
        RETURNING id, clinic_id, name, title, image_url, is_verified,
-                 years_experience, is_active, created_at`,
+                 is_active, created_at`,
     [id, isActive]
   );
 }

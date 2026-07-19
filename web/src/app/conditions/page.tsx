@@ -31,7 +31,7 @@ export default function ConditionsIndexPage() {
           {CONCERN_CATALOG.map((concern, index) => (
             <Link
               key={concern.slug}
-              href={`/conditions/${concern.slug}`}
+              href={`/search?condition=${concern.slug}`}
               className="group flex flex-col overflow-hidden rounded-[18px] border border-[#F0E2EC] bg-white shadow-[0px_6px_14px_rgba(170,78,179,0.06)] transition-all duration-300 hover:-translate-y-1 hover:border-[#E3CED8] hover:shadow-[0px_16px_34px_rgba(170,78,179,0.14)]"
             >
               <div className="relative h-[200px] w-full overflow-hidden bg-[linear-gradient(144.23deg,#F5F0F7_-33.1%,#FFFFFF_48.72%)]">
@@ -53,7 +53,7 @@ export default function ConditionsIndexPage() {
                   {concern.overview}
                 </p>
                 <div className="mt-auto inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#CF5B9D]">
-                  View Treatments
+                  Find Clinics
                   <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" />
                 </div>
               </div>

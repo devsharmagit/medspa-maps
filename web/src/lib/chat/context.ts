@@ -65,10 +65,10 @@ function ratingText(rating: number | null, reviews: number): string {
 // Individual blocks
 // ──────────────────────────────────────────────────────────────────────────
 function taxonomyBlock(): string {
-  const t = CANONICAL_SERVICES.map((s) => `${s.name} (/treatments/${s.slug})`).join(
+  const t = CANONICAL_SERVICES.map((s) => `${s.name} (/search?q=${s.slug})`).join(
     "; "
   );
-  const c = CANONICAL_CONCERNS.map((x) => `${x.name} (/conditions/${x.slug})`).join(
+  const c = CANONICAL_CONCERNS.map((x) => `${x.name} (/search?condition=${x.slug})`).join(
     "; "
   );
   return `SITE_TAXONOMY:\nTreatments — ${t}\nConcerns — ${c}`;
@@ -87,14 +87,14 @@ function pageContextBlock(g: GatheredContext): string {
     case "treatment": {
       const svc = CANONICAL_SERVICES.find((s) => s.slug === page.slug);
       body = svc
-        ? `Treatment guide page for "${svc.name}" (/treatments/${svc.slug}).`
+        ? `Treatment guide page for "${svc.name}" (/search?q=${svc.slug}).`
         : "A treatment guide page.";
       break;
     }
     case "concern": {
       const cn = CANONICAL_CONCERNS.find((c) => c.slug === page.slug);
       body = cn
-        ? `Concern guide page for "${cn.name}" (/conditions/${cn.slug}).`
+        ? `Concern guide page for "${cn.name}" (/search?condition=${cn.slug}).`
         : "A concern guide page.";
       break;
     }

@@ -57,18 +57,7 @@ interface Service {
   id: string;
   name: string;
   slug: string;
-  category: string | null;
 }
-
-const PROMOTE_CATEGORIES = [
-  "Injectables",
-  "Skin",
-  "Laser",
-  "Body",
-  "Wellness",
-  "Hair",
-  "Other",
-] as const;
 
 // ---- Toast -----------------------------------------------------------------
 
@@ -535,21 +524,14 @@ function PromoteDialog({
   onError: (msg: string) => void;
 }) {
   const [name, setName] = useState("");
-  const [category, setCategory] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   // reset fields whenever a new item is opened
   useEffect(() => {
     if (item) {
       setName(item.raw_name);
-      setCategory("");
     }
   }, [item]);
-
-  const categoryOptions = useMemo<DropdownOption[]>(
-    () => PROMOTE_CATEGORIES.map((c) => ({ label: c, value: c })),
-    []
-  );
 
   async function submit() {
     if (!item || !name.trim()) return;
@@ -558,7 +540,6 @@ function PromoteDialog({
       await adminPost("/unmatched/promote", {
         rawName: item.raw_name,
         name: name.trim(),
-        ...(category ? { category } : {}),
       });
       onPromoted(item.raw_name, name.trim());
     } catch (err) {
@@ -592,18 +573,6 @@ function PromoteDialog({
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Microneedling"
             />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="promote-category">Category (optional)</Label>
-            <div className="rounded-lg border border-slate-200 bg-white px-3 py-2">
-              <SearchableDropdown
-                options={categoryOptions}
-                value={category}
-                onChange={setCategory}
-                placeholder="Choose a category…"
-              />
-            </div>
           </div>
         </div>
 

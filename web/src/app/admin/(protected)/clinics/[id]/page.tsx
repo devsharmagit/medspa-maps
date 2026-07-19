@@ -5,30 +5,23 @@ import { query, queryOne } from "@/lib/db";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Store, ArrowLeft, Pencil, Building2, UserCircle2, MapPin } from "lucide-react";
+import { Store, ArrowLeft, Pencil, UserCircle2, MapPin } from "lucide-react";
 import Link from "next/link";
-import Image from "next/image";
 
 export const dynamic = "force-dynamic";
 
 interface ClinicDetailed {
   id: string;
-  business_id: string;
   name: string;
   slug: string;
   website: string | null;
-  city: string | null;
-  state: string | null;
   address: string | null;
-  zip: string | null;
   phone: string | null;
   email: string | null;
   booking_url: string | null;
   google_maps_url: string | null;
   about: string | null;
   is_active: boolean;
-  verified: boolean;
-  tier: string;
   created_at: string;
   g99_clinic_id: string | null;
   instagram_url: string | null;
@@ -61,7 +54,6 @@ interface ProviderRow {
   title: string | null;
   image_url: string | null;
   is_verified: boolean;
-  years_experience: number | null;
   is_active: boolean;
 }
 
@@ -77,13 +69,6 @@ interface LocationRow {
   google_maps_url: string | null;
   is_primary: boolean;
   sort_order: number;
-}
-
-interface ChangeRow {
-  id: string;
-  service_name: string;
-  change_type: "added" | "removed";
-  detected_at: string;
 }
 
 export default async function ClinicDetailPage(props: { params: Promise<{ id: string }> }) {
@@ -106,13 +91,11 @@ export default async function ClinicDetailPage(props: { params: Promise<{ id: st
     );
   }
 
-  const [business, images, services, providers, locations, changes] = await Promise.all([
-    queryOne<{ name: string }>("SELECT name FROM businesses WHERE id = $1", [clinic.business_id]),
+  const [images, services, providers, locations] = await Promise.all([
     query<ImageRow>("SELECT * FROM images WHERE entity_type = 'clinic' AND entity_id = $1 ORDER BY sort_order ASC", [id]),
     query<ServiceRow>("SELECT id, raw_name, description, is_active FROM clinic_services WHERE clinic_id = $1 ORDER BY created_at ASC", [id]),
-    query<ProviderRow>("SELECT id, name, title, image_url, is_verified, years_experience, is_active FROM providers WHERE clinic_id = $1 ORDER BY created_at ASC", [id]),
+    query<ProviderRow>("SELECT id, name, title, image_url, is_verified, is_active FROM providers WHERE clinic_id = $1 ORDER BY created_at ASC", [id]),
     query<LocationRow>("SELECT id, label, address, city, state, zip, phone, booking_url, google_maps_url, is_primary, sort_order FROM clinic_locations WHERE clinic_id = $1 AND is_active = true ORDER BY sort_order, created_at ASC", [id]),
-    query<ChangeRow>("SELECT id, service_name, change_type, detected_at FROM clinic_service_changes WHERE clinic_id = $1 ORDER BY detected_at DESC LIMIT 20", [id]),
   ]);
 
   return (
@@ -130,11 +113,6 @@ export default async function ClinicDetailPage(props: { params: Promise<{ id: st
               {clinic.name}
               {!clinic.is_active && <Badge variant="secondary" className="bg-slate-100 text-slate-500">Disabled</Badge>}
             </h2>
-            {business && (
-              <Link href={`/admin/businesses/${clinic.business_id}`} className="text-xs text-brand-purple hover:underline flex items-center gap-1 mt-0.5">
-                <Building2 size={12} /> Part of {business.name}
-              </Link>
-            )}
           </div>
         </div>
         
@@ -155,16 +133,6 @@ export default async function ClinicDetailPage(props: { params: Promise<{ id: st
             </CardHeader>
             <CardContent className="p-6">
               <div className="grid grid-cols-2 gap-y-6 gap-x-8 text-sm">
-                <div>
-                  <p className="text-slate-500 text-xs mb-1.5 uppercase tracking-wider font-semibold">Tier</p>
-                  <p className="capitalize font-medium text-slate-800">{clinic.tier}</p>
-                </div>
-                <div>
-                  <p className="text-slate-500 text-xs mb-1.5 uppercase tracking-wider font-semibold">Verified</p>
-                  <Badge variant={clinic.verified ? "default" : "secondary"} className={clinic.verified ? "bg-blue-50 text-blue-700 hover:bg-blue-50" : ""}>
-                    {clinic.verified ? "Yes" : "No"}
-                  </Badge>
-                </div>
                 <div className="col-span-2">
                   <p className="text-slate-500 text-xs mb-1.5 uppercase tracking-wider font-semibold">About</p>
                   <p className="text-slate-700 whitespace-pre-wrap">{clinic.about || "No description provided."}</p>
@@ -210,7 +178,6 @@ export default async function ClinicDetailPage(props: { params: Promise<{ id: st
                           {!provider.is_active && <Badge variant="outline" className="text-[10px]">Inactive</Badge>}
                         </div>
                         {provider.title && <p className="text-xs text-slate-500 truncate">{provider.title}</p>}
-                        {provider.years_experience && <p className="text-xs text-slate-400">{provider.years_experience}+ yrs experience</p>}
                       </div>
                       <Button asChild variant="ghost" size="sm" className="shrink-0 text-xs h-7">
                         <Link href={`/admin/providers/${provider.id}/edit`}>Edit</Link>
@@ -242,49 +209,6 @@ export default async function ClinicDetailPage(props: { params: Promise<{ id: st
                         {!service.is_active && <Badge variant="outline" className="text-[10px]">Inactive</Badge>}
                       </div>
                       {service.description && <p className="text-xs text-slate-500 line-clamp-2">{service.description}</p>}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Treatment History */}
-          <Card className="shadow-sm border-slate-200">
-            <CardHeader className="border-b border-slate-100 bg-slate-50/50 pb-4 flex flex-row items-center justify-between">
-              <CardTitle className="text-base font-semibold text-slate-800 flex items-center gap-2">
-                Treatment History
-                <Badge variant="secondary" className="font-normal">{changes.length}</Badge>
-              </CardTitle>
-              <Link href="/admin/treatment-changes" className="text-xs text-brand-purple hover:underline">
-                View all
-              </Link>
-            </CardHeader>
-            <CardContent className="p-0">
-              {changes.length === 0 ? (
-                <div className="p-6 text-center text-sm text-slate-500">
-                  No treatment changes detected yet.
-                </div>
-              ) : (
-                <div className="flex flex-col divide-y divide-slate-100">
-                  {changes.map((ch) => (
-                    <div key={ch.id} className="p-4 flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <Badge
-                          variant="outline"
-                          className={
-                            ch.change_type === "added"
-                              ? "text-[10px] text-green-700 border-green-200 bg-green-50"
-                              : "text-[10px] text-red-700 border-red-200 bg-red-50"
-                          }
-                        >
-                          {ch.change_type === "added" ? "Added" : "Removed"}
-                        </Badge>
-                        <span className="text-sm text-slate-800 truncate">{ch.service_name}</span>
-                      </div>
-                      <span className="text-xs text-slate-400 whitespace-nowrap">
-                        {new Date(ch.detected_at).toLocaleDateString()}
-                      </span>
                     </div>
                   ))}
                 </div>

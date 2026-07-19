@@ -1,26 +1,63 @@
 import * as cheerio from "cheerio";
 
+// Legacy bot UA kept for callers that still import it. HTML fetches now use a
+// realistic browser UA (below) because many clinic sites sit behind WAFs
+// (Cloudflare, Sucuri, etc.) that 403 a self-identifying bot outright —
+// silently costing us the whole page and everything on it.
 export const USER_AGENT = "MedSpaMaps-Bot/1.0 (+https://medspamaps.com/bot)";
+export const BROWSER_UA =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 export const FETCH_TIMEOUT_MS = 15_000;
+/** Max attempts (1 initial + retries) for a transient failure. */
+const FETCH_MAX_ATTEMPTS = 3;
 
-/** Fetch HTML from a URL with timeout and error handling */
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Fetch HTML with browser-like headers, a timeout, and retry+backoff on
+ * transient failures (network errors, 429, 5xx). A 4xx other than 429 is
+ * treated as permanent and returns null immediately (no point retrying a 404).
+ * `retry-after` is honored on 429/503. Returns null only after exhausting
+ * retries so a single hiccup never silently drops a page.
+ */
 export async function fetchHtml(url: string): Promise<{ html: string; finalUrl: string } | null> {
-  try {
-    const res = await fetch(url, {
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-      headers: {
-        "User-Agent": USER_AGENT,
-        "Accept": "text/html,application/xhtml+xml",
-        "Accept-Language": "en-US,en;q=0.9",
-      },
-      redirect: "follow",
-    });
-    if (!res.ok) return null;
-    const html = await res.text();
-    return { html, finalUrl: res.url || url };
-  } catch {
-    return null;
+  let lastErr = "";
+  for (let attempt = 1; attempt <= FETCH_MAX_ATTEMPTS; attempt++) {
+    try {
+      const res = await fetch(url, {
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+        headers: {
+          "User-Agent": BROWSER_UA,
+          Accept:
+            "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.9",
+          "Upgrade-Insecure-Requests": "1",
+          "Sec-Fetch-Dest": "document",
+          "Sec-Fetch-Mode": "navigate",
+          "Sec-Fetch-Site": "none",
+        },
+        redirect: "follow",
+      });
+      if (res.ok) {
+        const html = await res.text();
+        return { html, finalUrl: res.url || url };
+      }
+      // Permanent client errors (404/401/403 that isn't rate-limit): don't retry.
+      if (res.status !== 429 && res.status < 500) return null;
+      lastErr = `HTTP ${res.status}`;
+      // Honor Retry-After (seconds) on 429/503, else exponential backoff.
+      const ra = Number(res.headers.get("retry-after"));
+      const backoff = Number.isFinite(ra) && ra > 0
+        ? Math.min(ra * 1000, 15_000)
+        : Math.min(2 ** attempt * 500, 8_000);
+      if (attempt < FETCH_MAX_ATTEMPTS) await sleep(backoff);
+    } catch (err) {
+      lastErr = err instanceof Error ? err.message : "fetch error";
+      if (attempt < FETCH_MAX_ATTEMPTS) await sleep(Math.min(2 ** attempt * 500, 8_000));
+    }
   }
+  if (lastErr) console.warn(`[fetchHtml] gave up on ${url} after ${FETCH_MAX_ATTEMPTS} attempts: ${lastErr}`);
+  return null;
 }
 
 /** Resolve a potentially relative URL against a base */

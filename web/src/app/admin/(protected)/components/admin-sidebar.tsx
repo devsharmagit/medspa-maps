@@ -6,7 +6,6 @@ import {
   LayoutDashboard,
   PlusCircle,
   Store,
-  Building2,
   Sparkles,
   HeartPulse,
   Star,
@@ -14,24 +13,19 @@ import {
   Users,
   DatabaseZap,
   Globe,
-  Mail,
-  History,
   Wand2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/leads", label: "Leads", icon: Mail },
   { href: "/admin/clinics/new", label: "Add Clinic", icon: PlusCircle },
   { href: "/admin/add-website", label: "Add Website (AI)", icon: Wand2 },
   { href: "/admin/g99", label: "G99 Import", icon: DatabaseZap },
   { href: "/admin/g99-websites", label: "G99 Websites", icon: Globe },
   { href: "/admin/clinics", label: "Clinics", icon: Store },
   { href: "/admin/providers", label: "Providers", icon: Users },
-  { href: "/admin/businesses", label: "Businesses", icon: Building2 },
   { href: "/admin/services", label: "Treatments", icon: Sparkles },
-  { href: "/admin/treatment-changes", label: "Treatment Changes", icon: History },
   { href: "/admin/concerns", label: "Concerns", icon: HeartPulse },
   { href: "/admin/reviews", label: "Reviews", icon: Star },
   { href: "/admin/unmatched", label: "Unmatched", icon: Inbox },

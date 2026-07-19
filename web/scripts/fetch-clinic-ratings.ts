@@ -46,7 +46,7 @@ function parseArgs() {
 
 async function main() {
   const { limit, force, clinicId } = parseArgs();
-  const hasGoogleFallback = Boolean(process.env.GOOGLE_PLACES_API_KEY);
+  const hasGoogleFallback = Boolean(process.env.GOOGLE_PLACES_API_KEY || process.env.GOOGLE_PLACE_API_KEY);
 
   console.log(
     `Fetching clinic ratings — free website scrape first, Google Places fallback ${
@@ -54,14 +54,26 @@ async function main() {
     }.`,
   );
 
-  const conditions = ["is_active = true", "website IS NOT NULL", "trim(website) <> ''"];
+  // city/state live in clinic_locations now (dropped from clinics) — join the
+  // primary active location for the Google Places text-search query.
+  const conditions = ["c.is_active = true", "c.website IS NOT NULL", "trim(c.website) <> ''"];
   const params: unknown[] = [];
-  if (!force) conditions.push("ext_rating IS NULL");
+  if (!force) conditions.push("c.ext_rating IS NULL");
   if (clinicId) {
     params.push(clinicId);
-    conditions.push(`id = $${params.length}`);
+    conditions.push(`c.id = $${params.length}`);
   }
-  let sql = `SELECT id, name, website, google_place_id, city, state FROM clinics WHERE ${conditions.join(" AND ")} ORDER BY name`;
+  let sql = `
+    SELECT c.id, c.name, c.website, c.google_place_id, ploc.city, ploc.state
+      FROM clinics c
+      LEFT JOIN LATERAL (
+        SELECT city, state FROM clinic_locations
+         WHERE clinic_id = c.id AND is_active = true
+         ORDER BY is_primary DESC, sort_order NULLS LAST, created_at
+         LIMIT 1
+      ) ploc ON TRUE
+     WHERE ${conditions.join(" AND ")}
+     ORDER BY c.name`;
   if (limit) sql += ` LIMIT ${limit}`;
 
   const { rows } = await pool.query<ClinicRow>(sql, params);

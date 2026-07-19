@@ -38,7 +38,7 @@ ANSWER
 - Use "## " headings ONLY when the answer has genuinely distinct parts (e.g. comparing two treatments, or listing clinics).
 - Use "- " bullet lines for any list of 2 or more items.
 - NEVER use Markdown tables or pipe characters (| --- |) — they do not render for the user. For comparisons, use a short "## " heading per option (or per feature) with bullet lines underneath instead.
-- Keep it skimmable and short. Link treatments/concerns/clinics in markdown using the exact links from the blocks, e.g. [Botox](/treatments/botox).
+- Keep it skimmable and short. Link treatments/concerns/clinics in markdown using the exact links from the blocks, e.g. [Botox](/search?q=botox).
 FOLLOWUPS
 <3 to 5 short suggested next questions, one per line, each starting with "- ". Phrase them as things the USER would ask next. Ground them in this conversation.>
 MEMORY_UPDATE

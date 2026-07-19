@@ -1,42 +1,57 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { ChevronDown, BadgeCheck, Star, ArrowLeft } from "lucide-react";
+import { BadgeCheck, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
 export interface SharedProviderData {
   id: string;
   name: string;
   title: string | null;
-  bio?: string | null;
   card_tagline?: string | null;
   image_url: string | null;
-  years_experience: number | null;
   is_verified?: boolean;
   clinic_slug?: string;
   clinic_name: string;
-  featured?: boolean;
-  verified?: boolean;
   distance_km?: number | null;
-  avg_rating: string | null;
-  review_rating?: string | null;
-  review_count?: number;
 }
 
 const DEFAULT_PHOTO =
   "https://images.stockcake.com/public/1/9/d/19d13828-c999-4e2d-a191-9da4dd8bd824_large/confident-medical-professional-stockcake.jpg";
 
-function providerHref(p: SharedProviderData) {
-  return `/providers/${p.id}/${p.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
-}
 function providerTagline(p: SharedProviderData) {
-  return p.card_tagline?.trim() || (p.bio ? p.bio.split(". ")[0] + "." : "");
+  return p.card_tagline?.trim() || "";
+}
+
+/** Wrap a card in a link to its clinic when a slug is available, else render static. */
+function CardShell({
+  p,
+  className,
+  style,
+  children,
+}: {
+  p: SharedProviderData;
+  className: string;
+  style?: React.CSSProperties;
+  children: React.ReactNode;
+}) {
+  if (p.clinic_slug) {
+    return (
+      <Link href={`/clinics/${p.clinic_slug}`} className={className} style={style}>
+        {children}
+      </Link>
+    );
+  }
+  return (
+    <div className={className} style={style}>
+      {children}
+    </div>
+  );
 }
 
 /** Original desktop card — updated for better 1024px responsiveness. */
 function DesktopProviderCard({ p }: { p: SharedProviderData }) {
   const tagline = providerTagline(p);
-  const rating = p.review_rating ?? p.avg_rating;
 
   return (
     <div className="flex bg-white shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)] rounded-[22px] overflow-hidden h-full">
@@ -61,25 +76,14 @@ function DesktopProviderCard({ p }: { p: SharedProviderData }) {
         <hr className="border-t border-[#DDC3DF] my-3" />
 
         <div className="flex flex-col gap-2.5 flex-1">
-          {p.years_experience != null && (
-            <p className="text-[12px] font-semibold leading-[130%] tracking-[0.02em] uppercase text-[#616161]">
-              {p.years_experience}+ years Exp.
-            </p>
-          )}
           {tagline && <p className="text-[11px] leading-[138%] tracking-[0.02em] text-[#727272] line-clamp-3">{tagline}</p>}
-          {rating && (
-            <div className="flex flex-wrap items-center gap-1 mt-auto">
-              <span className="text-[11px] leading-[138%] tracking-[0.02em] text-[#727272]">Rating</span>
-              <Star className="w-3.5 h-3.5 fill-[#FFBA19] text-[#FFBA19] shrink-0" />
-              <span className="text-[12px] font-semibold leading-[130%] tracking-[0.02em] uppercase text-[#616161]">{rating}</span>
-              {p.review_count ? <span className="text-[11px] leading-[138%] tracking-[0.02em] text-[#9A9A9A]">({p.review_count})</span> : null}
-            </div>
-          )}
         </div>
 
-        <Link href={providerHref(p)} className="mt-4 flex items-center justify-center w-full py-2.5 bg-gradient-to-r from-[#DE7F4C] to-[#C341D7] rounded-[8px] text-[14px] font-semibold text-white transition hover:opacity-95">
-          View Profile
-        </Link>
+        {p.clinic_slug && (
+          <Link href={`/clinics/${p.clinic_slug}`} className="mt-4 flex items-center justify-center w-full py-2.5 bg-gradient-to-r from-[#DE7F4C] to-[#C341D7] rounded-[8px] text-[14px] font-semibold text-white transition hover:opacity-95">
+            View Clinic
+          </Link>
+        )}
       </div>
     </div>
   );
@@ -88,7 +92,6 @@ function DesktopProviderCard({ p }: { p: SharedProviderData }) {
 /** Mobile card — matches the landing "Providers Spotlight" card. */
 function MobileProviderCard({ p }: { p: SharedProviderData }) {
   const tagline = providerTagline(p);
-  const rating = p.review_rating ?? p.avg_rating;
 
   return (
     <div className="flex min-h-[320px] overflow-hidden rounded-[22px] border border-[#DEDEDE] bg-white shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)]">
@@ -112,57 +115,33 @@ function MobileProviderCard({ p }: { p: SharedProviderData }) {
           <div className="h-px w-full bg-[#DDC3DF]" />
 
           <div className="flex flex-col gap-2.5">
-            {p.years_experience != null && (
-              <p className="text-[12px] font-semibold uppercase leading-[130%] tracking-[0.02em] text-[#616161]">
-                {p.years_experience}+ years of Experience
-              </p>
-            )}
             {tagline && <p className="text-[11px] leading-[138%] tracking-[0.02em] text-[#727272] line-clamp-3">{tagline}</p>}
-            {rating && (
-              <div className="flex items-center gap-1">
-                <span className="text-[11px] leading-[138%] tracking-[0.02em] text-[#727272]">Customer Rating</span>
-                <Star className="size-3.5 fill-[#FFBA19] text-[#FFBA19]" />
-                <span className="text-[12px] font-semibold uppercase leading-[130%] tracking-[0.02em] text-[#616161]">{rating}</span>
-                {p.review_count ? <span className="text-[11px] leading-[138%] tracking-[0.02em] text-[#9A9A9A]">({p.review_count})</span> : null}
-              </div>
-            )}
           </div>
         </div>
 
-        <Link href={providerHref(p)} className="flex h-10 w-full items-center justify-center rounded-lg bg-[linear-gradient(90deg,#DE7F4C_0%,#C341D7_100%)] text-[14px] font-semibold text-white transition-opacity hover:opacity-90">
-          View Profile
-        </Link>
+        {p.clinic_slug && (
+          <Link href={`/clinics/${p.clinic_slug}`} className="flex h-10 w-full items-center justify-center rounded-lg bg-[linear-gradient(90deg,#DE7F4C_0%,#C341D7_100%)] text-[14px] font-semibold text-white transition-opacity hover:opacity-90">
+            View Clinic
+          </Link>
+        )}
       </div>
     </div>
   );
 }
 
 export function ProvidersCarousel({ providers }: { providers: SharedProviderData[] }) {
-  const [sortBy, setSortBy] = useState<"Distance" | "Rating">("Distance");
   const [currentPage, setCurrentPage] = useState(1);
   const [mobileVisible, setMobileVisible] = useState(6);
   const itemsPerPage = 3;
 
   const sortedProviders = useMemo(() => {
     return [...providers].sort((a, b) => {
-      if (sortBy === "Distance") {
-        if (a.distance_km == null && b.distance_km == null) {
-          const ar = Number(a.avg_rating) || 0;
-          const br = Number(b.avg_rating) || 0;
-          if (ar !== br) return br - ar;
-          return (b.review_count || 0) - (a.review_count || 0);
-        }
-        if (a.distance_km == null) return 1;
-        if (b.distance_km == null) return -1;
-        return a.distance_km - b.distance_km;
-      } else {
-        const ar = Number(a.avg_rating) || 0;
-        const br = Number(b.avg_rating) || 0;
-        if (ar !== br) return br - ar;
-        return (b.review_count || 0) - (a.review_count || 0);
-      }
+      if (a.distance_km == null && b.distance_km == null) return 0;
+      if (a.distance_km == null) return 1;
+      if (b.distance_km == null) return -1;
+      return a.distance_km - b.distance_km;
     });
-  }, [providers, sortBy]);
+  }, [providers]);
 
   const totalPages = Math.ceil(sortedProviders.length / itemsPerPage) || 1;
   const currentProviders = sortedProviders.slice(

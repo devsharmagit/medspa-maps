@@ -17,12 +17,7 @@ const patchSchema = z
     website: z.union([z.url("Must be a valid URL"), z.literal("")]),
     booking_url: z.union([z.url("Must be a valid URL"), z.literal(""), z.null()]),
     address: z.string().nullable(),
-    city: z.string().nullable(),
-    state: z.string().nullable(),
-    zip: z.string().nullable(),
     country: z.string().nullable(),
-    lat: z.number().nullable(),
-    lng: z.number().nullable(),
     phone: z.string().nullable(),
     email: z.string().nullable(),
     hours: z.record(z.string(), z.unknown()).nullable(),
@@ -37,13 +32,6 @@ const patchSchema = z
     google_maps_url: z.union([z.url("Must be a valid URL"), z.literal(""), z.null()]),
     ext_rating: z.number().min(0).max(5).nullable(),
     ext_review_count: z.number().int().min(0).nullable(),
-    founded_year: z.number().int().nullable(),
-    // Hero stat overrides — free-text display strings ("20+", "10k+", "5.0").
-    stat_experts: z.string().max(24).nullable(),
-    stat_cities: z.string().max(24).nullable(),
-    stat_treatments: z.string().max(24).nullable(),
-    stat_rating: z.string().max(24).nullable(),
-    stat_patients: z.string().max(24).nullable(),
     is_active: z.boolean(),
     featured: z.boolean().optional(),
   })
@@ -57,7 +45,6 @@ const JSONB_COLS = new Set(["hours"]);
 
 interface ClinicRow {
   id: string;
-  business_id: string;
   name: string;
   slug: string;
   tagline: string | null;
@@ -65,12 +52,7 @@ interface ClinicRow {
   website: string;
   booking_url: string | null;
   address: string | null;
-  city: string | null;
-  state: string | null;
-  zip: string | null;
   country: string | null;
-  lat: string | null;
-  lng: string | null;
   phone: string | null;
   email: string | null;
   hours: Record<string, unknown> | null;
@@ -88,14 +70,6 @@ interface ClinicRow {
   review_count: number;
   ext_rating: string | null;
   ext_review_count: number | null;
-  founded_year: number | null;
-  stat_experts: string | null;
-  stat_cities: string | null;
-  stat_treatments: string | null;
-  stat_rating: string | null;
-  stat_patients: string | null;
-  tier: string;
-  verified: boolean;
   featured: boolean;
   data_source: string;
   is_active: boolean;
@@ -145,13 +119,11 @@ interface RouteContext {
   params: Promise<{ id: string }>;
 }
 
-const CLINIC_COLS = `id, business_id, name, slug, tagline, about, website, booking_url,
-  address, city, state, zip, country, lat, lng, phone, email, hours,
+const CLINIC_COLS = `id, name, slug, tagline, about, website, booking_url,
+  address, country, phone, email, hours,
   instagram_url, facebook_url, tiktok_url, youtube_url, x_url, linkedin_url,
   yelp_url, google_my_business, google_maps_url, google_place_id, avg_rating, review_count,
-  ext_rating, ext_review_count, founded_year,
-  stat_experts, stat_cities, stat_treatments, stat_rating, stat_patients,
-  tier, verified, featured,
+  ext_rating, ext_review_count, featured,
   data_source, is_active, created_at, updated_at`;
 
 // GET /api/admin/clinics/[id] — full editable record + images + treatments offered
@@ -260,9 +232,9 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
 }
 
 // DELETE /api/admin/clinics/[id] — permanent delete.
-// Child rows (locations, services, providers, reviews, concerns, scrape_jobs)
-// are removed by ON DELETE CASCADE; polymorphic images have no FK so we clean
-// them up explicitly, all inside one transaction.
+// Child rows (locations, services, providers, reviews, concerns) are removed by
+// ON DELETE CASCADE; polymorphic images have no FK so we clean them up
+// explicitly, all inside one transaction.
 export async function DELETE(_req: NextRequest, { params }: RouteContext) {
   try {
     await requireAdmin();
