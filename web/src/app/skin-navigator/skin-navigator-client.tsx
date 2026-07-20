@@ -28,6 +28,7 @@ import { useLocation } from "@/lib/location/location-context";
 import {
   AGE_RANGES,
   GOAL_OPTIONS,
+  CONCERN_OPTIONS,
   NAVIGATOR_DISCLAIMER,
   type NavigatorAnalyzeResponse,
   type NavigatorClinicMatch,
@@ -268,7 +269,7 @@ export function SkinNavigatorClient() {
       if (state.basics.location.value.trim().length < 2) missing.push("location");
       return `Add your ${missing.join(" and ")} to continue.`;
     }
-    if (step === "goals") return "Pick at least one goal to continue.";
+    if (step === "goals") return "Pick at least one goal or concern to continue.";
     return "";
   }, [canContinue, step, state.basics.ageRange, state.basics.location.value]);
 
@@ -301,7 +302,7 @@ export function SkinNavigatorClient() {
     const selected = state.goals.selected;
     const alreadySelected = selected.includes(slug);
     if (!alreadySelected && selected.length >= 8) {
-      setGoalNote("You can pick up to 8 goals.");
+      setGoalNote("You can pick up to 8 in total.");
       return;
     }
     setGoalNote("");
@@ -749,16 +750,36 @@ function GoalsStep({
   goalNote: string;
 }) {
   const selectedCount = state.goals.selected.length;
+  const renderChip = (option: { slug: string; label: string }) => {
+    const selected = state.goals.selected.includes(option.slug);
+    return (
+      <button
+        key={option.slug}
+        type="button"
+        aria-pressed={selected}
+        onClick={() => toggleGoal(option.slug)}
+        className={cn(
+          "flex h-12 items-center justify-between rounded-lg border px-3 text-left text-sm font-semibold transition",
+          selected
+            ? "border-brand-purple bg-fuchsia-50 text-slate-950"
+            : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+        )}
+      >
+        {option.label}
+        {selected && <Check className="size-4 text-brand-purple" />}
+      </button>
+    );
+  };
   return (
     <StepShell
       eyebrow="Step 2"
       title="What would you like to improve?"
-      body="Pick a few that matter most. You can add a short note if the chips miss something."
+      body="Tell us your overall goal and the specific things you'd like to fix. You can add a short note if the chips miss something."
     >
       <div className="space-y-6">
         <div className="flex items-center justify-between gap-3">
           <p className="text-sm font-semibold text-slate-900">
-            Your goals <span className="font-medium text-slate-500">({selectedCount}/8)</span>
+            Your selections <span className="font-medium text-slate-500">({selectedCount}/8)</span>
           </p>
           {goalNote && (
             <p aria-live="polite" className="text-sm text-brand-coral">
@@ -766,28 +787,27 @@ function GoalsStep({
             </p>
           )}
         </div>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {GOAL_OPTIONS.map((goal) => {
-            const selected = state.goals.selected.includes(goal.slug);
-            return (
-              <button
-                key={goal.slug}
-                type="button"
-                aria-pressed={selected}
-                onClick={() => toggleGoal(goal.slug)}
-                className={cn(
-                  "flex h-12 items-center justify-between rounded-lg border px-3 text-left text-sm font-semibold transition",
-                  selected
-                    ? "border-brand-purple bg-fuchsia-50 text-slate-950"
-                    : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
-                )}
-              >
-                {goal.label}
-                {selected && <Check className="size-4 text-brand-purple" />}
-              </button>
-            );
-          })}
+
+        <div className="space-y-3">
+          <div>
+            <p className="text-sm font-semibold text-slate-900">What&apos;s your goal?</p>
+            <p className="text-xs text-slate-500">The overall look you&apos;re after.</p>
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {GOAL_OPTIONS.map(renderChip)}
+          </div>
         </div>
+
+        <div className="space-y-3">
+          <div>
+            <p className="text-sm font-semibold text-slate-900">What would you like to fix?</p>
+            <p className="text-xs text-slate-500">Specific concerns or symptoms.</p>
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {CONCERN_OPTIONS.map(renderChip)}
+          </div>
+        </div>
+
         <div>
           <label className="text-sm font-semibold text-slate-900">Anything else optional</label>
           <textarea

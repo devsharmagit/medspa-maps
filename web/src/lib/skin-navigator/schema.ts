@@ -9,11 +9,16 @@ export const AGE_RANGES = [
   "65-plus",
 ] as const;
 
+// Aspirational goals — "what's your overall goal?"
 export const GOAL_OPTIONS = [
   { slug: "look-younger", label: "Look younger" },
   { slug: "look-refreshed", label: "Look refreshed" },
   { slug: "event-ready", label: "Glow up for an event" },
   { slug: "natural-maintenance", label: "Natural maintenance" },
+] as const;
+
+// Concerns / symptoms — "what would you like to fix?"
+export const CONCERN_OPTIONS = [
   { slug: "acne", label: "Acne" },
   { slug: "wrinkles", label: "Wrinkles" },
   { slug: "pigmentation", label: "Pigmentation" },
@@ -29,8 +34,19 @@ export const GOAL_OPTIONS = [
   { slug: "unwanted-hair", label: "Unwanted hair" },
 ] as const;
 
+// Combined list (used for slug validation and label lookup). The request keeps a
+// single `selected` array so downstream matching/prompting is unchanged; the UI
+// and prompt split it back into goals vs concerns for clarity.
+export const ALL_GOAL_OPTIONS = [...GOAL_OPTIONS, ...CONCERN_OPTIONS] as const;
+
+const GOAL_SLUGS = new Set<string>(GOAL_OPTIONS.map((g) => g.slug));
+const CONCERN_SLUGS = new Set<string>(CONCERN_OPTIONS.map((c) => c.slug));
+
+export const isGoalSlug = (slug: string) => GOAL_SLUGS.has(slug);
+export const isConcernSlug = (slug: string) => CONCERN_SLUGS.has(slug);
+
 const GoalSlugSchema = z.enum(
-  GOAL_OPTIONS.map((g) => g.slug) as [string, ...string[]]
+  ALL_GOAL_OPTIONS.map((g) => g.slug) as [string, ...string[]]
 );
 
 export const NavigatorRequestSchema = z.object({
@@ -144,7 +160,23 @@ export type NavigatorEvent = z.infer<typeof NavigatorEventSchema>;
 export const NAVIGATOR_DISCLAIMER =
   "This is informational cosmetic guidance, not medical advice or a diagnosis. Results vary, and a qualified provider should confirm which treatments are appropriate for you.";
 
+const LABELS = new Map<string, string>(ALL_GOAL_OPTIONS.map((g) => [g.slug, g.label]));
+
 export function selectedGoalLabels(request: NavigatorRequest): string[] {
-  const labels = new Map<string, string>(GOAL_OPTIONS.map((g) => [g.slug, g.label]));
-  return request.goals.selected.map((slug) => labels.get(slug) ?? slug);
+  return request.goals.selected.map((slug) => LABELS.get(slug) ?? slug);
+}
+
+/** Split the user's picks into aspirational goals vs. concerns, as labels. */
+export function splitGoalSelection(request: NavigatorRequest): {
+  goals: string[];
+  concerns: string[];
+} {
+  const goals: string[] = [];
+  const concerns: string[] = [];
+  for (const slug of request.goals.selected) {
+    const label = LABELS.get(slug) ?? slug;
+    if (isConcernSlug(slug)) concerns.push(label);
+    else goals.push(label);
+  }
+  return { goals, concerns };
 }

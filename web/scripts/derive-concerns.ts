@@ -16,9 +16,9 @@ import { normalize, bestCatalogMatch, isConcernNoise } from "../src/lib/taxonomy
 // Rules matched against a treatment's display name (canonical name or raw_name).
 const RULES: Array<{ re: RegExp; concerns: string[] }> = [
   { re: /\b(botox|dysport|jeuveau|daxxify|xeomin|neuromodulator|neurotox|wrinkle relaxer|tox|jawtox|masseter|nuceiva)\b/i,
-    concerns: ["Forehead Lines", "Frown Lines", "Crow's Feet", "Bunny Lines", "Lip Flip", "Gummy Smile", "Masseter (TMJ) / Face Slimming", "Platysma (Vertical Neck Cords)", "Hyperhidrosis"] },
+    concerns: ["Forehead Lines", "Frown Lines", "Crow's Feet", "Bunny Lines", "Gummy Smile", "Masseter (TMJ) / Face Slimming", "Platysma (Vertical Neck Cords)", "Hyperhidrosis"] },
   { re: /\b(lip filler|lip augmentation|lip flip|russian lips?)\b/i,
-    concerns: ["Thin Lips", "Lip Enhancement"] },
+    concerns: ["Thin Lips"] },
   { re: /\b(dermal filler|fillers?|juvederm|restylane|revanesse|rha|belotero|versa|voluma)\b/i,
     concerns: ["Volume Loss", "Nasolabial Folds", "Marionette Lines", "Under-Eye Hollows", "Thin Lips"] },
   { re: /\b(sculptra|radiesse|biostimulator|bio-?stimulator|collagen stimulator)\b/i,

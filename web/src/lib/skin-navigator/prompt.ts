@@ -1,5 +1,5 @@
 import type { NavigatorRequest } from "./schema";
-import { NAVIGATOR_DISCLAIMER, selectedGoalLabels } from "./schema";
+import { NAVIGATOR_DISCLAIMER, selectedGoalLabels, splitGoalSelection } from "./schema";
 
 export interface NavigatorCatalogItem {
   slug: string;
@@ -163,6 +163,9 @@ export function buildNavigatorUserPrompt(
       userInput: {
         ...request,
         goalLabels: selectedGoalLabels(request),
+        // Split for clarity: aspirational goals vs. specific concerns to fix.
+        goals: splitGoalSelection(request).goals,
+        concernsToFix: splitGoalSelection(request).concerns,
         photosProvided: hasPhotos,
       },
       catalog: compactCatalog,

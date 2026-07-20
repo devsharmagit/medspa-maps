@@ -7,6 +7,7 @@ import {
   ChevronDown,
   Crown,
   Eye,
+  HeartPulse,
   Images,
   LocateFixed,
   MapPin,
@@ -179,11 +180,22 @@ export function SearchResults() {
 
   // Search-bar state. The single dropdown holds EITHER a treatment (plain
   // value → q) OR a condition (encoded `c:<slug>` → condition) — never both.
+  const [searchMode, setSearchMode] = useState<"treatment" | "condition">(
+    condition ? "condition" : "treatment"
+  );
   const [searchService, setSearchService] = useState(
     condition ? conditionValue(condition) : q
   );
   const [searchState, setSearchState] = useState(location);
   const serviceOptions = useTreatmentConditionOptions();
+  const treatmentOptions = serviceOptions.filter((option) => option.group === "Treatments");
+  const conditionOptions = serviceOptions.filter((option) => option.group === "Conditions");
+  const activeOptions = searchMode === "treatment" ? treatmentOptions : conditionOptions;
+
+  const chooseMode = (mode: "treatment" | "condition") => {
+    setSearchMode(mode);
+    setSearchService("");
+  };
 
   // Detected visitor location (shared context). We do NOT auto-prompt — the user
   // opts in via "Use my current location" in the location field (handleNearMe).
@@ -253,6 +265,8 @@ export function SearchResults() {
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect */
     setSearchService(condition ? conditionValue(condition) : q);
+    if (condition) setSearchMode("condition");
+    else if (q) setSearchMode("treatment");
     // Show the URL's location; otherwise the detected City, ST — but ONLY after an
     // explicit request (never from a position rehydrated at load).
     setSearchState(location || (requested ? cityStateLabel(userLoc) : ""));
@@ -319,10 +333,19 @@ export function SearchResults() {
     e.preventDefault();
     // The dropdown value is either a treatment (→ q) or a `c:<slug>` condition
     // (→ condition); write one and clear the other (no combos supported).
-    const sel = splitSearchSelection(searchService);
+    let nextQ: string | null = null;
+    let nextCondition: string | null = null;
+
+    if (searchMode === "treatment") {
+      nextQ = searchService.trim() || null;
+    } else {
+      const { condition } = splitSearchSelection(searchService);
+      nextCondition = condition || searchService.trim() || null;
+    }
+
     pushParams({
-      q: sel.q || null,
-      condition: sel.condition || null,
+      q: nextQ,
+      condition: nextCondition,
       location: searchState.trim() || null,
     });
   };
@@ -517,17 +540,53 @@ export function SearchResults() {
           )}
         </h1>
 
+        <div className="mt-5 mb-2 inline-flex items-center gap-2 rounded-full border border-[#e8e0e8] bg-[#fdfafb] p-1">
+          <span className="pl-3 pr-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-brand-muted">
+            Search for
+          </span>
+          <button
+            type="button"
+            onClick={() => chooseMode("treatment")}
+            className={cn(
+              "flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-semibold uppercase tracking-[0.08em] transition-colors",
+              searchMode === "treatment"
+                ? "bg-white text-brand-magenta shadow-sm border border-[#e8e0e8]"
+                : "text-brand-muted hover:bg-brand-magenta/5 hover:text-[#1a1a1a]"
+            )}
+          >
+            <Sparkles className="size-3.5" aria-hidden />
+            Treatment
+          </button>
+          <button
+            type="button"
+            onClick={() => chooseMode("condition")}
+            className={cn(
+              "flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-semibold uppercase tracking-[0.08em] transition-colors",
+              searchMode === "condition"
+                ? "bg-white text-brand-magenta shadow-sm border border-[#e8e0e8]"
+                : "text-brand-muted hover:bg-brand-magenta/5 hover:text-[#1a1a1a]"
+            )}
+          >
+            <HeartPulse className="size-3.5" aria-hidden />
+            Condition
+          </button>
+        </div>
+
         <form
           onSubmit={handleSearch}
-          className="mt-5 flex flex-col gap-3 lg:flex-row lg:items-stretch"
+          className="flex flex-col gap-3 lg:flex-row lg:items-stretch"
         >
           {/* Treatment dropdown */}
           <div className="flex flex-1 items-center gap-3 rounded-xl border border-[#e8e0e8] px-4 py-2.5">
             <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-magenta/10">
-              <Sparkles className="size-4 text-brand-magenta" aria-hidden />
+              {searchMode === "treatment" ? (
+                <Sparkles className="size-4 text-brand-magenta" aria-hidden />
+              ) : (
+                <HeartPulse className="size-4 text-brand-magenta" aria-hidden />
+              )}
             </span>
             <SearchableDropdown
-              options={serviceOptions}
+              options={activeOptions}
               value={searchService}
               onChange={setSearchService}
               onSelect={(opt) => {
@@ -536,7 +595,7 @@ export function SearchResults() {
                 const sel = splitSearchSelection(opt.value);
                 pushParams({ q: sel.q || null, condition: sel.condition || null });
               }}
-              placeholder="Treatment, condition, or clinic…"
+              placeholder={searchMode === "treatment" ? "Search treatments…" : "Search conditions…"}
               className="flex-1"
               allowFreeText
             />

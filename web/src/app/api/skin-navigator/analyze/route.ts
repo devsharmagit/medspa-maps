@@ -17,6 +17,12 @@ export const dynamic = "force-dynamic";
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
+// Per-IP hourly cap. Generous in development so testing/demos aren't throttled;
+// protective in production since each analysis costs an OpenAI call. Override
+// with SKIN_NAVIGATOR_RATE_LIMIT.
+const RATE_LIMIT = Number(process.env.SKIN_NAVIGATOR_RATE_LIMIT) ||
+  (process.env.NODE_ENV === "production" ? 15 : 1000);
+
 function getClientIp(req: NextRequest): string {
   const xff = req.headers.get("x-forwarded-for");
   if (xff) return xff.split(",")[0].trim();
@@ -74,7 +80,7 @@ function userMessageFromError(err: unknown): string {
 
 export async function POST(req: NextRequest) {
   const ip = getClientIp(req);
-  const rl = rateLimit(`skin-navigator:${ip}`, 8, 60 * 60 * 1000);
+  const rl = rateLimit(`skin-navigator:${ip}`, RATE_LIMIT, 60 * 60 * 1000);
   if (!rl.ok) {
     return errorResponse(
       `You're trying the navigator quickly. Please wait ${rl.retryAfter}s and try again.`,
