@@ -33,6 +33,11 @@ export interface ToolExtractOptions {
   model?: string;
   maxTokens?: number;
   /**
+   * Optional determinism seed. Honoured by the OpenAI backend (passed as
+   * `seed`); ignored by the Anthropic backend, which has no seed parameter.
+   */
+  seed?: number;
+  /**
    * Optional images to show the model alongside `user`. A text `label` is placed
    * immediately before each image so the model can map the picture to its exact
    * URL and echo it back verbatim. Prefer base64 sources: URL sources count

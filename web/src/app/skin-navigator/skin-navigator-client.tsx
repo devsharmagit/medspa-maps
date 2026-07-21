@@ -5,7 +5,6 @@ import { useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, ty
 import {
   ArrowLeft,
   ArrowRight,
-  BadgeCheck,
   Camera,
   Check,
   Clock,
@@ -152,11 +151,11 @@ function eventNameForStep(step: StepKey) {
   return `navigator.step.${step}`;
 }
 
-function confidenceClass(confidence: string) {
-  if (confidence === "high") return "border-emerald-200 bg-emerald-50 text-emerald-800";
-  if (confidence === "medium") return "border-amber-200 bg-amber-50 text-amber-800";
-  return "border-slate-200 bg-slate-50 text-slate-700";
-}
+const CONCERN_SOURCE_LABELS: Record<string, string> = {
+  questionnaire: "From your answers",
+  photo: "From your photo",
+  both: "From your answers + photo",
+};
 
 async function recordEvent(sessionId: string | null, eventName: string, step?: string, payload = {}) {
   await fetch("/api/skin-navigator/events", {
@@ -255,7 +254,8 @@ export function SkinNavigatorClient() {
 
   const canContinue = useMemo(() => {
     if (step === "basics") {
-      return Boolean(state.basics.ageRange && state.basics.location.value.trim().length >= 2);
+      // Location is optional — only the age range is required to continue.
+      return Boolean(state.basics.ageRange);
     }
     if (step === "goals") return state.goals.selected.length > 0;
     return true;
@@ -263,15 +263,10 @@ export function SkinNavigatorClient() {
 
   const continueHint = useMemo(() => {
     if (canContinue) return "";
-    if (step === "basics") {
-      const missing: string[] = [];
-      if (!state.basics.ageRange) missing.push("age range");
-      if (state.basics.location.value.trim().length < 2) missing.push("location");
-      return `Add your ${missing.join(" and ")} to continue.`;
-    }
+    if (step === "basics") return "Select your age range to continue.";
     if (step === "goals") return "Pick at least one goal or concern to continue.";
     return "";
-  }, [canContinue, step, state.basics.ageRange, state.basics.location.value]);
+  }, [canContinue, step]);
 
   const payload = useMemo(
     () => ({
@@ -657,7 +652,7 @@ function BasicsStep({
     <StepShell
       eyebrow="Step 1"
       title="A few basics"
-      body="Location helps us find clinics nearby. Everything else is used only to tailor the guidance."
+      body="Only your age range is required. Add a location if you'd like nearby clinic suggestions too."
     >
       <div className="space-y-6">
         <div>
@@ -689,7 +684,7 @@ function BasicsStep({
 
         <LocationTypeahead
           value={state.basics.location.value}
-          label="City or ZIP"
+          label="City or ZIP (optional)"
           icon={<MapPin className="size-4 text-brand-coral" />}
           placeholder="Nashville, TN or 37203"
           inputClassName="h-12 rounded-lg !border !border-slate-300 bg-white px-4 shadow-sm focus:!border-brand-coral"
@@ -1193,19 +1188,12 @@ function ResultsStep({
   reset: () => void;
   editAnswers: () => void;
 }) {
-  const primaryTreatment = result.analysis.recommendedTreatments[0];
-  const secondaryTreatments = result.analysis.recommendedTreatments.slice(1);
   const locationLabel = location.value || location.label || "your area";
+  const hasLocation = Boolean(location.value.trim());
   const uploadedPhotoUrl = useMemo(
     () => (uploadedPhoto ? URL.createObjectURL(uploadedPhoto) : ""),
     [uploadedPhoto]
   );
-
-  const photoStatusText = result.analysis.photoObservations.provided
-    ? uploadedPhoto
-      ? "Photos were included in this analysis."
-      : "A photo was included in the original analysis. It was not saved, so it is not shown here."
-    : "Photos were not included in this analysis.";
 
   useEffect(() => {
     return () => {
@@ -1214,7 +1202,7 @@ function ResultsStep({
   }, [uploadedPhotoUrl]);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <Badge className="h-auto bg-emerald-100 px-3 py-1 text-emerald-800">
@@ -1240,127 +1228,94 @@ function ResultsStep({
         </div>
       </div>
 
-      <section>
-        <h3 className="mb-4 text-xl font-bold text-slate-950">Recommended treatments</h3>
-        {primaryTreatment ? (
-          <>
-            <TreatmentCard
-              treatment={primaryTreatment}
-              location={location}
-              locationLabel={locationLabel}
-              variant="hero"
+      {uploadedPhotoUrl && (
+        <section className="flex items-start gap-4 rounded-lg border border-slate-200 bg-white p-4">
+          <div className="w-24 shrink-0 overflow-hidden rounded-lg bg-slate-100 sm:w-28">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={uploadedPhotoUrl}
+              alt="Photo used for the cosmetic assessment"
+              className="aspect-[4/5] w-full object-cover"
             />
-            {secondaryTreatments.length > 0 && (
-              <div className="mt-4 grid gap-4 md:grid-cols-2">
-                {secondaryTreatments.map((treatment) => (
-                  <TreatmentCard
-                    key={`${treatment.slug}-${treatment.priority}`}
-                    treatment={treatment}
-                    location={location}
-                    locationLabel={locationLabel}
-                  />
-                ))}
-              </div>
-            )}
-          </>
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-slate-950">Your photo</h3>
+            <p className="mt-1 text-xs leading-5 text-slate-500">
+              Used only for this analysis request and not stored by MedSpaMaps.
+            </p>
+          </div>
+        </section>
+      )}
+
+      {/* 1 — Concerns */}
+      <section>
+        <h3 className="mb-1 text-xl font-bold text-slate-950">Your concerns</h3>
+        <p className="mb-4 text-sm text-slate-600">What we focused on, and where it came from.</p>
+        {result.analysis.concerns.length === 0 ? (
+          <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm leading-6 text-slate-600">
+            The AI did not call out a specific concern from the information provided.
+          </div>
         ) : (
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+            {result.analysis.concerns.map((concern) => (
+              <article
+                key={`${concern.slug}-${concern.label}`}
+                className="rounded-lg border border-slate-200 bg-white p-4"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="font-semibold text-slate-950">{concern.label}</p>
+                  <Badge variant="outline" className="h-auto px-2 py-0.5 capitalize">
+                    {concern.severity}
+                  </Badge>
+                </div>
+                <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-brand-coral">
+                  {CONCERN_SOURCE_LABELS[concern.source] ?? concern.source}
+                </p>
+                <p className="mt-2 text-sm leading-6 text-slate-600">{concern.rationale}</p>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* 2 — Treatments */}
+      <section>
+        <h3 className="mb-1 text-xl font-bold text-slate-950">Suggested treatments</h3>
+        <p className="mb-4 text-sm text-slate-600">Cosmetic options that fit your goals — a starting point for a consultation.</p>
+        {result.analysis.recommendedTreatments.length === 0 ? (
           <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm leading-6 text-slate-600">
             The AI did not return a specific treatment recommendation. You can still explore the full directory by treatment.
           </div>
-        )}
-      </section>
-
-      <div
-        className={cn(
-          "grid gap-4",
-          uploadedPhotoUrl ? "lg:grid-cols-[0.8fr_1fr_0.95fr]" : "lg:grid-cols-[1fr_0.95fr]"
-        )}
-      >
-        {uploadedPhotoUrl && (
-          <section className="rounded-lg border border-slate-200 bg-white p-5">
-            <h3 className="text-base font-bold text-slate-950">Your photo</h3>
-            <div className="mt-4 overflow-hidden rounded-lg bg-slate-100">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={uploadedPhotoUrl}
-                alt="Uploaded photo used for the cosmetic assessment"
-                className="aspect-[4/5] w-full object-cover"
-              />
-            </div>
-            <p className="mt-3 text-xs leading-5 text-slate-500">
-              Used only for this analysis request and not stored by MedSpaMaps.
-            </p>
-          </section>
-        )}
-        <section className="rounded-lg border border-slate-200 bg-white p-5">
-          <h3 className="text-base font-bold text-slate-950">Possible cosmetic concerns</h3>
-          <div className="mt-4 space-y-3">
-            {result.analysis.concerns.length === 0 ? (
-              <p className="text-sm text-slate-600">The AI did not call out a specific visible concern from the information provided.</p>
-            ) : (
-              result.analysis.concerns.map((concern) => (
-                <div key={`${concern.slug}-${concern.label}`} className="rounded-lg bg-slate-50 p-4">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-semibold text-slate-950">{concern.label}</p>
-                    <Badge variant="outline" className="h-auto px-2 py-0.5 capitalize">
-                      {concern.severity}
-                    </Badge>
-                    <Badge variant="outline" className="h-auto px-2 py-0.5 capitalize">
-                      {concern.source}
-                    </Badge>
-                  </div>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">{concern.rationale}</p>
-                </div>
-              ))
-            )}
-          </div>
-        </section>
-
-        <section className="rounded-lg border border-slate-200 bg-white p-5">
-          <h3 className="text-base font-bold text-slate-950">Photo notes</h3>
-          <div className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
-            <p>{photoStatusText}</p>
-            {result.analysis.photoObservations.notes.map((note) => (
-              <p key={note} className="rounded-lg bg-slate-50 p-3">{note}</p>
-            ))}
-            {result.analysis.photoObservations.limitations.map((note) => (
-              <p key={note} className="rounded-lg bg-amber-50 p-3 text-amber-900">{note}</p>
-            ))}
-          </div>
-        </section>
-      </div>
-
-      <section>
-        <div className="mb-4 flex flex-col gap-1">
-          <h3 className="text-xl font-bold text-slate-950">Nearby clinics</h3>
-          <p className="text-sm text-slate-600">
-            Ranked by treatment match, location, ratings, and verified status.
-          </p>
-        </div>
-        {result.clinics.length === 0 ? (
-          <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm leading-6 text-slate-600">
-            We could not find a nearby clinic match for these services yet. You can still search the full directory by treatment.
-          </div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2">
-            {result.clinics.map((clinic) => (
-              <ClinicCard key={clinic.clinicId} clinic={clinic} sessionId={result.sessionId} />
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+            {result.analysis.recommendedTreatments.map((treatment) => (
+              <TreatmentCard
+                key={`${treatment.slug}-${treatment.priority}`}
+                treatment={treatment}
+                location={location}
+                locationLabel={locationLabel}
+              />
             ))}
           </div>
         )}
       </section>
 
-      {result.analysis.consultationQuestions.length > 0 && (
-        <section className="rounded-lg border border-slate-200 bg-slate-50 p-5">
-          <h3 className="text-base font-bold text-slate-950">Questions to ask at a consultation</h3>
-          <ul className="mt-3 grid gap-2 text-sm leading-6 text-slate-700 md:grid-cols-2">
-            {result.analysis.consultationQuestions.map((question) => (
-              <li key={question} className="flex gap-2">
-                <Check className="mt-1 size-4 shrink-0 text-brand-green" />
-                {question}
-              </li>
-            ))}
-          </ul>
+      {/* 3 — Clinics (only when a location was given) */}
+      {hasLocation && (
+        <section>
+          <h3 className="mb-1 text-xl font-bold text-slate-950">Nearby clinics</h3>
+          <p className="mb-4 text-sm text-slate-600">Matched to your treatments near {locationLabel}.</p>
+          {result.clinics.length === 0 ? (
+            <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm leading-6 text-slate-600">
+              We could not find a nearby clinic match yet. You can still search the full directory by treatment above.
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {result.clinics.map((clinic) => (
+                <ClinicCard key={clinic.clinicId} clinic={clinic} sessionId={result.sessionId} />
+              ))}
+            </div>
+          )}
         </section>
       )}
     </div>
@@ -1371,72 +1326,22 @@ function TreatmentCard({
   treatment,
   location,
   locationLabel,
-  variant = "default",
 }: {
   treatment: NavigatorAnalyzeResponse["analysis"]["recommendedTreatments"][number];
   location: LocationSelection;
   locationLabel: string;
-  variant?: "default" | "hero";
 }) {
-  const hero = variant === "hero";
+  const hasLocation = Boolean(location.value?.trim());
   return (
-    <article
-      className={cn(
-        "rounded-lg border bg-white",
-        hero
-          ? "border-brand-coral/40 bg-gradient-to-br from-orange-50/70 to-fuchsia-50/50 p-6 shadow-sm"
-          : "border-slate-200 p-5"
-      )}
-    >
-      <div className="flex flex-wrap items-center gap-2">
-        <h4 className={cn("font-heading font-medium text-slate-950", hero ? "text-2xl" : "text-xl")}>
-          {treatment.name}
-        </h4>
-        <Badge variant="outline" className="h-auto px-2 py-0.5 capitalize">
-          {treatment.priority}
-        </Badge>
-        <Badge className={cn("h-auto border px-2 py-0.5 capitalize", confidenceClass(treatment.confidence))}>
-          {treatment.confidence} confidence
-        </Badge>
-      </div>
-      <p className={cn("mt-3 leading-6 text-slate-600", hero ? "text-base" : "text-sm")}>
-        {treatment.whyItFits}
-      </p>
-      <div className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
-        <p className={cn("rounded-lg p-3", hero ? "bg-white/70" : "bg-slate-50")}>
-          <span className="font-semibold text-slate-950">Downtime: </span>
-          {treatment.expectedDowntime}
-        </p>
-        <p className={cn("rounded-lg p-3", hero ? "bg-white/70" : "bg-slate-50")}>
-          <span className="font-semibold text-slate-950">Comfort: </span>
-          {treatment.comfortNotes}
-        </p>
-      </div>
-      {treatment.cautions.length > 0 && (
-        <ul className="mt-4 space-y-2 text-sm leading-6 text-slate-600">
-          {treatment.cautions.map((caution) => (
-            <li key={caution} className="flex gap-2">
-              <span className="mt-2 size-1.5 shrink-0 rounded-full bg-brand-coral" />
-              {caution}
-            </li>
-          ))}
-        </ul>
-      )}
-      <div className={cn("mt-5 flex flex-col gap-2", hero && "sm:flex-row")}>
-        <Button asChild variant={hero ? "gradient" : "outline"} className="h-10 w-full">
-          <Link href={treatmentSearchHref(treatment.name, location)}>
-            Search clinics in {locationLabel}
-            <ArrowRight className="size-4" />
-          </Link>
-        </Button>
-        {hero && (
-          <Button asChild variant="outline" className="h-10 w-full">
-            <Link href={treatmentSearchHref(treatment.name, location)}>
-              Search all clinics for this treatment
-            </Link>
-          </Button>
-        )}
-      </div>
+    <article className="flex flex-col rounded-lg border border-slate-200 bg-white p-5">
+      <h4 className="font-heading text-lg font-medium text-slate-950">{treatment.name}</h4>
+      <p className="mt-2 flex-1 text-sm leading-6 text-slate-600">{treatment.whyItFits}</p>
+      <Button asChild variant="outline" className="mt-4 h-10 w-full">
+        <Link href={treatmentSearchHref(treatment.name, location)}>
+          {hasLocation ? `Find clinics in ${locationLabel}` : "Find clinics"}
+          <ArrowRight className="size-4" />
+        </Link>
+      </Button>
     </article>
   );
 }
@@ -1518,17 +1423,6 @@ function ClinicCard({
                 </span>
               )}
             </div>
-          </div>
-          <div className="flex shrink-0 flex-col items-end gap-2">
-            <Badge variant="outline" className="h-auto border-fuchsia-200 bg-fuchsia-50 px-2 py-1 text-fuchsia-800">
-              {Math.round(clinic.matchScore)} match
-            </Badge>
-            {clinic.verified && (
-              <Badge className="h-auto bg-emerald-100 px-2 py-1 text-emerald-800">
-                <BadgeCheck className="size-3.5" />
-                Verified
-              </Badge>
-            )}
           </div>
         </div>
 

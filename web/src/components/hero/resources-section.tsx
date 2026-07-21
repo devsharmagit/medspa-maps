@@ -33,24 +33,7 @@ export function ResourcesSection() {
         {/* Benefit Items List */}
         <div className="flex flex-col gap-[25px] w-full sm:max-w-[337px] mt-8 min-[1400px]:mt-0 min-[1400px]:absolute min-[1400px]:left-[61px] min-[1400px]:top-[246px] z-30">
           {/* Item 1 */}
-          <div
-            className="flex items-center gap-[9px] w-full h-[61px] pl-3 rounded-[10px]"
-            style={{
-              background: "linear-gradient(90deg, #FFFFFF 0%, rgba(255, 255, 255, 0) 100%)",
-            }}
-          >
-            <div className="flex h-[35px] w-[35px] items-center justify-center text-[#CF5D9A]">
-              <Gem className="h-6 w-6" strokeWidth={1.5} />
-            </div>
-            <div className="flex flex-col">
-              <span className="font-montserrat font-medium text-[18px] leading-[140%] text-[#353535]">
-                Free Premium Listing
-              </span>
-              <span className="font-montserrat font-medium text-[14px] leading-[140%] text-[#98889A]">
-                For first 100 signups
-              </span>
-            </div>
-          </div>
+         
 
           {/* Item 2 */}
           <div

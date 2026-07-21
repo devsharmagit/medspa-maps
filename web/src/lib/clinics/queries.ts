@@ -10,6 +10,7 @@ export interface ClinicLocation {
   phone: string | null;
   booking_url: string | null;
   google_maps_url: string | null;
+  google_place_id: string | null;
   hours: unknown;
   is_primary: boolean;
   lat: number | null;
@@ -167,7 +168,7 @@ export async function getClinicData(slug: string): Promise<ClinicPageData | null
     ),
     pool.query(
       `SELECT id, label, address, city, state, zip, phone,
-              booking_url, google_maps_url, hours, is_primary, lat, lng
+              booking_url, google_maps_url, google_place_id, hours, is_primary, lat, lng
          FROM clinic_locations
         WHERE clinic_id = $1 AND is_active = true
         ORDER BY sort_order, created_at`,

@@ -1,152 +1,232 @@
-# medspa-map — OpenAI & Google Places Cost Estimation (Full Pipeline)
+# medspa-map — OpenAI Cost Estimation
 
-**Prepared:** 2026-07-18 · **Scale:** ~750 clinics · **Providers:** OpenAI (API + vision) + Google Places API (New)
-
-Estimates the cost of running the ingestion + enrichment pipeline **entirely on OpenAI** — including moving the chatbot off OpenRouter onto OpenAI — plus Google Places for ratings + review count + 5 reviews. Grounded in the actual per-clinic AI-call structure in the codebase.
-
-> Companion doc: [COST-ESTIMATION.md](COST-ESTIMATION.md) prices the older single-clinic Claude/Haiku model. This file supersedes it for the OpenAI + full-scope scenario you asked about.
+**Updated:** 2026-07-20 · **Scale:** 500 clinics · **Provider:** OpenAI only (chatbot moved off OpenRouter)
 
 ---
 
-## 1. Pricing basis (confirmed July 2026)
+## What This Document Covers
 
-| Item | Rate |
+This file answers the question: **"What will this actually cost to run?"** — broken into four distinct buckets:
+
+1. **One-time cost** to add 500 clinics to the database
+2. **Recurring cron job** cost to keep treatments & concerns fresh
+3. **AI Chatbot** cost (now running on OpenAI, not OpenRouter)
+4. **AI Skin Treatment Navigator** cost (also on OpenAI)
+
+Everything is in plain dollars. No token counts, no per-million math — just what you'd expect to see on an invoice.
+
+---
+
+## How the Pipeline Works (Plain English)
+
+### Adding a New Clinic
+
+When a clinic website is ingested, the following happens automatically:
+
+**Step 1 — Clinic Details (1 AI call with vision)**
+The AI reads the clinic's website pages and extracts: business name, address(es), phone, hours, booking link, social media links, and a short about description. At the same time, it looks at up to 12 website images to decide which one is the hero/cover photo, which is the logo, and which are gallery photos (capped at 5).
+
+**Step 2 — Provider Photos (part of the same AI call)**
+The AI reads team/about pages and extracts up to 10 providers (names, titles, headshots).
+
+**Step 3 — Before & After Images (1 AI vision call, only ~40% of clinics have these)**
+A second vision call classifies up to 10 before-and-after photos found in the gallery.
+
+**Step 4 — Treatments (1 AI text call)**
+The AI reads service/treatment pages and extracts every treatment the clinic offers, matching them to the canonical treatment catalog.
+
+**Step 5 — Treatment Refinement (1 AI text call)**
+A second pass cleans up and deduplicates the extracted treatments.
+
+**Step 6 — Concerns (1 AI text call)**
+The AI extracts every patient concern the clinic addresses (e.g. acne scars, fine lines, hyperpigmentation).
+
+> **Treatments and concerns are extracted separately from clinic details** — this means treatments/concerns can be refreshed independently without re-scraping the whole clinic profile.
+
+### Image Counts Per Clinic
+
+Based on the pipeline code and your specification, OpenAI Vision is used for every image:
+
+| Image Type | Count | Where Used |
+|---|---:|---|
+| Clinic gallery images | 5 | Gallery section on clinic page |
+| Cover image | 1 | Hero/banner photo on clinic card |
+| Provider headshots | up to 10 | Team/about section |
+| Before & after images | up to 10 | B&A gallery (only clinics that have them) |
+| **Total vision images per clinic** | **up to 26** | All processed by OpenAI Vision |
+
+> Vision (looking at images) is the single largest cost driver for initial ingestion.
+
+---
+
+## 1. One-Time Cost: Adding 500 Clinics
+
+This is what you pay **once** to get 500 clinics fully ingested with all details, images, providers, treatments, and concerns.
+
+### What happens per clinic
+
+| Step | What the AI does |
 |---|---|
-| OpenAI `gpt-4o-mini` (default ingest, vision-capable) | **$0.15** / 1M input · **$0.60** / 1M output |
-| OpenAI `gpt-4o` (escalation only) | **$2.50** / 1M input · **$10.00** / 1M output |
-| Google Places — Place Details, **Enterprise + Atmosphere** (rating + count + reviews) | **$25** / 1,000 |
-| Google Places — Text Search, **Enterprise + Atmosphere** (rating + count + reviews from a name query) | **$40** / 1,000 |
-| Nominatim / OpenStreetMap geocoding (already used) | Free |
+| Clinic details + vision | Reads website pages and views up to 12 images to pick cover, logo, gallery |
+| Provider headshots | Matches provider names to their headshot photos (up to 10) |
+| Before/after photos | Classifies before-and-after images (only ~40% of clinics have these, capped at 10) |
+| Treatments extract | Reads service pages and extracts all treatments offered |
+| Treatments refine | Cleans up and deduplicates the treatment list |
+| Concerns extract | Extracts patient concerns the clinic treats |
+| Escalation fallback | If the main AI call fails, a more capable model retries (affects ~15% of clinics) |
 
-**Read these caveats first:**
-- `gpt-4o` at $2.50/$10 is **grandfathered** for existing accounts; new accounts default to `gpt-4.1` ($5/$15), which ~2× the escalation line only. The default model is `gpt-4o-mini`, unaffected.
-- OpenAI **Batch API = 50% off** both directions. Every one-time and cron job below is batchable → **halve those figures** if run via Batch. Numbers below are full real-time price.
-- Google Places has a **monthly per-SKU free allowance**. At 750 calls/run you likely fall **within the free tier** (~$0/month). The dollar figures below are the no-free-tier worst case.
+### Cost breakdown
 
-### Token assumptions (from the code's char budgets + image caps)
-- Text: ~4 chars/token; batches are 45K–70K chars → ~12–18K input tokens/call.
-- Vision: up to **12 images/clinic**, effective **~10K billed tokens/image** on `gpt-4o-mini` (auto/high detail). This is the biggest swing factor — see §7.
-
----
-
-## 2. One-time clinic ingest — 750 clinics (details + treatments + concerns + images)
-
-Each **new** clinic runs the full pipeline: details + locations + providers + image selection (1 vision call), conditional before/after image classification (1 vision call), services extract + refine (2 text calls), and concerns (1 text call). `gpt-4o` escalation fires only on failure/zero-result.
-
-**Per-clinic (blended, `gpt-4o-mini`):**
-
-| Call | Model | ~Input | ~Output | Cost |
-|---|---|---:|---:|---:|
-| Details + vision (≤12 img) | 4o-mini | 140K (20K text + 120K img) | 5K | $0.024 |
-| Before/after vision (~40% of clinics) | 4o-mini | 120K | 0.5K | $0.018 → amortized **$0.007** |
-| Services — extract | 4o-mini | 18K | 3K | $0.0045 |
-| Services — refine | 4o-mini | 14K | 4K | $0.0045 |
-| Concerns | 4o-mini | 14K | 4K | $0.0045 |
-| `gpt-4o` escalation (~15% of clinics) | 4o | 20K | 4K | $0.09 → amortized **$0.014** |
-| **Per clinic (blended)** | | | | **≈ $0.058** |
-
-| | Typical | High (heavy vision + more escalation) |
+| What | Per clinic | 500 clinics |
 |---|---:|---:|
-| Per clinic | $0.058 | ~$0.11 |
-| **× 750 clinics (one-time)** | **≈ $45** | **≈ $85** |
+| Clinic details + cover/gallery vision (up to 6 images) | ~$0.025 | ~$12.50 |
+| Provider headshots vision (up to 10 images) | ~$0.015 | ~$7.50 |
+| Before/after vision (~40% of clinics, up to 10 images) | ~$0.007 avg | ~$3.50 |
+| Treatments extract + refine | ~$0.009 | ~$4.50 |
+| Concerns extract | ~$0.005 | ~$2.50 |
+| Escalation fallback (~15% of clinics) | ~$0.014 avg | ~$7.00 |
+| **Total per clinic** | **~$0.075** | |
+| **Total for 500 clinics** | | **≈ $38** |
 
-> Via **Batch API**: ~$22–43. If images are sent low-detail, drops to **~$15–20** (see §7).
+**Realistic range: $28 – $60** depending on how many clinics have before/after photos, provider headshots, and how many trigger the escalation fallback.
+
+> 💡 **Save ~50%:** OpenAI's Batch API processes jobs asynchronously (24hr window) at half price. For a one-time bulk ingest there is no reason not to use it — that brings the total to roughly **$18 – $30**.
 
 ---
 
-## 3. Cron — refresh Treatments + Concerns for all 750 clinics
+## 2. Recurring Cron Job — Treatments & Concerns Refresh
 
-> ⚠️ The **current** nightly cron uses **no AI** (heuristic regex/fuzzy match against the 15 canonical treatments; concerns untouched) → $0 AI today. This prices the **AI-based** cron you're asking for.
+The cron job **only** re-scrapes and re-extracts treatments and concerns for each clinic. It does **not** re-fetch clinic details, images, providers, or before/after photos. No vision calls are made — it is pure text extraction.
 
-Per clinic/run = services extract + refine + concerns = **3 `gpt-4o-mini` text calls ≈ $0.0135**.
+### What the cron does per clinic
+
+1. Fetches up to ~55 pages from the clinic website (services, conditions, about pages)
+2. Runs the AI twice: once to extract treatments, once to refine them
+3. Runs the AI once to extract concerns
+4. Replaces existing treatment/concern data in the database
+
+### Cost per run
+
+| What | Per clinic | 500 clinics |
+|---|---:|---:|
+| Treatments extract + refine + concerns (3 text-only AI calls) | ~$0.014 | ~$7.00 |
+| **Cost per full run** | | **≈ $7** |
+
+### By schedule
+
+| How often | Monthly cost |
+|---|---:|
+| **Monthly** (recommended) | **~$7 / month** |
+| Weekly | **~$30 / month** |
+| Daily | **~$210 / month** |
+
+> **Recommendation: Monthly.** Treatment menus at medspas don't change week-to-week. A monthly refresh is more than sufficient and keeps costs minimal. Weekly is a reasonable middle ground if you want slightly fresher data. Daily is almost certainly overkill and is roughly 30× more expensive than monthly for negligible benefit.
+
+---
+
+## 3. AI Chatbot
+
+The chatbot is now on OpenAI (`gpt-4o-mini`). The OpenRouter key is removed.
+
+### How the chatbot works
+
+Each time a user sends a message, the system makes **one single AI call**:
+- Detects what the user is asking (intent routing — no AI cost)
+- Fetches relevant clinic or treatment data from the database (no AI cost)
+- Sends: system prompt + fetched data + user's message → gets one response back
+
+No vision, no tool calls, no loops. One plain text completion per user message.
+
+### Cost
+
+| Usage | Monthly cost |
+|---|---:|
+| Light — 2,000 messages/month | ~$2.60 |
+| Moderate — 10,000 messages/month | **~$13** |
+| Heavy — 50,000 messages/month | ~$65 |
+
+> The chatbot is very affordable. Even at 50,000 messages/month (roughly 1,600 per day), it costs less than $70/month on `gpt-4o-mini`.
+
+---
+
+## 4. AI Skin Treatment Navigator
+
+The navigator makes **one OpenAI vision call per user session**. The user fills out a questionnaire (skin goals, concerns, previous treatments) and optionally uploads a skin photo. The AI recommends treatments and explains why.
+
+### How it works
+
+- One `gpt-4o-mini` call with the treatment/concern catalog + the user's answers + optionally 1–2 skin photos
+- Outputs: up to 5 treatment recommendations with rationale, expected downtime, and comfort notes
+- No ongoing session state — each submission is a fresh, independent call
+
+### Cost
+
+| Usage | Monthly cost |
+|---|---:|
+| Light — 500 sessions/month | ~$2 |
+| Moderate — 2,000 sessions/month | **~$7** |
+| Heavy — 10,000 sessions/month | ~$35 |
+
+> Very cheap. Even at high volumes, the navigator costs single-digit to low-tens of dollars per month.
+
+---
+
+## 5. Grand Total — Putting It All Together
+
+### First Month (one-time ingest + recurring costs)
 
 | Item | Cost |
 |---|---:|
-| Per clinic / run | ~$0.014 |
-| **Full run (750 clinics)** | **≈ $10 / run** |
+| One-time ingest of 500 clinics | ~$38 |
+| Cron (monthly refresh, first run) | ~$7 |
+| Chatbot — 10,000 messages | ~$13 |
+| Skin Navigator — 2,000 sessions | ~$7 |
+| **First month total** | **≈ $65** |
 
-**By schedule:**
+> With Batch API on the ingest: **≈ $46 first month**
 
-| Frequency | Monthly |
+### Every Month After (no ingest)
+
+| Item | Cost |
 |---|---:|
-| Daily | **≈ $300 / mo** |
-| Weekly | **≈ $44 / mo** |
-| Monthly | **≈ $10 / mo** |
-
-> Halve with Batch. **Recommendation:** weekly or monthly — treatment/concern data drifts slowly; daily (~$300/mo) buys little extra freshness.
-
----
-
-## 4. AI treatment help (Treatment/Skin Navigator) — per request
-
-One `gpt-4o-mini` **vision** call per request (1 uploaded photo + prompt, ~2.4K max output).
-
-| Volume | Cost |
-|---|---:|
-| Per request | ~$0.003 |
-| **1,000 requests** | **≈ $3** |
-| 5,000 requests | ≈ $15 |
-| 10,000 requests | ≈ $30 |
-
-> "Thousands of requests" = **single-digit to low-tens of dollars**. Cheap.
+| Cron — monthly treatments & concerns refresh | ~$7 |
+| Chatbot — 10,000 messages | ~$13 |
+| Skin Navigator — 2,000 sessions | ~$7 |
+| **Recurring monthly total** | **≈ $27 / month** |
 
 ---
 
-## 5. Chatbot — OpenRouter (free today) → OpenAI
+## 6. Key Decisions & Notes
 
-> ⚠️ Today the chatbot runs on OpenRouter **`:free`** models → **$0**. Moving to OpenAI introduces real cost. It's **1 model call per user message** (no tool loop): ~900-token system prompt + injected search/clinic context (~4K tokens), capped at 900 output tokens.
+### OpenRouter → OpenAI (Chatbot)
+The chatbot previously used free OpenRouter models (cost: $0). Moving to OpenAI `gpt-4o-mini` introduces roughly **$13/month at 10,000 messages/month**. This is the tradeoff for reliability, no rate-limiting surprises from free-tier throttling, and a single API key to manage across all AI features.
 
-| Model | Per message | Per 1,000 msgs | @ 10,000 msgs/mo |
-|---|---:|---:|---:|
-| **`gpt-4o-mini`** (recommended) | ~$0.0013 | **$1.30** | **≈ $13 / mo** |
-| `gpt-4o` | ~$0.0215 | $21.50 | ≈ $215 / mo |
+### Cron Job Scope
+The cron job **only refreshes treatments and concerns** — nothing else. Clinic details, provider profiles, images, and before/after photos are not re-processed. This keeps the recurring cost low and avoids overwriting manually curated data.
 
-> **Recommendation:** `gpt-4o-mini` — ~16× cheaper and fine for grounded, fact-injected answers. Only reach for `gpt-4o` if quality proves insufficient.
+### Vision for Every Image
+Per your specification, OpenAI Vision processes all images at ingest time:
+- 5 gallery images + 1 cover = 6 clinic images
+- Up to 10 provider headshots
+- Up to 10 before-and-after images
 
----
+Vision is the largest cost component of the initial ingest. The recurring cron makes zero vision calls.
 
-## 6. Google Places — rating + review count + 5 reviews × 750 clinics
-
-> ⚠️ Current code (`lib/ratings/fetch-rating.ts`) fetches only `rating` + `userRatingCount` (no review text). Pulling **5 reviews needs the Atmosphere field mask** → a small code change **and** the higher SKU below.
-
-| Approach | SKU | Per 1,000 | 750 clinics |
-|---|---|---:|---:|
-| **B — Place Details** (if `place_id` derivable from the stored Google Maps URL) | Enterprise + Atmosphere | $25 | **≈ $19** |
-| A — Text Search by name/address (no `place_id`) | Enterprise + Atmosphere | $40 | ≈ $30 |
-
-- Prefer **Approach B ($19)** — Maps links are already scraped, so `place_id` is usually derivable and avoids the pricier Text Search.
-- **Free tier:** 750 calls likely sits within Google's monthly per-SKU free allowance → potentially **$0/month**. Budget **$19–30** as safe worst case.
-- A monthly review refresh = same ~$19–30/run (again likely $0 under free tier).
+### Cost Levers (How to Reduce Costs)
+- **Batch API on ingest** — cuts the one-time cost in half
+- **Monthly cron instead of weekly** — 4× cheaper; treatments rarely change week-to-week
+- **Fewer vision images at ingest** — reducing from 12 to 6 images per clinic cuts vision cost roughly in half
 
 ---
 
-## 7. Biggest cost driver & how to control it
+## 7. What This Does NOT Include
 
-**Vision image tokens dominate the ingest cost** (~85% of the details call). Levers:
-- **`detail: "low"`** on vision → images drop to ~2.8K tok each → roughly halves ingest cost.
-- **Lower `VISION_IMAGE_CAP`** 12 → 6–8.
-- **Batch API** on one-time ingest + cron → 50% off.
-- If images run low-detail (or the code's own "~1.5K tok/image" estimate holds), one-time ingest drops from ~$45 to **~$15–20**.
-
----
-
-## 8. Summary
-
-| Workload | Scale | Cost |
-|---|---|---|
-| **One-time full ingest** | 750 clinics | **~$45** one-time (range $30–85; ~$22 Batch) |
-| **AI cron — treatments + concerns** | 750/run | **~$10/run** → $10/mo (monthly) · $44/mo (weekly) · $300/mo (daily) |
-| **Treatment/Skin Navigator** | per 1,000 req | **~$3** |
-| **Chatbot on OpenAI** (`gpt-4o-mini`) | per 1,000 msgs | **~$1.30** (~$13/mo @10K); `gpt-4o` ≈ $215/mo |
-| **Google Places** (rating + count + 5 reviews) | 750 clinics | **~$19** one-time (Place Details); ~$0 if within free tier |
-
-### Illustrative first-month total (recommended config)
-Ingest **$45** + Places **$19** + weekly cron **$44** + chatbot `gpt-4o-mini` @10K msgs **$13** + navigator @2K req **$6** ≈ **~$127 first month**, dropping to **~$63/mo recurring** (cron $44 + chatbot $13 + navigator $6). Batch API halves the ingest + cron lines.
-
-> All OpenAI figures scale linearly with volume and image-detail settings. The single most effective cost control is image detail/count on the vision calls (§7).
+- **Server/hosting costs** — ECS, RDS, load balancer, etc.
+- **Geocoding** — uses free Nominatim/OpenStreetMap, no cost
+- **Google Places ratings** — optional enrichment, separate from this estimate
+- **Web scraping** — HTTP fetches have no API cost, only server/bandwidth
+- **Database writes** — no per-write cost beyond hosting
 
 ---
 
-### Sources
-- [OpenAI API Pricing](https://developers.openai.com/api/docs/pricing) · [gpt-4o-mini](https://devtk.ai/en/models/gpt-4o-mini/) · [gpt-4o](https://pecollective.com/tools/gpt-4o-pricing/)
-- [Google Places API — Usage & Billing](https://developers.google.com/maps/documentation/places/web-service/usage-and-billing) · [Places pricing 2026](https://mapatlas.eu/blog/google-maps-api-pricing-2026)
+*Estimates based on the actual AI call structure in the codebase (`ingest-clinic.ts`, `ingest-treatments-concerns.ts`, `before-after.ts`, `skin-navigator/ai.ts`, `chat/route.ts`). Real costs may vary ±30% depending on clinic website complexity, image sizes, and actual usage patterns. OpenAI `gpt-4o-mini` pricing: $0.15/1M input tokens, $0.60/1M output tokens (July 2026).*

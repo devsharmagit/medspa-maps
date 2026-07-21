@@ -7,8 +7,44 @@ function addressQuery(loc: ClinicLocation, clinicName: string): string {
   return addr || (loc.label ? `${loc.label}, ${clinicName}` : clinicName);
 }
 
-function mapsEmbedUrl(query: string): string {
-  return `https://www.google.com/maps?q=${encodeURIComponent(query)}&output=embed`;
+// Optional Google Maps Embed API key (server-side env). When set, EVERY clinic
+// with a place_id (816 of them) renders the exact place with its real
+// business-name label — full parity with a clinic's own website map. The key
+// ends up in the iframe src (every map embed does), so in Google Cloud restrict
+// it to the Maps Embed API + your domain(s); the Embed API itself is free.
+const EMBED_KEY = process.env.GOOGLE_MAPS_EMBED_KEY;
+
+/**
+ * Embedded map URL. Ordered by reliability so it works for EVERY clinic:
+ *   1. Embed API by place_id — exact pin + business-name label (needs a key).
+ *   2. Keyless by lat/lng — exact-coordinate pin, works for everyone with
+ *      coordinates (our coords match Google's own place coords). The marker
+ *      label is generic (Google can't name a raw point), but the pin is exact.
+ *   3. Keyless by name+address — only when there are no coordinates. Geocoded,
+ *      so both pin and label are best-effort.
+ *
+ * Note: the keyless `output=embed` endpoint does NOT support `q=place_id:…`
+ * (it renders a blank world map) — the Embed API in (1) is the only way to pin
+ * a place_id.
+ */
+function mapsEmbedUrl(loc: ClinicLocation, clinicName: string): string {
+  if (EMBED_KEY && loc.google_place_id)
+    return `https://www.google.com/maps/embed/v1/place?key=${EMBED_KEY}&q=place_id:${encodeURIComponent(loc.google_place_id)}`;
+
+  if (loc.lat != null && loc.lng != null)
+    return `https://maps.google.com/maps?q=${loc.lat},${loc.lng}&z=16&output=embed`;
+
+  // No coordinates — geocode name + address. `loc.address` may already contain
+  // city/state/zip, so only append parts not already present (avoids
+  // "…Miami, FL 33134, Miami, FL, 33134"). Leading with the name + `iwloc=near`
+  // gives the marker the business name when the geocode matches.
+  const street = loc.address ?? "";
+  const has = (v: string | null) => !!v && street.toLowerCase().includes(v.toLowerCase());
+  const addr = [loc.address, has(loc.city) ? null : loc.city, has(loc.state) ? null : loc.state, has(loc.zip) ? null : loc.zip]
+    .filter(Boolean).join(", ");
+  const name = clinicName.trim();
+  const q = addr ? (name ? `${name}. ${addr}` : addr) : (name || loc.label || "");
+  return `https://maps.google.com/maps?q=${encodeURIComponent(q)}&t=m&z=15&output=embed&iwloc=near`;
 }
 
 function mapsOpenUrl(loc: ClinicLocation, query: string): string {
@@ -81,7 +117,7 @@ export function ClinicLocationsSection({
           const title = locationTitle(loc, idx);
           const addrLines = addressLines(loc);
           const query = addressQuery(loc, clinicName);
-          const embedUrl = mapsEmbedUrl(query);
+          const embedUrl = mapsEmbedUrl(loc, clinicName);
           const mapsUrl = mapsOpenUrl(loc, query);
 
           return (
@@ -100,18 +136,22 @@ export function ClinicLocationsSection({
                 )}
               </div>
 
-              {/* Google Maps embed — no API key needed */}
-              <div className="overflow-hidden rounded-[12px] border border-[#EDE3EA]">
-                <iframe
-                  src={embedUrl}
-                  title={`Map for ${title}`}
-                  width="100%"
-                  height="160"
-                  style={{ border: 0, display: "block" }}
-                  loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
-                />
-              </div>
+              {/* Google Maps embed — shown only once GOOGLE_MAPS_EMBED_KEY is
+                  set, so it renders exact place_id maps. Hidden until then (the
+                  address + "Open in Google Maps" link below still work). */}
+              {EMBED_KEY && (
+                <div className="overflow-hidden rounded-[12px] border border-[#EDE3EA]">
+                  <iframe
+                    src={embedUrl}
+                    title={`Map for ${title}`}
+                    width="100%"
+                    height="160"
+                    style={{ border: 0, display: "block" }}
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                  />
+                </div>
+              )}
 
               <div className="flex flex-col gap-[12px]">
                 {addrLines.length > 0 && (

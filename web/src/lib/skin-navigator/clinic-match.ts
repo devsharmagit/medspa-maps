@@ -113,15 +113,20 @@ function treatmentWeights(analysis: NavigatorAnalysis): ServiceWeight[] {
           : 58;
     weights.set(treatment.slug, Math.max(weights.get(treatment.slug) ?? 0, weight));
   }
-  for (const alt of analysis.alternatives) {
-    weights.set(alt.slug, Math.max(weights.get(alt.slug) ?? 0, 40));
-  }
   return [...weights.entries()].map(([slug, weight]) => ({ slug, weight }));
 }
 
-async function validServiceWeights(weights: ServiceWeight[]): Promise<ServiceWeight[]> {
+/**
+ * Reconcile AI-provided treatment slugs against the real catalog. Exact matches
+ * pass through; each remaining slug is mapped to the closest active service via
+ * pg_trgm similarity (on slug/name) above a threshold. This lifts the Tier-1
+ * hit rate so real clinics surface instead of falling to the generic nearby
+ * tier. Weights collapse by max when two inputs reconcile to the same service.
+ */
+async function reconcileServiceWeights(weights: ServiceWeight[]): Promise<ServiceWeight[]> {
   if (weights.length === 0) return [];
-  const { rows } = await pool.query<{ slug: string }>(
+
+  const { rows: validRows } = await pool.query<{ slug: string }>(
     `SELECT slug
      FROM services
      WHERE slug = ANY($1::text[])
@@ -129,8 +134,28 @@ async function validServiceWeights(weights: ServiceWeight[]): Promise<ServiceWei
        AND name !~* '(dentistry|dental|orthodont|veneer)'`,
     [weights.map((w) => w.slug)]
   );
-  const valid = new Set(rows.map((r) => r.slug));
-  return weights.filter((w) => valid.has(w.slug));
+  const valid = new Set(validRows.map((r) => r.slug));
+
+  const resolved = new Map<string, number>();
+  for (const w of weights) {
+    let target = valid.has(w.slug) ? w.slug : null;
+    if (!target) {
+      const { rows } = await pool.query<{ slug: string; score: number }>(
+        `SELECT slug,
+                GREATEST(similarity(slug, $1), similarity(name, $1)) AS score
+         FROM services
+         WHERE is_active = true
+           AND name !~* '(dentistry|dental|orthodont|veneer)'
+         ORDER BY score DESC
+         LIMIT 1`,
+        [w.slug.replace(/-/g, " ")]
+      );
+      const best = rows[0];
+      if (best && Number(best.score) >= 0.3) target = best.slug;
+    }
+    if (target) resolved.set(target, Math.max(resolved.get(target) ?? 0, w.weight));
+  }
+  return [...resolved.entries()].map(([slug, weight]) => ({ slug, weight }));
 }
 
 function scoreClinic(row: {
@@ -335,7 +360,7 @@ async function matchByTreatments(
   return rows
     .map((row) => mapClinicRow(row, hasOrigin))
     .sort((a, b) => b.matchScore - a.matchScore)
-    .slice(0, 12);
+    .slice(0, 5);
 }
 
 async function matchByConcerns(
@@ -486,7 +511,7 @@ async function matchByConcerns(
   return rows
     .map((row) => mapClinicRow(row, hasOrigin))
     .sort((a, b) => b.matchScore - a.matchScore)
-    .slice(0, 12);
+    .slice(0, 5);
 }
 
 /**
@@ -608,7 +633,7 @@ async function matchNearbyClinics(
       if ((b.rating ?? 0) !== (a.rating ?? 0)) return (b.rating ?? 0) - (a.rating ?? 0);
       return b.reviewCount - a.reviewCount;
     })
-    .slice(0, 12);
+    .slice(0, 5);
 }
 
 export async function matchNavigatorClinics(
@@ -616,7 +641,11 @@ export async function matchNavigatorClinics(
   analysis: NavigatorAnalysis
 ): Promise<NavigatorClinicMatch[]> {
   const location = resolveLocationScope(request);
-  const weights = await validServiceWeights(treatmentWeights(analysis));
+  // Location is optional. With no usable location at all, skip clinic matching
+  // entirely (the UI hides the clinics section) rather than returning a
+  // nationwide, location-agnostic list.
+  if (!location.origin && !location.stateCode && !location.text) return [];
+  const weights = await reconcileServiceWeights(treatmentWeights(analysis));
   const treatmentMatches = await matchByTreatments(weights, location);
   if (treatmentMatches.length > 0) return treatmentMatches;
   const concernMatches = await matchByConcerns(analysis, location);

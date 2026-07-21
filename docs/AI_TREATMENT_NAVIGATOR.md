@@ -1,6 +1,6 @@
-# AI Treatment Navigator
+# AI Treatment Navigator — Complete Technical Flow
 
-Last updated: July 16, 2026
+Last updated: July 21, 2026 (optional location, 3-section results, seed + associations + slug reconciliation)
 
 ## Overview
 
@@ -8,11 +8,9 @@ The **AI Treatment Navigator** is an anonymous, guided treatment discovery exper
 
 It helps users move from a broad goal like "I want to look younger" or "I do not know what treatment I need" into:
 
-- Possible cosmetic concerns
+- Possible cosmetic concerns (with where each was deduced from)
 - Personalized aesthetic treatment suggestions
-- Treatment alternatives
-- Consultation guidance
-- Nearby clinic recommendations from the MedSpaMaps database
+- Nearby clinic recommendations from the MedSpaMaps database (when a location is given)
 
 The experience is intentionally light. It avoids long medical intake forms, avoids money or budget questions, and keeps the user focused on one simple decision at a time.
 
@@ -114,7 +112,7 @@ Internal values:
 
 #### City or ZIP
 
-Required.
+Optional. Only the age range is required to proceed. When no location is given, the results omit the clinics section entirely (concerns + treatments still render).
 
 Input behavior:
 
@@ -379,15 +377,18 @@ Purpose:
 
 Show the user a practical treatment starting point and nearby clinic options.
 
-The results page includes:
+The results page is intentionally minimal — three card sections so users are not overwhelmed:
 
-- Uploaded/captured user photo preview, if one was provided in the current session
-- Possible cosmetic concerns
-- Photo notes
-- Recommended treatments
-- Clinic recommendations
-- Consultation questions
+1. **Your concerns** (3–5) — each with severity and a source label ("From your answers" / "From your photo" / "From your answers + photo").
+2. **Suggested treatments** (3–5) — name + one-line "why it fits" + a "Find clinics" button.
+3. **Nearby clinics** (up to 5) — only shown when a location was provided.
+
+Plus:
+
+- A small "Your photo" panel, if a photo was provided in the current session
 - Edit and retake controls
+
+> Photo notes, consultation questions, alternative treatments, per-treatment downtime/comfort/cautions/confidence, and the clinic match-score/verified badges were removed from the results UI to keep it scannable. (The AI still returns photoObservations/consultationQuestions in its payload; they are simply not rendered.)
 
 ### Results Header
 
@@ -788,7 +789,7 @@ Analytics should be anonymous and should not store photo bytes.
 
 ## AI Response Schema
 
-The AI response must use a strict structured JSON shape.
+The AI response must use a strict structured JSON shape. `concerns` and `recommendedTreatments` are each bounded to **3–5** items. `alternatives` was removed.
 
 ```ts
 {
@@ -808,11 +809,6 @@ The AI response must use a strict structured JSON shape.
     expectedDowntime: string;
     comfortNotes: string;
     cautions: string[];
-  }>;
-  alternatives: Array<{
-    slug: string;
-    name: string;
-    rationale: string;
   }>;
   photoObservations: {
     provided: boolean;
@@ -848,6 +844,15 @@ The AI should direct users to qualified clinicians for:
 - Medication conflicts
 - Anything that appears medical rather than cosmetic
 
+## Accuracy & Determinism
+
+To make results reproducible and better grounded in real, matchable treatments:
+
+- **Seed:** the OpenAI call passes a fixed `seed` (7) alongside `temperature: 0`, so identical answers yield near-identical output.
+- **Concern→treatment associations:** the prompt includes, for each of the user's selected concerns, the treatments most commonly offered by clinics that treat that concern. This is derived purely by **co-occurrence** across the two reliable joins — `clinic_concerns` (clinic⇄concern) and `clinic_services` (clinic⇄treatment) — and is **computed once and cached** for the server process (refreshed at most daily), never per request. `clinic_service_concerns` is deliberately **not** used (it is written by ingest but stale/unread). See `web/src/lib/skin-navigator/associations.ts`.
+- **No-photo source coercion:** if no photo was included, every returned concern's `source` is forced to `"questionnaire"` after validation.
+- **Slug reconciliation:** AI treatment slugs are `pg_trgm`-matched to real catalog services before clinic matching (see Clinic Matching).
+
 ## Photo AI Rules
 
 When a photo is included, the AI may comment on visible cosmetic observations such as:
@@ -874,7 +879,11 @@ The AI must not:
 
 Clinic matching uses the AI's recommended treatment slugs and the user's selected location.
 
-The API returns up to 12 clinic matches.
+If no usable location is provided, clinic matching is skipped entirely (returns none) — the UI hides the clinics section rather than showing a location-agnostic list.
+
+The API returns up to 5 clinic matches.
+
+**Slug reconciliation:** before matching, each AI-provided treatment slug that does not exactly match an active `services.slug` is remapped to the closest active service via `pg_trgm` similarity (threshold 0.3). This raises the primary-tier hit rate so real clinics surface instead of falling through to the generic nearby tier.
 
 ### Location Resolution
 
@@ -922,7 +931,6 @@ Treatment recommendation weights:
 - Primary: 100
 - Secondary: 78
 - Maintenance: 58
-- Alternative: 40
 
 Score components:
 
@@ -1136,6 +1144,756 @@ Comfort:
 - Search clinics in selected location
 - View Profile
 
+## Complete Technical Flow
+
+This section documents the end-to-end data flow from user input to AI analysis to clinic recommendations.
+
+### 1. Data Collection Phase (Frontend)
+
+**Location:** `web/src/app/skin-navigator/skin-navigator-client.tsx`
+
+The wizard collects data across 4 steps:
+
+#### Step 1: Basics
+```typescript
+{
+  ageRange: "under-25" | "25-34" | "35-44" | "45-54" | "55-64" | "65-plus",
+  gender: string, // optional, free-text
+  skinTone: string, // optional, free-text
+  location: {
+    label: string,        // display label like "Nashville, TN"
+    value: string,        // search value
+    lat: number | null,   // coordinates when available
+    lng: number | null
+  }
+}
+```
+
+#### Step 2: Goals & Concerns
+```typescript
+{
+  selected: string[], // 1-8 slugs from predefined options
+  freeText: string    // optional, up to 800 chars
+}
+```
+
+Available goal/concern slugs:
+- Goals: `look-younger`, `look-refreshed`, `event-ready`, `natural-maintenance`
+- Concerns: `acne`, `wrinkles`, `pigmentation`, `hair-loss`, `loose-skin`, `dark-circles`, `facial-volume`, `redness`, `pores`, `texture`, `scars`, `double-chin`, `unwanted-hair`
+
+#### Step 3: Preferences
+```typescript
+{
+  previousTreatments: "none" | "yes" | "not-sure", // hidden, defaults to "not-sure"
+  downtime: "none" | "few-days" | "flexible",
+  comfort: "gentle" | "injectables-devices" | "not-sure",
+  medicalConsiderations: string // hidden, defaults to ""
+}
+```
+
+#### Step 4: Photo (Optional)
+User can:
+- Upload a photo (JPEG/PNG/WebP, max 5MB)
+- Capture from camera
+- Skip photo entirely
+
+Photo is stored as `File` object in component state, NOT in localStorage.
+
+### 2. Request Submission
+
+**Endpoint:** `POST /api/skin-navigator/analyze`  
+**Content-Type:** `multipart/form-data`
+
+#### Form Data Structure
+```typescript
+FormData {
+  payload: string, // JSON.stringify(questionnaireData)
+  photo?: File     // optional image file
+}
+```
+
+The `payload` field contains:
+```typescript
+{
+  basics: {
+    ageRange: string,
+    gender: string,
+    skinTone: string,
+    location: {
+      value: string,
+      label: string,
+      lat: number | null,
+      lng: number | null
+    }
+  },
+  goals: {
+    selected: string[],
+    freeText: string
+  },
+  preferences: {
+    previousTreatments: "not-sure",
+    downtime: string,
+    comfort: string,
+    medicalConsiderations: ""
+  }
+}
+```
+
+### 3. API Processing
+
+**Location:** `web/src/app/api/skin-navigator/analyze/route.ts`
+
+#### Rate Limiting
+- Key: `skin-navigator:{ip}`
+- Limit: 15 requests/hour in production, 1000 in development
+- Returns 429 with retry-after message if exceeded
+
+#### Photo Processing
+1. Validates file type (JPEG, PNG, WebP only)
+2. Validates file size (max 5MB)
+3. Converts to base64:
+```typescript
+{
+  label: "Face photo",
+  mediaType: string, // e.g., "image/jpeg"
+  base64: string     // base64-encoded image data
+}
+```
+
+#### Validation
+Uses Zod schema validation on the request payload:
+- Age range must be valid enum
+- Location value must be 2-120 chars
+- Goals: 1-8 selections required
+- Free text fields capped at 800 chars
+
+### 4. Treatment Catalog Loading
+
+**Location:** `web/src/lib/skin-navigator/ai.ts` → `loadPromptCatalog()`
+
+Queries the database for active treatments and concerns, ordered by popularity:
+
+```sql
+-- Services (treatments)
+SELECT s.slug, s.name
+FROM services s
+WHERE s.is_active = true
+  AND s.name !~* '(dentistry|dental|orthodont|veneer)'
+ORDER BY (
+  SELECT count(*) 
+  FROM clinic_services cs
+  WHERE cs.service_id = s.id 
+    AND cs.is_active = true
+) DESC, s.name
+LIMIT 120
+
+-- Concerns
+SELECT co.slug, co.name
+FROM concerns co
+WHERE co.is_active = true
+ORDER BY (
+  SELECT count(*) 
+  FROM clinic_concerns cc
+  WHERE cc.concern_id = co.id 
+    AND cc.is_active = true
+) DESC, co.name
+LIMIT 120
+```
+
+**Why ordered by popularity?** So the AI prefers canonical, widely-offered treatments (like "botox", "dermal-fillers") that can actually match real clinics, rather than niche brand-specific slugs.
+
+Result structure:
+```typescript
+{
+  treatments: Array<{
+    slug: string,
+    name: string,
+    summary: null,
+    aliases: []
+  }>,
+  concerns: Array<{
+    slug: string,
+    name: string,
+    summary: null,
+    aliases: []
+  }>
+}
+```
+
+### 5. Prompt Construction
+
+**Location:** `web/src/lib/skin-navigator/prompt.ts`
+
+#### System Prompt
+```typescript
+buildNavigatorSystemPrompt(): string
+```
+
+Contains:
+- Role definition: "MedSpaMaps AI Treatment Navigator"
+- Purpose: informational cosmetic treatment education
+- Safety rules:
+  - Never diagnose medical conditions
+  - Never identify disease or guarantee results
+  - Photos are cosmetic observations only (texture, redness, pigment, blemishes, pores, lines, volume)
+  - Do not infer protected attributes (ethnicity, age, health status)
+  - Medical concerns (lesions, infection, severe symptoms) → refer to clinician
+  - No budget questions
+  - Prefer canonical treatment/concern slugs from catalog
+- Disclaimer requirement
+
+#### User Prompt
+```typescript
+buildNavigatorUserPrompt(request, catalog, hasPhotos): string
+```
+
+Returns a JSON string containing:
+```json
+{
+  "task": "Create a structured cosmetic treatment navigation result...",
+  "userInput": {
+    "basics": { ... },
+    "goals": { ... },
+    "preferences": { ... },
+    "goalLabels": ["Look younger", "Wrinkles", ...],
+    "goals": ["Look younger", "Look refreshed"],
+    "concernsToFix": ["Wrinkles", "Pigmentation"],
+    "photosProvided": true
+  },
+  "catalog": {
+    "treatments": [...],
+    "concerns": [...]
+  },
+  "rules": [
+    "Recommend 2 to 4 primary/secondary treatments when appropriate.",
+    "Use low confidence when inputs are sparse or photo quality limits observation.",
+    "Use gentle/low-downtime options when user prefers gentle care.",
+    "If photos not provided, keep photoObservations.provided false.",
+    "Do not diagnose; phrase as cosmetic concerns or visible signs."
+  ]
+}
+```
+
+The prompt splits goals into two categories for clarity:
+- **Aspirational goals:** "look younger", "look refreshed", etc.
+- **Specific concerns to fix:** "wrinkles", "acne", "pigmentation", etc.
+
+### 6. Tool Schema (Structured Output)
+
+**Location:** `web/src/lib/skin-navigator/prompt.ts` → `NAVIGATOR_TOOL_SCHEMA`
+
+The LLM is forced to use structured output via OpenAI's function calling with `strict: true`:
+
+```typescript
+{
+  type: "object",
+  additionalProperties: false,
+  required: [
+    "concerns",
+    "recommendedTreatments", 
+    "alternatives",
+    "photoObservations",
+    "consultationQuestions",
+    "disclaimer"
+  ],
+  properties: {
+    concerns: {
+      type: "array",
+      maxItems: 6,
+      items: {
+        type: "object",
+        required: ["slug", "label", "source", "severity", "rationale"],
+        properties: {
+          slug: { type: "string" },
+          label: { type: "string" },
+          source: { enum: ["questionnaire", "photo", "both"] },
+          severity: { enum: ["mild", "moderate", "significant", "unclear"] },
+          rationale: { type: "string" }
+        }
+      }
+    },
+    recommendedTreatments: {
+      type: "array",
+      minItems: 1,
+      maxItems: 5,
+      items: {
+        type: "object",
+        required: [
+          "slug", "name", "priority", "confidence",
+          "whyItFits", "expectedDowntime", "comfortNotes", "cautions"
+        ],
+        properties: {
+          slug: { type: "string" },
+          name: { type: "string" },
+          priority: { enum: ["primary", "secondary", "maintenance"] },
+          confidence: { enum: ["low", "medium", "high"] },
+          whyItFits: { type: "string" },
+          expectedDowntime: { type: "string" },
+          comfortNotes: { type: "string" },
+          cautions: {
+            type: "array",
+            maxItems: 5,
+            items: { type: "string" }
+          }
+        }
+      }
+    },
+    alternatives: {
+      type: "array",
+      maxItems: 4,
+      items: {
+        type: "object",
+        required: ["slug", "name", "rationale"],
+        properties: {
+          slug: { type: "string" },
+          name: { type: "string" },
+          rationale: { type: "string" }
+        }
+      }
+    },
+    photoObservations: {
+      type: "object",
+      required: ["provided", "notes", "limitations"],
+      properties: {
+        provided: { type: "boolean" },
+        notes: {
+          type: "array",
+          maxItems: 6,
+          items: { type: "string" }
+        },
+        limitations: {
+          type: "array",
+          maxItems: 4,
+          items: { type: "string" }
+        }
+      }
+    },
+    consultationQuestions: {
+      type: "array",
+      minItems: 1,
+      maxItems: 5,
+      items: { type: "string" }
+    },
+    disclaimer: { type: "string" }
+  }
+}
+```
+
+### 7. OpenAI API Call
+
+**Location:** `web/src/lib/ai/openai.ts` → `extractViaOpenAI()`
+
+#### API Configuration
+```typescript
+{
+  model: "gpt-4o-mini", // from OPENAI_MODEL env var
+  temperature: 0,
+  max_completion_tokens: 2400,
+  messages: [
+    { role: "system", content: systemPrompt },
+    { role: "user", content: userPromptOrContentArray }
+  ],
+  tools: [{
+    type: "function",
+    function: {
+      name: "create_treatment_navigation",
+      description: "Create non-diagnostic cosmetic treatment recommendations...",
+      strict: true,
+      parameters: NAVIGATOR_TOOL_SCHEMA
+    }
+  }],
+  tool_choice: {
+    type: "function",
+    function: { name: "create_treatment_navigation" }
+  }
+}
+```
+
+#### Image Handling
+When photos are provided, the user message becomes a content array:
+
+```typescript
+[
+  { type: "text", text: userPromptJSON },
+  { type: "text", text: "Face photo" },
+  { 
+    type: "image_url", 
+    image_url: { 
+      url: "data:image/jpeg;base64,{base64EncodedData}" 
+    } 
+  }
+]
+```
+
+#### Retry Logic
+- Max 5 retries for 429 (rate limit) and 5xx errors
+- Respects `Retry-After` header
+- Exponential backoff: min(2^attempt * 1000, 30000)ms
+- 120-second request timeout
+
+#### Response Parsing
+1. Checks for `refusal` → throws error if present
+2. Finds tool call matching `create_treatment_navigation`
+3. Extracts `function.arguments` (JSON string)
+4. Parses JSON
+5. Validates against Zod schema `NavigatorAnalysisSchema`
+
+Returns:
+```typescript
+{
+  analysis: NavigatorAnalysis, // validated structured data
+  model: string,               // actual model used
+  usage: {
+    input_tokens: number,
+    output_tokens: number
+  }
+}
+```
+
+### 8. Response Validation
+
+**Location:** `web/src/lib/skin-navigator/schema.ts` → `NavigatorAnalysisSchema`
+
+Zod validates the LLM's JSON output:
+
+```typescript
+{
+  concerns: Array<{
+    slug: string, // 1-120 chars
+    label: string, // 1-120 chars
+    source: "questionnaire" | "photo" | "both",
+    severity: "mild" | "moderate" | "significant" | "unclear",
+    rationale: string // 1-700 chars
+  }>, // max 6
+
+  recommendedTreatments: Array<{
+    slug: string, // 1-120 chars
+    name: string, // 1-120 chars
+    priority: "primary" | "secondary" | "maintenance",
+    confidence: "low" | "medium" | "high",
+    whyItFits: string, // 1-900 chars
+    expectedDowntime: string, // 1-160 chars
+    comfortNotes: string, // 1-300 chars
+    cautions: string[] // max 5 items, each 1-220 chars
+  }>, // 1-5 required
+
+  alternatives: Array<{
+    slug: string, // 1-120 chars
+    name: string, // 1-120 chars
+    rationale: string // 1-500 chars
+  }>, // max 4
+
+  photoObservations: {
+    provided: boolean,
+    notes: string[], // max 6 items, each 1-260 chars
+    limitations: string[] // max 4 items, each 1-260 chars
+  },
+
+  consultationQuestions: string[], // 1-5 required, each 1-220 chars
+  disclaimer: string // 1-700 chars
+}
+```
+
+### 9. Clinic Matching
+
+**Location:** `web/src/lib/skin-navigator/clinic-match.ts`
+
+The clinic matcher uses a three-tier fallback strategy:
+
+#### Tier 1: Match by Treatment Slugs (Primary Strategy)
+
+1. Extract treatment slugs from AI response with priority weights:
+   - Primary: 100 points
+   - Secondary: 78 points
+   - Maintenance: 58 points
+   - Alternative: 40 points
+
+2. Validate slugs against active services in database
+
+3. Query clinics offering those services:
+
+```sql
+SELECT c.*, 
+  MAX(requested.weight) AS best_service_weight,
+  distance_calculation AS distance_miles,
+  matched_service_names
+FROM clinics c
+JOIN clinic_services cs ON cs.clinic_id = c.id
+JOIN services s ON s.id = cs.service_id
+  AND s.slug = ANY($slugs)
+WHERE location_filter
+GROUP BY c.id
+LIMIT 80
+```
+
+4. Score each clinic:
+   - Treatment match: up to 45 points (based on best service weight)
+   - Distance: up to 25 points (if coordinates available)
+   - Rating: up to 15 points
+   - Review count: up to 5 points
+   - Total: 0-90 points
+
+5. Return top 5 by score
+
+#### Tier 2: Match by Concerns (Fallback)
+
+If no treatment matches found:
+
+1. Extract concern slugs from AI response
+2. Query clinics that have those concerns:
+
+```sql
+SELECT c.*, 55 AS best_service_weight, ...
+FROM clinics c
+WHERE EXISTS (
+  SELECT 1 FROM clinic_concerns cc
+  JOIN concerns con ON con.id = cc.concern_id
+  WHERE cc.clinic_id = c.id
+    AND con.slug = ANY($concernSlugs)
+    AND cc.source IN ('scraped', 'manual')
+)
+AND NOT EXISTS (
+  SELECT 1 FROM clinic_concerns cc2
+  WHERE cc2.clinic_id = c.id
+    AND cc2.source = 'removed'
+)
+```
+
+3. Populate `matchedTreatments` with any services clinic offers (up to 5)
+4. Score and return top 5
+
+#### Tier 3: Nearby Clinics (Last Resort)
+
+If no concern matches found:
+
+1. Find ANY active clinics near the user's location
+2. Use preferred treatment weights to populate `matchedTreatments` (overlap only)
+3. Sort by:
+   - Distance (if coordinates available)
+   - Rating
+   - Review count
+4. Return top 5
+
+**Why three tiers?** The AI often recommends specific brand/technique slugs that few clinics list verbatim. The fallback ensures users always see relevant local clinics.
+
+#### Location Resolution
+
+Supports multiple formats:
+
+```typescript
+// Explicit coordinates (from typeahead)
+{ lat: 36.1627, lng: -86.7816, label: "Nashville, TN" }
+
+// ZIP code → lookup coordinates
+"37203" → { lat: 36.1627, lng: -86.7816, state_code: "TN" }
+
+// City, State → lookup coordinates
+"Nashville, TN" → { lat: 36.1627, lng: -86.7816, state_code: "TN" }
+
+// State code/name → filter by state only
+"Utah" or "UT" → { state_code: "UT", state_name: "Utah" }
+
+// Free text → fuzzy search
+"Nashville area" → search city/state/zip fields
+```
+
+Distance calculation (when coordinates available):
+```sql
+3959 * acos(
+  GREATEST(-1, LEAST(1,
+    cos(radians(userLat)) * cos(radians(clinicLat))
+    * cos(radians(clinicLng) - radians(userLng))
+    + sin(radians(userLat)) * sin(radians(clinicLat))
+  ))
+)
+```
+Returns distance in miles, filtered to 80-mile radius.
+
+### 10. Session Persistence
+
+**Location:** `web/src/lib/skin-navigator/sessions.ts`
+
+Saves to `ai_navigator_sessions` table:
+
+```sql
+INSERT INTO ai_navigator_sessions (
+  anonymous_id,
+  ip_hash,
+  user_agent,
+  request,           -- questionnaire JSON
+  photo_count,       -- 0 or 1
+  vision_included,   -- boolean
+  ai_response,       -- full NavigatorAnalysis JSON
+  matched_clinic_ids,-- UUID array
+  model,             -- e.g., "gpt-4o-mini"
+  input_tokens,
+  output_tokens,
+  latency_ms,
+  created_at,
+  expires_at         -- 90 days retention
+)
+```
+
+**What is NOT stored:**
+- Photo bytes (photos sent to OpenAI but not persisted)
+- User identity (session is anonymous)
+
+Returns session UUID for event tracking.
+
+### 11. Response Assembly
+
+**API Response:**
+```typescript
+{
+  success: true,
+  data: {
+    sessionId: string | null,
+    analysis: NavigatorAnalysis,
+    clinics: NavigatorClinicMatch[],
+    disclaimer: string
+  }
+}
+```
+
+**Clinic Match Structure:**
+```typescript
+{
+  clinicId: string,
+  name: string,
+  slug: string,
+  profileUrl: "/clinics/{slug}",
+  distanceMiles: number | null,
+  address: string | null,
+  city: string | null,
+  state: string | null,
+  zip: string | null,
+  rating: number | null,        // 0-5, rounded to 1 decimal
+  reviewCount: number,
+  verified: boolean,
+  coverImageUrl: string | null,
+  logoUrl: string | null,
+  matchedTreatments: Array<{
+    name: string,
+    slug: string
+  }>,
+  matchScore: number            // 0-90
+}
+```
+
+### 12. Frontend Display
+
+**Location:** `web/src/app/skin-navigator/skin-navigator-client.tsx`
+
+Results are displayed in sections:
+
+1. **User Photo Preview** (if uploaded in current session)
+2. **Possible Cosmetic Concerns**
+   - Cards showing label, severity, source, rationale
+3. **Photo Notes**
+   - Whether photo was included
+   - Notes and limitations from AI
+4. **Recommended Treatments**
+   - Cards showing name, priority, confidence
+   - Why it fits, downtime, comfort notes, cautions
+   - "Search clinics" button per treatment
+5. **Nearby Clinics**
+   - Cards with cover image, logo, name, rating, distance
+   - Match score, verified badge
+   - Matched treatment chips
+   - "View Profile" link
+6. **Consultation Questions**
+   - List of practical questions to ask providers
+
+### 13. Draft Persistence (Local Storage)
+
+**Key:** `medspa.ai-treatment-navigator.draft.v1`
+
+Stored locally:
+```typescript
+{
+  state: WizardState,      // basics, goals, preferences
+  stepIndex: number,
+  result: NavigatorAnalyzeResponse | null
+}
+```
+
+**NOT stored:**
+- Photo File object
+- Photo base64 data
+
+**Why?** Preserves user progress if they leave the page, while respecting photo privacy.
+
+### 14. Analytics Events
+
+**Endpoint:** `POST /api/skin-navigator/events`
+
+Tracked events:
+- `navigator.step.{stepName}` — user views step
+- `navigator.step_completed` — user completes step
+- `navigator.photo_added` / `navigator.photo_removed`
+- `navigator.analysis_requested`
+- `navigator.analysis_succeeded` / `navigator.analysis_failed`
+- `navigator.retake` — user resets flow
+- `navigator.clinic_profile_clicked`
+
+Event payload:
+```typescript
+{
+  sessionId: string | null,
+  eventName: string,
+  step: string | undefined,
+  payload: Record<string, unknown>
+}
+```
+
+Stored in `ai_navigator_events` table for funnel analysis.
+
+## Data Flow Summary
+
+```
+User Input (4 steps)
+  ↓
+Form Submission (multipart/form-data)
+  ↓
+API Validation (Zod schemas, rate limiting)
+  ↓
+Photo Processing (base64 conversion)
+  ↓
+Catalog Loading (DB query for treatments/concerns)
+  ↓
+Prompt Construction (system + user prompts)
+  ↓
+OpenAI API Call (gpt-4o-mini, structured output)
+  ↓
+Response Validation (Zod schema)
+  ↓
+Clinic Matching (3-tier: treatments → concerns → nearby)
+  ↓
+Session Persistence (DB, 90-day retention)
+  ↓
+Response Assembly (analysis + clinics + disclaimer)
+  ↓
+Frontend Display (results step)
+```
+
+## Error Handling
+
+### Client-Side Errors
+- Photo too large (>5MB) → inline error
+- Photo wrong type → inline error
+- Missing required fields → continue button disabled + hint text
+- Camera permission denied → fallback to upload
+- Rate limit exceeded → retry-after message
+
+### Server-Side Errors
+- Invalid payload → 400 with user-friendly message
+- Photo validation fails → 400/413 with specific message
+- Missing OPENAI_API_KEY → 503 "not configured yet"
+- OpenAI API error → 502 "temporarily unavailable"
+- Zod validation fails → 422 "check your answers"
+
+All errors are logged but sanitized for user display.
+
 ## Implementation File Map
 
 Main page:
@@ -1150,12 +1908,17 @@ API routes:
 
 Navigator library:
 
-- `web/src/lib/skin-navigator/schema.ts`
-- `web/src/lib/skin-navigator/prompt.ts`
-- `web/src/lib/skin-navigator/ai.ts`
-- `web/src/lib/skin-navigator/clinic-match.ts`
-- `web/src/lib/skin-navigator/sessions.ts`
-- `web/src/lib/skin-navigator/analytics.ts`
+- `web/src/lib/skin-navigator/schema.ts` — Zod schemas and validation
+- `web/src/lib/skin-navigator/prompt.ts` — System/user prompt construction
+- `web/src/lib/skin-navigator/ai.ts` — OpenAI integration, catalog loading, seed, post-processing
+- `web/src/lib/skin-navigator/associations.ts` — cached concern→treatment co-occurrence map
+- `web/src/lib/skin-navigator/clinic-match.ts` — 3-tier clinic matching + slug reconciliation
+- `web/src/lib/skin-navigator/sessions.ts` — Database session persistence
+- `web/src/lib/skin-navigator/analytics.ts` — Event tracking
+
+AI provider:
+
+- `web/src/lib/ai/openai.ts` — OpenAI Chat Completions with structured output
 
 Database:
 

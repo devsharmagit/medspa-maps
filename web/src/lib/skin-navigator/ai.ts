@@ -11,6 +11,11 @@ import {
   NAVIGATOR_TOOL_SCHEMA,
   type NavigatorPromptCatalog,
 } from "./prompt";
+import { getConcernTreatmentMap } from "./associations";
+import { isConcernSlug } from "./schema";
+
+// Fixed seed so identical answers yield near-identical output (OpenAI backend).
+const NAVIGATOR_SEED = 7;
 
 export interface NavigatorPhotoInput {
   label: string;
@@ -62,20 +67,41 @@ async function loadPromptCatalog(): Promise<NavigatorPromptCatalog> {
   };
 }
 
+/**
+ * Associations relevant to THIS user's concerns only — keeps the prompt small.
+ * A user's selected concern slugs map 1:1 to catalog concern slugs.
+ */
+async function relevantAssociations(
+  request: NavigatorRequest
+): Promise<Record<string, { slug: string; name: string }[]>> {
+  const selectedConcerns = request.goals.selected.filter(isConcernSlug);
+  if (selectedConcerns.length === 0) return {};
+  const full = await getConcernTreatmentMap();
+  const filtered: Record<string, { slug: string; name: string }[]> = {};
+  for (const slug of selectedConcerns) {
+    if (full[slug]?.length) filtered[slug] = full[slug];
+  }
+  return filtered;
+}
+
 export async function analyzeTreatmentNavigator(
   request: NavigatorRequest,
   photos: NavigatorPhotoInput[]
 ): Promise<NavigatorAiResult> {
-  const catalog = await loadPromptCatalog();
+  const [catalog, associations] = await Promise.all([
+    loadPromptCatalog(),
+    relevantAssociations(request),
+  ]);
   const hasPhotos = photos.length > 0;
   const result = await extractViaOpenAI<unknown>({
     system: buildNavigatorSystemPrompt(),
-    user: buildNavigatorUserPrompt(request, catalog, hasPhotos),
+    user: buildNavigatorUserPrompt(request, catalog, hasPhotos, associations),
     toolName: "create_treatment_navigation",
     toolDescription:
       "Create non-diagnostic cosmetic treatment recommendations and photo observations for the AI Treatment Navigator.",
     inputSchema: NAVIGATOR_TOOL_SCHEMA,
     maxTokens: 2400,
+    seed: NAVIGATOR_SEED,
     images: photos.map((photo) => ({
       label: photo.label,
       source: {
@@ -87,6 +113,15 @@ export async function analyzeTreatmentNavigator(
   });
 
   const parsed = NavigatorAnalysisSchema.parse(result.data);
+
+  // Determinism/safety: if no photo was included, no concern may claim a photo
+  // source. Coerce any stray "photo"/"both" back to "questionnaire".
+  if (!parsed.photoObservations.provided) {
+    for (const concern of parsed.concerns) {
+      if (concern.source !== "questionnaire") concern.source = "questionnaire";
+    }
+  }
+
   return {
     analysis: parsed,
     model: result.model,

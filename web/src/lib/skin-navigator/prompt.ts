@@ -19,7 +19,8 @@ export const NAVIGATOR_TOOL_SCHEMA = {
   properties: {
     concerns: {
       type: "array",
-      maxItems: 6,
+      minItems: 3,
+      maxItems: 5,
       items: {
         type: "object",
         additionalProperties: false,
@@ -38,7 +39,7 @@ export const NAVIGATOR_TOOL_SCHEMA = {
     },
     recommendedTreatments: {
       type: "array",
-      minItems: 1,
+      minItems: 3,
       maxItems: 5,
       items: {
         type: "object",
@@ -72,20 +73,6 @@ export const NAVIGATOR_TOOL_SCHEMA = {
         ],
       },
     },
-    alternatives: {
-      type: "array",
-      maxItems: 4,
-      items: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          slug: { type: "string" },
-          name: { type: "string" },
-          rationale: { type: "string" },
-        },
-        required: ["slug", "name", "rationale"],
-      },
-    },
     photoObservations: {
       type: "object",
       additionalProperties: false,
@@ -115,7 +102,6 @@ export const NAVIGATOR_TOOL_SCHEMA = {
   required: [
     "concerns",
     "recommendedTreatments",
-    "alternatives",
     "photoObservations",
     "consultationQuestions",
     "disclaimer",
@@ -139,7 +125,8 @@ export function buildNavigatorSystemPrompt(): string {
 export function buildNavigatorUserPrompt(
   request: NavigatorRequest,
   catalog: NavigatorPromptCatalog,
-  hasPhotos: boolean
+  hasPhotos: boolean,
+  associations?: Record<string, { slug: string; name: string }[]>
 ): string {
   const compactCatalog = {
     treatments: catalog.treatments.slice(0, 80).map((t) => ({
@@ -154,6 +141,9 @@ export function buildNavigatorUserPrompt(
       summary: c.summary,
       aliases: c.aliases ?? [],
     })),
+    // Treatments most commonly offered by clinics that treat each of THIS
+    // user's concerns (derived from real clinic data). Prefer these slugs.
+    associations: associations ?? {},
   };
 
   return JSON.stringify(
@@ -170,10 +160,11 @@ export function buildNavigatorUserPrompt(
       },
       catalog: compactCatalog,
       rules: [
-        "Recommend 2 to 4 primary/secondary treatments when appropriate.",
+        "Return exactly 3 to 5 concerns and 3 to 5 recommended treatments.",
+        "Prefer treatment slugs from catalog.associations for the user's concerns; they map to real, locally-available clinics. Fall back to the closest canonical catalog slug only if none fit.",
         "Use low confidence when the inputs are sparse or photo quality limits observation.",
         "Use gentle/low-downtime options when the user prefers gentle care or no downtime.",
-        "If photos are not provided, keep photoObservations.provided false and explain that visual assessment was not included.",
+        "If photos are not provided, keep photoObservations.provided false, and every concern's source MUST be \"questionnaire\" (never \"photo\" or \"both\").",
         "Do not diagnose acne, rosacea, melasma, alopecia, or any medical condition; phrase as cosmetic concerns or visible signs.",
       ],
     },

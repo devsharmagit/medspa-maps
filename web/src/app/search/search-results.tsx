@@ -5,6 +5,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   CalendarDays,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Crown,
   Eye,
   HeartPulse,
@@ -165,11 +167,19 @@ export function SearchResults() {
   const rating = searchParams.get("rating") || "";
   const lat = searchParams.get("lat") || "";
   const lng = searchParams.get("lng") || "";
+  const page = searchParams.get("page") || "1";
   const hasOrigin = Boolean(lat && lng);
   const sort = searchParams.get("sort") || (hasOrigin ? "distance" : "rating");
 
   const [results, setResults] = useState<ClinicResult[]>([]);
   const [total, setTotal] = useState(0);
+  const [pagination, setPagination] = useState<{
+    page: number;
+    limit: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrevious: boolean;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [geoError, setGeoError] = useState("");
@@ -234,6 +244,7 @@ export function SearchResults() {
       if (sort) params.set("sort", sort);
       if (radius) params.set("radius", radius);
       if (rating) params.set("rating", rating);
+      if (page && page !== "1") params.set("page", page);
       if (lat && lng) {
         params.set("lat", lat);
         params.set("lng", lng);
@@ -245,6 +256,7 @@ export function SearchResults() {
       if (myId !== fetchIdRef.current) return; // a newer fetch superseded this one
       setResults(data.results);
       setTotal(data.total);
+      setPagination(data.pagination);
     } catch {
       if (myId !== fetchIdRef.current) return;
       setError("Something went wrong. Please try again.");
@@ -253,7 +265,7 @@ export function SearchResults() {
     }
     // setState functions are stable; listed to satisfy the React Compiler's
     // inferred dependencies (it refuses to memoize otherwise).
-  }, [q, condition, location, sort, radius, rating, lat, lng, setLoading, setError, setResults, setTotal]);
+  }, [q, condition, location, sort, radius, rating, lat, lng, page, setLoading, setError, setResults, setTotal, setPagination]);
 
   useEffect(() => {
     fetchResults();
@@ -289,7 +301,12 @@ export function SearchResults() {
   );
 
   const updateParam = (key: string, value: string) => {
-    pushParams({ [key]: value || null });
+    // Reset to page 1 when changing filters/sort (except when changing page itself)
+    const resetPage = key !== "page";
+    pushParams({ 
+      [key]: value || null,
+      ...(resetPage ? { page: null } : {})
+    });
   };
 
   // On first arrival, enable "near me" by writing the visitor's coordinates to the
@@ -774,9 +791,27 @@ export function SearchResults() {
         <div className="min-w-0 flex-1">
           {/* Results header */}
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold text-[#1a1a1a]">
-              {loading ? "Searching…" : `${total} Clinics Found`}
-            </h2>
+            <div className="flex flex-col gap-1">
+              <h2 className="text-lg font-semibold text-[#1a1a1a]">
+                {loading ? "Searching…" : (
+                  <>
+                    {total.toLocaleString()} {total === 1 ? 'Clinic' : 'Clinics'} Found
+                    {location && ` in ${stateName}`}
+                  </>
+                )}
+              </h2>
+              {!loading && total > 0 && pagination && (
+                <p className="text-sm text-[#727272]">
+                  Showing {((pagination.page - 1) * pagination.limit) + 1}-{Math.min(pagination.page * pagination.limit, total)} of {total.toLocaleString()} results
+                  {results.some(r => r.featured) && (
+                    <span className="ml-2 inline-flex items-center gap-1 text-[#D3A845]">
+                      <Crown className="size-3" />
+                      Featured clinics shown first
+                    </span>
+                  )}
+                </p>
+              )}
+            </div>
 
             {/* Mobile: open filters + sort in a modal */}
             <button
@@ -844,6 +879,19 @@ export function SearchResults() {
               </div>
             )}
           </div>
+
+          {/* Pagination */}
+          {pagination && pagination.totalPages > 1 && (
+            <div className="mt-8 flex items-center justify-center">
+              <PaginationComponent
+                currentPage={pagination.page}
+                totalPages={pagination.totalPages}
+                hasNext={pagination.hasNext}
+                hasPrevious={pagination.hasPrevious}
+                onPageChange={(newPage) => updateParam("page", newPage.toString())}
+              />
+            </div>
+          )}
         </div>
       </div>
 
@@ -1212,6 +1260,127 @@ function SkeletonCard() {
         <div className="h-[42px] animate-pulse rounded-xl bg-[#f5f0f5]" />
       </div>
     </div>
+  );
+}
+
+// ─── Pagination Component ─────────────────────────────────────────────────────
+
+function PaginationComponent({
+  currentPage,
+  totalPages,
+  hasNext,
+  hasPrevious,
+  onPageChange,
+}: {
+  currentPage: number;
+  totalPages: number;
+  hasNext: boolean;
+  hasPrevious: boolean;
+  onPageChange: (page: number) => void;
+}) {
+  // Generate page numbers to show (max 7 visible: [1] ... [4] [5] [6] ... [10])
+  const getPageNumbers = () => {
+    const delta = 2; // How many pages to show on each side of current page
+    const range = [];
+    const rangeWithDots = [];
+
+    // Always show first page
+    range.push(1);
+
+    // Add pages around current page
+    for (let i = Math.max(2, currentPage - delta); i <= Math.min(totalPages - 1, currentPage + delta); i++) {
+      range.push(i);
+    }
+
+    // Always show last page if more than 1 page
+    if (totalPages > 1) {
+      range.push(totalPages);
+    }
+
+    let prev = 0;
+    for (const i of range) {
+      if (prev + 1 < i) {
+        rangeWithDots.push('...');
+      }
+      rangeWithDots.push(i);
+      prev = i;
+    }
+
+    return rangeWithDots;
+  };
+
+  const pageNumbers = getPageNumbers();
+
+  return (
+    <nav className="flex items-center gap-1" aria-label="Pagination">
+      {/* Previous button */}
+      <button
+        onClick={() => onPageChange(currentPage - 1)}
+        disabled={!hasPrevious}
+        className={cn(
+          "flex h-10 w-10 items-center justify-center rounded-lg border transition-colors",
+          hasPrevious
+            ? "border-[#e8e0e8] bg-white text-[#4a4a4a] hover:border-brand-magenta/40 hover:bg-brand-magenta/5"
+            : "border-[#ece6ec] bg-[#fafafa] text-[#9a9a9a] cursor-not-allowed"
+        )}
+        aria-label="Previous page"
+      >
+        <ChevronLeft className="size-4" />
+      </button>
+
+      {/* Page numbers */}
+      <div className="flex items-center gap-1">
+        {pageNumbers.map((pageNum, index) => {
+          if (pageNum === '...') {
+            return (
+              <span key={`dots-${index}`} className="flex h-10 w-10 items-center justify-center text-[#9a9a9a]">
+                ...
+              </span>
+            );
+          }
+
+          const page = pageNum as number;
+          const isCurrent = page === currentPage;
+
+          return (
+            <button
+              key={page}
+              onClick={() => onPageChange(page)}
+              className={cn(
+                "flex h-10 w-10 items-center justify-center rounded-lg border text-sm font-medium transition-colors",
+                isCurrent
+                  ? "border-brand-magenta bg-brand-magenta text-white"
+                  : "border-[#e8e0e8] bg-white text-[#4a4a4a] hover:border-brand-magenta/40 hover:bg-brand-magenta/5"
+              )}
+              aria-label={`Page ${page}`}
+              aria-current={isCurrent ? "page" : undefined}
+            >
+              {page}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Next button */}
+      <button
+        onClick={() => onPageChange(currentPage + 1)}
+        disabled={!hasNext}
+        className={cn(
+          "flex h-10 w-10 items-center justify-center rounded-lg border transition-colors",
+          hasNext
+            ? "border-[#e8e0e8] bg-white text-[#4a4a4a] hover:border-brand-magenta/40 hover:bg-brand-magenta/5"
+            : "border-[#ece6ec] bg-[#fafafa] text-[#9a9a9a] cursor-not-allowed"
+        )}
+        aria-label="Next page"
+      >
+        <ChevronRight className="size-4" />
+      </button>
+
+      {/* Results info */}
+      <div className="ml-4 hidden text-sm text-[#727272] sm:block">
+        Page {currentPage} of {totalPages}
+      </div>
+    </nav>
   );
 }
 

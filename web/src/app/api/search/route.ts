@@ -101,6 +101,13 @@ export async function GET(request: NextRequest) {
   // dropdown sets either q or condition, never both).
   if (condition) q = "";
 
+  // Pagination params
+  const pageRaw = searchParams.get("page");
+  const limitRaw = searchParams.get("limit");
+  const page = pageRaw && Number.isFinite(Number(pageRaw)) ? Math.max(1, Number(pageRaw)) : 1;
+  const limit = limitRaw && Number.isFinite(Number(limitRaw)) ? Math.min(Math.max(1, Number(limitRaw)), 50) : 20;
+  const offset = (page - 1) * limit;
+
   // Geo / rating params
   const latRaw = searchParams.get("lat");
   const lngRaw = searchParams.get("lng");
@@ -137,6 +144,8 @@ export async function GET(request: NextRequest) {
   const sort = searchParams.get("sort") || (hasOrigin ? "distance" : "rating"); // distance | rating | name | reviews
 
   try {
+    console.log('[DEBUG] Search params:', { q, condition, location, page, limit, latRaw, lngRaw, radiusRaw, ratingRaw, sort });
+    
     const conditions: string[] = ["c.is_active = TRUE"];
     const params: (string | number | string[])[] = [];
     let paramIdx = 1;
@@ -271,124 +280,165 @@ export async function GET(request: NextRequest) {
       paramIdx++;
     }
 
-    // Sort order. DISTINCT ON (c.id) requires c.id to lead the ORDER BY, so the
-    // per-clinic tie-break ordering follows it here and JS re-sorts afterwards.
-    // Featured clinics are ALWAYS pinned on top; the chosen sort only orders
-    // within the featured and non-featured groups.
+    // Sort order. Featured clinics are ALWAYS pinned on top; the chosen sort only orders
+    // within the featured and non-featured groups. Two variants are needed: `orderBy`
+    // (qualified with c.*) for use inside the CTE where the `clinics` alias is in scope,
+    // and `outerOrderBy` (bare column names) for the outer SELECT over the CTE's output,
+    // where only the CTE's own output columns — not `c` — are visible.
     let orderBy =
       "c.featured DESC, COALESCE(c.avg_rating, c.ext_rating) DESC NULLS LAST, c.review_count DESC";
-    if (sort === "name") orderBy = "c.featured DESC, c.name ASC";
-    else if (sort === "reviews") orderBy = "c.featured DESC, c.review_count DESC NULLS LAST";
-    else if (sort === "distance" && hasOrigin) orderBy = "c.featured DESC, distance_miles ASC NULLS LAST";
+    let outerOrderBy =
+      "featured DESC, COALESCE(avg_rating, ext_rating) DESC NULLS LAST, review_count DESC";
+    if (sort === "name") {
+      orderBy = "c.featured DESC, c.name ASC";
+      outerOrderBy = "featured DESC, clinic_name ASC";
+    } else if (sort === "reviews") {
+      orderBy = "c.featured DESC, c.review_count DESC NULLS LAST";
+      outerOrderBy = "featured DESC, review_count DESC NULLS LAST";
+    } else if (sort === "distance" && hasOrigin) {
+      orderBy = "c.featured DESC, distance_miles ASC NULLS LAST";
+      outerOrderBy = "featured DESC, distance_miles ASC NULLS LAST";
+    }
 
-    const query = `
-      SELECT DISTINCT ON (c.id)
-        c.id AS clinic_id,
-        ${distanceExpr} AS distance_miles,
-        c.name AS clinic_name,
-        c.slug AS clinic_slug,
-        -- Address/city/state/zip/phone live in clinic_locations now; use the
-        -- primary active location (clinic-level address kept as street fallback).
-        COALESCE(c.address, ploc.address) AS address,
-        ploc.city  AS city,
-        ploc.state AS state,
-        ploc.zip   AS zip,
-        COALESCE(c.phone, ploc.phone) AS phone,
-        c.website,
-        ploc.lat,
-        ploc.lng,
-        c.avg_rating,
-        c.review_count,
-        c.ext_rating,
-        c.ext_review_count,
-        c.featured,
-        c.about,
-        c.hours,
-        c.booking_url,
-        c.google_place_id,
-        c.instagram_url,
-        (
-          SELECT COALESCE(cdn_url, source_url) FROM images
-          WHERE entity_type = 'clinic' AND entity_id = c.id
-          AND role = 'logo' AND scrape_status = 'ok'
-          ORDER BY sort_order LIMIT 1
-        ) AS logo_url,
-        (
-          -- Only canonical-mapped services (skip unmatched scraped nav junk).
-          SELECT COALESCE(json_agg(t), '[]'::json) FROM (
-          SELECT DISTINCT sv.name AS name, sv.slug AS slug
-            FROM clinic_services cs2
-            JOIN services sv ON sv.id = cs2.service_id
-              AND sv.is_active = TRUE
-              AND sv.name !~* '(dentistry|dental|orthodont|veneer)'
-            WHERE cs2.clinic_id = c.id AND cs2.is_active = TRUE
-            LIMIT 8
-          ) t
-        ) AS services,
-        (
-          SELECT COALESCE(cdn_url, source_url) FROM images
-          WHERE entity_type = 'clinic' AND entity_id = c.id
-          AND role IN ('cover', 'gallery') AND scrape_status = 'ok'
-          ORDER BY (role = 'cover') DESC, sort_order LIMIT 1
-        ) AS cover_image_url,
-        (
-          -- Photo strip for the card: cover first, then gallery.
-          SELECT COALESCE(json_agg(url ORDER BY ord, so), '[]'::json) FROM (
-            SELECT COALESCE(cdn_url, source_url) AS url,
-              CASE role WHEN 'cover' THEN 0 ELSE 1 END AS ord,
-              sort_order AS so
-            FROM images
-            WHERE entity_type = 'clinic' AND entity_id = c.id
-              AND role IN ('cover', 'gallery')
-              AND scrape_status = 'ok'
-            ORDER BY ord, so
-            LIMIT 12
-          ) g
-        ) AS gallery_images,
-        (
-          SELECT count(*)::int FROM clinic_locations cl
-          WHERE cl.clinic_id = c.id AND cl.is_active = true
-        ) AS location_count,
-        '[]'::json AS providers,
-        (
-          SELECT COALESCE(json_agg(loc ORDER BY loc.sort_order), '[]'::json) FROM (
-            SELECT cl.id, cl.label, cl.address, cl.city, cl.state, cl.zip,
-                   cl.lat, cl.lng, cl.phone, cl.booking_url, cl.google_maps_url,
-                   cl.is_primary, cl.sort_order
-            FROM clinic_locations cl
-            WHERE cl.clinic_id = c.id AND cl.is_active = true
-          ) loc
-        ) AS locations
-      FROM clinics c
-      LEFT JOIN LATERAL (
-        SELECT cl.address, cl.city, cl.state, cl.zip, cl.phone, cl.lat, cl.lng
-        FROM clinic_locations cl
-        WHERE cl.clinic_id = c.id AND cl.is_active = TRUE
-        ORDER BY ${
-          originLatParam !== null
-            ? // With a search origin, show the NEAREST branch's address —
-              // "0.3 mi away" next to the primary branch's city reads wrong
-              // for multi-location clinics.
-              `(CASE WHEN cl.lat IS NULL OR cl.lng IS NULL THEN NULL ELSE
-                 3959 * acos(GREATEST(-1, LEAST(1,
-                   cos(radians($${originLatParam})) * cos(radians(cl.lat))
-                   * cos(radians(cl.lng) - radians($${originLngParam}))
-                   + sin(radians($${originLatParam})) * sin(radians(cl.lat))
-                 ))) END) ASC NULLS LAST,`
-            : ""
-        } cl.is_primary DESC, cl.sort_order NULLS LAST, cl.created_at
-        LIMIT 1
-      ) ploc ON TRUE
-      LEFT JOIN clinic_services cs ON cs.clinic_id = c.id AND cs.is_active = TRUE
-      LEFT JOIN services s ON s.id = cs.service_id
-        AND s.is_active = TRUE
-        AND s.name !~* '(dentistry|dental|orthodont|veneer)'
-      WHERE ${conditions.join(" AND ")}
-      ORDER BY c.id, ${orderBy}
-      LIMIT 50
+    // First, get the total count with the same conditions
+    const simpleCountQuery = `
+      SELECT COUNT(*) as total
+      FROM (
+        SELECT DISTINCT c.id
+        FROM clinics c
+        LEFT JOIN clinic_services cs ON cs.clinic_id = c.id AND cs.is_active = TRUE
+        LEFT JOIN services s ON s.id = cs.service_id
+          AND s.is_active = TRUE
+          AND s.name !~* '(dentistry|dental|orthodont|veneer)'
+        WHERE ${conditions.join(" AND ")}
+      ) subq
     `;
 
-    const result = await pool.query(query, params);
+    console.log('[DEBUG] Count query:', simpleCountQuery);
+    console.log('[DEBUG] Count params:', params);
+
+    const countResult = await pool.query(simpleCountQuery, params);
+    const totalResults = Number(countResult.rows[0]?.total || 0);
+
+    // Now get the paginated results
+    const query = `
+      WITH ordered_results AS (
+        SELECT DISTINCT ON (c.id)
+          c.id AS clinic_id,
+          ${distanceExpr} AS distance_miles,
+          c.name AS clinic_name,
+          c.slug AS clinic_slug,
+          -- Address/city/state/zip/phone live in clinic_locations now; use the
+          -- primary active location (clinic-level address kept as street fallback).
+          COALESCE(c.address, ploc.address) AS address,
+          ploc.city  AS city,
+          ploc.state AS state,
+          ploc.zip   AS zip,
+          COALESCE(c.phone, ploc.phone) AS phone,
+          c.website,
+          ploc.lat,
+          ploc.lng,
+          c.avg_rating,
+          c.review_count,
+          c.ext_rating,
+          c.ext_review_count,
+          c.featured,
+          c.about,
+          c.hours,
+          c.booking_url,
+          c.google_place_id,
+          c.instagram_url,
+          (
+            SELECT COALESCE(cdn_url, source_url) FROM images
+            WHERE entity_type = 'clinic' AND entity_id = c.id
+            AND role = 'logo' AND scrape_status = 'ok'
+            ORDER BY sort_order LIMIT 1
+          ) AS logo_url,
+          (
+            -- Only canonical-mapped services (skip unmatched scraped nav junk).
+            SELECT COALESCE(json_agg(t), '[]'::json) FROM (
+            SELECT DISTINCT sv.name AS name, sv.slug AS slug
+              FROM clinic_services cs2
+              JOIN services sv ON sv.id = cs2.service_id
+                AND sv.is_active = TRUE
+                AND sv.name !~* '(dentistry|dental|orthodont|veneer)'
+              WHERE cs2.clinic_id = c.id AND cs2.is_active = TRUE
+              LIMIT 8
+            ) t
+          ) AS services,
+          (
+            SELECT COALESCE(cdn_url, source_url) FROM images
+            WHERE entity_type = 'clinic' AND entity_id = c.id
+            AND role IN ('cover', 'gallery') AND scrape_status = 'ok'
+            ORDER BY (role = 'cover') DESC, sort_order LIMIT 1
+          ) AS cover_image_url,
+          (
+            -- Photo strip for the card: cover first, then gallery.
+            SELECT COALESCE(json_agg(url ORDER BY ord, so), '[]'::json) FROM (
+              SELECT COALESCE(cdn_url, source_url) AS url,
+                CASE role WHEN 'cover' THEN 0 ELSE 1 END AS ord,
+                sort_order AS so
+              FROM images
+              WHERE entity_type = 'clinic' AND entity_id = c.id
+                AND role IN ('cover', 'gallery')
+                AND scrape_status = 'ok'
+              ORDER BY ord, so
+              LIMIT 12
+            ) g
+          ) AS gallery_images,
+          (
+            SELECT count(*)::int FROM clinic_locations cl
+            WHERE cl.clinic_id = c.id AND cl.is_active = true
+          ) AS location_count,
+          '[]'::json AS providers,
+          (
+            SELECT COALESCE(json_agg(loc ORDER BY loc.sort_order), '[]'::json) FROM (
+              SELECT cl.id, cl.label, cl.address, cl.city, cl.state, cl.zip,
+                     cl.lat, cl.lng, cl.phone, cl.booking_url, cl.google_maps_url,
+                     cl.is_primary, cl.sort_order
+              FROM clinic_locations cl
+              WHERE cl.clinic_id = c.id AND cl.is_active = true
+            ) loc
+          ) AS locations
+        FROM clinics c
+        LEFT JOIN LATERAL (
+          SELECT cl.address, cl.city, cl.state, cl.zip, cl.phone, cl.lat, cl.lng
+          FROM clinic_locations cl
+          WHERE cl.clinic_id = c.id AND cl.is_active = TRUE
+          ORDER BY ${
+            originLatParam !== null
+              ? // With a search origin, show the NEAREST branch's address —
+                // "0.3 mi away" next to the primary branch's city reads wrong
+                // for multi-location clinics.
+                `(CASE WHEN cl.lat IS NULL OR cl.lng IS NULL THEN NULL ELSE
+                   3959 * acos(GREATEST(-1, LEAST(1,
+                     cos(radians($${originLatParam})) * cos(radians(cl.lat))
+                     * cos(radians(cl.lng) - radians($${originLngParam}))
+                     + sin(radians($${originLatParam})) * sin(radians(cl.lat))
+                   ))) END) ASC NULLS LAST,`
+              : ""
+          } cl.is_primary DESC, cl.sort_order NULLS LAST, cl.created_at
+          LIMIT 1
+        ) ploc ON TRUE
+        LEFT JOIN clinic_services cs ON cs.clinic_id = c.id AND cs.is_active = TRUE
+        LEFT JOIN services s ON s.id = cs.service_id
+          AND s.is_active = TRUE
+          AND s.name !~* '(dentistry|dental|orthodont|veneer)'
+        WHERE ${conditions.join(" AND ")}
+        ORDER BY c.id, ${orderBy}
+      )
+      SELECT *
+      FROM ordered_results
+      ORDER BY ${outerOrderBy}
+      LIMIT $${paramIdx} OFFSET $${paramIdx + 1}
+    `;
+
+    const queryParams = [...params, limit, offset];
+    
+    console.log('[DEBUG] Main query:', query);
+    console.log('[DEBUG] Main params:', queryParams);
+    
+    const result = await pool.query(query, queryParams);
 
     // Re-sort since DISTINCT ON forces ordering by c.id first.
     // Also round distance_miles to 1 decimal (null when no origin).
@@ -400,33 +450,18 @@ export async function GET(request: NextRequest) {
           : Math.round(Number(row.distance_miles) * 10) / 10;
     }
 
-    // Rating for display/sort: internal average, falling back to external/Google.
-    const ratingOf = (r: { avg_rating: unknown; ext_rating: unknown }) =>
-      Number(r.avg_rating ?? r.ext_rating ?? 0);
-
-    rows.sort((a, b) => {
-      // Featured clinics are ALWAYS on top, regardless of the chosen sort.
-      if (a.featured !== b.featured) return a.featured ? -1 : 1;
-
-      // Then order within each group by the selected sort.
-      if (sort === "distance" && hasOrigin) {
-        const da = a.distance_miles ?? Infinity;
-        const db = b.distance_miles ?? Infinity;
-        if (da !== db) return da - db;
-        return ratingOf(b) - ratingOf(a);
-      }
-      if (sort === "name") return a.clinic_name.localeCompare(b.clinic_name);
-      if (sort === "reviews") return (b.review_count || 0) - (a.review_count || 0);
-
-      // Default: rating (internal → external), then review volume.
-      const byRating = ratingOf(b) - ratingOf(a);
-      if (byRating !== 0) return byRating;
-      return (b.review_count || 0) - (a.review_count || 0);
-    });
+    // The results are already sorted by the database query, so we don't need to re-sort in JavaScript
 
     return NextResponse.json({
       results: rows,
-      total: rows.length,
+      total: totalResults,
+      pagination: {
+        page,
+        limit,
+        totalPages: Math.ceil(totalResults / limit),
+        hasNext: page < Math.ceil(totalResults / limit),
+        hasPrevious: page > 1,
+      },
       query: {
         q,
         condition,

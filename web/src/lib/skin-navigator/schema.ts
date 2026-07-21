@@ -55,7 +55,9 @@ export const NavigatorRequestSchema = z.object({
     gender: z.string().trim().max(80).optional().default(""),
     skinTone: z.string().trim().max(80).optional().default(""),
     location: z.object({
-      value: z.string().trim().min(2).max(120),
+      // Optional: users can get concerns + treatments without a location.
+      // When empty, the clinics section is skipped entirely.
+      value: z.string().trim().max(120).optional().default(""),
       label: z.string().trim().max(160).optional().default(""),
       lat: z.number().finite().nullable().optional().default(null),
       lng: z.number().finite().nullable().optional().default(null),
@@ -95,17 +97,8 @@ export const NavigatorTreatmentSchema = z.object({
 });
 
 export const NavigatorAnalysisSchema = z.object({
-  concerns: z.array(NavigatorConcernSchema).max(6),
-  recommendedTreatments: z.array(NavigatorTreatmentSchema).min(1).max(5),
-  alternatives: z
-    .array(
-      z.object({
-        slug: z.string().trim().min(1).max(120),
-        name: z.string().trim().min(1).max(120),
-        rationale: z.string().trim().min(1).max(500),
-      })
-    )
-    .max(4),
+  concerns: z.array(NavigatorConcernSchema).min(3).max(5),
+  recommendedTreatments: z.array(NavigatorTreatmentSchema).min(3).max(5),
   photoObservations: z.object({
     provided: z.boolean(),
     notes: z.array(z.string().trim().min(1).max(260)).max(6),

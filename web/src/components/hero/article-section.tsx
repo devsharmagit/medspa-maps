@@ -2,7 +2,6 @@
 
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import Image from "next/image";
-import Link from "next/link";
 import { useRef, useState, useEffect } from "react";
 
 const categories = [
@@ -113,7 +112,7 @@ export function ArticleSection() {
           </div>
 
           {/* Search Box */}
-          <form
+          {/* <form
             onSubmit={handleSearchSubmit}
             className="flex items-center justify-between w-full sm:max-w-[369px] h-[50px] bg-white border border-[#D2C3D3] rounded-[8px] px-[15px] mt-5"
           >
@@ -127,7 +126,7 @@ export function ArticleSection() {
             <button type="submit" className="text-[#99597A] p-1 cursor-pointer hover:opacity-85">
               <Search className="h-5 w-5" strokeWidth={2} />
             </button>
-          </form>
+          </form> */}
 
           {/* Popular Topics Tags */}
           <div className="flex flex-col gap-[9px] w-full mt-[18px]">
@@ -136,13 +135,12 @@ export function ArticleSection() {
             </span>
             <div className="flex flex-wrap gap-1.5 w-full">
               {popularTopics.map((topic, index) => (
-                <Link
-                  href={`/blog/topic/${topic.toLowerCase().replace(/\s+/g, "-")}`}
+                <button
                   key={index}
-                  className="flex justify-center items-center h-[26px] bg-[#E2CCE2] rounded-[6px] px-2.5 py-[4px] font-montserrat font-medium text-[12px] text-[#353535] transition-colors hover:bg-[#d5b5d5]"
+                  className="flex justify-center items-center h-[26px] bg-[#E2CCE2] rounded-[6px] px-2.5 py-[4px] font-montserrat font-medium text-[12px] text-[#353535] transition-colors hover:bg-[#d5b5d5] cursor-pointer"
                 >
                   {topic}
-                </Link>
+                </button>
               ))}
             </div>
           </div>
@@ -191,10 +189,7 @@ export function ArticleSection() {
 
             {/* View All & navigation capsule */}
             <div className="flex items-center gap-[32px] h-[31px]">
-              <Link
-                href="/blog"
-                className="group flex items-center gap-[5px] h-[19px]"
-              >
+              <button className="group flex items-center gap-[5px] h-[19px] cursor-pointer">
                 <span className="font-montserrat font-medium text-[16px] leading-[116.02%] text-[#CF5D9A]">
                   View All Articles
                 </span>
@@ -214,7 +209,7 @@ export function ArticleSection() {
                     strokeLinejoin="round"
                   />
                 </svg>
-              </Link>
+              </button>
 
               {/* Slider Arrow Capsule */}
               <div className="flex items-center gap-[3px] h-[31px]">
@@ -254,10 +249,9 @@ export function ArticleSection() {
             onScroll={checkScrollLimits}
           >
             {articles.map((art, index) => (
-              <Link
-                href={`/blog/${art.title.toLowerCase().replace(/\s+/g, "-")}`}
+              <div
                 key={index}
-                className="relative flex h-[100px] w-[228px] sm:h-[108px] sm:w-[267px] shrink-0 items-center justify-start rounded-[12px] border border-[#ECDDED] overflow-hidden shadow-[0px_8px_14px_rgba(0,0,0,0.02)] snap-start hover:border-[#CB97CE] hover:shadow-[0px_8px_16px_rgba(203,151,206,0.08)] transition-all"
+                className="relative flex h-[100px] w-[228px] sm:h-[108px] sm:w-[267px] shrink-0 items-center justify-start rounded-[12px] border border-[#ECDDED] overflow-hidden shadow-[0px_8px_14px_rgba(0,0,0,0.02)] snap-start hover:border-[#CB97CE] hover:shadow-[0px_8px_16px_rgba(203,151,206,0.08)] transition-all cursor-pointer"
                 style={{
                   background: "linear-gradient(126.81deg, #FCD1FF -96.14%, #FFFFFF 49.94%)",
                 }}
@@ -287,7 +281,7 @@ export function ArticleSection() {
                     {art.meta}
                   </span>
                 </div>
-              </Link>
+              </div>
             ))}
           </div>
 

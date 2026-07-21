@@ -77,6 +77,7 @@ export async function extractViaOpenAI<T>(
   const body = JSON.stringify({
     model,
     temperature: 0,
+    ...(typeof opts.seed === "number" ? { seed: opts.seed } : {}),
     max_completion_tokens: opts.maxTokens ?? 2048,
     messages: [
       { role: "system", content: opts.system },

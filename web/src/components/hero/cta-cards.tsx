@@ -115,19 +115,7 @@ export function CTACards() {
 
           {/* Benefits */}
           <div className="space-y-4">
-            <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/40">
-                <Award className="h-5 w-5 text-[#8B5A8B]" />
-              </div>
-              <div>
-                <p className="font-montserrat text-base font-semibold text-[#6B4A6B]">
-                  Free Premium Listing
-                </p>
-                <p className="font-montserrat text-sm text-[#8B6A8B]">
-                  For first 100 signups
-                </p>
-              </div>
-            </div>
+           
 
             <div className="flex items-start gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/40">

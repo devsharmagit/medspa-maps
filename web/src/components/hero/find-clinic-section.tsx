@@ -174,7 +174,7 @@ function ClinicCard({ clinic }: { clinic: DisplayClinic }) {
                 <img
                   src={clinic.logo}
                   alt={`${clinic.name} logo`}
-                  className="h-full w-full object-cover"
+                  className="h-full w-full object-contain"
                   loading="lazy"
                 />
               ) : (
