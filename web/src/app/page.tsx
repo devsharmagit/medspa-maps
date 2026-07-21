@@ -9,7 +9,6 @@ import { TopCities } from "@/components/hero/top-cities";
 import { ArticleSection } from "@/components/hero/article-section";
 import StatsSection from "@/components/hero/stat-section";
 import { getFeaturedClinics } from "@/lib/clinics/featured";
-import { getPopularTreatments } from "@/lib/treatments/popular";
 import { SPOTLIGHT_PROVIDERS } from "@/lib/providers/spotlight-static";
 import Image from "next/image";
 
@@ -18,10 +17,7 @@ import Image from "next/image";
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const [popularTreatments, featuredClinics] = await Promise.all([
-    getPopularTreatments(),
-    getFeaturedClinics(5),
-  ]);
+  const featuredClinics = await getFeaturedClinics(5);
   // Static owner-of-each-featured-clinic list (no runtime query) — see
   // src/lib/providers/spotlight-static.ts.
   const spotlightProviders = SPOTLIGHT_PROVIDERS;
@@ -42,7 +38,7 @@ export default async function Home() {
 
       <HeroSection />
       <StatsSection />
-      <PopularTreatments treatments={popularTreatments} />
+      <PopularTreatments />
       <FindClinicSection clinics={featuredClinics} />
       <ProvidersSpotlight providers={spotlightProviders} />
       <HowItWorks />

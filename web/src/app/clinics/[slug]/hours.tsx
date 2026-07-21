@@ -92,7 +92,7 @@ export function WeeklyHours({
 export function HoursCard({ hours }: { hours: unknown }) {
   if (!hasWeeklyHours(hours)) return null;
   return (
-    <div className="flex w-full max-w-[420px] flex-col gap-[14px] rounded-[16px] border border-[#DEDEDE] bg-white p-6 shadow-[0px_9px_11.1px_rgba(240,223,241,0.6)]">
+    <div className="flex h-full w-full flex-col gap-[14px] rounded-[16px] border border-[#DEDEDE] bg-white p-6 shadow-[0px_9px_11.1px_rgba(240,223,241,0.6)]">
       <div className="flex items-center gap-[8px]">
         <Clock className="h-[20px] w-[20px] text-[#EE97C6]" strokeWidth={1.5} />
         <h3 className="font-montserrat text-[16px] font-semibold tracking-[-0.02em] text-[#373634]">

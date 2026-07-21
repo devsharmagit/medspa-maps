@@ -1,14 +1,7 @@
 import { notFound } from "next/navigation";
 import React from "react";
 import type { Metadata } from "next";
-import {
-  CalendarDays,
-  Phone,
-  MapPin,
-  Clock,
-  Star,
-  Globe,
-} from "lucide-react";
+import { CalendarDays, Star } from "lucide-react";
 import { HeroHeader } from "@/components/hero/hero-header";
 import { Footer } from "@/components/footer";
 import { getClinicData } from "@/lib/clinics/queries";
@@ -16,7 +9,8 @@ import { toStateCode } from "@/lib/location/states";
 import { ClinicGallery } from "./gallery";
 import { ClinicBeforeAfterCarousel } from "./before-after";
 import { ClinicLocationsSection } from "./locations";
-import { HoursCard } from "./hours";
+import { HoursCard, hasWeeklyHours } from "./hours";
+import { ClinicContactCard } from "./contact-card";
 import { OtherProvidersCarousel } from "@/components/shared/other-providers-carousel";
 import { ClinicTreatmentsCarousel } from "@/components/shared/clinic-treatments-carousel";
 import { ClinicConcernsSection } from "./concerns-section";
@@ -43,30 +37,6 @@ export async function generateMetadata({
       clinic.tagline ??
       (loc ? `Book at ${clinic.name} in ${loc}` : undefined),
   };
-}
-
-const DAY_KEYS = [
-  "SUNDAY",
-  "MONDAY",
-  "TUESDAY",
-  "WEDNESDAY",
-  "THURSDAY",
-  "FRIDAY",
-  "SATURDAY",
-];
-
-type HoursMap = Record<
-  string,
-  { open: string | null; close: string | null; is_open: boolean }
->;
-
-function getTodayHours(hours: unknown): { open: string; close: string } | null {
-  if (!hours || typeof hours !== "object") return null;
-  const map = hours as HoursMap;
-  const key = DAY_KEYS[new Date().getDay()];
-  const h = map[key];
-  if (!h || !h.is_open || !h.open || !h.close) return null;
-  return { open: h.open, close: h.close };
 }
 
 function buildMapsUrl(parts: (string | null)[]): string {
@@ -97,10 +67,7 @@ export default async function ClinicPage({
     data;
 
   const primaryLoc = locations.find((l) => l.is_primary) ?? locations[0] ?? null;
-  const loc = primaryLoc
-    ? [primaryLoc.city, primaryLoc.state].filter(Boolean).join(", ")
-    : "";
-  // Full postal address for the hero info row: street + "City, ST ZIP".
+  // Full postal address, shown in the Contact Information card: street + "City, ST ZIP".
   // Addresses live only on clinic_locations now (clinic-level city/state/zip dropped);
   // the clinic row still carries a free-text `address` for single-location fallback.
   const heroAddress = (() => {
@@ -118,7 +85,6 @@ export default async function ClinicPage({
     return [street, skipCityLine ? null : cityLine].filter(Boolean).join(", ") || null;
   })();
   const isPremium = clinic.featured;
-  const todayHours = getTodayHours(clinic.hours);
   // Fall back to the representative location's map link/address, since the
   // clinic row carries no headline address (every location lives on its own).
   const mapsUrl =
@@ -161,7 +127,7 @@ export default async function ClinicPage({
               {/* Logo + name */}
               <div className="flex items-center gap-3 sm:gap-[16px]">
                 {clinic.logo_url ? (
-                  <div className="flex h-[84px] w-[96px] sm:h-[106px] sm:w-[122px] shrink-0 items-center justify-center overflow-hidden rounded-[16px] border border-[#E5C7DA] bg-gradient-to-br from-[#d96f8e] to-[#9b3a9b] p-2">
+                  <div className="flex h-[84px] w-[96px] sm:h-[106px] sm:w-[122px] shrink-0 items-center justify-center overflow-hidden rounded-[16px] border border-[#E5E5E5] bg-[#faf5fa] p-2">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={clinic.logo_url}
@@ -170,14 +136,14 @@ export default async function ClinicPage({
                     />
                   </div>
                 ) : (
-                  <div className="flex h-[84px] w-[96px] sm:h-[106px] sm:w-[122px] shrink-0 items-center justify-center rounded-[16px] border border-[#E5C7DA] bg-gradient-to-br from-[#d96f8e]/15 to-[#9b3a9b]/15 text-3xl font-semibold text-[#9b3a9b]">
+                  <div className="flex h-[84px] w-[96px] sm:h-[106px] sm:w-[122px] shrink-0 items-center justify-center rounded-[16px] border border-[#E5E5E5] bg-[#faf5fa] text-3xl font-semibold text-[#CF5D9A]">
                     {initials(clinic.name)}
                   </div>
                 )}
                 <div className="flex flex-col gap-[10px] min-w-0">
                   {isPremium && (
-                    <span className="inline-flex w-fit items-center rounded-[4px] bg-[linear-gradient(90deg,rgba(211,168,69,0.6)_0%,rgba(109,87,36,0.6)_100%)] px-[10px] py-[4px] font-montserrat text-[10px] sm:text-[12px] font-semibold uppercase tracking-[0.1em] leading-[116.02%] text-[#FFFCF8]">
-                      FEATURED PREMIUM CLINIC
+                    <span className="inline-flex w-fit items-center rounded-[4px] bg-[#D3A845] px-[10px] py-[4px] font-montserrat text-[10px] sm:text-[12px] font-semibold uppercase tracking-[0.1em] leading-[116.02%] text-white">
+                      FEATURED
                     </span>
                   )}
                   <h1 className="font-montserrat text-[26px] sm:text-[36px] font-medium leading-[116.02%] tracking-[-0.04em] text-[#373634]">
@@ -193,47 +159,12 @@ export default async function ClinicPage({
                 </p>
               )}
 
-              {/* Info row — only renders items that have data, dividers only between present items */}
+              {/* Stat strip — rating, then treatment & concern counts. Only
+                  present metrics render; dividers sit between present items. */}
               {(() => {
-                const infoItems = [
-                  (heroAddress || loc) ? (
-                    <div key="addr" className="flex items-center gap-[8px]">
-                      <MapPin className="h-[24px] w-[24px] text-[#EE97C6] shrink-0" strokeWidth={1.5} />
-                      <div className="flex flex-col gap-[2px]">
-                        <a
-                          href={mapsUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="font-montserrat text-[12px] font-medium leading-[130%] tracking-[0.02em] text-[#616161] hover:underline max-w-[220px]"
-                        >
-                          {heroAddress || loc}
-                        </a>
-                        {locations.length > 1 && (
-                          <a
-                            href="#locations"
-                            className="font-montserrat text-[11px] font-semibold leading-[130%] tracking-[0.02em] text-[#CF5B9D] hover:underline"
-                          >
-                            +{locations.length - 1} more location{locations.length - 1 > 1 ? "s" : ""}
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  ) : null,
-                  todayHours ? (
-                    <div key="hours" className="flex items-center gap-[8px]">
-                      <Clock className="h-[24px] w-[24px] text-[#EE97C6] shrink-0" strokeWidth={1.5} />
-                      <div className="flex flex-col gap-[4px]">
-                        <span className="font-montserrat text-[12px] font-medium leading-[130%] tracking-[0.02em] text-[#616161]">
-                          Open Today
-                        </span>
-                        <span className="font-inter text-[12px] font-normal leading-[100%] text-[#9A9A9A]">
-                          {todayHours.open} - {todayHours.close}
-                        </span>
-                      </div>
-                    </div>
-                  ) : null,
+                const statItems = [
                   stats.rating != null ? (
-                    <div key="rating" className="flex flex-col justify-center items-start gap-[2px]">
+                    <div key="rating" className="flex flex-col justify-center items-start gap-[4px]">
                       <div className="flex items-center gap-[4px]">
                         {Array.from({ length: 5 }).map((_, i) => (
                           <Star
@@ -251,15 +182,35 @@ export default async function ClinicPage({
                       </span>
                     </div>
                   ) : null,
+                  stats.treatments_count > 0 ? (
+                    <div key="treat" className="flex flex-col justify-center items-start gap-[3px]">
+                      <span className="font-montserrat text-[24px] font-semibold leading-none text-[#373634]">
+                        {stats.treatments_count}
+                      </span>
+                      <span className="font-montserrat text-[12px] font-medium leading-[130%] tracking-[0.02em] text-[#616161]">
+                        Treatments
+                      </span>
+                    </div>
+                  ) : null,
+                  concerns.length > 0 ? (
+                    <div key="concern" className="flex flex-col justify-center items-start gap-[3px]">
+                      <span className="font-montserrat text-[24px] font-semibold leading-none text-[#373634]">
+                        {concerns.length}
+                      </span>
+                      <span className="font-montserrat text-[12px] font-medium leading-[130%] tracking-[0.02em] text-[#616161]">
+                        Concerns Treated
+                      </span>
+                    </div>
+                  ) : null,
                 ].filter(Boolean);
 
-                if (infoItems.length === 0) return null;
+                if (statItems.length === 0) return null;
                 return (
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-[8px] rounded-[16px] bg-white px-4 sm:px-[40px] py-4 sm:py-[1px] min-h-0 sm:min-h-[66px] shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)] w-full max-w-[608px]">
-                    {infoItems.map((item, idx) => (
+                  <div className="flex flex-row flex-wrap items-center gap-x-[8px] gap-y-4 rounded-[16px] bg-white px-4 sm:px-[36px] py-4 sm:py-[16px] shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)] w-fit max-w-full">
+                    {statItems.map((item, idx) => (
                       <React.Fragment key={idx}>
                         {idx > 0 && (
-                          <div className="hidden sm:block h-[49px] w-0 border border-[rgba(229,199,218,0.4)] mx-[8px]" />
+                          <div className="h-[46px] w-0 border border-[rgba(229,199,218,0.4)] mx-[12px] sm:mx-[20px]" />
                         )}
                         {item}
                       </React.Fragment>
@@ -269,7 +220,7 @@ export default async function ClinicPage({
               })()}
 
               {/* CTAs */}
-              <div className="flex flex-row flex-wrap items-start gap-[16px]">
+              <div className="flex flex-row flex-wrap items-center gap-[16px]">
                 {bookUrl ? (
                   <a
                     href={bookUrl}
@@ -283,34 +234,11 @@ export default async function ClinicPage({
                     <CalendarDays className="h-[20px] w-[20px] shrink-0 text-white" strokeWidth={1.5} />
                   </a>
                 ) : null}
-                {clinic.phone && (
-                  <a
-                    href={`tel:${clinic.phone}`}
-                    className="flex h-[48px] w-full sm:w-[150px] items-center justify-center gap-[10px] rounded-[8px] border-[1px] border-[#E5C7DA] px-[24px] py-[10px] transition-colors hover:bg-pink-50"
-                  >
-                    <span className="font-montserrat text-[14px] font-semibold leading-[17px] text-[#CF5B9D] whitespace-nowrap">
-                      Call Clinic
-                    </span>
-                    <Phone className="h-[17px] w-[17px] shrink-0 text-[#CF5B9D]" strokeWidth={1.5} />
-                  </a>
-                )}
-                {clinic.website && (
-                  <a
-                    href={clinic.website}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex h-[48px] w-full sm:w-[170px] items-center justify-center gap-[10px] rounded-[8px] border-[1px] border-[#E5C7DA] px-[24px] py-[10px] transition-colors hover:bg-pink-50"
-                  >
-                    <span className="font-montserrat text-[14px] font-semibold leading-[17px] text-[#CF5B9D] whitespace-nowrap">
-                      Visit Website
-                    </span>
-                    <Globe className="h-[17px] w-[17px] shrink-0 text-[#CF5B9D]" strokeWidth={1.5} />
-                  </a>
-                )}
-              </div>
 
-              {/* Social media links */}
-              <ClinicSocialLinks socials={clinic} />
+                {/* Social media links — sit alongside the Book CTA in place of
+                    the old Call / Visit Website buttons. */}
+                <ClinicSocialLinks socials={clinic} />
+              </div>
             </div>
 
             {/* RIGHT — gallery (shown first on mobile as the hero image) */}
@@ -324,6 +252,26 @@ export default async function ClinicPage({
           </div>
         </section>
 
+        {/* ── Hours + Contact Information ── */}
+        {(hasWeeklyHours(clinic.hours) || clinic.phone || clinic.email || heroAddress || clinic.website) && (
+          <section className="grid items-stretch gap-[24px] px-0 sm:px-[24px] pt-[8px] lg:grid-cols-2">
+            <HoursCard hours={clinic.hours} />
+            <ClinicContactCard
+              phone={clinic.phone}
+              email={clinic.email}
+              address={heroAddress}
+              website={clinic.website}
+              mapsUrl={mapsUrl}
+              socials={clinic}
+            />
+          </section>
+        )}
+
+        {/* ── Before & After ── */}
+        {before_after.length > 0 && (
+          <ClinicBeforeAfterCarousel images={before_after} name={clinic.name} />
+        )}
+
         {/* ── Treatments Offered ── */}
         <ClinicTreatmentsCarousel
           treatments={treatments}
@@ -333,29 +281,24 @@ export default async function ClinicPage({
         {/* ── Concerns (evidence-based, from the clinic's own website) ── */}
         <ClinicConcernsSection concerns={concerns} clinicName={clinic.name} />
 
-        {/* ── About + Stats ── */}
-        <section className="flex flex-col gap-[36px] px-0 sm:px-[24px] pt-[36px] pb-[36px]">
-          <h2 className="font-fraunces italic text-[28px] sm:text-[34px] font-normal leading-[116.02%] tracking-[-0.04em] text-[#373634]">
-            About {clinic.name}
-          </h2>
+        {/* ── Our Locations ── */}
+        <ClinicLocationsSection locations={locations} clinicName={clinic.name} />
 
-          {clinic.about && (
+        {/* ── About ── */}
+        {clinic.about && (
+          <section className="flex flex-col gap-[24px] px-0 sm:px-[24px] pt-[24px] pb-[12px]">
+            <h2 className="font-fraunces italic text-[28px] sm:text-[34px] font-normal leading-[116.02%] tracking-[-0.04em] text-[#373634]">
+              About {clinic.name}
+            </h2>
             <p className="font-montserrat text-[16px] font-normal leading-[150%] tracking-[0.02em] text-[#575757] whitespace-pre-line">
               {clinic.about}
             </p>
-          )}
-
-          {/* Weekly hours (clinic-wide) */}
-          <HoursCard hours={clinic.hours} />
-
-          {/* CTAs */}
-          <div className="flex flex-row flex-wrap items-start gap-[16px]">
             {bookUrl && (
               <a
                 href={bookUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="flex h-[48px] w-[210px] items-center justify-center gap-[10px] rounded-[8px] bg-[linear-gradient(90deg,#DE7F4C_0%,#C341D7_100%)] px-[24px] py-[10px] transition-opacity hover:opacity-90"
+                className="flex h-[48px] w-full sm:w-[210px] items-center justify-center gap-[10px] rounded-[8px] bg-[linear-gradient(90deg,#DE7F4C_0%,#C341D7_100%)] px-[24px] py-[10px] transition-opacity hover:opacity-90"
               >
                 <span className="font-montserrat text-[14px] font-semibold leading-[17px] text-white whitespace-nowrap">
                   Book Appointment
@@ -363,27 +306,8 @@ export default async function ClinicPage({
                 <CalendarDays className="h-[20px] w-[20px] shrink-0 text-white" strokeWidth={1.5} />
               </a>
             )}
-            {clinic.phone && (
-              <a
-                href={`tel:${clinic.phone}`}
-                className="flex h-[48px] w-[150px] items-center justify-center gap-[10px] rounded-[8px] border-[1px] border-[#E5C7DA] px-[24px] py-[10px] transition-colors hover:bg-pink-50"
-              >
-                <span className="font-montserrat text-[14px] font-semibold leading-[17px] text-[#CF5B9D] whitespace-nowrap">
-                  Call Clinic
-                </span>
-                <Phone className="h-[17px] w-[17px] shrink-0 text-[#CF5B9D]" strokeWidth={1.5} />
-              </a>
-            )}
-          </div>
-        </section>
-
-        {/* ── Before & After ── */}
-        {before_after.length > 0 && (
-          <ClinicBeforeAfterCarousel images={before_after} name={clinic.name} />
+          </section>
         )}
-
-        {/* ── Our Locations ── */}
-        <ClinicLocationsSection locations={locations} clinicName={clinic.name} />
 
         {/* ── Meet Experts ── */}
         {data.providers && data.providers.length > 0 && (

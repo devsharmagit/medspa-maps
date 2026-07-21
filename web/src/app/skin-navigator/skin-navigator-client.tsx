@@ -147,6 +147,40 @@ function clearDraft() {
   window.localStorage.removeItem(DRAFT_STORAGE_KEY);
 }
 
+// Tab-scoped preview cache, separate from the localStorage draft above (which
+// deliberately excludes photo bytes). sessionStorage clears automatically when
+// the tab/browser closes, so this only smooths over in-session navigation
+// (leaving the page and coming back) without persisting the photo long-term.
+const PHOTO_PREVIEW_SESSION_KEY = "medspa.ai-treatment-navigator.photo-preview.v1";
+
+function savePhotoPreview(dataUrl: string) {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(PHOTO_PREVIEW_SESSION_KEY, dataUrl);
+  } catch {
+    // Quota exceeded or storage disabled — preview simply won't survive
+    // navigation; not worth failing the flow over.
+  }
+}
+
+function loadPhotoPreview(): string {
+  if (typeof window === "undefined") return "";
+  try {
+    return window.sessionStorage.getItem(PHOTO_PREVIEW_SESSION_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
+function clearPhotoPreview() {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.removeItem(PHOTO_PREVIEW_SESSION_KEY);
+  } catch {
+    // ignore
+  }
+}
+
 function eventNameForStep(step: StepKey) {
   return `navigator.step.${step}`;
 }
@@ -179,6 +213,10 @@ export function SkinNavigatorClient() {
   const [result, setResult] = useState<NavigatorAnalyzeResponse | null>(null);
   const [goalNote, setGoalNote] = useState("");
   const [stepAnnouncement, setStepAnnouncement] = useState("");
+  // Data-URL preview cached in sessionStorage so it survives leaving the page
+  // and coming back within the same tab (the photo File object itself does
+  // not survive a remount). Cleared on retake and when the tab/browser closes.
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState("");
 
   const {
     location: userLocation,
@@ -240,6 +278,7 @@ export function SkinNavigatorClient() {
     setState(draft.state);
     setStepIndex(draft.stepIndex);
     setResult(draft.result);
+    setPhotoPreviewUrl(loadPhotoPreview());
     /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
@@ -254,7 +293,7 @@ export function SkinNavigatorClient() {
 
   const canContinue = useMemo(() => {
     if (step === "basics") {
-      // Location is optional — only the age range is required to continue.
+      // Location is optional; only the age range is required to continue.
       return Boolean(state.basics.ageRange);
     }
     if (step === "goals") return state.goals.selected.length > 0;
@@ -330,6 +369,20 @@ export function SkinNavigatorClient() {
     }
     setError("");
     setPhotos({ photo: file });
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = typeof reader.result === "string" ? reader.result : "";
+        if (dataUrl) {
+          setPhotoPreviewUrl(dataUrl);
+          savePhotoPreview(dataUrl);
+        }
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setPhotoPreviewUrl("");
+      clearPhotoPreview();
+    }
     recordEvent(sessionId, file ? "navigator.photo_added" : "navigator.photo_removed", "photos", {
       slot: "photo",
     });
@@ -373,10 +426,12 @@ export function SkinNavigatorClient() {
   const reset = () => {
     setState(initialState);
     setPhotos(initialPhotoState);
+    setPhotoPreviewUrl("");
     setResult(null);
     setError("");
     setStepIndex(0);
     clearDraft();
+    clearPhotoPreview();
     recordEvent(null, "navigator.retake");
   };
 
@@ -485,7 +540,7 @@ export function SkinNavigatorClient() {
                   <ResultsStep
                     result={result}
                     location={state.basics.location}
-                    uploadedPhoto={photos.photo}
+                    photoPreviewUrl={photoPreviewUrl}
                     reset={reset}
                     editAnswers={() => setStepIndex(0)}
                   />
@@ -1178,28 +1233,18 @@ function treatmentSearchHref(treatmentName: string, location: LocationSelection)
 function ResultsStep({
   result,
   location,
-  uploadedPhoto,
+  photoPreviewUrl,
   reset,
   editAnswers,
 }: {
   result: NavigatorAnalyzeResponse;
   location: LocationSelection;
-  uploadedPhoto: File | null;
+  photoPreviewUrl: string;
   reset: () => void;
   editAnswers: () => void;
 }) {
   const locationLabel = location.value || location.label || "your area";
   const hasLocation = Boolean(location.value.trim());
-  const uploadedPhotoUrl = useMemo(
-    () => (uploadedPhoto ? URL.createObjectURL(uploadedPhoto) : ""),
-    [uploadedPhoto]
-  );
-
-  useEffect(() => {
-    return () => {
-      if (uploadedPhotoUrl) URL.revokeObjectURL(uploadedPhotoUrl);
-    };
-  }, [uploadedPhotoUrl]);
 
   return (
     <div className="space-y-10">
@@ -1212,11 +1257,8 @@ function ResultsStep({
           <h2 className="mt-3 font-heading text-3xl font-medium text-slate-950">
             Your treatment starting point
           </h2>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-            {result.disclaimer || NAVIGATOR_DISCLAIMER}
-          </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button type="button" variant="outline" onClick={editAnswers} className="h-10">
             <ArrowLeft className="size-4" />
             Edit
@@ -1228,12 +1270,12 @@ function ResultsStep({
         </div>
       </div>
 
-      {uploadedPhotoUrl && (
+      {photoPreviewUrl && (
         <section className="flex items-start gap-4 rounded-lg border border-slate-200 bg-white p-4">
           <div className="w-24 shrink-0 overflow-hidden rounded-lg bg-slate-100 sm:w-28">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={uploadedPhotoUrl}
+              src={photoPreviewUrl}
               alt="Photo used for the cosmetic assessment"
               className="aspect-[4/5] w-full object-cover"
             />
@@ -1247,9 +1289,9 @@ function ResultsStep({
         </section>
       )}
 
-      {/* 1 — Concerns */}
+      {/* 1: Concerns */}
       <section>
-        <h3 className="mb-1 text-xl font-bold text-slate-950">Your concerns</h3>
+        <h3 className="mb-1 text-xl font-bold text-slate-950">Possible concerns</h3>
         <p className="mb-4 text-sm text-slate-600">What we focused on, and where it came from.</p>
         {result.analysis.concerns.length === 0 ? (
           <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm leading-6 text-slate-600">
@@ -1278,10 +1320,10 @@ function ResultsStep({
         )}
       </section>
 
-      {/* 2 — Treatments */}
+      {/* 2: Treatments */}
       <section>
         <h3 className="mb-1 text-xl font-bold text-slate-950">Suggested treatments</h3>
-        <p className="mb-4 text-sm text-slate-600">Cosmetic options that fit your goals — a starting point for a consultation.</p>
+        <p className="mb-4 text-sm text-slate-600">Cosmetic options that fit your goals, a starting point for a consultation.</p>
         {result.analysis.recommendedTreatments.length === 0 ? (
           <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm leading-6 text-slate-600">
             The AI did not return a specific treatment recommendation. You can still explore the full directory by treatment.
@@ -1300,7 +1342,7 @@ function ResultsStep({
         )}
       </section>
 
-      {/* 3 — Clinics (only when a location was given) */}
+      {/* 3: Clinics (only when a location was given) */}
       {hasLocation && (
         <section>
           <h3 className="mb-1 text-xl font-bold text-slate-950">Nearby clinics</h3>
@@ -1318,6 +1360,10 @@ function ResultsStep({
           )}
         </section>
       )}
+
+      <p className="border-t border-slate-100 pt-6 text-sm leading-6 text-slate-500">
+        {result.disclaimer || NAVIGATOR_DISCLAIMER}
+      </p>
     </div>
   );
 }
@@ -1346,6 +1392,10 @@ function TreatmentCard({
   );
 }
 
+// Mirrors the clinic card look used elsewhere on the site (landing page
+// FindClinicSection / search results) so this card doesn't feel like a
+// different product: cover image with a Featured pill, a small logo, a star
+// rating row, treatment chips, and a View Profile + Book Now action pair.
 function ClinicCard({
   clinic,
   sessionId,
@@ -1353,123 +1403,105 @@ function ClinicCard({
   clinic: NavigatorClinicMatch;
   sessionId: string | null;
 }) {
-  const address = [clinic.address, clinic.city, clinic.state, clinic.zip].filter(Boolean).join(", ");
   const visibleTreatments = clinic.matchedTreatments.slice(0, 3);
-  const extraTreatmentCount = Math.max(0, clinic.matchedTreatments.length - visibleTreatments.length);
   const initials = clinic.name
     .split(/\s+/)
     .filter(Boolean)
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase())
     .join("");
+  const bookUrl = clinic.bookingUrl || clinic.website || clinic.profileUrl;
+  const bookExternal = Boolean(clinic.bookingUrl || clinic.website);
+
   return (
-    <article className="group flex min-h-[300px] flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-brand-coral/45 hover:shadow-[0_18px_45px_rgba(46,31,51,0.12)]">
-      <div className="h-1.5 bg-brand-gradient" />
-      <div className="relative h-36 bg-[linear-gradient(135deg,#fdf2ea_0%,#f7e9fb_52%,#eef7f0_100%)]">
+    <article
+      className="overflow-hidden rounded-[18px] border-2 border-white bg-white"
+      style={{ boxShadow: "0px 4px 21.3px #E2D8E6" }}
+    >
+      <div className="relative h-[160px] w-full overflow-hidden">
         {clinic.coverImageUrl ? (
-          <>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={clinic.coverImageUrl}
-              alt=""
-              className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
-              loading="lazy"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/28 via-black/5 to-transparent" />
-          </>
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={clinic.coverImageUrl}
+            alt=""
+            className="h-full w-full object-cover"
+            loading="lazy"
+          />
         ) : (
-          <div className="absolute inset-0 flex items-center justify-center text-sm font-semibold text-brand-muted/70">
-            MedSpaMaps
+          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#DE7F4C]/20 to-[#C341D7]/20 text-3xl font-semibold text-white/70">
+            {initials || "M"}
           </div>
         )}
-        <div className="absolute -bottom-7 left-5 flex size-14 items-center justify-center overflow-hidden rounded-lg border-4 border-white bg-white shadow-md">
-          {clinic.logoUrl ? (
-            <>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={clinic.logoUrl}
-                alt=""
-                className="h-full w-full object-contain p-1"
-                loading="lazy"
-              />
-            </>
-          ) : (
-            <span className="font-heading text-lg font-semibold text-brand-magenta">
-              {initials || "M"}
+        {clinic.featured && (
+          <div className="absolute left-4 top-4 rounded bg-[#D3A845] px-2.5 py-1">
+            <span className="text-xs font-semibold uppercase tracking-[-0.02em] text-white">
+              Featured
             </span>
-          )}
-        </div>
+          </div>
+        )}
       </div>
-      <div className="flex flex-1 flex-col p-5 pt-10">
-        <div className="flex items-start justify-between gap-4">
+
+      <div className="px-4 py-5">
+        <div className="flex items-start gap-2.5">
+          <div className="flex h-[42px] w-[48px] shrink-0 items-center justify-center overflow-hidden rounded-md border border-[#E5E5E5] bg-[#faf5fa]">
+            {clinic.logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={clinic.logoUrl} alt="" className="h-full w-full object-contain" loading="lazy" />
+            ) : (
+              <span className="text-sm font-semibold text-brand-magenta">{initials || "M"}</span>
+            )}
+          </div>
           <div className="min-w-0">
-            <h4 className="font-heading text-xl font-medium leading-tight text-slate-950">
+            <h4 className="truncate text-lg font-medium leading-tight text-[#383838]">
               {clinic.name}
             </h4>
-            <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-600">
-              {clinic.rating !== null && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 font-semibold text-amber-800">
-                  <Star className="size-3.5 fill-brand-star text-brand-star" />
-                  {clinic.rating}
-                  {clinic.reviewCount > 0 && (
-                    <span className="font-medium text-amber-700/80">({clinic.reviewCount})</span>
-                  )}
-                </span>
-              )}
-              {clinic.distanceMiles !== null && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-orange-50 px-2.5 py-1 font-semibold text-brand-coral">
-                  <MapPin className="size-3.5" />
-                  {clinic.distanceMiles} mi
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {address && (
-          <div className="mt-5 flex gap-2 rounded-lg bg-slate-50 p-3 text-sm leading-6 text-slate-700">
-            <MapPin className="mt-0.5 size-4 shrink-0 text-brand-coral" />
-            <p>{address}</p>
-          </div>
-        )}
-
-        <div className="mt-5">
-          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
-            Matching treatments
-          </p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {visibleTreatments.map((treatment) => (
-              <Badge
-                key={treatment.slug}
-                variant="outline"
-                className="h-auto border-slate-200 bg-white px-2.5 py-1 text-slate-700"
-              >
-                {treatment.name}
-              </Badge>
-            ))}
-            {extraTreatmentCount > 0 && (
-              <Badge variant="outline" className="h-auto border-slate-200 bg-slate-50 px-2.5 py-1 text-slate-600">
-                +{extraTreatmentCount} more
-              </Badge>
+            {clinic.distanceMiles !== null && (
+              <p className="mt-0.5 text-xs text-[#727272]">{clinic.distanceMiles} mi away</p>
             )}
           </div>
         </div>
 
-        <div className="mt-auto pt-5">
-          <Button asChild variant="gradient" className="h-11 w-full">
-            <Link
-              href={clinic.profileUrl}
-              onClick={() =>
-                recordEvent(sessionId, "navigator.clinic_profile_clicked", "results", {
-                  clinicId: clinic.clinicId,
-                  clinicSlug: clinic.slug,
-                })
-              }
-            >
-              View Profile
-              <ArrowRight className="size-4 transition group-hover:translate-x-0.5" />
-            </Link>
-          </Button>
+        {clinic.rating !== null && (
+          <div className="mt-3 flex items-center gap-1.5 text-sm text-[#727272]">
+            <span className="font-semibold text-[#1a1a1a]">{clinic.rating}</span>
+            <Star className="size-3.5 fill-[#FFBA19] text-[#FFBA19]" />
+            {clinic.reviewCount > 0 && <span>({clinic.reviewCount})</span>}
+          </div>
+        )}
+
+        {visibleTreatments.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {visibleTreatments.map((treatment) => (
+              <span
+                key={treatment.slug}
+                className="rounded border border-[#DFDFDF] bg-[#F5F5F5] px-2.5 py-1 text-xs text-[#7F7F7F]"
+              >
+                {treatment.name}
+              </span>
+            ))}
+          </div>
+        )}
+
+        <div className="mt-4 flex items-center gap-2">
+          <Link
+            href={clinic.profileUrl}
+            onClick={() =>
+              recordEvent(sessionId, "navigator.clinic_profile_clicked", "results", {
+                clinicId: clinic.clinicId,
+                clinicSlug: clinic.slug,
+              })
+            }
+            className="flex h-[43px] flex-1 items-center justify-center rounded-lg border border-[#CF5B9D] text-sm font-semibold text-[#CF5B9D] transition-colors hover:bg-pink-50"
+          >
+            View Profile
+          </Link>
+          <a
+            href={bookUrl}
+            {...(bookExternal ? { target: "_blank", rel: "noreferrer" } : {})}
+            className="flex h-[43px] flex-1 items-center justify-center rounded-lg bg-[linear-gradient(90deg,#DE7F4C_0%,#C341D7_100%)] text-sm font-semibold text-white transition-opacity hover:opacity-90"
+          >
+            Book Now
+          </a>
         </div>
       </div>
     </article>

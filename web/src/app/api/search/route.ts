@@ -105,7 +105,7 @@ export async function GET(request: NextRequest) {
   const pageRaw = searchParams.get("page");
   const limitRaw = searchParams.get("limit");
   const page = pageRaw && Number.isFinite(Number(pageRaw)) ? Math.max(1, Number(pageRaw)) : 1;
-  const limit = limitRaw && Number.isFinite(Number(limitRaw)) ? Math.min(Math.max(1, Number(limitRaw)), 50) : 20;
+  const limit = limitRaw && Number.isFinite(Number(limitRaw)) ? Math.min(Math.max(1, Number(limitRaw)), 50) : 50;
   const offset = (page - 1) * limit;
 
   // Geo / rating params

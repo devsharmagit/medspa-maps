@@ -123,6 +123,9 @@ export interface NavigatorClinicMatch {
   rating: number | null;
   reviewCount: number;
   verified: boolean;
+  featured: boolean;
+  website: string | null;
+  bookingUrl: string | null;
   coverImageUrl: string | null;
   logoUrl: string | null;
   matchedTreatments: { name: string; slug: string }[];

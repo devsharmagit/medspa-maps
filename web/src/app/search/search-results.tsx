@@ -803,12 +803,7 @@ export function SearchResults() {
               {!loading && total > 0 && pagination && (
                 <p className="text-sm text-[#727272]">
                   Showing {((pagination.page - 1) * pagination.limit) + 1}-{Math.min(pagination.page * pagination.limit, total)} of {total.toLocaleString()} results
-                  {results.some(r => r.featured) && (
-                    <span className="ml-2 inline-flex items-center gap-1 text-[#D3A845]">
-                      <Crown className="size-3" />
-                      Featured clinics shown first
-                    </span>
-                  )}
+               
                 </p>
               )}
             </div>

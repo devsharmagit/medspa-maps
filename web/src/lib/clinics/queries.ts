@@ -26,6 +26,7 @@ export interface ClinicPageData {
     about: string | null;
     address: string | null;
     phone: string | null;
+    email: string | null;
     website: string | null;
     booking_url: string | null;
     google_maps_url: string | null;
@@ -74,7 +75,7 @@ export async function getClinicData(slug: string): Promise<ClinicPageData | null
   const clinic = await pool.query(
     `SELECT
        c.id, c.slug, c.name, c.tagline, c.about, c.address,
-       c.phone, c.website, c.booking_url, c.google_maps_url, c.hours, c.instagram_url,
+       c.phone, c.email, c.website, c.booking_url, c.google_maps_url, c.hours, c.instagram_url,
        c.facebook_url, c.tiktok_url, c.youtube_url, c.x_url, c.linkedin_url, c.yelp_url,
        c.avg_rating,
        c.review_count, c.ext_rating, c.ext_review_count, c.featured,
@@ -208,6 +209,7 @@ export async function getClinicData(slug: string): Promise<ClinicPageData | null
       about: c.about,
       address: c.address,
       phone: c.phone,
+      email: c.email,
       website: c.website,
       booking_url: c.booking_url,
       google_maps_url: c.google_maps_url,

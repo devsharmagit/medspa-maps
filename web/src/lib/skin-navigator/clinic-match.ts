@@ -41,6 +41,9 @@ interface ClinicMatchRow {
   distance_miles: string | number | null;
   best_service_weight: string | number | null;
   matched_treatments: unknown;
+  featured: boolean | null;
+  website: string | null;
+  booking_url: string | null;
 }
 
 function resolveLocationScope(request: NavigatorRequest): LocationScope {
@@ -158,6 +161,26 @@ async function reconcileServiceWeights(weights: ServiceWeight[]): Promise<Servic
   return [...resolved.entries()].map(([slug, weight]) => ({ slug, weight }));
 }
 
+/**
+ * Rating and review count must come from the SAME source (internal vs.
+ * external/Google). `avg_rating` is currently empty for almost every clinic
+ * (no internal reviews yet) while `review_count` defaults to 0 (not null) —
+ * so naively falling each field back independently with `??` picks the
+ * external rating but the internal (zero) count, hiding real review counts.
+ */
+function ratingAndCount(row: {
+  avg_rating?: number | string | null;
+  ext_rating?: number | string | null;
+  review_count?: number | string | null;
+  ext_review_count?: number | string | null;
+}): { rating: number | null; reviewCount: number } {
+  const usesInternal = row.avg_rating !== null && row.avg_rating !== undefined;
+  const ratingRaw = usesInternal ? row.avg_rating : row.ext_rating;
+  const rating = ratingRaw === null || ratingRaw === undefined ? null : Number(ratingRaw);
+  const reviewCount = Number((usesInternal ? row.review_count : row.ext_review_count) ?? 0);
+  return { rating, reviewCount };
+}
+
 function scoreClinic(row: {
   best_service_weight?: number | string | null;
   distance_miles?: number | string | null;
@@ -175,9 +198,8 @@ function scoreClinic(row: {
       ? Math.max(0, 1 - Math.min(distance, 50) / 50) * 25
       : 0;
 
-  const rating = Number(row.avg_rating ?? row.ext_rating ?? 0);
-  const ratingScore = Math.min(15, Math.max(0, rating / 5) * 15);
-  const reviewCount = Number(row.review_count ?? row.ext_review_count ?? 0);
+  const { rating, reviewCount } = ratingAndCount(row);
+  const ratingScore = Math.min(15, Math.max(0, (rating ?? 0) / 5) * 15);
   const reviewScore = Math.min(5, Math.log10(reviewCount + 1) * 1.7);
 
   return Math.round((treatmentScore + distanceScore + ratingScore + reviewScore) * 10) / 10;
@@ -188,11 +210,8 @@ function mapClinicRow(row: ClinicMatchRow, hasOrigin: boolean): NavigatorClinicM
     row.distance_miles === null || row.distance_miles === undefined
       ? null
       : Math.round(Number(row.distance_miles) * 10) / 10;
-  const ratingRaw = row.avg_rating ?? row.ext_rating;
-  const rating =
-    ratingRaw === null || ratingRaw === undefined
-      ? null
-      : Math.round(Number(ratingRaw) * 10) / 10;
+  const { rating: ratingRaw, reviewCount } = ratingAndCount(row);
+  const rating = ratingRaw === null ? null : Math.round(ratingRaw * 10) / 10;
   const matchedTreatments = Array.isArray(row.matched_treatments)
     ? row.matched_treatments.filter(
         (item): item is { name: string; slug: string } =>
@@ -216,8 +235,11 @@ function mapClinicRow(row: ClinicMatchRow, hasOrigin: boolean): NavigatorClinicM
     state: row.state,
     zip: row.zip,
     rating,
-    reviewCount: Number(row.review_count ?? row.ext_review_count ?? 0),
+    reviewCount,
     verified: false,
+    featured: Boolean(row.featured),
+    website: row.website,
+    bookingUrl: row.booking_url,
     coverImageUrl: row.cover_image_url,
     logoUrl: row.logo_url,
     matchedTreatments,
@@ -310,6 +332,9 @@ async function matchByTreatments(
       c.review_count,
       c.ext_rating,
       c.ext_review_count,
+      c.featured,
+      c.website,
+      c.booking_url,
       (
         SELECT COALESCE(i.cdn_url, i.source_url)
         FROM images i
@@ -359,7 +384,11 @@ async function matchByTreatments(
 
   return rows
     .map((row) => mapClinicRow(row, hasOrigin))
-    .sort((a, b) => b.matchScore - a.matchScore)
+    .sort((a, b) => {
+      // Featured clinics are pinned first (e.g. Ruma in Salt Lake City).
+      if (a.featured !== b.featured) return a.featured ? -1 : 1;
+      return b.matchScore - a.matchScore;
+    })
     .slice(0, 5);
 }
 
@@ -441,6 +470,9 @@ async function matchByConcerns(
       c.review_count,
       c.ext_rating,
       c.ext_review_count,
+      c.featured,
+      c.website,
+      c.booking_url,
       (
         SELECT COALESCE(i.cdn_url, i.source_url)
         FROM images i
@@ -510,7 +542,11 @@ async function matchByConcerns(
 
   return rows
     .map((row) => mapClinicRow(row, hasOrigin))
-    .sort((a, b) => b.matchScore - a.matchScore)
+    .sort((a, b) => {
+      // Featured clinics are pinned first (e.g. Ruma in Salt Lake City).
+      if (a.featured !== b.featured) return a.featured ? -1 : 1;
+      return b.matchScore - a.matchScore;
+    })
     .slice(0, 5);
 }
 
@@ -588,7 +624,8 @@ async function matchNearbyClinics(
       c.id AS clinic_id, c.name AS clinic_name, c.slug AS clinic_slug,
       COALESCE(c.address, ploc.address) AS address,
       ploc.city AS city, ploc.state AS state, ploc.zip AS zip,
-      c.avg_rating, c.review_count, c.ext_rating, c.ext_review_count,
+      c.avg_rating, c.review_count, c.ext_rating, c.ext_review_count, c.featured,
+      c.website, c.booking_url,
       (SELECT COALESCE(i.cdn_url, i.source_url) FROM images i
         WHERE i.entity_type = 'clinic' AND i.entity_id = c.id
           AND i.role IN ('cover','gallery') AND i.scrape_status = 'ok'
@@ -626,6 +663,8 @@ async function matchNearbyClinics(
   return rows
     .map((row) => mapClinicRow(row as ClinicMatchRow, hasOrigin))
     .sort((a, b) => {
+      // Featured clinics are pinned first.
+      if (a.featured !== b.featured) return a.featured ? -1 : 1;
       // nearest first when we have coordinates, else rating/reviews
       if (hasOrigin && a.distanceMiles != null && b.distanceMiles != null) {
         if (a.distanceMiles !== b.distanceMiles) return a.distanceMiles - b.distanceMiles;

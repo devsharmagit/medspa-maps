@@ -1,53 +1,39 @@
 "use client";
 
-import { ArrowLeft, ArrowRight } from "lucide-react";
-import Image from "next/image";
+import { ArrowLeft, ArrowRight, type LucideIcon } from "lucide-react";
 import Link from "next/link";
-import { useRef, useState } from "react";
+import { useRef } from "react";
 
-interface Treatment {
-  slug: string;
-  name: string;
-  clinicCount: number;
-  icon: string;
-}
+import { POPULAR_TREATMENTS } from "@/data/popular-treatments";
+import { formatCountPlus } from "@/lib/utils";
 
 interface PopularTreatmentsProps {
-  treatments: Treatment[];
   titleNode?: React.ReactNode;
 }
-
-const DEFAULT_FALLBACK_ICON = "/images/landingpage/diamond.png";
 
 function TreatmentCard({
   slug,
   name,
   clinicCount,
-  icon,
+  icon: Icon,
 }: {
   slug: string;
   name: string;
   clinicCount: number;
-  icon: string;
+  icon: LucideIcon;
 }) {
-  const [imgSrc, setImgSrc] = useState(icon);
-
   return (
     <Link
       href={`/search?q=${slug}`}
       className="box-border flex h-[166px] w-[130px] sm:h-[201px] sm:w-[161px] shrink-0 flex-col items-center justify-center gap-2 rounded-2xl bg-white px-[10px] pt-[3px] shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)] transition-transform hover:scale-105 hover:shadow-lg"
     >
       <div className="flex h-[52px] w-[56px] sm:h-[62px] sm:w-[66px] items-center justify-center rounded-[10px] border border-[#F5DEE8] bg-[linear-gradient(144.23deg,#F5F0F7_-33.1%,#FFFFFF_48.72%)]">
-        <div className="relative h-[26px] w-[26px] sm:h-[32px] sm:w-[32px]">
-          <Image
-            src={imgSrc}
-            alt={name}
-            fill
-            sizes="32px"
-            className="object-contain"
-            onError={() => setImgSrc(DEFAULT_FALLBACK_ICON)}
-          />
-        </div>
+        <Icon
+          className="h-[26px] w-[26px] sm:h-[32px] sm:w-[32px]"
+          strokeWidth={1.75}
+          color="#CF5B9D"
+          aria-hidden="true"
+        />
       </div>
 
       {/* Title */}
@@ -57,13 +43,13 @@ function TreatmentCard({
 
       {/* Clinics */}
       <p className="flex items-center justify-center text-center font-inter text-[11px] sm:text-[12px] font-normal leading-[100%] text-[#9A9A9A]">
-        {clinicCount} clinics
+        {formatCountPlus(clinicCount)} clinics
       </p>
     </Link>
   );
 }
 
-export function PopularTreatments({ treatments, titleNode }: PopularTreatmentsProps) {
+export function PopularTreatments({ titleNode }: PopularTreatmentsProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const scroll = (direction: "left" | "right") => {
@@ -112,7 +98,7 @@ export function PopularTreatments({ treatments, titleNode }: PopularTreatmentsPr
           ref={scrollContainerRef}
           className="flex w-full gap-2 overflow-x-auto px-2 py-[38px] scrollbar-none"
         >
-          {treatments.map((treatment) => (
+          {POPULAR_TREATMENTS.map((treatment) => (
             <TreatmentCard key={treatment.slug} {...treatment} />
           ))}
         </div>

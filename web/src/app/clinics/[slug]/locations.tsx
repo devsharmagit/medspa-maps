@@ -119,6 +119,12 @@ export function ClinicLocationsSection({
           const query = addressQuery(loc, clinicName);
           const embedUrl = mapsEmbedUrl(loc, clinicName);
           const mapsUrl = mapsOpenUrl(loc, query);
+          // Show the embedded map whenever we can pin an exact spot: either the
+          // Embed API (key + place_id) or — the common case, no key needed — the
+          // location's own coordinates. Coordinates-only per requirement.
+          const hasMap =
+            (Boolean(EMBED_KEY) && Boolean(loc.google_place_id)) ||
+            (loc.lat != null && loc.lng != null);
 
           return (
             <div
@@ -136,19 +142,20 @@ export function ClinicLocationsSection({
                 )}
               </div>
 
-              {/* Google Maps embed — shown only once GOOGLE_MAPS_EMBED_KEY is
-                  set, so it renders exact place_id maps. Hidden until then (the
-                  address + "Open in Google Maps" link below still work). */}
-              {EMBED_KEY && (
+              {/* Embedded map — exact pin from the location's coordinates
+                  (keyless), or the Embed API place map when a key is configured. */}
+              {hasMap && (
                 <div className="overflow-hidden rounded-[12px] border border-[#EDE3EA]">
                   <iframe
                     src={embedUrl}
                     title={`Map for ${title}`}
                     width="100%"
-                    height="160"
-                    style={{ border: 0, display: "block" }}
+                    height="180"
+                    style={{ border: 0, display: "block", pointerEvents: "none" }}
                     loading="lazy"
                     referrerPolicy="no-referrer-when-downgrade"
+                    tabIndex={-1}
+                    aria-hidden="true"
                   />
                 </div>
               )}
