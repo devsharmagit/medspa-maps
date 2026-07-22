@@ -1400,8 +1400,7 @@ function ResultsStep({
       )}
 
       <p className="border-t border-slate-100 pt-6 text-sm leading-6 text-slate-500">
-        {
-        "** " + result.disclaimer || NAVIGATOR_DISCLAIMER}
+        { result.disclaimer || NAVIGATOR_DISCLAIMER}
       </p>
     </div>
   );
