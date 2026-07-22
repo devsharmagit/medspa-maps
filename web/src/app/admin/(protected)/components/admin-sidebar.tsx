@@ -14,6 +14,7 @@ import {
   DatabaseZap,
   Globe,
   Wand2,
+  UserRoundPlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -28,6 +29,7 @@ const navItems = [
   { href: "/admin/services", label: "Treatments", icon: Sparkles },
   { href: "/admin/concerns", label: "Concerns", icon: HeartPulse },
   { href: "/admin/reviews", label: "Reviews", icon: Star },
+  { href: "/admin/leads", label: "Leads", icon: UserRoundPlus },
   { href: "/admin/unmatched", label: "Unmatched", icon: Inbox },
 ];
 

@@ -154,7 +154,7 @@ export const NavigatorEventSchema = z.object({
 export type NavigatorEvent = z.infer<typeof NavigatorEventSchema>;
 
 export const NAVIGATOR_DISCLAIMER =
-  "This is informational cosmetic guidance, not medical advice or a diagnosis. Results vary, and a qualified provider should confirm which treatments are appropriate for you.";
+  "** This is informational cosmetic guidance, not medical advice or a diagnosis. Results vary, and a qualified provider should confirm which treatments are appropriate for you.";
 
 const LABELS = new Map<string, string>(ALL_GOAL_OPTIONS.map((g) => [g.slug, g.label]));
 

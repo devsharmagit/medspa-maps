@@ -10,6 +10,7 @@ import {
   HeartPulse,
   Star,
   Inbox,
+  UserRoundPlus,
   ArrowUpRight,
   type LucideIcon,
 } from "lucide-react";
@@ -22,6 +23,7 @@ interface StatCard {
   href: string;
   icon: LucideIcon;
   tint: string;
+  sub?: string;
 }
 
 export default async function AdminDashboardPage() {
@@ -34,6 +36,8 @@ export default async function AdminDashboardPage() {
     concerns: string;
     reviews: string;
     unmatched: string;
+    leads: string;
+    new_leads: string;
   }>(`
     SELECT
       (SELECT count(*) FROM clinics)    AS clinics,
@@ -41,7 +45,9 @@ export default async function AdminDashboardPage() {
       (SELECT count(*) FROM concerns)   AS concerns,
       (SELECT count(*) FROM reviews)    AS reviews,
       (SELECT count(DISTINCT raw_name) FROM clinic_services
-        WHERE match_status = 'unmatched' OR service_id IS NULL) AS unmatched
+        WHERE match_status = 'unmatched' OR service_id IS NULL) AS unmatched,
+      (SELECT count(*) FROM patient_leads) AS leads,
+      (SELECT count(*) FROM patient_leads WHERE status = 'new') AS new_leads
   `);
 
   const c = rows[0];
@@ -51,6 +57,14 @@ export default async function AdminDashboardPage() {
     { label: "Services", value: c.services, href: "/admin/services", icon: Sparkles, tint: "from-fuchsia-500/15 to-purple-500/15 text-fuchsia-600" },
     { label: "Concerns", value: c.concerns, href: "/admin/concerns", icon: HeartPulse, tint: "from-violet-500/15 to-purple-500/15 text-violet-600" },
     { label: "Reviews", value: c.reviews, href: "/admin/reviews", icon: Star, tint: "from-amber-500/15 to-yellow-500/15 text-amber-600" },
+    {
+      label: "Patient leads",
+      value: c.leads,
+      href: "/admin/leads",
+      icon: UserRoundPlus,
+      tint: "from-sky-500/15 to-cyan-500/15 text-sky-600",
+      sub: Number(c.new_leads) > 0 ? `${c.new_leads} new` : undefined,
+    },
     { label: "Unmatched queue", value: c.unmatched, href: "/admin/unmatched", icon: Inbox, tint: "from-pink-500/15 to-rose-500/15 text-pink-600" },
   ];
 
@@ -66,7 +80,7 @@ export default async function AdminDashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {stats.map(({ label, value, href, icon: Icon, tint }) => (
+        {stats.map(({ label, value, href, icon: Icon, tint, sub }) => (
           <Link key={label} href={href} className="group block">
             <Card className="border-pink-100/80 ring-pink-100/60 transition-all hover:ring-purple-200 hover:shadow-[0_8px_24px_rgba(195,65,215,0.10)]">
               <CardContent className="flex items-start justify-between gap-4">
@@ -74,8 +88,15 @@ export default async function AdminDashboardPage() {
                   <span className="text-sm font-medium text-slate-500">
                     {label}
                   </span>
-                  <span className="text-3xl font-bold text-slate-900 tabular-nums">
-                    {value}
+                  <span className="flex items-center gap-2">
+                    <span className="text-3xl font-bold text-slate-900 tabular-nums">
+                      {value}
+                    </span>
+                    {sub && (
+                      <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-700">
+                        {sub}
+                      </span>
+                    )}
                   </span>
                 </div>
                 <div

@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PatientLeadDialog } from "@/components/leads/patient-lead-dialog";
 import { Input } from "@/components/ui/input";
 import {
   LocationTypeahead,
@@ -213,6 +214,9 @@ export function SkinNavigatorClient() {
   const [result, setResult] = useState<NavigatorAnalyzeResponse | null>(null);
   const [goalNote, setGoalNote] = useState("");
   const [stepAnnouncement, setStepAnnouncement] = useState("");
+  // Lead capture gate: we collect contact details before running the analysis.
+  const [leadOpen, setLeadOpen] = useState(false);
+  const leadCapturedRef = useRef(false);
   // Data-URL preview cached in sessionStorage so it survives leaving the page
   // and coming back within the same tab (the photo File object itself does
   // not survive a remount). Cleared on retake and when the tab/browser closes.
@@ -293,8 +297,8 @@ export function SkinNavigatorClient() {
 
   const canContinue = useMemo(() => {
     if (step === "basics") {
-      // Location is optional; only the age range is required to continue.
-      return Boolean(state.basics.ageRange);
+      // Age range and location are both required to continue.
+      return Boolean(state.basics.ageRange) && Boolean(state.basics.location.value.trim());
     }
     if (step === "goals") return state.goals.selected.length > 0;
     return true;
@@ -302,10 +306,13 @@ export function SkinNavigatorClient() {
 
   const continueHint = useMemo(() => {
     if (canContinue) return "";
-    if (step === "basics") return "Select your age range to continue.";
+    if (step === "basics") {
+      if (!state.basics.ageRange) return "Select your age range to continue.";
+      return "Enter your location to continue.";
+    }
     if (step === "goals") return "Pick at least one goal or concern to continue.";
     return "";
-  }, [canContinue, step]);
+  }, [canContinue, step, state.basics.ageRange]);
 
   const payload = useMemo(
     () => ({
@@ -348,11 +355,22 @@ export function SkinNavigatorClient() {
     });
   };
 
+  // Open the lead form before running the analysis (once per session); if the
+  // lead was already captured, go straight to the analysis.
+  const beginAnalysis = () => {
+    if (submitting) return;
+    if (leadCapturedRef.current) {
+      submit();
+    } else {
+      setLeadOpen(true);
+    }
+  };
+
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting) return;
     if (step === "photos") {
-      submit();
+      beginAnalysis();
     } else if (step !== "results") {
       goNext();
     }
@@ -430,6 +448,7 @@ export function SkinNavigatorClient() {
     setResult(null);
     setError("");
     setStepIndex(0);
+    leadCapturedRef.current = false;
     clearDraft();
     clearPhotoPreview();
     recordEvent(null, "navigator.retake");
@@ -533,7 +552,7 @@ export function SkinNavigatorClient() {
                     photos={photos}
                     setPhoto={setPhoto}
                     submitting={submitting}
-                    submit={submit}
+                    submit={beginAnalysis}
                   />
                 )}
                 {step === "results" && result && (
@@ -598,6 +617,25 @@ export function SkinNavigatorClient() {
           )}
         </form>
       </div>
+
+      <PatientLeadDialog
+        open={leadOpen}
+        onOpenChange={setLeadOpen}
+        title="Get your treatment plan"
+        description="Add your contact details and we'll generate your personalized results."
+        submitLabel="Get my results"
+        context={{
+          source: "skin_navigator",
+          location: state.basics.location.value || null,
+          concern: state.goals.selected.join(", ") || null,
+          skinNavigator: payload,
+        }}
+        onSubmitted={() => {
+          leadCapturedRef.current = true;
+          setLeadOpen(false);
+          submit();
+        }}
+      />
     </section>
   );
 }
@@ -707,7 +745,7 @@ function BasicsStep({
     <StepShell
       eyebrow="Step 1"
       title="A few basics"
-      body="Only your age range is required. Add a location if you'd like nearby clinic suggestions too."
+      body="Your age range and location are required so we can suggest nearby clinics."
     >
       <div className="space-y-6">
         <div>
@@ -739,7 +777,7 @@ function BasicsStep({
 
         <LocationTypeahead
           value={state.basics.location.value}
-          label="City or ZIP (optional)"
+          label="City or ZIP"
           icon={<MapPin className="size-4 text-brand-coral" />}
           placeholder="Nashville, TN or 37203"
           inputClassName="h-12 rounded-lg !border !border-slate-300 bg-white px-4 shadow-sm focus:!border-brand-coral"
@@ -1362,7 +1400,8 @@ function ResultsStep({
       )}
 
       <p className="border-t border-slate-100 pt-6 text-sm leading-6 text-slate-500">
-        {result.disclaimer || NAVIGATOR_DISCLAIMER}
+        {
+        "** " + result.disclaimer || NAVIGATOR_DISCLAIMER}
       </p>
     </div>
   );

@@ -1153,3 +1153,35 @@ ALTER TABLE ONLY public.reviews
 
 \unrestrict cy9KavMYyfPWWmaGvNiputYHERUwR5lBedC7sMhxnbXh6CjAiflZTXyRRplaaFV
 
+
+
+--
+-- Name: patient_leads; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE IF NOT EXISTS public.patient_leads (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    first_name text NOT NULL,
+    last_name text NOT NULL,
+    email text NOT NULL,
+    phone text NOT NULL,
+    source text DEFAULT 'search'::text NOT NULL,
+    treatment text,
+    concern text,
+    location text,
+    skin_navigator jsonb,
+    ip_address text,
+    user_agent text,
+    status text DEFAULT 'new'::text NOT NULL,
+    notes text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT patient_leads_source_check CHECK ((source = ANY (ARRAY['search'::text, 'skin_navigator'::text]))),
+    CONSTRAINT patient_leads_status_check CHECK ((status = ANY (ARRAY['new'::text, 'contacted'::text, 'qualified'::text, 'converted'::text, 'rejected'::text]))),
+    CONSTRAINT patient_leads_pkey PRIMARY KEY (id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_patient_leads_created_at ON public.patient_leads USING btree (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_patient_leads_source ON public.patient_leads USING btree (source);
+CREATE INDEX IF NOT EXISTS idx_patient_leads_email ON public.patient_leads USING btree (email);
+CREATE INDEX IF NOT EXISTS idx_patient_leads_status ON public.patient_leads USING btree (status);
