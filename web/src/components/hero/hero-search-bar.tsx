@@ -5,10 +5,6 @@ import { useEffect, useState } from "react";
 import { HeartPulse, MapPin, Search, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import {
-  PatientLeadDialog,
-  type PatientLeadContext,
-} from "@/components/leads/patient-lead-dialog";
 import { SearchableDropdown } from "@/components/ui/searchable-dropdown";
 import {
   LocationTypeahead,
@@ -34,13 +30,6 @@ export function HeroSearchBar({ className }: { className?: string }) {
   const treatmentOptions = serviceOptions.filter((option) => option.group === "Treatments");
   const conditionOptions = serviceOptions.filter((option) => option.group === "Conditions");
   const activeOptions = searchMode === "treatment" ? treatmentOptions : conditionOptions;
-  // Lead capture: clicking Search opens a contact form. We only navigate to the
-  // results page once the lead is saved.
-  const [leadOpen, setLeadOpen] = useState(false);
-  const [pendingSearch, setPendingSearch] = useState<{
-    href: string;
-    context: PatientLeadContext;
-  } | null>(null);
 
   // Prefill ONLY after the visitor clicks "Use my current location" and we
   // resolve a US city/state (unless they've already typed something). Never on a
@@ -62,15 +51,12 @@ export function HeroSearchBar({ className }: { className?: string }) {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     const params = new URLSearchParams();
-    let treatment: string | null = null;
-    let condition: string | null = null;
     if (searchMode === "treatment") {
-      treatment = service.trim() || null;
-      if (treatment) params.set("q", treatment);
+      if (service.trim()) params.set("q", service.trim());
     } else {
-      const { condition: parsed } = splitSearchSelection(service);
-      condition = parsed || service.trim() || null;
-      if (condition) params.set("condition", condition);
+      const { condition } = splitSearchSelection(service);
+      const conditionValue = condition || service.trim();
+      if (conditionValue) params.set("condition", conditionValue);
     }
     if (location.trim()) params.set("location", location.trim());
     // Picked suggestion carries exact coordinates → instant radius search.
@@ -78,18 +64,7 @@ export function HeroSearchBar({ className }: { className?: string }) {
       params.set("lat", String(locationGeo.lat));
       params.set("lng", String(locationGeo.lng));
     }
-
-    // Capture the lead before revealing results.
-    setPendingSearch({
-      href: `/search?${params.toString()}`,
-      context: {
-        source: "search",
-        treatment,
-        concern: condition,
-        location: location.trim() || null,
-      },
-    });
-    setLeadOpen(true);
+    router.push(`/search?${params.toString()}`);
   };
 
   const handleLocationChange = (sel: LocationSelection) => {
@@ -103,7 +78,6 @@ export function HeroSearchBar({ className }: { className?: string }) {
   };
 
   return (
-    <>
     <div className={cn("flex w-full flex-col items-start gap-3", className)}>
       <div className="inline-flex items-center gap-2 rounded-full border border-white/35 bg-white/18 p-1 shadow-[0_8px_30px_rgba(61,46,56,0.12)] backdrop-blur-md">
         <span className="pl-3 pr-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-white/85">
@@ -189,19 +163,5 @@ export function HeroSearchBar({ className }: { className?: string }) {
       </div>
       </form>
     </div>
-
-      {pendingSearch && (
-        <PatientLeadDialog
-          open={leadOpen}
-          onOpenChange={setLeadOpen}
-          context={pendingSearch.context}
-          submitLabel="See results"
-          onSubmitted={() => {
-            setLeadOpen(false);
-            router.push(pendingSearch.href);
-          }}
-        />
-      )}
-    </>
   );
 }
