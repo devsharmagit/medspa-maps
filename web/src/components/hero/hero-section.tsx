@@ -5,7 +5,7 @@ import { HeroSearchBar } from "@/components/hero/hero-search-bar";
 import { TreatmentCarousel } from "@/components/hero/treatment-carousel";
 
 const trustItems = [
-  "100+ Medspa Listings",
+  "600+ Medspa Listings",
   "Editorially Curated Content",
   "Top-Rated Providers",
   "Unbiased Rankings",
@@ -55,7 +55,7 @@ export function HeroSection() {
             {/* Headline */}
             <div className="max-w-[982px] space-y-4">
               <p className="max-w-[753px] text-base font-medium leading-snug text-[#fcfcfc]">
-                Explore 100+ vetted medspas, read expert treatment guides, and
+                Explore 600+ vetted medspas, read expert treatment guides, and
                 book with confidence. The most trusted resource for aesthetic
                 medicine patients.
               </p>

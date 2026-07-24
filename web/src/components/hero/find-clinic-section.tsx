@@ -22,33 +22,6 @@ import {
 } from "@/components/ui/location-typeahead";
 import { cn } from "@/lib/utils";
 
-// ─── Distance helpers ───────────────────────────────────────────────────────
-
-/** Haversine distance in MILES between two lat/lng points. */
-function milesBetween(
-  lat1: number,
-  lng1: number,
-  lat2: number,
-  lng2: number,
-): number {
-  const R = 3959; // Earth radius in miles
-  const toRad = (d: number) => (d * Math.PI) / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLng = toRad(lng2 - lng1);
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
-function formatMiles(miles: number): string {
-  const v = miles < 10 ? miles.toFixed(1) : String(Math.round(miles));
-  return `${v} mi away`;
-}
-
-// A clinic with a distance label resolved for the current viewer.
-type DisplayClinic = FeaturedClinic & { distanceLabel: string | null };
-
 // ─── Carousel Helpers ─────────────────────────────────────────────────────────
 
 function getOffset(idx: number, current: number, total: number): number {
@@ -109,7 +82,7 @@ function getSlotStyle(offset: number) {
 
 // ─── ClinicCard ───────────────────────────────────────────────────────────────
 
-function ClinicCard({ clinic }: { clinic: DisplayClinic }) {
+function ClinicCard({ clinic }: { clinic: FeaturedClinic }) {
   const stateCode = toStateCode(clinic.state) ?? clinic.state ?? "";
   const cityLabel = (clinic.city || "").replace(/[,\s]+$/, "");
   const location = [cityLabel, stateCode].filter(Boolean).join(", ");
@@ -207,17 +180,6 @@ function ClinicCard({ clinic }: { clinic: DisplayClinic }) {
                   <span className="font-montserrat font-medium tracking-[0.02em] line-clamp-1">
                     {location}
                   </span>
-                )}
-                {clinic.distanceLabel && (
-                  <>
-                    <div className="h-[14px] w-px bg-[#DBDBDB]" />
-                    <div className="flex items-center gap-[2px]">
-                      <MapPin className="h-[13px] w-[13px] text-[#EE97C6]" />
-                      <span className="font-montserrat tracking-[0.02em] whitespace-nowrap">
-                        {clinic.distanceLabel}
-                      </span>
-                    </div>
-                  </>
                 )}
               </div>
             </div>
@@ -330,15 +292,6 @@ export function FindClinicSection({ clinics }: { clinics: FeaturedClinic[] }) {
   const total = orderedClinics.length;
   const { status, location: userLoc, requested, requestLocation } = useLocation();
 
-  // We can only offer distance features when we KNOW the visitor is in the USA.
-  const inUS = Boolean(
-    status === "granted" &&
-      userLoc &&
-      !userLoc.outsideUS &&
-      userLoc.lat != null &&
-      userLoc.lng != null,
-  );
-
   // Filter states — mirrors the hero search bar's fields exactly (treatment
   // dropdown + location typeahead + rating), so behavior stays consistent
   // across the two search entry points.
@@ -408,18 +361,6 @@ export function FindClinicSection({ clinics }: { clinics: FeaturedClinic[] }) {
     if (Math.abs(dx) > 40) goTo(current + (dx < 0 ? 1 : -1));
     dragStart.current = null;
   };
-
-  // Attach a viewer-relative distance label to each clinic (US visitors only).
-  const displayClinics: DisplayClinic[] = useMemo(() => {
-    return orderedClinics.map((c) => {
-      let distanceLabel: string | null = null;
-      if (inUS && c.lat != null && c.lng != null) {
-        const miles = milesBetween(userLoc!.lat, userLoc!.lng, c.lat, c.lng);
-        distanceLabel = formatMiles(miles);
-      }
-      return { ...c, distanceLabel };
-    });
-  }, [orderedClinics, inUS, userLoc]);
 
   const handleLocationChange = (sel: LocationSelection) => {
     setLocation(sel.value);
@@ -564,7 +505,7 @@ export function FindClinicSection({ clinics }: { clinics: FeaturedClinic[] }) {
       {/* ── Mobile / tablet carousel — swipeable scroll-snap row (up to xl) ── */}
       <div className="w-full xl:hidden">
         <div className="flex w-full snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth scrollbar-none px-4 pb-4">
-          {displayClinics.map((clinic) => (
+          {orderedClinics.map((clinic) => (
             <div
               key={clinic.id}
               className="w-[88vw] max-w-[440px] shrink-0 snap-center py-2"
@@ -583,7 +524,7 @@ export function FindClinicSection({ clinics }: { clinics: FeaturedClinic[] }) {
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
       >
-        {displayClinics.map((clinic, idx) => {
+        {orderedClinics.map((clinic, idx) => {
           const offset = getOffset(idx, current, total);
           const slot = getSlotStyle(offset);
 

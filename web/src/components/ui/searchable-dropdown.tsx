@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Check, ChevronDown } from "lucide-react";
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { Check, ChevronDown, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface DropdownOption {
@@ -50,21 +51,53 @@ export function SearchableDropdown({
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
+  const listboxId = useId();
+
+  // The list is portaled to <body> and positioned via fixed coordinates so it
+  // can escape any ancestor's `overflow: hidden` (e.g. the hero section uses
+  // that to clip its background image) instead of being cut off by it. `open`
+  // only ever becomes true after a user interaction on the client, so the
+  // portal never renders during SSR — no mount-check needed.
+  const [position, setPosition] = useState<{ top: number; left: number; width: number } | null>(
+    null
+  );
 
   // Derive display text from value
   const selectedLabel = options.find((o) => o.value === value)?.label || value;
 
-  // Filter options based on typed query
-  const filtered = query
-    ? options.filter((o) =>
-        o.label.toLowerCase().includes(query.toLowerCase())
-      )
-    : options;
+  // Filter + rank options based on typed query — startsWith matches float to
+  // the top of their group, ahead of mid-string contains matches, so typing
+  // "bo" surfaces "Botox" before something like "Sculptra Body".
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return options;
+    return options
+      .map((o, originalIdx) => {
+        const label = o.label.toLowerCase();
+        const matchIdx = label.indexOf(q);
+        return { option: o, originalIdx, matchIdx };
+      })
+      .filter((entry) => entry.matchIdx !== -1)
+      .sort((a, b) => {
+        if (a.matchIdx !== b.matchIdx) return a.matchIdx - b.matchIdx;
+        return a.originalIdx - b.originalIdx;
+      })
+      .map((entry) => entry.option);
+  }, [options, query]);
 
-  // Close on outside click
+  const hasMultipleGroups = useMemo(
+    () => new Set(options.map((o) => o.group).filter(Boolean)).size > 1,
+    [options]
+  );
+
+  // Close on outside click — the list is portaled outside containerRef, so a
+  // click inside it must also be treated as "inside".
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      const inContainer = containerRef.current?.contains(target);
+      const inList = listRef.current?.contains(target);
+      if (!inContainer && !inList) {
         setOpen(false);
         // Reset query to selected label if we close without selecting
         if (!allowFreeText) setQuery("");
@@ -74,10 +107,30 @@ export function SearchableDropdown({
     return () => document.removeEventListener("mousedown", handler);
   }, [allowFreeText]);
 
+  // Track the trigger's position while open so the portaled list can follow
+  // it on scroll/resize.
+  useLayoutEffect(() => {
+    if (!open) return;
+    const updatePosition = () => {
+      if (!containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      setPosition({ top: rect.bottom + 8, left: rect.left, width: rect.width });
+    };
+    updatePosition();
+    window.addEventListener("scroll", updatePosition, true);
+    window.addEventListener("resize", updatePosition);
+    return () => {
+      window.removeEventListener("scroll", updatePosition, true);
+      window.removeEventListener("resize", updatePosition);
+    };
+  }, [open]);
+
   // Scroll highlighted item into view
   useEffect(() => {
     if (highlightedIdx >= 0 && listRef.current) {
-      const item = listRef.current.children[highlightedIdx] as HTMLElement;
+      const item = listRef.current.querySelector(
+        `[data-idx="${highlightedIdx}"]`
+      ) as HTMLElement | null;
       item?.scrollIntoView({ block: "nearest" });
     }
   }, [highlightedIdx]);
@@ -96,7 +149,13 @@ export function SearchableDropdown({
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setQuery(val);
-    setHighlightedIdx(-1);
+    // Reset scroll position and default the keyboard highlight to the top
+    // match so Enter picks the best result without an extra ArrowDown.
+    if (listRef.current) listRef.current.scrollTop = 0;
+    const nextFiltered = val.trim()
+      ? options.filter((o) => o.label.toLowerCase().includes(val.trim().toLowerCase()))
+      : options;
+    setHighlightedIdx(val.trim() && nextFiltered.length > 0 ? 0 : -1);
     if (!open) setOpen(true);
     if (allowFreeText) onChange(val);
   };
@@ -132,6 +191,16 @@ export function SearchableDropdown({
     setQuery("");
   };
 
+  const handleClear = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onChange("");
+    setQuery("");
+    setHighlightedIdx(-1);
+    inputRef.current?.focus();
+  };
+
+  const showClear = open ? query.length > 0 : selectedLabel.length > 0;
+
   return (
     <div ref={containerRef} className={cn("relative", className)}>
       {/* Label row */}
@@ -158,75 +227,125 @@ export function SearchableDropdown({
           placeholder={placeholder}
           className={cn(
             "w-full border-0 bg-transparent p-0 text-sm text-foreground placeholder:text-brand-placeholder focus:outline-none focus:ring-0 pr-5",
+            showClear && "pr-10",
             inputClassName
           )}
           role="combobox"
           aria-expanded={open}
+          aria-controls={listboxId}
           aria-haspopup="listbox"
           aria-autocomplete="list"
+          aria-activedescendant={
+            highlightedIdx >= 0 ? `${listboxId}-option-${highlightedIdx}` : undefined
+          }
           autoComplete="off"
         />
+        {showClear && (
+          <button
+            type="button"
+            onClick={handleClear}
+            aria-label="Clear"
+            className="absolute right-4 flex size-4 items-center justify-center rounded-full text-brand-muted/60 hover:bg-black/5 hover:text-brand-muted"
+          >
+            <X className="size-3" />
+          </button>
+        )}
         <ChevronDown
           className={cn(
             "pointer-events-none absolute right-0 size-3.5 text-brand-muted/60 transition-transform duration-200",
+            showClear && "opacity-0",
             open && "rotate-180"
           )}
         />
       </div>
 
-      {/* Dropdown list */}
-      {open && (
+      {/* Dropdown list — portaled to <body> so it can't be clipped by an
+          ancestor's overflow-hidden (e.g. the hero section's background
+          clipping), then pinned to the trigger via fixed coordinates. */}
+      {open && position &&
+        createPortal(
         <ul
           ref={listRef}
+          id={listboxId}
           role="listbox"
-          className="absolute left-0 top-full z-50 mt-2 max-h-[240px] w-full min-w-[220px] overflow-y-auto rounded-xl border border-[#e8e0e8] bg-white py-1.5 shadow-[0_12px_40px_rgba(170,78,179,0.12)] backdrop-blur-sm"
-          style={{ scrollbarWidth: "thin" }}
+          className="fixed z-50 max-h-[288px] min-w-[220px] overflow-y-auto overscroll-contain rounded-xl border border-[#e8e0e8] bg-white py-1.5 shadow-[0_12px_40px_rgba(170,78,179,0.12)] backdrop-blur-sm"
+          style={{
+            scrollbarWidth: "thin",
+            top: position.top,
+            left: position.left,
+            width: position.width,
+          }}
         >
           {filtered.length === 0 ? (
             <li className="px-4 py-3 text-center text-xs text-brand-muted/60">
-              No results found
+              No results found for &ldquo;{query}&rdquo;
             </li>
           ) : (
             filtered.map((option, idx) => {
               const isSelected = option.value === value;
               const isHighlighted = idx === highlightedIdx;
+              // Only worth a header when the list actually mixes groups —
+              // callers that pre-filter to one group (e.g. the Treatment/
+              // Condition toggle) don't need it repeated on every option.
               const showGroupHeader =
-                !!option.group && option.group !== filtered[idx - 1]?.group;
+                hasMultipleGroups &&
+                !!option.group &&
+                option.group !== filtered[idx - 1]?.group;
 
-              return [
-                showGroupHeader ? (
-                  <li
-                    key={`__group-${option.group}`}
-                    aria-hidden="true"
-                    className="px-4 pb-1 pt-2.5 text-[10px] font-semibold uppercase tracking-widest text-brand-muted/70 select-none"
+              const q = query.trim();
+              const matchStart = q
+                ? option.label.toLowerCase().indexOf(q.toLowerCase())
+                : -1;
+
+              return (
+                <li key={`${option.group ?? ""}${option.value}`} role="presentation">
+                  {showGroupHeader && (
+                    <div
+                      aria-hidden="true"
+                      className="sticky top-0 z-10 bg-white px-4 pb-1 pt-2.5 text-[10px] font-semibold uppercase tracking-widest text-brand-muted/70 select-none"
+                    >
+                      {option.group}
+                    </div>
+                  )}
+                  <div
+                    id={`${listboxId}-option-${idx}`}
+                    role="option"
+                    aria-selected={isSelected}
+                    data-idx={idx}
+                    onClick={() => handleSelect(option)}
+                    onMouseEnter={() => setHighlightedIdx(idx)}
+                    className={cn(
+                      "flex cursor-pointer items-center gap-2 px-4 py-2 text-sm transition-colors",
+                      isHighlighted
+                        ? "bg-brand-magenta/8 text-brand-magenta"
+                        : isSelected
+                          ? "bg-brand-magenta/5 text-[#1a1a1a] font-medium"
+                          : "text-[#4a4a4a] hover:bg-[#faf7fa]"
+                    )}
                   >
-                    {option.group}
-                  </li>
-                ) : null,
-                <li
-                  key={`${option.group ?? ""}${option.value}`}
-                  role="option"
-                  aria-selected={isSelected}
-                  onClick={() => handleSelect(option)}
-                  onMouseEnter={() => setHighlightedIdx(idx)}
-                  className={cn(
-                    "flex cursor-pointer items-center gap-2 px-4 py-2 text-sm transition-colors",
-                    isHighlighted
-                      ? "bg-brand-magenta/8 text-brand-magenta"
-                      : isSelected
-                        ? "bg-brand-magenta/5 text-[#1a1a1a] font-medium"
-                        : "text-[#4a4a4a] hover:bg-[#faf7fa]"
-                  )}
-                >
-                  <span className="flex-1 truncate">{option.label}</span>
-                  {isSelected && (
-                    <Check className="size-3.5 shrink-0 text-brand-magenta" />
-                  )}
-                </li>,
-              ];
+                    <span className="flex-1 truncate">
+                      {matchStart === -1 ? (
+                        option.label
+                      ) : (
+                        <>
+                          {option.label.slice(0, matchStart)}
+                          <span className="font-semibold">
+                            {option.label.slice(matchStart, matchStart + q.length)}
+                          </span>
+                          {option.label.slice(matchStart + q.length)}
+                        </>
+                      )}
+                    </span>
+                    {isSelected && (
+                      <Check className="size-3.5 shrink-0 text-brand-magenta" />
+                    )}
+                  </div>
+                </li>
+              );
             })
           )}
-        </ul>
+        </ul>,
+        document.body
       )}
     </div>
   );
