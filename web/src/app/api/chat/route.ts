@@ -7,7 +7,7 @@
  *   1. deterministic intent extraction + routing (src/lib/chat/intent.ts)
  *   2. safety short-circuit (hardcoded reply, no LLM) OR backend data fetch
  *   3. build one system message + one labeled user message
- *   4. one model call (with a hard timeout + model fallback chain)
+ *   4. one OpenAI chat-completion call (hard timeout, one retry on 429/5xx)
  *   5. parse the ANSWER/FOLLOWUPS/MEMORY_UPDATE marker contract
  *   6. fallback ladder → always a complete, real-data answer
  *   7. fake-stream the answer, then emit followups + updated memory
@@ -23,9 +23,9 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 import {
-  OPENROUTER_BASE_URL,
-  CHAT_MODELS,
-  openRouterHeaders,
+  OPENAI_CHAT_URL,
+  CHAT_MODEL,
+  openAiHeaders,
   CHAT_LIMITS,
 } from "@/lib/chat/config";
 import { buildSystemPrompt, safetyMessage } from "@/lib/chat/system-prompt";
@@ -111,7 +111,7 @@ function getClientIp(req: NextRequest): string {
 }
 
 export async function POST(req: NextRequest) {
-  if (!process.env.OPENROUTER_API_KEY?.trim()) {
+  if (!process.env.OPENAI_API_KEY?.trim()) {
     return jsonError("Chat is not configured (missing API key).", 503);
   }
 
@@ -404,34 +404,53 @@ function ensureDisclaimer(
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// One non-streaming model call, with model fallback + hard timeout.
+// One non-streaming OpenAI call: hard timeout, one retry on 429/5xx.
+//
+// There is no model-fallback chain any more. That existed because free-tier
+// OpenRouter models are throttled independently, so rotating slugs was the only
+// way to get an answer. A paid OpenAI model doesn't need it — a 429 here means
+// account-level rate/quota, which another model id wouldn't dodge, so we retry
+// the same model once and otherwise fall through to the templated answer.
 // ──────────────────────────────────────────────────────────────────────────
 async function callModel(
   messages: { role: string; content: string }[]
 ): Promise<string | null> {
-  for (const model of CHAT_MODELS) {
+  const body = JSON.stringify({
+    model: CHAT_MODEL,
+    messages,
+    temperature: CHAT_LIMITS.temperature,
+    max_tokens: CHAT_LIMITS.maxTokens,
+    stream: false,
+  });
+
+  const MAX_ATTEMPTS = 2;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), CHAT_LIMITS.llmTimeoutMs);
     try {
-      const res = await fetch(OPENROUTER_BASE_URL, {
+      const res = await fetch(OPENAI_CHAT_URL, {
         method: "POST",
-        headers: openRouterHeaders(),
+        headers: openAiHeaders(),
         signal: controller.signal,
-        body: JSON.stringify({
-          model,
-          messages,
-          temperature: CHAT_LIMITS.temperature,
-          max_tokens: CHAT_LIMITS.maxTokens,
-          stream: false,
-        }),
+        body,
       });
       clearTimeout(timer);
 
       if (!res.ok) {
-        const body = await res.text().catch(() => "");
-        console.error("[chat] model error:", model, res.status, body.slice(0, 160));
-        if (res.status !== 429 && res.status < 500) break; // hard 4xx → stop
-        continue; // rate-limited/upstream → next model
+        const errText = await res.text().catch(() => "");
+        console.error(
+          "[chat] model error:",
+          CHAT_MODEL,
+          res.status,
+          errText.slice(0, 160)
+        );
+        // Hard 4xx (bad key, bad model, malformed request) won't fix itself.
+        if (res.status !== 429 && res.status < 500) return null;
+        if (attempt < MAX_ATTEMPTS) {
+          await sleep(500);
+          continue;
+        }
+        return null;
       }
 
       const json = (await res.json().catch(() => null)) as {
@@ -439,19 +458,21 @@ async function callModel(
         choices?: Array<{ message?: { content?: string | null } }>;
       } | null;
       if (!json || json.error) {
-        console.error("[chat] bad body from", model);
-        continue;
+        console.error("[chat] bad body from", CHAT_MODEL);
+        return null;
       }
       const content = json.choices?.[0]?.message?.content;
       if (typeof content === "string" && content.trim()) return content;
-      console.error("[chat] empty turn from", model);
+      console.error("[chat] empty turn from", CHAT_MODEL);
+      return null;
     } catch (err) {
       clearTimeout(timer);
-      console.error("[chat] fetch/abort:", model, (err as Error)?.name);
-      continue; // timeout or network → next model
+      // Timeout or network blip — one more shot, then templated fallback.
+      console.error("[chat] fetch/abort:", CHAT_MODEL, (err as Error)?.name);
+      if (attempt < MAX_ATTEMPTS) continue;
     }
   }
-  return null; // all models failed → caller serves templated fallback
+  return null; // caller serves the templated, real-data fallback
 }
 
 /** Simulated word-by-word streaming for a live typing feel. */

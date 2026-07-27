@@ -90,11 +90,11 @@ A **website-only, CLI-only batch** ([web/scripts/ingest-g99-batch.ts](web/script
 4. Dedupe locations, attach per-location Google-Maps links, reuse heuristic image extraction, **geocode** via Nominatim, then persist with `saveClinicBundle`.
 - **Scope:** basic clinic details + all physical locations *only* (deliberately not treatments/providers/reviews). **No admin UI and no review step — it saves directly.**
 
-### 5c. Concierge chatbot — OpenRouter · [web/src/lib/chat/](web/src/lib/chat) + [web/src/components/chat/chat-widget.tsx](web/src/components/chat/chat-widget.tsx)
+### 5c. Concierge chatbot — OpenAI · [web/src/lib/chat/](web/src/lib/chat) + [web/src/components/chat/chat-widget.tsx](web/src/components/chat/chat-widget.tsx)
 A public chat widget mounted globally. **Data-grounded, *not* tool/function-calling:** an intent router ([intent.ts](web/src/lib/chat/intent.ts)) picks a route (`safety`/`search`/`combined`/`catalog`/`page_context`); the backend **deterministically runs plain DB functions** ([data.ts](web/src/lib/chat/data.ts): `searchClinics`, `getClinicBySlug`, `getTreatmentInfo`, `getConcernInfo`) and injects the facts into a single prompt.
-- **Provider/model:** **OpenRouter** via raw fetch; model `OPENROUTER_MODEL`, default **`openai/gpt-oss-20b:free`** with a **free-tier fallback chain** (llama-3.3-70b, qwen3, gpt-oss-120b) because free models get 429-throttled.
-- **Transport:** LLM call is non-streaming; the route **fakes** word-by-word streaming as **NDJSON** events. Guardrails: per-IP rate limit (20/60s), message/size caps, timeouts, and a templated real-data fallback if every model fails.
-- ⚠️ **Note:** the chatbot uses an OpenRouter API key.
+- **Provider/model:** **OpenAI** Chat Completions via raw fetch; model `OPENAI_CHAT_MODEL` (falls back to `OPENAI_MODEL`), default **`gpt-4o-mini`**. One retry on 429/5xx — no model-fallback chain (that existed only to dodge free-tier throttling).
+- **Transport:** LLM call is non-streaming; the route **fakes** word-by-word streaming as **NDJSON** events. Guardrails: per-IP rate limit (20/60s), message/size caps, timeouts, and a templated real-data fallback if the model call fails.
+- ⚠️ **Note:** the chatbot shares `OPENAI_API_KEY` with the ingest pipeline, but its model id is set separately.
 
 > Forced tool-use exists **only** in 5b (extraction), never in the chatbot.
 
@@ -122,4 +122,4 @@ Every scraped service name is reconciled to the **15 canonical services** (with 
 
 - **Single container** ([Dockerfile](Dockerfile), `oven/bun`, multi-stage): builds Next.js, then runs **both** Next.js (`next start -p 3000`) and `cron-server` as sibling processes via [start.sh](start.sh) (`wait -n` — container exits if either dies). Cron talks to Next.js over `localhost`.
 - **Migrations** run on boot (`bun scripts/migrate.ts`); schema source of truth is raw SQL in [web/db/schema.sql](web/db/schema.sql).
-- **Key env vars:** `DATABASE_URL`, `G99_DATABASE_URL` (lazy read-replica pool), `INTERNAL_API_SECRET` (cron↔web), `OPENROUTER_API_KEY` (chatbot), `NEXTAUTH_*` (admin auth).
+- **Key env vars:** `DATABASE_URL`, `G99_DATABASE_URL` (lazy read-replica pool), `INTERNAL_API_SECRET` (cron↔web), `OPENAI_API_KEY` (ingest + chatbot), `NEXTAUTH_*` (admin auth).

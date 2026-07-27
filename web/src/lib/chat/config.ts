@@ -1,61 +1,33 @@
 /**
- * config.ts — OpenRouter connection + chatbot guardrail settings.
+ * config.ts — OpenAI connection + chatbot guardrail settings.
  *
  * SERVER-SIDE ONLY. Never import this from a client component — it reads the
  * secret API key from the environment.
  */
 
-export const OPENROUTER_BASE_URL =
-  "https://openrouter.ai/api/v1/chat/completions";
+export const OPENAI_CHAT_URL = "https://api.openai.com/v1/chat/completions";
 
 /**
- * Primary model id (OpenRouter slug). Swappable via env.
- *
- * The assistant no longer uses tool/function-calling, so ANY instruct model
- * works — we pick strong, well-rate-limited free instruction-followers rather
- * than the narrow (and heavily throttled) tool-calling-capable slice.
- *
- * DEMO TIP: pin ONE pre-tested model here (set OPENROUTER_MODEL) so the demo
- * never silently swaps models mid-conversation. Leave the fallback chain below
- * as the resilient default for normal traffic.
+ * Chat model id. Swappable via env, independently of the ingest pipeline's
+ * OPENAI_MODEL so the two can be tuned separately (the chatbot is
+ * latency-sensitive; ingest is accuracy-sensitive).
  */
 export const CHAT_MODEL =
-  process.env.OPENROUTER_MODEL?.trim() || "openai/gpt-oss-20b:free";
-
-/**
- * Models tried in order. Free OpenRouter models get throttled (HTTP 429)
- * independently, so we fall back across several free instruct models. The
- * env-configured primary is tried first; duplicates removed. All slugs below
- * are verified-valid on the current account (invalid slugs 404 and waste a
- * fallback hop — re-verify with a probe before adding new ones).
- */
-export const CHAT_MODELS: string[] = [
-  ...new Set(
-    [
-      CHAT_MODEL,
-      "openai/gpt-oss-20b:free",
-      "meta-llama/llama-3.3-70b-instruct:free",
-      "qwen/qwen3-next-80b-a3b-instruct:free",
-      "openai/gpt-oss-120b:free",
-    ].filter(Boolean)
-  ),
-];
+  process.env.OPENAI_CHAT_MODEL?.trim() ||
+  process.env.OPENAI_MODEL?.trim() ||
+  "gpt-4o-mini";
 
 /** Throws if the key is missing so the route can return a clean error. */
-export function getOpenRouterKey(): string {
-  const key = process.env.OPENROUTER_API_KEY?.trim();
-  if (!key) throw new Error("OPENROUTER_API_KEY is not set");
+export function getOpenAIKey(): string {
+  const key = process.env.OPENAI_API_KEY?.trim();
+  if (!key) throw new Error("OPENAI_API_KEY is not set");
   return key;
 }
 
-export function openRouterHeaders(): Record<string, string> {
+export function openAiHeaders(): Record<string, string> {
   return {
-    Authorization: `Bearer ${getOpenRouterKey()}`,
+    Authorization: `Bearer ${getOpenAIKey()}`,
     "Content-Type": "application/json",
-    // Optional OpenRouter attribution headers
-    "HTTP-Referer":
-      process.env.OPENROUTER_SITE_URL?.trim() || "http://localhost:3000",
-    "X-Title": process.env.OPENROUTER_SITE_NAME?.trim() || "Medspa Map",
   };
 }
 
@@ -70,9 +42,9 @@ export const CHAT_LIMITS = {
   /** Cap on tokens per model turn (headroom so the trailing MEMORY_UPDATE isn't truncated). */
   maxTokens: 900,
   /** Hard timeout on the single LLM call — on expiry we serve the templated fallback.
-   *  Set generously: free models are slow (10–18s is normal), and a false abort of a
-   *  good-but-slow answer is worse for a demo than a slightly longer wait. */
-  llmTimeoutMs: 18_000,
+   *  12s is generous for gpt-4o-mini at this prompt size (typically 2–4s); the old
+   *  18s was sized for slow free-tier models and only delayed the fallback. */
+  llmTimeoutMs: 12_000,
   /** Independent timeout on backend data fetches (search); expiry → SEARCH_UNAVAILABLE. */
   fetchTimeoutMs: 6_000,
   /** Per-IP rate limit: max requests per window. */
