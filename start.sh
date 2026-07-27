@@ -1,10 +1,9 @@
 #!/bin/bash
 set -e
 
-echo "Running database migrations..."
+echo "Preparing database..."
 cd /app/web
-bun scripts/migrate.ts
-bun scripts/migrate-treatment-changes.ts
+bun scripts/db-setup.ts
 
 echo "Starting Next.js on port 3000..."
 cd /app/web

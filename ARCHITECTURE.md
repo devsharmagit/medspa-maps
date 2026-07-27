@@ -121,5 +121,5 @@ Every scraped service name is reconciled to the **15 canonical services** (with 
 ## 8. Deployment & configuration
 
 - **Single container** ([Dockerfile](Dockerfile), `oven/bun`, multi-stage): builds Next.js, then runs **both** Next.js (`next start -p 3000`) and `cron-server` as sibling processes via [start.sh](start.sh) (`wait -n` — container exits if either dies). Cron talks to Next.js over `localhost`.
-- **Migrations** run on boot (`bun scripts/migrate.ts`); schema source of truth is raw SQL in [web/db/schema.sql](web/db/schema.sql).
+- **Database provisioning** runs on boot (`bun scripts/db-setup.ts` — the single entrypoint, also `bun run db:setup`): applies [web/db/schema.sql](web/db/schema.sql) only when the schema is absent, then converges the canonical taxonomy seed and the admin user. Schema source of truth is raw SQL in `web/db/`. This is **not** a migration tool — it cannot converge an existing DB onto a changed schema; see [TASKS.md](TASKS.md).
 - **Key env vars:** `DATABASE_URL`, `G99_DATABASE_URL` (lazy read-replica pool), `INTERNAL_API_SECRET` (cron↔web), `OPENAI_API_KEY` (ingest + chatbot), `NEXTAUTH_*` (admin auth).

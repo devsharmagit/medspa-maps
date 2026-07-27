@@ -55,10 +55,32 @@ Every harvested G99 website with no clinic row in the DB, as a spreadsheet.
 `lib/address-parser.ts`, `lib/ratings/`, `lib/concerns/catalog.ts`, and the `ingest-*.ts`
 scripts.
 
-- **3a. Schema consolidation (correctness, not cleanup).** `start.sh` applies the *stale*
-  `web/scripts/schema.sql` (15 tables) while `web/db/schema.sql` (17) is current. Fold the
-  unapplied ad-hoc SQL into `web/db/schema.sql`, delete the duplicate schema/seed pair, and
-  collapse `migrate.ts`/`db-migrate.ts`/`db-seed.ts` into one idempotent entrypoint.
+- **3a. Schema consolidation (correctness, not cleanup). — DONE 2026-07-27.**
+  Scoped as "prod applies the stale 15-table schema"; the reality was that **no automated
+  provisioning path worked at all**. Four independent breakages, each proven against a
+  throwaway empty database:
+  1. Both schema files began with `\restrict …`, a **psql meta-command, not SQL**. Sent over
+     the wire by `client.query()` it is a syntax error, so `bun scripts/migrate.ts` — run by
+     `start.sh` under `set -e` — died on line 5 of *every* boot, on any database.
+  2. `pg_dump` on Neon emits **no `CREATE EXTENSION`** statements, so the schema could never
+     build an empty DB: the DDL calls `public.uuid_generate_v4()`/`unaccent()` and uses
+     postgis types. The block is now maintained by hand in `db/schema.sql`.
+  3. The dump sets `search_path = ''` for the whole session, so every unqualified statement
+     after it (the admin insert, the verification counts) failed to resolve.
+  4. `db/seed.sql` and three scripts still wrote `services.category` and
+     `concern_services` — both dropped on 2026-07-18. `seed.sql` is regenerated as the
+     curated 15 services + 10 concerns; there is no global link table any more.
+
+  Result: one entrypoint, `web/scripts/db-setup.ts` (`bun run db:setup`, also called by
+  `start.sh`), replacing `migrate.ts` / `db-migrate.ts` / `db-seed.ts` / `seed.ts`. One
+  schema source, `web/db/`; the duplicate pair under `scripts/` and nine applied ad-hoc SQL
+  fragments are deleted. The Dockerfile now copies `web/db` (it never did — which is why the
+  duplicate existed). Verified: empty DB → provisioned in one command, three consecutive runs
+  idempotent, and the fresh DB is **structurally identical to production** (18 tables, 234
+  columns, 1 matview, 10 triggers, 78 indexes all matching).
+
+  Known gap, deliberately not faked: this provisions and seeds, it does **not** migrate an
+  existing database onto a changed schema. That is Task 5.
 - **3b. Secrets.** Untrack + gitignore `cron-server/.env` (contains `INTERNAL_API_SECRET`) and
   rotate it. Delete orphan `ui/package-lock.json`.
 - **3c. Dead code.** `lib/constants.ts`, `lib/ai/gemini.ts`, `lib/sync/db-helpers.ts`,

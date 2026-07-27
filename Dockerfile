@@ -34,6 +34,8 @@ COPY --from=web-builder /app/web/node_modules ./web/node_modules
 COPY --from=web-builder /app/web/package.json ./web/package.json
 COPY --from=web-builder /app/web/next.config.ts ./web/next.config.ts
 COPY --from=web-builder /app/web/scripts ./web/scripts
+# db/ holds schema.sql + seed.sql, which scripts/db-setup.ts reads at boot.
+COPY --from=web-builder /app/web/db ./web/db
 
 # ── Cron server ───────────────────────────────────────────────────────────────
 COPY cron-server/package.json ./cron-server/package.json

@@ -373,10 +373,13 @@ Legend: **PK** primary key · **FK→** foreign key · **U** part of unique cons
 ```bash
 export PGURL="$DATABASE_URL"
 PGDUMP=/opt/homebrew/Cellar/postgresql@18/*/bin/pg_dump   # pg18 — default brew pg16 refuses (version mismatch)
-# Canonical DDL (what web/db/schema.sql IS — applied verbatim by scripts/db-migrate.ts):
+# Canonical DDL (what web/db/schema.sql IS — applied by scripts/db-setup.ts):
 "$PGDUMP" "$PGURL" --schema-only --no-owner --no-privileges --schema=public -f web/db/schema.sql
-cp web/db/schema.sql web/scripts/schema.sql   # keep the duplicate in sync
+# MANDATORY post-processing (strip \restrict, re-add CREATE EXTENSION, …):
+#   see the "Regenerating these files" section of web/db/README.md
 # Then refresh this doc from information_schema + pg_catalog (see the queries used to build §3–§9).
 ```
 
-Local SQL sources: [web/db/schema.sql](web/db/schema.sql) (canonical), [web/scripts/schema.sql](web/scripts/schema.sql) (duplicate). Migration history: `web/scripts/*.sql` (latest: `2026-07-18-simplify-schema.sql`).
+Local SQL source: [web/db/schema.sql](web/db/schema.sql) — the only copy. There is no
+migration history: the ad-hoc `web/scripts/*.sql` fragments were folded into the schema and
+deleted on 2026-07-27, and a real migration ledger is still pending (see [TASKS.md](TASKS.md)).

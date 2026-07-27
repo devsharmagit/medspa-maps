@@ -1922,9 +1922,8 @@ AI provider:
 
 Database:
 
-- `web/scripts/add-ai-navigator-tables.sql`
-- `web/db/schema.sql`
-- `web/scripts/schema.sql`
+- `web/db/schema.sql` — defines `ai_navigator_sessions` / `ai_navigator_events`
+  (the old `web/scripts/add-ai-navigator-tables.sql` fragment was folded in and deleted)
 
 Landing and navigation links:
 

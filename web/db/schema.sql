@@ -2,7 +2,6 @@
 -- PostgreSQL database dump
 --
 
-\restrict cy9KavMYyfPWWmaGvNiputYHERUwR5lBedC7sMhxnbXh6CjAiflZTXyRRplaaFV
 
 -- Dumped from database version 18.4 (709c4c3)
 -- Dumped by pg_dump version 18.4 (Homebrew)
@@ -23,7 +22,7 @@ SET row_security = off;
 -- Name: public; Type: SCHEMA; Schema: -; Owner: -
 --
 
-CREATE SCHEMA public;
+CREATE SCHEMA IF NOT EXISTS public;
 
 
 --
@@ -31,6 +30,21 @@ CREATE SCHEMA public;
 --
 
 COMMENT ON SCHEMA public IS 'standard public schema';
+
+
+--
+-- Extensions. NOT emitted by pg_dump against Neon, so they are maintained by
+-- hand here — without them this file cannot build an empty database at all
+-- (the DDL below calls public.uuid_generate_v4(), public.unaccent() and uses
+-- postgis geography/geometry types). WITH SCHEMA public is required because
+-- the dump runs with search_path = ''.
+--
+
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA public;
+CREATE EXTENSION IF NOT EXISTS pgcrypto   WITH SCHEMA public;
+CREATE EXTENSION IF NOT EXISTS pg_trgm    WITH SCHEMA public;
+CREATE EXTENSION IF NOT EXISTS unaccent   WITH SCHEMA public;
+CREATE EXTENSION IF NOT EXISTS postgis    WITH SCHEMA public;
 
 
 --
@@ -1151,7 +1165,6 @@ ALTER TABLE ONLY public.reviews
 -- PostgreSQL database dump complete
 --
 
-\unrestrict cy9KavMYyfPWWmaGvNiputYHERUwR5lBedC7sMhxnbXh6CjAiflZTXyRRplaaFV
 
 
 
