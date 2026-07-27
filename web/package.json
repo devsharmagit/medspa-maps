@@ -12,7 +12,8 @@
     "db:setup": "bun run db:migrate && bun run db:seed",
     "seed": "bun scripts/seed.ts",
     "migrate:providers": "bun scripts/migrate-providers.ts",
-    "migrate:treatment-changes": "bun scripts/migrate-treatment-changes.ts"
+    "migrate:treatment-changes": "bun scripts/migrate-treatment-changes.ts",
+    "export:missed-websites": "bun scripts/export-missed-websites.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
@@ -21,6 +22,7 @@
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",
     "dotenv": "^17.4.2",
+    "exceljs": "^4.4.0",
     "lucide-react": "^1.17.0",
     "next": "16.2.7",
     "next-auth": "^4.24.14",
