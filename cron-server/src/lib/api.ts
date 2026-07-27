@@ -1,5 +1,5 @@
 /**
- * api.ts — thin HTTP client for the Next.js internal re-scrape endpoints.
+ * api.ts — thin HTTP client for the Next.js internal refresh endpoints.
  *
  * The cron server is a pure orchestrator: it never touches the DB or scrapes
  * directly. It drives everything through /api/internal/rescrape/* which are
@@ -22,19 +22,30 @@ export interface ClinicsPage {
   clinics: ClinicRef[];
 }
 
-export interface TreatmentDelta {
-  slug: string;
+/**
+ * One canonical catalog row (a treatment or a concern) the clinic gained or
+ * lost. `slug` is null only for a catalog row that has none.
+ */
+export interface CatalogDelta {
+  slug: string | null;
   name: string;
 }
 
-export interface RescrapeResult {
+/**
+ * MUST stay in sync with `RefreshClinicResult` in
+ * web/src/lib/rescrape/refresh-clinic.ts. This is a package boundary, so
+ * TypeScript cannot catch drift — a renamed field here just makes the summary
+ * print zeros. Change both sides together.
+ */
+export interface RefreshResult {
   clinicId: string;
   name: string;
   website: string;
-  scrapeJobId: string | null;
-  added: TreatmentDelta[];
-  removed: TreatmentDelta[];
+  runId: string | null;
+  added: CatalogDelta[];
+  removed: CatalogDelta[];
   servicesFound: number;
+  concernsFound: number;
   pagesVisited: number;
   ok: boolean;
   error: string | null;
@@ -48,13 +59,26 @@ interface Envelope<T> {
   error: string | null;
 }
 
-async function call<T>(path: string, method: "GET" | "POST" = "GET"): Promise<T> {
+/**
+ * Per-request ceiling. A clinic refresh crawls ~130 pages and makes several AI
+ * calls, so it is legitimately slow — but without a signal a wedged request
+ * pins one of the very few concurrent workers forever. Comfortably above the
+ * engine's own REFRESH_BUDGET_MS so its graceful skip wins the race.
+ */
+const REQUEST_TIMEOUT_MS = Number(process.env.RESCRAPE_REQUEST_TIMEOUT_MS ?? 8 * 60_000);
+
+async function call<T>(
+  path: string,
+  method: "GET" | "POST" = "GET",
+  timeoutMs = REQUEST_TIMEOUT_MS
+): Promise<T> {
   const res = await fetch(`${NEXTJS_URL}${path}`, {
     method,
     headers: {
       "x-internal-secret": SECRET,
       "content-type": "application/json",
     },
+    signal: AbortSignal.timeout(timeoutMs),
   });
 
   let json: Envelope<T> | null = null;
@@ -74,14 +98,17 @@ async function call<T>(path: string, method: "GET" | "POST" = "GET"): Promise<T>
 export const api = {
   base: NEXTJS_URL,
 
-  listClinics(limit: number, offset: number): Promise<ClinicsPage> {
+  listClinics(limit: number, offset: number, staleDays = 0): Promise<ClinicsPage> {
+    const stale = staleDays > 0 ? `&staleDays=${staleDays}` : "";
     return call<ClinicsPage>(
-      `/api/internal/rescrape/clinics?limit=${limit}&offset=${offset}`
+      `/api/internal/rescrape/clinics?limit=${limit}&offset=${offset}${stale}`,
+      "GET",
+      60_000
     );
   },
 
-  rescrapeClinic(id: string): Promise<RescrapeResult> {
-    return call<RescrapeResult>(`/api/internal/rescrape/clinic/${id}`, "POST");
+  refreshClinic(id: string): Promise<RefreshResult> {
+    return call<RefreshResult>(`/api/internal/rescrape/clinic/${id}`, "POST");
   },
 
   refreshView(): Promise<{ refreshed: boolean }> {
@@ -90,7 +117,9 @@ export const api = {
 
   async health(): Promise<boolean> {
     try {
-      const res = await fetch(`${NEXTJS_URL}/health`);
+      const res = await fetch(`${NEXTJS_URL}/health`, {
+        signal: AbortSignal.timeout(5_000),
+      });
       return res.ok;
     } catch {
       return false;

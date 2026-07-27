@@ -1,35 +1,61 @@
 /**
- * Medspa daily re-scrape cron server.
+ * Medspa treatments + concerns refresh cron server.
  *
- * A thin orchestrator: every day it pulls the list of clinics from the Next.js
- * app and asks Next.js to re-scrape each one. Next.js does the scraping, diffs
- * the treatments against what it had, applies the changes, and records every
- * canonical add/remove into clinic_service_changes. This process only talks
- * HTTP — it never touches the DB or runs a scraper itself.
+ * A thin orchestrator: on schedule it pulls the list of clinics from the Next.js
+ * app and asks Next.js to refresh each one. Next.js runs the SAME AI ingest
+ * engine the admin "Add Website with AI" button runs, diffs the result against
+ * what it had, applies the changes atomically, and records the run plus every
+ * canonical add/remove into `clinic_refresh_runs` / `clinic_catalog_changes`.
+ * This process only talks HTTP — it never touches the DB or scrapes itself.
  *
- *   Daily @ 03:00 : runRescrape()
- *   --run-once    : run a single pass now and exit (for manual runs / tests)
+ *   On CRON_SCHEDULE : runRescrape()
+ *   --run-once       : run a single pass now and exit (for manual runs / tests)
  *
  * Config (env):
  *   NEXTJS_URL             base URL of the Next.js app (default http://localhost:3000)
  *   INTERNAL_API_SECRET    shared secret sent as X-Internal-Secret
- *   RESCRAPE_CONCURRENCY   clinics scraped in parallel (default 5)
+ *   CRON_SCHEDULE          cron expression (default monthly, 03:00 on the 1st)
+ *   RESCRAPE_CONCURRENCY   clinics refreshed in parallel (default 2)
  *   RESCRAPE_LIMIT         cap total clinics per run (default: all)
+ *   RESCRAPE_STALE_DAYS    only refresh clinics not refreshed in N days (default 21)
+ *   RESCRAPE_ON_BOOT       "true" to also run once at startup (default false)
  */
 
 import * as dotenv from "dotenv";
 dotenv.config();
 
 import cron from "node-cron";
-import { api, type ClinicRef, type RescrapeResult } from "./lib/api";
+import { api, type ClinicRef, type RefreshResult } from "./lib/api";
 
+/**
+ * Each clinic now costs an AI crawl, not a cheap heuristic scrape. At 5, this is
+ * ~15 concurrent OpenAI calls and ~50 concurrent page fetches from the same box
+ * that serves the public site — and provider 429s are exactly what blows the
+ * per-clinic time budget. 2 is the safe default; raise it after measuring.
+ */
 const CONCURRENCY = Math.max(
   1,
-  parseInt(process.env.RESCRAPE_CONCURRENCY ?? "5", 10) || 5
+  parseInt(process.env.RESCRAPE_CONCURRENCY ?? "2", 10) || 2
 );
 const RUN_CAP = process.env.RESCRAPE_LIMIT
   ? parseInt(process.env.RESCRAPE_LIMIT, 10) || undefined
   : undefined;
+/**
+ * Skip clinics refreshed recently. A full pass over ~850 clinics takes hours, so
+ * this is what makes the job restart-safe: a crashed or redeployed run resumes
+ * where it left off instead of starting over.
+ */
+const STALE_DAYS = Math.max(
+  0,
+  parseInt(process.env.RESCRAPE_STALE_DAYS ?? "21", 10) || 0
+);
+/** Monthly by default — medspa menus do not change week to week. */
+const SCHEDULE = process.env.CRON_SCHEDULE?.trim() || "0 3 1 * *";
+/**
+ * Off by default. With a monthly schedule, running on boot would mean every
+ * deploy kicks off a full paid AI pass over the whole directory.
+ */
+const ON_BOOT = /^(1|true|yes)$/i.test(process.env.RESCRAPE_ON_BOOT ?? "");
 const RUN_ONCE = process.argv.includes("--run-once");
 
 /** Run `fn` over `items` with at most `limit` in flight at once. */
@@ -64,7 +90,7 @@ async function collectClinics(): Promise<ClinicRef[]> {
   let offset = 0;
   let total = Infinity;
   while (offset < total) {
-    const page = await api.listClinics(pageSize, offset);
+    const page = await api.listClinics(pageSize, offset, STALE_DAYS);
     total = page.total;
     if (page.clinics.length === 0) break;
     all.push(...page.clinics);
@@ -79,7 +105,10 @@ async function runRescrape(): Promise<void> {
   const startedAt = Date.now();
   console.log(`\n${"=".repeat(64)}`);
   console.log(`[rescrape] started ${new Date().toISOString()}`);
-  console.log(`[rescrape] concurrency=${CONCURRENCY} cap=${RUN_CAP ?? "none"}`);
+  console.log(
+    `[rescrape] concurrency=${CONCURRENCY} cap=${RUN_CAP ?? "none"} ` +
+      `staleDays=${STALE_DAYS || "off"}`
+  );
   console.log("=".repeat(64));
 
   let clinics: ClinicRef[];
@@ -97,12 +126,14 @@ async function runRescrape(): Promise<void> {
   let clinicsChanged = 0;
   let totalAdded = 0;
   let totalRemoved = 0;
+  let totalServices = 0;
+  let totalConcerns = 0;
   const failures: Array<{ name: string; error: string }> = [];
 
   await mapLimit(clinics, CONCURRENCY, async (clinic) => {
-    let result: RescrapeResult;
+    let result: RefreshResult;
     try {
-      result = await api.rescrapeClinic(clinic.id);
+      result = await api.refreshClinic(clinic.id);
     } catch (err) {
       failed++;
       const msg = err instanceof Error ? err.message : String(err);
@@ -122,11 +153,14 @@ async function runRescrape(): Promise<void> {
     ok++;
     totalAdded += result.added.length;
     totalRemoved += result.removed.length;
+    totalServices += result.servicesFound;
+    totalConcerns += result.concernsFound;
     if (result.added.length || result.removed.length) {
       clinicsChanged++;
       const parts: string[] = [];
-      if (result.added.length) parts.push(`+${result.added.map((a) => a.slug).join(", +")}`);
-      if (result.removed.length) parts.push(`-${result.removed.map((r) => r.slug).join(", -")}`);
+      const label = (d: { slug: string | null; name: string }) => d.slug ?? d.name;
+      if (result.added.length) parts.push(`+${result.added.map(label).join(", +")}`);
+      if (result.removed.length) parts.push(`-${result.removed.map(label).join(", -")}`);
       console.log(`[rescrape] ✓ ${clinic.name}: ${parts.join("  ")}`);
     }
   });
@@ -143,7 +177,8 @@ async function runRescrape(): Promise<void> {
   console.log("=".repeat(64));
   console.log(
     `[rescrape] done in ${secs}s — ok=${ok} changed=${clinicsChanged} ` +
-      `skipped=${skipped} failed=${failed} | +${totalAdded} treatments / -${totalRemoved} treatments`
+      `skipped=${skipped} failed=${failed} | +${totalAdded} / -${totalRemoved} catalog rows | ` +
+      `${totalServices} treatments, ${totalConcerns} concerns saved`
   );
   if (failures.length) {
     console.log(`[rescrape] ${failures.length} issue(s):`);
@@ -180,13 +215,22 @@ if (RUN_ONCE) {
       console.error("[rescrape] fatal:", err);
       process.exit(1);
     });
+} else if (!cron.validate(SCHEDULE)) {
+  console.error(`[rescrape] CRON_SCHEDULE is not a valid cron expression: "${SCHEDULE}"`);
+  process.exit(1);
 } else {
-  console.log("[rescrape] scheduler started — daily re-scrape at 03:00");
-  cron.schedule("0 3 * * *", () => {
+  console.log(`[rescrape] scheduler started — schedule "${SCHEDULE}"`);
+  cron.schedule(SCHEDULE, () => {
     runRescrape().catch((err) => console.error("[rescrape] uncaught:", err));
   });
-  // Do an initial run on boot so a fresh deploy doesn't wait a whole day.
-  waitForNextJS()
-    .then(runRescrape)
-    .catch((err) => console.error("[rescrape] initial run error:", err));
+  if (ON_BOOT) {
+    waitForNextJS()
+      .then(runRescrape)
+      .catch((err) => console.error("[rescrape] initial run error:", err));
+  } else {
+    console.log(
+      "[rescrape] skipping the boot run (set RESCRAPE_ON_BOOT=true to enable) — " +
+        "a full pass is a paid AI run over every clinic."
+    );
+  }
 }

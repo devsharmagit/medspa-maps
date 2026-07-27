@@ -102,20 +102,28 @@ A public chat widget mounted globally. **Data-grounded, *not* tool/function-call
 
 ## 6. Scheduling / background jobs
 
-**Exactly one scheduled job in the whole repo.** [cron-server/src/index.ts](cron-server/src/index.ts) (Bun + node-cron, **`0 3 * * *`**, also once on boot / `--run-once`) is a thin orchestrator that **never touches the DB** — it calls Next.js internal routes with a shared `x-internal-secret`:
+**Exactly one scheduled job in the whole repo.** [cron-server/src/index.ts](cron-server/src/index.ts) (Bun + node-cron, schedule from `CRON_SCHEDULE`, **default monthly `0 3 1 * *`**; `--run-once` for a manual pass) is a thin orchestrator that **never touches the DB** — it calls Next.js internal routes with a shared `x-internal-secret`:
 
-1. `GET /api/internal/rescrape/clinics` — list active clinics with a website (least-recently-scraped first).
-2. `POST /api/internal/rescrape/clinic/[id]` — up to 5 in parallel → [rescrape-clinic.ts](web/src/lib/rescrape/rescrape-clinic.ts): re-scrape (same heuristic code as add-clinic), **diff canonical services vs. previous**, apply the changes, refresh scraped images (curated rows protected), bump `last_scraped_at`. Safety guard: a parse hiccup (0 pages/0 services) aborts *unchanged* — it never wipes a menu.
-   ⚠️ The add/remove deltas are **returned to the caller and then discarded** — the `scrape_jobs` and `clinic_service_changes` audit tables were dropped on 2026-07-18, so treatment history is currently ephemeral. Reinstating it is Task 4 in [TASKS.md](TASKS.md).
-3. `POST /api/internal/rescrape/refresh-view` — `REFRESH MATERIALIZED VIEW CONCURRENTLY clinic_search_view`.
+1. `GET /api/internal/rescrape/clinics` — list active clinics with a website, least-recently-refreshed first, filtered by `?staleDays` so a multi-hour pass is restart-safe.
+2. `POST /api/internal/rescrape/clinic/[id]` — `RESCRAPE_CONCURRENCY` in parallel (default **2**) → [refresh-clinic.ts](web/src/lib/rescrape/refresh-clinic.ts), which delegates to **the same engine the admin importers use** ([ingest-treatments-concerns.ts](web/src/lib/ingest/ingest-treatments-concerns.ts)).
+3. `POST /api/internal/rescrape/refresh-view` — `REFRESH MATERIALIZED VIEW CONCURRENTLY clinic_search_view`, once at the end of the run.
 
-The matview is otherwise refreshed **on-demand** after admin writes. **G99 sync and image processing are not separately scheduled** (G99 is admin/CLI on-demand; images refresh inline during rescrape).
+**One engine, three surfaces.** The admin "Add Website with AI" button, the g99-websites Import button and this schedule all funnel into `ingestTreatmentsAndConcernsForClinic(clinicId, { trigger })`. That is what guarantees a clinic's menu means the same thing regardless of which one last ran — it also means the guards, the atomic save and the change log apply everywhere. (Until 2026-07-27 the schedule ran a separate non-AI heuristic scraper that handled services only and never touched concerns.)
+
+- **Scope:** treatments + concerns only. Details, images, providers and before/after are refreshed by the admin import path, not on a schedule.
+- **Safety:** the run crawls and calls the AI with no transaction held, then aborts *without* saving if nothing parsed while the clinic already had a menu, if either list collapsed by >80%, if crawl health <60% with a halving, or if the wall-clock budget (240s/clinic, set just under undici's non-configurable 300s headersTimeout) ran out. Every abort still records a `skipped` run row with its reason.
+- **Atomicity:** the snapshot, service write, concern write, diff, history rows and `last_scraped_at` bump all happen in ONE transaction, so a failure can never leave a half-written menu.
+- **Junk never enters:** a scraped name that resolves to nothing in the `services` catalog is dropped, not stored. There is no `unmatched` state and no review queue — the AI mints a catalog row whenever it recognises a real treatment, so the leftovers are junk by construction.
+- **History:** `clinic_refresh_runs` (one row per attempt, including skips) + `clinic_catalog_changes` (added/removed canonical rows, keyed on catalog id, not `raw_name`). A first-ever import writes the run row but no change rows. Readable at `/admin/catalog-changes` and on each clinic's admin detail page.
+- **Boot run is off by default** (`RESCRAPE_ON_BOOT`) — with a monthly cadence, running on boot would mean every deploy triggers a full paid AI pass.
+
+The matview is otherwise refreshed **on-demand** after admin writes. **G99 sync and image processing are not separately scheduled** (G99 is admin/CLI on-demand; images refresh during the admin import).
 
 ---
 
 ## 7. Taxonomy matching — [web/src/lib/taxonomy/canonical.ts](web/src/lib/taxonomy/canonical.ts)
 
-Every scraped service name is reconciled to the **15 canonical services** (with aliases) via `matchService()`: normalized exact/alias hit → confidence `1.0`; else **Sørensen–Dice** token similarity, best score **≥ 0.55** wins, otherwise `unmatched`. `isLikelyNoise()` strips nav/social/legal/address junk. Concerns are derived from a service→concern map. This one module is shared by the preview, rescrape, and diff paths so classification is consistent everywhere.
+Every scraped service name is reconciled against the catalog: the AI's `general_name` (which may mint a new `origin='ai'` row), the curated 15 + aliases via `matchService()` (normalized exact/alias hit → confidence `1.0`), else **Sørensen–Dice** token similarity with the live catalog. A name that resolves to none of those is **dropped, not stored** — there is no `unmatched` state. `isLikelyNoise()` / `isServiceNoise()` / `isConcernNoise()` strip nav/social/legal/address junk and treatment-shaped concern names. This module is shared by the preview, refresh and diff paths so classification is consistent everywhere, and by `lib/search/resolve-query.ts` so a typed search term is resolved the same way.
 
 ---
 

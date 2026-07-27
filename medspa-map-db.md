@@ -25,6 +25,18 @@ The DB was deliberately reduced to **clinic basic details + treatments + concern
 
 ---
 
+## 0b. What changed on 2026-07-27 (one refresh engine + change history)
+
+- **Tables added:** `clinic_refresh_runs` (one row per treatments/concerns refresh attempt, including skips) and `clinic_catalog_changes` (canonical treatment/concern rows added/removed per run).
+- **Table dropped:** `clinic_service_concerns` — written by ingest but never read by any query; gone from `schema.sql`.
+- **`/admin/unmatched` and its queue are DELETED** (page, 4 API routes, `lib/admin/queue.ts`). It had never been used — 0 `ignored` and 0 `manual` rows ever — and the AI resolves 98.6% of names automatically. Its "ignore" action was also a no-op: nothing but the admin dashboard read `match_status`.
+- **`clinic_services` no longer stores unresolvable names.** `saveClinicServices` DROPS a scraped name that resolves to nothing instead of writing `service_id NULL`. 113 such rows were deleted; they were phone numbers, street addresses, page titles and provider names, and via the search view's `raw_name` fallback they were **searchable treatments**. `match_status` is now only `matched` / `auto`; `unmatched` and `ignored` are retired and the column default is `auto`.
+- **`clinic_search_view` is strict**: `service_names`/`service_slugs` come from `services` only (no `COALESCE(..., cs.raw_name)` fallback). Necessary independently of the row purge, because `clinic_services.service_id` is `ON DELETE SET NULL` — a catalog cleanup can recreate NULLs at any time.
+- **Search requires a real catalog entry.** `/api/search?q=` resolves the term against active `services` (curated aliases → exact → Dice ≥0.7) then `concerns`; an unresolved term returns zero results with `query.resolved: null`. A term that resolves to a concern is handed to the concern branch. The `raw_name ILIKE` and clinic-name `ILIKE` arms are gone.
+- The scheduled refresh now runs the **same AI engine as the admin importers** (`lib/ingest/ingest-treatments-concerns.ts`); the heuristic `lib/rescrape/rescrape-clinic.ts` + `detect.ts` are deleted. Gotcha (4) below no longer applies.
+
+---
+
 ## 1. Extensions
 
 | Extension | Used for |
@@ -82,7 +94,7 @@ The DB was deliberately reduced to **clinic basic details + treatments + concern
 | `reviews.service_id` / `.concern_id` | SET NULL / SET NULL |
 | `ai_navigator_events.session_id` → `ai_navigator_sessions.id` | SET NULL |
 
-> ⚠️ **Gotchas:** (1) `images` is **polymorphic** (`entity_type`+`entity_id`, no FK) — all rows are `entity_type='clinic'` now (business-logo rows are gone). (2) `reviews.provider_id` has **no FK**. (3) `clinic_service_concerns` is **written by ingest but not yet read by any app query** — it's the intended clinic-treatment-concern link but currently unused for display/search. (4) `clinic_services` lost `data_source`, so the rescrape cron can no longer distinguish manual vs scraped rows — it deactivates any active row not re-detected. (5) `origin` (`seed`/`ai`/`manual`) marks curated-vs-AI-grown catalog rows; `reconcile-taxonomy.ts` only deletes `origin='seed'` rows.
+> ⚠️ **Gotchas:** (1) `images` is **polymorphic** (`entity_type`+`entity_id`, no FK) — all rows are `entity_type='clinic'` now (business-logo rows are gone). (2) `reviews.provider_id` has **no FK**. (3) `clinic_service_concerns` was dropped on 2026-07-27 (written by ingest, never read). (4) `clinic_services` rows always have a non-NULL `service_id` as of 2026-07-27 — unresolvable scraped names are dropped, not stored. (5) `origin` (`seed`/`ai`/`manual`) marks curated-vs-AI-grown catalog rows; `reconcile-taxonomy.ts` only deletes `origin='seed'` rows.
 
 ---
 
@@ -339,7 +351,7 @@ Legend: **PK** primary key · **FK→** foreign key · **U** part of unique cons
 
 ## 7. `clinic_search_view` (materialized view)
 
-> ⚠️ **Not read by any app query** — search reads the base tables directly. The matview is only `REFRESH`ed (kept valid so existing refresh call sites work). If you want to retire it, remove the refresh calls in `src/app/api/admin/clinics/save/route.ts`, `src/app/api/internal/rescrape/refresh-view/route.ts`, `src/lib/admin/website-import.ts`, `src/lib/admin/queue.ts`, `src/app/api/admin/unmatched/map/route.ts`.
+> ⚠️ **Not read by any app query** — search reads the base tables directly. The matview is only `REFRESH`ed (kept valid so existing refresh call sites work). If you want to retire it, remove the refresh calls in `src/app/api/admin/clinics/save/route.ts`, `src/app/api/internal/rescrape/refresh-view/route.ts`, `src/lib/admin/website-import.ts`.
 
 **Shape:** one row per active clinic (`c.is_active`), services aggregated into arrays, cover/logo resolved via correlated subqueries. Columns: `clinic_id, clinic_name, clinic_slug, website, booking_url, about, phone, avg_rating, review_count, ext_rating, ext_review_count, featured, service_names text[], service_slugs text[], cover_image_url, logo_url`.
 

@@ -206,13 +206,11 @@ For each AI pick, code checks the URL is actually in the candidate set (drops ha
 | `data_source`, `scraped_from_url` | code | `'scraped'`, the source page |
 | `services.origin` | code | `'seed'` (curated 15), `'ai'` (created by the resolver), or `'manual'` |
 
-### `clinic_concerns` + `clinic_concern_evidence` (evidence-based — see §9; **separate pipeline**, not part of `ingestClinicByDomain`)
+### `clinic_concerns` (see §9 — extracted in the SAME pass as treatments, not part of `ingestClinicByDomain`)
 | Field | Source | How |
 |---|---|---|
 | `clinic_concerns.source` | code | `'scraped'` — set only when ≥1 evidence row survives verification for that concern |
 | `clinic_concerns.concern_id` | **AI + code** | AI proposes `general_name`; code resolves it to a canonical `concerns` row (curated match → DB catalog → create), same shape as services §7 |
-| `clinic_concern_evidence.raw_phrase` / `.evidence_quote` / `.source_url` | AI, machine-verified | AI returns the concern phrase + a verbatim quote + the page it came from; code re-checks the quote is genuinely on that page before anything is stored (§9) — an invented quote is discarded, not stored |
-| `clinic_concern_evidence.paired_treatments` / `.paired_service_ids` | AI + code | treatment names the SAME page connects to the concern (verbatim), resolved against the clinic's own `clinic_services` where confident |
 | `concerns.origin` | code | `'seed'` (curated 10), `'ai'` (created by the resolver, `is_published=false`), or `'manual'` |
 
 ---
@@ -287,56 +285,48 @@ bun --env-file=.env scripts/ingest-before-after.ts <domain> [more…]
 
 ---
 
-## 9. Concerns → evidence-based AI-grown catalog · *AI + code* (standalone pipeline)
+## 9. Concerns → AI-grown catalog · *AI + code* (same pass as treatments)
 
-**Goal:** show patients what **conditions** a clinic treats (sagging skin, acne scars, hyperpigmentation…) rather than only treatment names — and do it **accurately**: a clinic "treats" a concern only when its own website **explicitly says so**, never inferred from a treatment name alone ("offers Botox" does **not** imply "treats wrinkles"). The same concern can be paired with a different treatment per clinic (a non-surgical facelift might mean Ultherapy at one clinic, PDO threads at another) — that per-clinic pairing is captured too, when the page states it.
+> **Changed 2026-07-27.** Concerns are no longer a separate pipeline. The
+> standalone evidence-quote path (`ingest-concerns.ts`, `ai-extract-concerns.ts`,
+> `concern-validate.ts`, `scripts/ingest-concerns.ts`) has been **deleted** — it
+> was CLI-only and nothing in the app called it. Concerns now come out of the
+> **same single AI call as treatments**, in
+> [ingest-treatments-concerns.ts](web/src/lib/ingest/ingest-treatments-concerns.ts).
 
-**This is a separate pipeline from the main ingest** — `ingestConcernsByDomain` ([ingest/ingest-concerns.ts](web/src/lib/ingest/ingest-concerns.ts)) resolves an **already-existing** clinic by domain and touches **only** the concern layer (`clinic_concerns` rows with `source='scraped'` + their `clinic_concern_evidence` rows). It never creates a clinic and never touches locations/images/providers/services.
+Treatments and concerns are extracted together by
+`extractClinicTreatmentsConcerns()`
+([ai-extract-treatments-concerns.ts](web/src/lib/ingest/ai-extract-treatments-concerns.ts)),
+one forced-tool call per batch of pages returning two independent lists. There is
+**no verbatim-quote requirement** — that guarantee lived only in the deleted path.
+What keeps concerns honest instead:
 
-### 9.1 Page discovery — condition pages + per-treatment pages
-`discoverConcernPages` ([ingest/discover.ts](web/src/lib/ingest/discover.ts)) is deliberately different from the main ingest's discovery: concern evidence lives on **condition-named pages** (`/acne/`, `/acne-scarring/`, `/self-assessment/` — `CONCERN_HUB_RE` + `CONCERN_WORD_RE`) and on **individual treatment pages** (`SERVICE_DETAIL_RE` — that's where a site's "X treats concerns like Y, Z" prose actually sits, not on the services hub page the main ingest fetches). Up to **4 condition pages + 6 service pages** (constants, tunable). Per-city SEO variants of the same page (`/acne-scarring-in-tampa-fl/` vs `-in-melbourne-fl/`) are deduped to one; noise (blog/shop/location-SEO) is filtered; shorter/dedicated paths are preferred over long blog-post slugs that merely mention a condition word.
+- **Prompt rules** (`SYSTEM` in the extractor): a concern is the patient's
+  problem, never the procedure or the goal — "Brow Lift" → Drooping Brows,
+  "Skin Brightening" → Hyperpigmentation, and no "Improved Cognition" /
+  "Skin Wellness" style outcome phrasing. One concern per row, ≤4 words, Title Case.
+- **`isConcernNoise()`** ([taxonomy/canonical.ts](web/src/lib/taxonomy/canonical.ts)):
+  a deterministic backstop — a blocklist of treatment/goal labels, goal-prefix and
+  goal-suffix patterns, and a >4-word reject for sentence fragments.
+- **`splitCompoundConcern()`**: "Spider Veins, Rosacea & Redness" becomes three
+  rows, but only when **every** part already exists in the catalog — that guard is
+  what keeps legitimately compound names ("Wrinkles & Fine Lines") whole.
+- **Catalog resolution**: exact → fuzzy Dice ≥0.82 → token-prefix containment →
+  otherwise insert a new `concerns` row with `origin='ai'`.
 
-### 9.2 AI extraction — one forced tool call, text-only
-`extractClinicConcerns` ([ingest/ai-extract-concerns.ts](web/src/lib/ingest/ai-extract-concerns.ts)), forced tool `record_clinic_concerns`. For each concern found, the model returns `{ raw_phrase, general_name, paired_treatments[], source_url, evidence_quote }`. The system prompt is explicit about what's forbidden, not just what's wanted:
-- Record a concern **only** when the page text explicitly treats/addresses/targets/names the condition — never infer from a treatment name alone.
-- `evidence_quote` must be copied **verbatim** — it will be machine-verified (§9.3); a paraphrased or invented quote is worthless to the model since it just gets discarded.
-- `paired_treatments` only when the *same* sentence/section connects a treatment to the concern.
-- Ignore marketing adjectives with no named condition ("radiant", "refreshed"), vague umbrella phrases ("skin challenges"), and **patient testimonials/reviews** (that's the patient talking, not the clinic asserting what it treats).
-- A `KNOWN CONCERNS` block (live catalog names + aliases) is injected so the model reuses an existing concern before inventing one — same convention as `knownTreatments` in §7.
+Persistence replaces only `source='scraped'` membership, so admin `manual` rows
+and `removed` suppressions survive a refresh.
 
-### 9.3 Machine verification — the accuracy guarantee
-`validateConcerns` ([ingest/concern-validate.ts](web/src/lib/ingest/concern-validate.ts)) re-checks every returned item; nothing is trusted on the AI's word:
-1. `source_url` must be one of the pages actually supplied.
-2. `evidence_quote` must genuinely appear on that page — normalized substring match, with a token-shingle Dice-≥0.9 fallback for minor whitespace/entity drift. **Not found → discarded.**
-3. The quote must actually name the claimed concern (substring or fuzzy ≥0.6) — blocks a real quote about something else being misattributed.
-4. Rejects vague marketing categories (regex against words like "challenge", "journey", "wellness", "confidence") and testimonial-voice quotes ("I did…", "I had…").
-5. Dedupes; caps at **`CONCERN_CAP = 12`/clinic**, keeping known-catalog concerns first, then most-evidenced.
-
-Every rejection is reported with its reason (`scripts/ingest-concerns.ts` prints them) — nothing fails silently.
-
-### 9.4 Canonicalization — AI-grown catalog (same shape as services, §7)
-Validated `general_name` → `bestCatalogMatch` (≥0.72) against the live `concerns` catalog (curated 10 + previously AI-grown). Hit → reuse the row, append the raw phrase as an alias (only on `origin='ai'` rows — curated rows are never mutated). Miss → create a new `concerns` row (`origin='ai'`, `is_published=false` — no editorial copy yet, so it stays off the public `/conditions` index while still usable for clinic-page chips). `reconcile-taxonomy.ts` only ever deletes non-priority `origin='seed'` rows, so AI-grown concerns survive taxonomy re-runs, identical to the services protection.
-
-### 9.5 Persistence — replace-scraped-state, admin overrides untouched
-Deletes this clinic's `clinic_concern_evidence` rows + `clinic_concerns WHERE source='scraped'`, then re-inserts. **Never touches** `source='manual'` (admin-added) or `source='removed'` (admin-suppressed) rows — an admin's edits survive every re-scrape. Effective membership (what the clinic page shows) = `(scraped ∪ manual) − removed` — **no service-derived fallback**; a clinic with nothing scraped and nothing manual simply shows no concerns section, which is correct (§9 gotcha in [medspa-map-db.md](medspa-map-db.md)).
-
-### 9.6 Run / verify
 ```bash
-bun --env-file=.env scripts/ingest-concerns.ts <domain> [more…]
-#   → prints, per clinic: concerns accepted (each with its verbatim quote + page +
-#     paired treatments) AND every rejected AI item with its reason
+# treatments + concerns for an EXISTING clinic (the live path):
+bun --env-file=.env scripts/ingest-treatments-concerns.ts <domain> [more…]
+#   → per clinic: status, pages, treatment/concern counts, new concerns created,
+#     and the added/removed catalog rows recorded for the run
+
+# catalog curation (both are preview-by-default, --apply to write):
+bun --env-file=.env scripts/dedupe-concerns.ts [--apply]
+bun --env-file=.env scripts/clean-catalog-junk.ts [--apply]
 ```
-
-**Verified examples (all three quotes spot-checked against the live sites):**
-| Clinic | Concerns | Sample |
-|---|---|---|
-| `ruma.com` | 12 | "Helps address: Fine lines and wrinkles Hyperpigmentation Acne scars Skin laxity Rosacea…" (Morpheus8 page) → Wrinkles & Fine Lines, Hyperpigmentation, Rosacea, … each paired with the treatment named alongside |
-| `ar-aesthetics.com` | 10 | "An FDA-approved injectable medication called Kybella is used to treat submental fat, also referred to as double chin" → Double Chin, paired with `["Kybella"]` |
-| `medimorph.com` | 9 | "Acne scarring occurs when the dermis and epidermis are destroyed" (dedicated `/acne-scarring/` page) → Acne Scars |
-
-Negative test that matters most: none of the three produced an unevidenced concern from a bare treatment listing (e.g. ruma's Botox mentions with no condition language attached yielded nothing from those pages) — confirming the "never infer from a treatment name" rule holds in practice, not just in the prompt.
-
----
 
 ## 10. Models, escalation, cost, rate limits
 
@@ -385,9 +375,9 @@ bun --env-file=.env scripts/ingest-one.ts <domain> [more…]
 bun --env-file=.env scripts/ingest-before-after.ts <domain> [more…]
 #   → prints: saved | slug=… | found=N inserted=N deleted=N
 
-# concerns ONLY, for an EXISTING clinic — no other field touched (§9):
-bun --env-file=.env scripts/ingest-concerns.ts <domain> [more…]
-#   → prints, per clinic, accepted concerns w/ quotes + rejected items w/ reasons
+# treatments + concerns ONLY, for an EXISTING clinic — no other field touched (§9):
+bun --env-file=.env scripts/ingest-treatments-concerns.ts <domain> [more…]
+#   → prints, per clinic: counts, new concerns, and the run's added/removed rows
 
 # isolated heuristic scrape check (no DB / no API key):
 bun scripts/check-scrape.ts <domain>
@@ -400,7 +390,7 @@ bun scripts/reconcile-taxonomy.ts --dry
 
 # one-time migrations (or apply via a bun query):
 psql "$DATABASE_URL" -f scripts/add-services-origin.sql        # services.origin
-psql "$DATABASE_URL" -f scripts/add-concern-evidence.sql       # concerns.origin + clinic_concern_evidence
+# schema lives in web/db/schema.sql, applied by scripts/db-setup.ts
 ```
 
 Re-ingest is idempotent: dedup by website domain + delete-then-insert refreshes locations/images/providers/services in place; the before/after- and concerns-only scripts are equally idempotent but scoped to just that one field. Needs `DATABASE_URL` + `OPENAI_API_KEY` — the only AI backend the ingest still uses (see the provider note at the top).

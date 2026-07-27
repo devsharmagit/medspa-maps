@@ -202,18 +202,59 @@ scripts.
   the OpenAI dispatcher. The name is actively misleading, but it sits on the protected ingest
   path so renaming it deserves its own change.
 
-## 4. Fix the treatments/services cron
+## 4. Fix the treatments/services cron — DONE 2026-07-27
 
-The reconciliation logic in `lib/rescrape/rescrape-clinic.ts` is sound; its surroundings are not.
+Resolved by unifying the engine rather than repairing the old one. The schedule
+had been running `lib/rescrape/rescrape-clinic.ts` → `detect.ts`: the legacy
+heuristic scraper, no AI, services only, concerns never touched. So a clinic's
+menu depended on whether the admin importer or the nightly job ran last. Both
+files are gone; the internal route now calls
+`ingestTreatmentsAndConcernsForClinic()` — the same engine behind
+`/admin/add-website` and the g99-websites Import button.
 
-1. `start.sh` runs `scripts/migrate-treatment-changes.ts`, whose SQL references the dropped
-   `scrape_jobs` table — a boot-time failure. Remove it.
-2. Re-add a lean `clinic_service_changes` table (no `scrape_jobs` FK) and persist the
-   already-computed added/removed deltas, so treatment history stops being ephemeral.
-3. Add the `/admin/treatment-changes` page that `cron-server`'s README already promises and
-   which never existed.
-4. `cron-server/.env.example` documents `SYNC_LIMIT`; the code reads `RESCRAPE_LIMIT`.
-5. Scope stays treatments/services only — not concerns, providers, or before/after.
+Three data-loss blockers had to be fixed *before* repointing the cron, because
+each only mattered once the engine started running on clinics that already had
+data:
+
+1. **Admin curation was unprotected.** `saveClinicServices(overwrite)` hard-deleted
+   every `clinic_services` row, and `/admin/unmatched` wrote its decisions onto
+   exactly those rows, so a monthly run would have reverted every one. Fixed with a
+   `clinic_services.source` carve-out — then made moot the same day when the
+   unmatched queue was deleted outright (see §4b), which removed the only writer of
+   admin curation. The column and the carve-out went with it.
+2. **The engine could refresh the wrong clinic.** It resolved a domain via
+   `findClinicsByDomain` → `clinicIds[0]`, and that query was an unanchored
+   `LIKE '<domain>%'` — `medspa.com` matched `medspa.com.au`. Now host-equality,
+   and `ingestTreatmentsAndConcernsForClinic(clinicId)` is the real entry point
+   with the by-domain form as a thin wrapper.
+3. **The save was not transactional and a guard had a hole.** Snapshot, service
+   write, concern write, diff, history and the `last_scraped_at` bump now run in
+   ONE transaction, with the per-service inserts batched into a single statement.
+   The degrade guard required crawl health <0.6 **and** a >50% collapse, so a site
+   returning 200 on every page whose markup changed (health 1.0) would have had
+   its menu wiped — the unconditional zero-services abort was ported over from the
+   deleted `rescrape-clinic.ts`, plus a >80%-collapse abort and a wall-clock
+   deadline.
+
+Also landed: `clinic_refresh_runs` + `clinic_catalog_changes` (both treatments and
+concerns, keyed on catalog id not `raw_name`, first-import deltas suppressed,
+skipped runs recorded with their reason); `/admin/catalog-changes` and a
+per-clinic history card; `CRON_SCHEDULE` (default monthly), `RESCRAPE_ON_BOOT`
+(default false), `RESCRAPE_STALE_DAYS`, a request timeout in the cron client, and
+`RESCRAPE_CONCURRENCY` down to 2; `scripts/test-refresh-e2e.ts` replacing the
+three broken `test-rescrape-*` harnesses.
+
+Deleted with it: `ingest-concerns.ts` + `ai-extract-concerns.ts` +
+`concern-validate.ts` (a closed CLI-only cycle — note this removed the repo's only
+evidence-quote verification code, which the live path had already stopped using),
+`ingest-services.ts` + `ai-extract-services.ts` (after extracting
+`normalizeServiceOutput` → `service-normalize.ts` and `refineClinicServices` →
+`ai-refine-services.ts`), `eval-scrape-accuracy.ts`, the orphaned
+`clinic_service_concerns` table, and the unreachable Anthropic fetch client inside
+`lib/ai/anthropic.ts`.
+
+Note item 4.1 of the original task was already stale: `start.sh` does **not** run
+`scripts/migrate-treatment-changes.ts`, and that script has never existed.
 
 ## 5. Data model + migrations — DEFERRED (needs senior approval)
 
