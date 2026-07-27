@@ -4,7 +4,7 @@
  * ChatWidget — floating AI assistant for the public site.
  *
  * Mounted once in the root layout. It hides itself on /admin routes, talks only
- * to our own /api/chat endpoint (the OpenRouter key never reaches the browser),
+ * to our own /api/chat endpoint (the OpenAI key never reaches the browser),
  * and streams replies as NDJSON events. Conversation is kept in component state
  * + sessionStorage (stateless v1 — nothing persisted server-side).
  */
@@ -41,6 +41,17 @@ interface Slots {
 
 const STORAGE_KEY = "medspa-chat-session";
 const MAX_HISTORY = 20;
+/**
+ * Hard cap on one message. Long enough for a detailed question with context
+ * ("I'm 34, I have acne scars on my cheeks and I'm looking for something with
+ * little downtime near Austin" is ~110), short enough that the composer never
+ * swallows the conversation. The server independently enforces 2000.
+ */
+const MAX_INPUT_CHARS = 500;
+/** Show the counter only once the user is close enough for it to be useful. */
+const COUNTER_VISIBLE_FROM = MAX_INPUT_CHARS - 100;
+/** Composer growth ceiling in px (~6 lines) before it starts scrolling. */
+const INPUT_MAX_HEIGHT = 132;
 const SUGGESTIONS = [
   "Find Botox clinics near me",
   "What helps with acne scars?",
@@ -132,6 +143,7 @@ export default function ChatWidget() {
       return () => clearTimeout(t);
     }
   }, [open]);
+
 
   // Esc to close.
   useEffect(() => {
@@ -373,8 +385,11 @@ export default function ChatWidget() {
                   <div
                     className={cn(
                       "max-w-[88%] rounded-2xl px-3 py-2 text-sm",
+                      // User bubble carries the brand gradient (same as the header
+                      // and send button). The default `bg-primary` token is
+                      // near-black (oklch(0.205 0 0)) and read as off-design.
                       m.role === "user"
-                        ? "bg-primary text-primary-foreground"
+                        ? "bg-[linear-gradient(90deg,#DE7F4C_0%,#C341D7_100%)] text-white shadow-sm"
                         : "bg-muted text-foreground"
                     )}
                   >
@@ -429,15 +444,38 @@ export default function ChatWidget() {
             className="border-t border-border bg-background p-3"
           >
             <div className="flex items-end gap-2 rounded-2xl border border-border bg-background px-3 py-2 focus-within:border-ring">
-              <textarea
-                ref={inputRef}
-                rows={1}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={onTextareaKeyDown}
-                placeholder="Ask about treatments or clinics…"
-                className="max-h-28 flex-1 resize-none bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
-              />
+              {/*
+                Auto-growing composer without JS measurement: the textarea and a
+                hidden replica of its text share one grid cell, so the cell — and
+                therefore the textarea — is exactly as tall as the content, then
+                scrolls past INPUT_MAX_HEIGHT. Measuring scrollHeight in an effect
+                is the usual trick but can latch at max height if a layout read
+                comes back stale; this cannot.
+              */}
+              <div
+                className="grid flex-1 overflow-y-auto"
+                style={{ maxHeight: INPUT_MAX_HEIGHT }}
+              >
+                <textarea
+                  ref={inputRef}
+                  rows={1}
+                  value={input}
+                  maxLength={MAX_INPUT_CHARS}
+                  onChange={(e) =>
+                    setInput(e.target.value.slice(0, MAX_INPUT_CHARS))
+                  }
+                  onKeyDown={onTextareaKeyDown}
+                  placeholder="Ask about treatments or clinics…"
+                  aria-label="Ask about treatments or clinics"
+                  className="col-start-1 row-start-1 resize-none overflow-hidden bg-transparent text-sm leading-relaxed text-foreground outline-none placeholder:text-muted-foreground"
+                />
+                <span
+                  aria-hidden
+                  className="invisible col-start-1 row-start-1 whitespace-pre-wrap break-words text-sm leading-relaxed"
+                >
+                  {input + " "}
+                </span>
+              </div>
               <button
                 type="submit"
                 disabled={!input.trim() || streaming}
@@ -451,9 +489,22 @@ export default function ChatWidget() {
                 )}
               </button>
             </div>
-            <p className="mt-2 px-1 text-center text-[10px] text-muted-foreground">
-              AI assistant · general info, not medical advice
-            </p>
+            <div className="mt-2 flex items-center justify-center gap-2 px-1 text-[10px] text-muted-foreground">
+              <p className="text-center">
+                AI assistant · general info, not medical advice
+              </p>
+              {input.length >= COUNTER_VISIBLE_FROM && (
+                <span
+                  aria-live="polite"
+                  className={cn(
+                    "shrink-0 tabular-nums",
+                    input.length >= MAX_INPUT_CHARS && "font-semibold text-brand-purple"
+                  )}
+                >
+                  {input.length}/{MAX_INPUT_CHARS}
+                </span>
+              )}
+            </div>
           </form>
         </div>
       )}

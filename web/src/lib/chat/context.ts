@@ -74,6 +74,25 @@ function taxonomyBlock(): string {
   return `SITE_TAXONOMY:\nTreatments — ${t}\nConcerns — ${c}`;
 }
 
+/**
+ * Static list of site tools the assistant can hand the user off to. The model
+ * has no way to know these exist otherwise, so without this block it tells
+ * people "I can't look at photos" and the conversation dead-ends — when the
+ * site has a photo-based treatment finder built exactly for that.
+ */
+function siteFeaturesBlock(): string {
+  return (
+    `SITE_FEATURES (real pages on this site — offer them when relevant, link exactly as written):\n` +
+    `- Find My Treatment (/skin-navigator): a guided treatment finder. ` +
+    `The user answers a few questions (age range required; skin goals/concerns; optional city or ZIP) ` +
+    `and can OPTIONALLY upload up to 8 photos (JPEG/PNG/WebP, max 5 MB each). ` +
+    `It returns suggested treatments for their profile plus nearby clinics. ` +
+    `This is the right place to send anyone who wants to share a photo, or who asks ` +
+    `"which treatment is right for me" — you cannot view photos yourself in this chat.\n` +
+    `- Clinic search (/search): browse and filter vetted clinics by treatment and location.`
+  );
+}
+
 function pageContextBlock(g: GatheredContext): string {
   const { page } = g;
   let body: string;
@@ -220,6 +239,7 @@ export function buildUserMessage(
 ): string {
   const blocks: (string | null)[] = [
     taxonomyBlock(),
+    siteFeaturesBlock(),
     pageContextBlock(g),
     clinicBlock(g.clinic),
     searchBlock(g.search),
