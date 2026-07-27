@@ -4,8 +4,9 @@
  * The *list* of concerns and the concern↔service mapping live in
  * src/lib/taxonomy/canonical.ts (CANONICAL_CONCERNS). This file holds the
  * rendered editorial content (overview + the detail cards) for each concern,
- * keyed by the same slug. scripts/reconcile-taxonomy.ts seeds `concerns.overview`
- * and `concerns.details` from here.
+ * keyed by the same slug, and is read at render time — `concerns` is a bare
+ * catalog since the 2026-07-18 simplification and has no overview/details
+ * columns to seed.
  *
  * triggers / serviceKeywords / imageKeywords are retained for the legacy
  * bulk importer (scripts/ingest-sites.ts) which derives concerns from scraped

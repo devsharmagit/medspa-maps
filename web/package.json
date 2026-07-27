@@ -8,7 +8,6 @@
     "start": "next start",
     "lint": "eslint",
     "db:setup": "bun scripts/db-setup.ts",
-    "migrate:providers": "bun scripts/migrate-providers.ts",
     "export:missed-websites": "bun scripts/export-missed-websites.ts"
   },
   "dependencies": {

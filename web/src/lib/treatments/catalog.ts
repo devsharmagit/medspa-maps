@@ -4,8 +4,9 @@
  * The canonical treatment list + core editorial copy live in
  * src/lib/taxonomy/canonical.ts (CANONICAL_SERVICES). This file adds the
  * at-a-glance pricing and recovery fields that aren't part of the canonical
- * record. scripts/reconcile-taxonomy.ts applies these (matched on `slug`) when
- * seeding the `services` table, and recomputes hero_rating/hero_review_count.
+ * record. They are read from this file at render time — the `services` table is
+ * a bare catalog (id/name/slug/is_active/origin) since the 2026-07-18
+ * simplification and holds none of them.
  *
  * Every slug here MUST exist in CANONICAL_SERVICES.
  */

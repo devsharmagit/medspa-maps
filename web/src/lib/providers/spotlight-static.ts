@@ -5,8 +5,9 @@ import type { ConcernProvider } from "@/lib/providers/queries";
  * featured clinic, snapshotted from the DB (no runtime query). Order matches the
  * admin featured list. "View Clinic" links resolve via `clinic_slug`.
  *
- * Regenerate with: bun --env-file=.env scripts/dump-owners.ts (owner = the
- * provider whose card_tagline is set). Beauty Lab + Laser is intentionally
+ * Hand-maintained: the dump script it was generated from no longer exists, so
+ * edit this file directly (owner = the provider whose card_tagline is set).
+ * Beauty Lab + Laser is intentionally
  * absent — it has no scraped provider/team data yet.
  */
 export const SPOTLIGHT_PROVIDERS: ConcernProvider[] = [

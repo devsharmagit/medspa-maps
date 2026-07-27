@@ -113,7 +113,7 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
       source: "snapshot",
       specialization: row.specialization,
       note:
-        "G99 prod is unreachable (is scripts/g99/prod_tunnel.py running?). Only the harvested website→clinic-id mapping is available offline.",
+        "G99 prod is unreachable (is the SSH tunnel to the G99 reader running?). Only the harvested website→clinic-id mapping is available offline.",
       business: row.business_name
         ? {
             business_id: businessId ?? "",

@@ -25,7 +25,7 @@ const STATE_NAME_TO_ABBR: Record<string, string> = Object.fromEntries(
 
 // Broad concern → specific child concern slugs. Searching a broad concern also
 // returns clinics tagged with the narrower children. Kept in sync with the
-// AI-grown concern catalog after the 2026-07-13 cleanup (see cleanup-catalog.ts).
+// AI-grown concern catalog after the 2026-07-13 cleanup (see scripts/clean-catalog-junk.ts).
 const BROAD_CONCERN_CHILDREN: Record<string, string[]> = {
   "fine-lines-wrinkles": [
     "forehead-lines",

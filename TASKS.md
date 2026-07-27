@@ -130,8 +130,42 @@ scripts.
   `/`, `/search`, `/conditions`, `/skin-navigator`, `/clinics/[slug]`, `/providers`,
   `/admin/add-website`, both health paths — all 200, no new console errors. (`/treatments/botox`
   404s, but that route has never existed; treatments link to `/search?q=…`.)
-- **3d. One-off scripts.** Delete ~60 applied backfill/migration/test scripts;
-  `web/scripts/` 88 → ~15 files. Safe because the production DB is being rebuilt from scratch.
+- **3d. One-off scripts. — DONE 2026-07-27.** `web/scripts/` 75 → **17 files** (58 deleted).
+  Nothing in `src` imports `scripts/` at runtime and no script imports another, so the cut is
+  compile-safe; the surviving references were all comments, and each has been corrected.
+
+  **Kept (17):** `db-setup.ts`, `export-missed-websites.ts`, `import-postal-codes.mjs`; the six
+  protected ingest scripts (`ingest-one`, `ingest-g99-batch`, `ingest-treatments-concerns`,
+  `ingest-services`, `ingest-concerns`, `ingest-before-after`); `scrape-digest.ts` (the no-LLM
+  fallback path when the Anthropic spend cap kills sub-agents); `clean-catalog-junk.ts` +
+  `dedupe-services.ts` + `dedupe-concerns.ts` (re-runnable catalog maintenance the AI ingest
+  keeps needing); and the four rescrape/accuracy harnesses Task 4 will verify against
+  (`test-rescrape-e2e`, `test-rescrape-serve`, `test-rescrape-live`, `eval-scrape-accuracy`).
+
+  Two corrections to the plan, from reading the files rather than their names:
+  - The plan said keep `cleanup-catalog.ts` because `api/search/route.ts` references it. It
+    references it **in a comment only**, and the script is self-described as a one-off that
+    also reads the dropped `clinic_concern_evidence` table. Of the three near-identical catalog
+    cleaners, the reusable one is `clean-catalog-junk.ts` — it applies the *same* noise filters
+    ingestion applies, has a preview/`--apply` split, and only touches `origin='ai'` rows.
+    Kept that; deleted `cleanup-catalog.ts` and `catalog-cleanup.ts`.
+  - `reconcile-taxonomy.ts` was deleted despite three lib docstrings naming it as *the* taxonomy
+    seeder: it writes `concern_services` and the per-service price/recovery columns, all dropped
+    on 2026-07-18. Seeding is now `web/db/seed.sql` via `db-setup.ts`. Those docstrings are
+    fixed.
+
+  Also fixed while here: `spotlight-static.ts` pointed at `scripts/dump-owners.ts` and
+  `lib/g99/prod.ts` + the g99-websites route pointed at `scripts/g99/prod_tunnel.py` — **neither
+  path has ever existed in this repo**. Removed the `migrate:providers` package alias.
+
+  The applied backfills (`fix-clinic-maps`, `fix-clinic-images`, `fill-clinic-providers`,
+  `fill-clinic-before-after`, the `geocode-*`/`backfill-*` set) are gone per the "prod DB gets
+  rebuilt from scratch" decision. If a fresh ingest turns out to miss a field one of them
+  repaired, they are recoverable from git history — `git log --diff-filter=D --stat`.
+
+  Note the four rescrape harnesses currently **fail**: they reference `scrape_jobs` /
+  `clinic_service_changes`, dropped on 2026-07-18. Repairing them is part of Task 4, which is
+  why they were kept rather than deleted and rewritten.
 - **3e. Stale docs/comments.** `ARCHITECTURE.md` §Scheduled work, `web/REFERENCE.md`
   (documents a nonexistent `/api/cron/sync`), `cron-server/README.md`; delete point-in-time
   reports; refresh `medspa-map-db.md` to 17 tables.

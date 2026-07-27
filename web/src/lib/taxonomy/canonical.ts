@@ -11,10 +11,9 @@
  * volume. No additional services or concerns are part of the launch set —
  * scraped services that don't resolve to one of the 15 stay unmatched.
  *
- * Seeded into the `services` (and `concerns`) tables by
- * scripts/reconcile-taxonomy.ts. Each CANONICAL_SERVICES entry UPSERTs into
- * `services` (ON CONFLICT (slug)); anything outside this set is deleted.
- * Aliases are stored as a TEXT[] column.
+ * The `services` / `concerns` rows for this set are seeded by web/db/seed.sql
+ * (applied by scripts/db-setup.ts) as the origin='seed' rows. Aliases live only
+ * in this file — they are matcher input, not a DB column.
  *
  * Conventions mirror src/lib/treatments/catalog.ts and
  * src/lib/concerns/catalog.ts.

@@ -16,8 +16,8 @@
  * Dedup / overwrite is keyed by WEBSITE DOMAIN: existing clinics whose website
  * resolves to the same hostname are reused. Pricing is skipped.
  *
- * Pure DB logic (no HTTP/auth). Mirrors the upsert patterns in
- * scripts/ingest-all.ts.
+ * Pure DB logic (no HTTP/auth). Same upsert patterns as the ingest scripts
+ * (scripts/ingest-one.ts, scripts/ingest-g99-batch.ts).
  */
 
 import { createHash } from "node:crypto";

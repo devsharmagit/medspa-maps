@@ -3,7 +3,8 @@
  *
  * This is the database our clinic websites were harvested from, so the
  * `g99_clinic_id`/`g99_tenant_id` we stored resolve here. Reached via
- * `G99_PROD_DATABASE_URL` (an SSH tunnel — see scripts/g99/prod_tunnel.py).
+ * `G99_PROD_DATABASE_URL`, which must point at a local SSH tunnel to the reader
+ * (the tunnel helper is not in this repo — see medspa-map-db.md).
  * Separate from `getG99Pool()` (G99_DATABASE_URL), which points at a different
  * G99 DB whose ids do NOT match our harvest.
  */
@@ -14,7 +15,7 @@ const g = globalThis as unknown as { __g99ProdPool?: Pool };
 
 function prodPool(): Pool {
   if (!process.env.G99_PROD_DATABASE_URL) {
-    throw new Error("G99_PROD_DATABASE_URL is not set (start scripts/g99/prod_tunnel.py)");
+    throw new Error("G99_PROD_DATABASE_URL is not set (start the SSH tunnel to the G99 reader)");
   }
   if (!g.__g99ProdPool) {
     g.__g99ProdPool = new Pool({
