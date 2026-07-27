@@ -11,6 +11,7 @@ import {
   Star,
   Inbox,
   UserRoundPlus,
+  Building2,
   ArrowUpRight,
   type LucideIcon,
 } from "lucide-react";
@@ -38,6 +39,8 @@ export default async function AdminDashboardPage() {
     unmatched: string;
     leads: string;
     new_leads: string;
+    clinic_leads: string;
+    new_clinic_leads: string;
   }>(`
     SELECT
       (SELECT count(*) FROM clinics)    AS clinics,
@@ -47,7 +50,9 @@ export default async function AdminDashboardPage() {
       (SELECT count(DISTINCT raw_name) FROM clinic_services
         WHERE match_status = 'unmatched' OR service_id IS NULL) AS unmatched,
       (SELECT count(*) FROM patient_leads) AS leads,
-      (SELECT count(*) FROM patient_leads WHERE status = 'new') AS new_leads
+      (SELECT count(*) FROM patient_leads WHERE status = 'new') AS new_leads,
+      (SELECT count(*) FROM clinic_leads) AS clinic_leads,
+      (SELECT count(*) FROM clinic_leads WHERE status = 'new') AS new_clinic_leads
   `);
 
   const c = rows[0];
@@ -64,6 +69,14 @@ export default async function AdminDashboardPage() {
       icon: UserRoundPlus,
       tint: "from-sky-500/15 to-cyan-500/15 text-sky-600",
       sub: Number(c.new_leads) > 0 ? `${c.new_leads} new` : undefined,
+    },
+    {
+      label: "Clinic leads",
+      value: c.clinic_leads,
+      href: "/admin/clinic-leads",
+      icon: Building2,
+      tint: "from-emerald-500/15 to-teal-500/15 text-emerald-600",
+      sub: Number(c.new_clinic_leads) > 0 ? `${c.new_clinic_leads} new` : undefined,
     },
     { label: "Unmatched queue", value: c.unmatched, href: "/admin/unmatched", icon: Inbox, tint: "from-pink-500/15 to-rose-500/15 text-pink-600" },
   ];

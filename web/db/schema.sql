@@ -1185,3 +1185,27 @@ CREATE INDEX IF NOT EXISTS idx_patient_leads_created_at ON public.patient_leads 
 CREATE INDEX IF NOT EXISTS idx_patient_leads_source ON public.patient_leads USING btree (source);
 CREATE INDEX IF NOT EXISTS idx_patient_leads_email ON public.patient_leads USING btree (email);
 CREATE INDEX IF NOT EXISTS idx_patient_leads_status ON public.patient_leads USING btree (status);
+
+
+--
+-- Name: clinic_leads; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE IF NOT EXISTS public.clinic_leads (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    full_name text NOT NULL,
+    business_email text NOT NULL,
+    business_name text NOT NULL,
+    ip_address text,
+    user_agent text,
+    status text DEFAULT 'new'::text NOT NULL,
+    notes text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT clinic_leads_status_check CHECK ((status = ANY (ARRAY['new'::text, 'contacted'::text, 'qualified'::text, 'converted'::text, 'rejected'::text]))),
+    CONSTRAINT clinic_leads_pkey PRIMARY KEY (id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_clinic_leads_created_at ON public.clinic_leads USING btree (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_clinic_leads_status ON public.clinic_leads USING btree (status);
+CREATE INDEX IF NOT EXISTS idx_clinic_leads_email ON public.clinic_leads USING btree (business_email);

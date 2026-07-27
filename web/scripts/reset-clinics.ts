@@ -10,7 +10,7 @@
  * PRESERVES (unlike reset-db.ts, which truncates them):
  *   - services / concerns / concern_services   (the Phase-0 taxonomy)
  *   - g99_clinic_websites                       (the harvested source list)
- *   - admin_users, medspa_leads
+ *   - admin_users, clinic_leads
  *
  * Transactional (BEGIN/COMMIT, ROLLBACK on error). Does NOT drop tables/schema.
  */
@@ -43,7 +43,7 @@ const PRESERVED_TABLES = [
   "concern_services",
   "g99_clinic_websites",
   "admin_users",
-  "medspa_leads",
+  "clinic_leads",
 ];
 
 async function counts(client: any, tables: string[]) {

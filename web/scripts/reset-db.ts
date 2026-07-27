@@ -21,7 +21,7 @@ const pool = new Pool({
 
 // Content data tables to wipe. admin_users is intentionally excluded.
 // listing_claims cascades from businesses, but is listed explicitly for clarity;
-// medspa_leads has no FK so it MUST be listed to be cleared.
+// clinic_leads has no FK so it MUST be listed to be cleared.
 const DATA_TABLES = [
   "concern_services",
   "concerns",
@@ -32,7 +32,7 @@ const DATA_TABLES = [
   "businesses",
   "services",
   "listing_claims",
-  "medspa_leads",
+  "clinic_leads",
 ];
 
 async function counts(client: any, tables: string[]) {
