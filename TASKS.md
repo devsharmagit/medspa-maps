@@ -81,8 +81,23 @@ scripts.
 
   Known gap, deliberately not faked: this provisions and seeds, it does **not** migrate an
   existing database onto a changed schema. That is Task 5.
-- **3b. Secrets.** Untrack + gitignore `cron-server/.env` (contains `INTERNAL_API_SECRET`) and
-  rotate it. Delete orphan `ui/package-lock.json`.
+- **3b. Secrets. — DONE 2026-07-27** (one item left for a human, below).
+  `cron-server/.env` untracked (`.gitignore`'s `.env*` already covered it — being tracked is
+  what defeated the ignore; the local file is untouched so dev still runs). Orphan
+  `ui/package-lock.json` deleted — 81 bytes, empty `packages`, no sibling `package.json`.
+
+  **The leak is not the problem; the value is.** The committed `INTERNAL_API_SECRET` is the
+  literal placeholder `change-me-to-a-long-random-string` from `.env.example` — byte-identical
+  in `cron-server/.env` *and* `web/.env`. So there is nothing secret to rotate out of git
+  history, but if any deployed environment inherited that value then
+  `/api/internal/rescrape/*` (trigger a rescrape of any clinic, refresh the search matview) is
+  guarded by a string published in this repo. `isInternalAuthorized()` itself is sound — it
+  requires a configured secret and compares exactly.
+
+  **Needs a human:** confirm the deployed `INTERNAL_API_SECRET` is a real random value, not
+  the placeholder (`openssl rand -hex 32`). Deliberately not enforced in code: making the
+  placeholder fail closed would break a production cron that is currently relying on it, which
+  is a decision, not a cleanup.
 - **3c. Dead code.** `lib/constants.ts`, `lib/ai/gemini.ts`, `lib/sync/db-helpers.ts`,
   `lib/concerns/queries.ts`; 7 unmounted components; 5 uncalled API routes. Drop `date-fns`,
   and add the missing `@radix-ui/react-slot` (currently resolved transitively — a latent
