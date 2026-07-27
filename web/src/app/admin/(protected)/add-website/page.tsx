@@ -41,7 +41,7 @@ interface TreatmentsConcernsResult {
   treatmentsFound: number;
   servicesMatched: number;
   servicesAuto: number;
-  servicesUnmatched: number;
+  servicesDropped: number;
   concernsSaved: number;
   mappingsSaved: number;
   note?: string;
@@ -228,9 +228,6 @@ export default function AddWebsitePage() {
                   </Badge>
                   <Badge variant="secondary">
                     {res.treatmentsConcerns.concernsSaved} concerns
-                  </Badge>
-                  <Badge variant="secondary">
-                    {res.treatmentsConcerns.mappingsSaved} treatment-concern pairs
                   </Badge>
                   <Badge variant="secondary">{res.result.beforeAfter ?? 0} before/after</Badge>
                   <Badge variant="outline">

@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
     );
     if (!row) throw ApiError.notFound("No harvested G99 website found for that domain.");
 
-    return successResponse(await importWebsiteWithAi(row.website));
+    return successResponse(await importWebsiteWithAi(row.website, "g99_import"));
   } catch (err) {
     return handleApiError(err);
   }

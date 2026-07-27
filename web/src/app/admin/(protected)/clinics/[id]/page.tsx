@@ -5,7 +5,7 @@ import { query, queryOne } from "@/lib/db";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Store, ArrowLeft, Pencil, UserCircle2, MapPin } from "lucide-react";
+import { Store, ArrowLeft, Pencil, UserCircle2, MapPin, History } from "lucide-react";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -57,6 +57,20 @@ interface ProviderRow {
   is_active: boolean;
 }
 
+interface RefreshRunRow {
+  id: string;
+  trigger: string;
+  status: string;
+  services_before: number | null;
+  services_after: number | null;
+  concerns_before: number | null;
+  concerns_after: number | null;
+  note: string | null;
+  started_at: string;
+  added: number;
+  removed: number;
+}
+
 interface LocationRow {
   id: string;
   label: string | null;
@@ -91,12 +105,34 @@ export default async function ClinicDetailPage(props: { params: Promise<{ id: st
     );
   }
 
-  const [images, services, providers, locations] = await Promise.all([
+  const [images, services, providers, locations, refreshRuns] = await Promise.all([
     query<ImageRow>("SELECT * FROM images WHERE entity_type = 'clinic' AND entity_id = $1 ORDER BY sort_order ASC", [id]),
     query<ServiceRow>("SELECT id, raw_name, description, is_active FROM clinic_services WHERE clinic_id = $1 ORDER BY created_at ASC", [id]),
     query<ProviderRow>("SELECT id, name, title, image_url, is_verified, is_active FROM providers WHERE clinic_id = $1 ORDER BY created_at ASC", [id]),
     query<LocationRow>("SELECT id, label, address, city, state, zip, phone, booking_url, google_maps_url, is_primary, sort_order FROM clinic_locations WHERE clinic_id = $1 AND is_active = true ORDER BY sort_order, created_at ASC", [id]),
+    // Last few treatments/concerns refreshes. Skipped runs are included on
+    // purpose — a clinic whose crawl keeps failing looks "stable" without them.
+    query<RefreshRunRow>(
+      `SELECT r.id, r.trigger, r.status, r.services_before, r.services_after,
+              r.concerns_before, r.concerns_after, r.note, r.started_at,
+              (SELECT count(*) FROM clinic_catalog_changes c
+                WHERE c.run_id = r.id AND c.change_type = 'added')::int AS added,
+              (SELECT count(*) FROM clinic_catalog_changes c
+                WHERE c.run_id = r.id AND c.change_type = 'removed')::int AS removed
+         FROM clinic_refresh_runs r
+        WHERE r.clinic_id = $1
+        ORDER BY r.started_at DESC
+        LIMIT 8`,
+      [id]
+    ),
   ]);
+
+  const REFRESH_TRIGGER_LABELS: Record<string, string> = {
+    admin_import: "Add Website (AI)",
+    g99_import: "G99 Import",
+    cron_refresh: "Scheduled",
+    cli: "CLI",
+  };
 
   return (
     <div className="flex flex-col gap-6 max-w-5xl mx-auto pb-12">
@@ -351,6 +387,65 @@ export default async function ClinicDetailPage(props: { params: Promise<{ id: st
                   ) : <p className="text-sm text-slate-400">N/A</p>}
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-sm border-slate-200">
+            <CardHeader className="border-b border-slate-100 bg-slate-50/50 pb-4 flex flex-row items-center justify-between">
+              <CardTitle className="text-base font-semibold text-slate-800 flex items-center gap-2">
+                <History size={16} className="text-violet-500" />
+                Refresh History
+              </CardTitle>
+              <Link href={`/admin/catalog-changes`} className="text-xs text-violet-600 hover:underline">
+                View all
+              </Link>
+            </CardHeader>
+            <CardContent className="p-0">
+              {refreshRuns.length === 0 ? (
+                <p className="p-6 text-sm text-slate-400">No refresh runs recorded yet.</p>
+              ) : (
+                <ul className="divide-y divide-slate-100">
+                  {refreshRuns.map((r) => (
+                    <li key={r.id} className="px-6 py-3 flex flex-col gap-1">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <span className="text-sm text-slate-800">
+                          {REFRESH_TRIGGER_LABELS[r.trigger] ?? r.trigger}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          {r.added > 0 && (
+                            <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-700 border-emerald-200">
+                              +{r.added}
+                            </Badge>
+                          )}
+                          {r.removed > 0 && (
+                            <Badge variant="outline" className="text-xs bg-rose-50 text-rose-700 border-rose-200">
+                              -{r.removed}
+                            </Badge>
+                          )}
+                          <Badge
+                            variant="outline"
+                            className={
+                              r.status === "saved"
+                                ? "text-xs bg-emerald-50 text-emerald-700 border-emerald-200"
+                                : r.status === "skipped"
+                                  ? "text-xs bg-amber-50 text-amber-700 border-amber-200"
+                                  : "text-xs bg-rose-50 text-rose-700 border-rose-200"
+                            }
+                          >
+                            {r.status}
+                          </Badge>
+                        </div>
+                      </div>
+                      <p className="text-xs text-slate-400">
+                        {new Date(r.started_at).toLocaleString()}
+                        {r.services_after !== null && ` · ${r.services_after} treatments`}
+                        {r.concerns_after !== null && ` · ${r.concerns_after} concerns`}
+                      </p>
+                      {r.note && <p className="text-xs text-amber-700">{r.note}</p>}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </CardContent>
           </Card>
 

@@ -8,7 +8,7 @@
  */
 
 import { z } from "zod";
-import { extractViaTool } from "@/lib/ai/anthropic";
+import { domainSeed, extractViaTool } from "@/lib/ai/anthropic";
 
 const TreatmentSchema = z.object({
   raw_name: z.string(),
@@ -116,6 +116,13 @@ Rules:
 7. Keep concern names specific. Do not collapse Forehead Lines, Frown Lines, Bunny Lines, Crow's Feet, Acne Scars, Stretch Marks, Dark Spots, Melasma into broad buckets.
 8. Fill concerns[] with EVERY concern/condition the site says it treats. If a "Conditions We Treat" / "Concerns" / "What We Treat" page (or section) lists conditions, add a concerns[] row for each listed condition — those pages are the highest-confidence concern source. Also capture concerns named in body prose (e.g. a page says the clinic treats "sun damage" and "uneven skin tone").
 9. Set source_url to the page each concern/treatment came from when you can identify it. Do not include evidence quotes.
+10. A concern names a PROBLEM the patient has, never the outcome they want or the procedure that fixes it. Emit the problem instead:
+   - "Brow Lift" -> Drooping Brows. "Jaw Slimming" -> Masseter (TMJ). "Skin Brightening" -> Hyperpigmentation. "Skin Tightening" -> Loose & Sagging Skin. "Pain Relief" -> the specific pain (Tension Headaches, Jaw Tension).
+   - Never emit goal phrasing: "Improved Cognition", "Increased Energy", "Better Sleep", "Healthy Aging", "Skin Health", "Skin Wellness", "Overall Wellness", "Immune Resilience", "Recovery". The concerns are Brain Fog, Low Energy, Sleep Quality, Fatigue.
+11. ONE concern per concerns[] row. Never combine several into a single general_name — emit one row each instead:
+   - NOT "Spider Veins, Rosacea & Redness" -> three rows: Spider Veins / Rosacea / Redness.
+   - NOT "Uneven skin tone and texture" -> two rows: Uneven Skin Tone / Skin Texture.
+12. general_name must be a short Title Case noun phrase of at most 4 words — not a sentence, not a page heading. NOT "Aging skin and loss of vitality", NOT "Stubborn localized fat deposits" (-> Stubborn Body Fat).
 
 Call the record_clinic_treatments_concerns tool exactly once.`;
 
@@ -176,7 +183,10 @@ export async function extractClinicTreatmentsConcerns(
       "Record this clinic's treatments and the patient concerns it treats.",
     inputSchema: TOOL_INPUT_SCHEMA,
     model: input.model,
-    maxTokens: 8_000,
+    seed: domainSeed(input.domain),
+    // Both arrays share one response and `treatments` is declared first, so a
+    // service-heavy batch used to starve `concerns` at 8K.
+    maxTokens: 16_000,
   });
 
   const parsed = CombinedSchema.parse(data);

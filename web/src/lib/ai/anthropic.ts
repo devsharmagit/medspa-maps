@@ -1,19 +1,22 @@
 /**
- * ai/anthropic.ts — forced-tool extraction router plus legacy Anthropic client.
+ * ai/anthropic.ts — the forced-tool extraction entry point for the whole ingest
+ * pipeline.
  *
- * Uses the paid ANTHROPIC_API_KEY (a real `sk-ant-…` Claude key) directly against
- * https://api.anthropic.com/v1/messages via fetch (no SDK dependency).
+ * NAME IS HISTORICAL: this module no longer talks to Anthropic. `extractViaTool`
+ * always delegates to `ai/openai.ts` (OpenAI is the only active ingest backend,
+ * and a stale `INGEST_PROVIDER` in a local .env must not be able to reroute an
+ * admin import). The Anthropic Messages-API client that used to live here was
+ * unreachable and has been removed. Renaming the file touches every ingest
+ * module, so it is deliberately left for its own change — see TASKS.md.
  *
- * Structured output is obtained with FORCED tool use: we declare one tool whose
- * `input_schema` is the JSON Schema we want, force `tool_choice` to it, and read
- * the resulting `tool_use.input` object. This is the most reliable way to get a
- * schema-shaped object back and works on Haiku 4.5 (our default extraction model).
+ * Structured output is obtained with FORCED tool use: declare one tool whose
+ * `input_schema` is the JSON Schema we want, force the model to call it, and read
+ * the resulting arguments object back.
  *
  * NEVER import this into a client component — it carries the API key.
  */
 
-const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
-const ANTHROPIC_VERSION = "2023-06-01";
+import { extractViaOpenAI } from "@/lib/ai/openai";
 
 /** Cheap default extraction model; override with OPENAI_MODEL. */
 export function ingestModel(): string {
@@ -47,14 +50,27 @@ export interface ToolExtractOptions {
   images?: Array<{ label: string; source: ImageSource }>;
 }
 
-type ImageSource =
+export type ImageSource =
   | { type: "url"; url: string }
   | { type: "base64"; media_type: string; data: string };
 
-/** A single content block sent in the user message. */
-type ContentBlock =
-  | { type: "text"; text: string }
-  | { type: "image"; source: ImageSource };
+/**
+ * Stable per-domain seed for extraction calls.
+ *
+ * `temperature: 0` alone does NOT make OpenAI deterministic, and run-to-run
+ * drift is not cosmetic here: it shows up directly in `clinic_catalog_changes`
+ * as treatments and concerns that appear to have been added or removed when the
+ * website never changed. Seeding by domain makes repeat runs on the same site
+ * agree as far as the provider allows.
+ */
+export function domainSeed(domain: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < domain.length; i++) {
+    h ^= domain.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return Math.abs(h) % 2_147_483_647;
+}
 
 export interface ToolExtractResult<T> {
   data: T;
@@ -62,49 +78,10 @@ export interface ToolExtractResult<T> {
   usage: { input_tokens?: number; output_tokens?: number } | null;
 }
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
 /**
- * POST to the Messages API, retrying on 429/529 with backoff. Honours the
- * `retry-after` header (seconds) when present, otherwise exponential backoff
- * capped at 60s. Non-retryable statuses (and the final attempt) return as-is.
+ * Run a forced-tool extraction and return the object the model produced.
+ * Throws on HTTP error, refusal, or a missing tool call.
  */
-async function postWithRetry(key: string, body: string): Promise<Response> {
-  const MAX_RETRIES = 5;
-  for (let attempt = 0; ; attempt++) {
-    const res = await fetch(ANTHROPIC_URL, {
-      method: "POST",
-      headers: {
-        "x-api-key": key,
-        "anthropic-version": ANTHROPIC_VERSION,
-        "content-type": "application/json",
-      },
-      body,
-      signal: AbortSignal.timeout(120_000),
-    });
-    if ((res.status !== 429 && res.status !== 529) || attempt >= MAX_RETRIES) {
-      return res;
-    }
-    const retryAfter = Number(res.headers.get("retry-after"));
-    const waitMs =
-      Number.isFinite(retryAfter) && retryAfter > 0
-        ? Math.min(retryAfter * 1000 + 500, 65_000)
-        : Math.min(2 ** attempt * 1000, 60_000);
-    await res.body?.cancel().catch(() => {});
-    await sleep(waitMs);
-  }
-}
-
-/**
- * Call Claude and return the object it produced via a forced tool call.
- * Throws on HTTP error, refusal, or a missing tool_use block.
- */
-export async function extractViaTool<T>(
-  opts: ToolExtractOptions
-): Promise<ToolExtractResult<T>> {
-  // OpenAI is the only active ingest backend. Ignore stale INGEST_PROVIDER
-  // values from local .env files so admin imports never fall into Gemini or
-  // Anthropic by accident.
-  const { extractViaOpenAI } = await import("./openai");
+export function extractViaTool<T>(opts: ToolExtractOptions): Promise<ToolExtractResult<T>> {
   return extractViaOpenAI<T>(opts);
 }

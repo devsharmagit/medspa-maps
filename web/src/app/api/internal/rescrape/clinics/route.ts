@@ -1,10 +1,11 @@
 /**
- * GET /api/internal/rescrape/clinics — list clinics eligible for re-scrape.
+ * GET /api/internal/rescrape/clinics — list clinics eligible for a refresh.
  *
  * Called by the cron server to page through the medspa DB. Auth: the shared
  * X-Internal-Secret header (INTERNAL_API_SECRET).
  *
- * Query params: ?limit (1..1000, default 200) & ?offset (default 0).
+ * Query params: ?limit (1..1000, default 200), ?offset (default 0), and
+ * ?staleDays to skip clinics refreshed within N days (0 = no filter).
  * Returns { total, count, clinics: [{ id, name, website, last_scraped_at }] }.
  */
 
@@ -22,12 +23,15 @@ export async function GET(req: Request) {
     const url = new URL(req.url);
     const limit = Number(url.searchParams.get("limit") ?? "200");
     const offset = Number(url.searchParams.get("offset") ?? "0");
+    const staleDaysRaw = Number(url.searchParams.get("staleDays") ?? "0");
+    const staleDays = Number.isFinite(staleDaysRaw) ? Math.max(staleDaysRaw, 0) : 0;
 
     const [total, clinics] = await Promise.all([
-      countRescrapeClinics(),
+      countRescrapeClinics(staleDays),
       listRescrapeClinics({
         limit: Number.isFinite(limit) ? limit : 200,
         offset: Number.isFinite(offset) ? offset : 0,
+        staleDays,
       }),
     ]);
 

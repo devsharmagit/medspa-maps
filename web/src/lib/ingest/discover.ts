@@ -295,10 +295,17 @@ export async function discoverConcernPages(
   const wordPages = takeAll(CONCERN_WORD_RE, maxConcern);
   const concernPages = [...hubPages, ...wordPages].slice(0, maxConcern);
   const servicePages = takeAll(SERVICE_DETAIL_RE, maxService);
-  // A dedicated conditions section exists when: the nav explicitly links one, a
-  // conditions/concerns HUB page was found, or several distinct condition-named
-  // pages exist (a real section, not one stray condition-named URL).
+  // A dedicated conditions section exists only when the site says so: an
+  // explicit nav link, or a conditions/concerns HUB page that is NOT just
+  // another leaf under the services namespace.
+  //
+  // This used to also fire on `wordPages.length >= 3`, which misclassified
+  // treatment-first sites: cienegaspa.com has no conditions IA at all, but
+  // /services/acne-treatments/, /services/acne-scar-treatments/,
+  // /services/treatments-for-sweating/ and /services/wrinkle-relaxers/ tripped
+  // the threshold. Condition words inside SERVICE urls are not a section.
   const hasConditionsSection =
-    navConditionLinks.length > 0 || hubPages.length > 0 || wordPages.length >= 3;
+    navConditionLinks.length > 0 ||
+    hubPages.some((u) => !SERVICE_DETAIL_RE.test(path(u) + "/"));
   return { concernPages, servicePages, hasConditionsSection };
 }

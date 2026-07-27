@@ -154,7 +154,7 @@ interface SaveResult {
   clinics: SaveResultClinic[];
   servicesMatched: number;
   servicesAuto: number;
-  servicesUnmatched: number;
+  servicesDropped: number;
   images: number;
   reviews: number;
   concernLinks: number;
@@ -883,7 +883,7 @@ export default function NewClinicPage() {
                 {result.servicesMatched + result.servicesAuto} treatments mapped
               </span>
               <span>·</span>
-              <span>{result.servicesUnmatched} unmatched</span>
+              <span>{result.servicesDropped} dropped</span>
               <span>·</span>
               <span>{result.images} images</span>
               <span>·</span>

@@ -22,25 +22,25 @@ async function main() {
   for (const domain of domains) {
     console.log(`→ ${domain}`);
     try {
-      const r = await ingestTreatmentsAndConcernsByDomain(domain);
+      const r = await ingestTreatmentsAndConcernsByDomain(domain, { trigger: "cli" });
       console.log(
         `  ${r.status} | slug=${r.slug ?? "-"} | pages=${r.pagesFetched} | model=${r.modelUsed || "-"}`
       );
       console.log(
         `  treatments=${r.treatmentsFound} matched=${r.servicesMatched} auto=${r.servicesAuto} ` +
-          `unmatched=${r.servicesUnmatched}`
+          `dropped=${r.servicesDropped}`
       );
       console.log(
-        `  mappings: ai=${r.mappingsFound} saved=${r.mappingsSaved}` +
-          ` | concerns=${r.concernsSaved}/${r.concernsFound}` +
+        `  concerns=${r.concernsSaved}/${r.concernsFound}` +
           `${r.createdConcerns.length ? ` | new concerns: ${r.createdConcerns.join(", ")}` : ""}` +
           `${r.note ? ` | ${r.note}` : ""}`
       );
-      for (const a of r.associations.slice(0, 25)) {
-        console.log(`    ${a.service_name} -> ${a.concern_name}`);
-      }
-      if (r.associations.length > 25) {
-        console.log(`    ... ${r.associations.length - 25} more`);
+      if (r.added.length || r.removed.length) {
+        console.log(`  changes (run ${r.runId}):`);
+        for (const c of r.added) console.log(`    + ${c.entityType} ${c.name}`);
+        for (const c of r.removed) console.log(`    - ${c.entityType} ${c.name}`);
+      } else {
+        console.log(`  changes: none`);
       }
     } catch (err) {
       console.log(`  FAILED: ${err instanceof Error ? err.message : String(err)}`);

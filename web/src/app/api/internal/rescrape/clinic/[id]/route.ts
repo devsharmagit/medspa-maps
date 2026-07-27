@@ -1,23 +1,26 @@
 /**
- * POST /api/internal/rescrape/clinic/[id] — re-scrape ONE clinic, reconcile its
- * treatments against a fresh scrape, and log every canonical add/remove.
+ * POST /api/internal/rescrape/clinic/[id] — refresh ONE clinic's treatments and
+ * concerns, and record what changed.
  *
- * The scrape + diff + apply + log all happen server-side in one transaction
- * (see lib/rescrape/rescrape-clinic.ts). Called once per clinic by the cron
- * server. Auth: the shared X-Internal-Secret header (INTERNAL_API_SECRET).
+ * Runs the SAME engine as the two admin import buttons (see
+ * lib/rescrape/refresh-clinic.ts → lib/ingest/ingest-treatments-concerns.ts), so
+ * a scheduled refresh and an admin import can never disagree about a clinic's
+ * menu. Called once per clinic by the cron server. Auth: the shared
+ * X-Internal-Secret header (INTERNAL_API_SECRET).
  *
- * Returns the per-clinic summary { clinicId, added[], removed[], ok, error, ... }.
+ * Returns the per-clinic summary { clinicId, runId, added[], removed[], ok, … }.
  */
 
 import { isInternalAuthorized, unauthorizedResponse } from "@/lib/internal-auth";
 import { successResponse, handleApiError } from "@/lib/api-response";
-import { rescrapeClinic } from "@/lib/rescrape/rescrape-clinic";
+import { refreshClinicById } from "@/lib/rescrape/refresh-clinic";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-// Scraping a site (homepage + sub-pages) can take a while; allow headroom on
-// platforms that enforce a serverless duration cap.
-export const maxDuration = 300;
+// Crawling ~130 pages and running several AI batches takes minutes. The engine
+// also enforces its own wall-clock budget (REFRESH_BUDGET_MS) so a wedged run
+// degrades into a skipped save rather than hanging indefinitely.
+export const maxDuration = 600;
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -28,8 +31,7 @@ export async function POST(req: Request, { params }: RouteContext) {
 
   try {
     const { id } = await params;
-    const result = await rescrapeClinic(id);
-    return successResponse(result);
+    return successResponse(await refreshClinicById(id));
   } catch (err) {
     return handleApiError(err);
   }

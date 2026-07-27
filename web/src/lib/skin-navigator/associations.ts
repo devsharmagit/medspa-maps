@@ -6,10 +6,11 @@ import pool from "@/lib/db";
  * `clinic_services` (clinic ⇄ treatment). For each concern we take the services
  * most often offered by the clinics that treat that concern.
  *
- * We deliberately do NOT use `clinic_service_concerns` (written by ingest but
- * stale/unread), and we compute this ONCE and cache it for the process lifetime
- * (refreshed at most daily) — it is a soft grounding signal for the AI prompt,
- * not per-request data.
+ * There is no per-clinic treatment<->concern table to read instead — the old
+ * `clinic_service_concerns` was written by ingest but never read, and has been
+ * dropped. We compute this ONCE and cache it for the process lifetime (refreshed
+ * at most daily) — it is a soft grounding signal for the AI prompt, not
+ * per-request data.
  */
 
 export type ConcernTreatmentMap = Record<

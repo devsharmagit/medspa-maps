@@ -9,7 +9,6 @@ import {
   Sparkles,
   HeartPulse,
   Star,
-  Inbox,
   UserRoundPlus,
   Building2,
   ArrowUpRight,
@@ -36,7 +35,6 @@ export default async function AdminDashboardPage() {
     services: string;
     concerns: string;
     reviews: string;
-    unmatched: string;
     leads: string;
     new_leads: string;
     clinic_leads: string;
@@ -47,8 +45,6 @@ export default async function AdminDashboardPage() {
       (SELECT count(*) FROM services)   AS services,
       (SELECT count(*) FROM concerns)   AS concerns,
       (SELECT count(*) FROM reviews)    AS reviews,
-      (SELECT count(DISTINCT raw_name) FROM clinic_services
-        WHERE match_status = 'unmatched' OR service_id IS NULL) AS unmatched,
       (SELECT count(*) FROM patient_leads) AS leads,
       (SELECT count(*) FROM patient_leads WHERE status = 'new') AS new_leads,
       (SELECT count(*) FROM clinic_leads) AS clinic_leads,
@@ -78,7 +74,6 @@ export default async function AdminDashboardPage() {
       tint: "from-emerald-500/15 to-teal-500/15 text-emerald-600",
       sub: Number(c.new_clinic_leads) > 0 ? `${c.new_clinic_leads} new` : undefined,
     },
-    { label: "Unmatched queue", value: c.unmatched, href: "/admin/unmatched", icon: Inbox, tint: "from-pink-500/15 to-rose-500/15 text-pink-600" },
   ];
 
   return (

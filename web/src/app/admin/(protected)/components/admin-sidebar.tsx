@@ -9,7 +9,7 @@ import {
   Sparkles,
   HeartPulse,
   Star,
-  Inbox,
+  History,
   Users,
   DatabaseZap,
   Globe,
@@ -32,7 +32,7 @@ const navItems = [
   { href: "/admin/reviews", label: "Reviews", icon: Star },
   { href: "/admin/leads", label: "Patient Leads", icon: UserRoundPlus },
   { href: "/admin/clinic-leads", label: "Clinic Leads", icon: Building2 },
-  { href: "/admin/unmatched", label: "Unmatched", icon: Inbox },
+  { href: "/admin/catalog-changes", label: "Catalog Changes", icon: History },
 ];
 
 export default function AdminSidebar() {

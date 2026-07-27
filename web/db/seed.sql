@@ -7,7 +7,8 @@
 --
 -- There is no global concern<->service link table: concern_services was dropped
 -- in the 2026-07-18 simplification and the mapping is now per-clinic
--- (clinic_service_concerns), populated by ingest.
+-- Per-clinic treatment<->concern links are not modelled; a clinic's concerns
+-- live in clinic_concerns, populated by ingest.
 --
 -- Every statement is ON CONFLICT DO NOTHING: idempotent, re-runnable, never
 -- duplicates. Applied by scripts/db-setup.ts, and safe via plain psql.

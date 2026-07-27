@@ -90,7 +90,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
 
 // DELETE /api/admin/services/[id] — permanent delete.
 // clinic_services / reviews links are nulled (ON DELETE SET NULL) and
-// clinic_service_concerns / provider_services links cascade away.
+// provider_services links cascade away.
 export async function DELETE(_req: NextRequest, { params }: RouteContext) {
   try {
     await requireAdmin();

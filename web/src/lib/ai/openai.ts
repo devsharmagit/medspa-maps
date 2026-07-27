@@ -44,15 +44,25 @@ function toOpenAiContent(opts: ToolExtractOptions): string | ContentPart[] {
 async function postWithRetry(key: string, body: string): Promise<Response> {
   const MAX_RETRIES = 5;
   for (let attempt = 0; ; attempt++) {
-    const res = await fetch(OPENAI_URL, {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${key}`,
-        "content-type": "application/json",
-      },
-      body,
-      signal: AbortSignal.timeout(120_000),
-    });
+    let res: Response;
+    try {
+      res = await fetch(OPENAI_URL, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${key}`,
+          "content-type": "application/json",
+        },
+        body,
+        signal: AbortSignal.timeout(120_000),
+      });
+    } catch (err) {
+      // A request timeout or dropped connection THROWS rather than returning a
+      // status, so it used to bypass this retry loop entirely and abort the
+      // caller's whole run. It is exactly the transient failure this loop is for.
+      if (attempt >= MAX_RETRIES) throw err;
+      await sleep(Math.min(2 ** attempt * 1000, 30_000));
+      continue;
+    }
     if ((res.status !== 429 && res.status < 500) || attempt >= MAX_RETRIES) {
       return res;
     }

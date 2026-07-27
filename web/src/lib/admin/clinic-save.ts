@@ -8,7 +8,7 @@
  *   - clinic_locations (one row per payload.locations entry — all address/geo
  *     lives here; the clinic row carries no headline city/state/zip/geo)
  *   - clinic_services (each mapped via matchService → service_id/match_status;
- *     unmatched ones kept with service_id NULL)
+ *     names that resolve to nothing are DROPPED, not stored)
  *   - images (logo / gallery / before_after — source_url only, entity_type='clinic')
  *   - reviews
  *   - providers
@@ -21,6 +21,7 @@
  */
 
 import { createHash } from "node:crypto";
+import type { PoolClient } from "pg";
 import { query, queryOne } from "@/lib/db";
 import { slugify } from "@/lib/scraper/utils";
 import {
@@ -206,7 +207,8 @@ export interface SaveClinicResult {
   clinics: Array<{ id: string; slug: string; created: boolean }>;
   servicesMatched: number;
   servicesAuto: number;
-  servicesUnmatched: number;
+  /** scraped names that resolved to nothing and were dropped */
+  servicesDropped: number;
   images: number;
   reviews: number;
   concernLinks: number;
@@ -224,12 +226,25 @@ export function websiteDomain(website: string): string {
   }
 }
 
-/** Find clinic ids whose website matches the given domain (host-insensitive). */
+/**
+ * SQL that reduces `clinics.website` to a bare host, matching what
+ * `websiteDomain()` produces in TS: scheme off, `www.` off, path/query/fragment
+ * off, lowercased.
+ *
+ * This is compared with `=`, NOT `LIKE '<domain>%'`. The old prefix match was
+ * unanchored, so `medspa.com` also matched `medspa.com.au` — and since callers
+ * take `clinicIds[0]`, a refresh could silently land on the wrong clinic.
+ */
+const WEBSITE_HOST_SQL = `regexp_replace(
+       regexp_replace(regexp_replace(lower(website), '^https?://', ''), '^www\\.', ''),
+       '[/?#].*$', ''
+     )`;
+
+/** Find clinic ids whose website host equals the given domain. */
 export async function findClinicsByDomain(domain: string): Promise<string[]> {
   const rows = await query<{ id: string }>(
-    `SELECT id FROM clinics
-      WHERE lower(regexp_replace(regexp_replace(website, '^https?://', ''), '^www\\.', '')) LIKE $1`,
-    [`${domain}%`]
+    `SELECT id FROM clinics WHERE ${WEBSITE_HOST_SQL} = $1 ORDER BY created_at`,
+    [domain.toLowerCase()]
   );
   return rows.map((r) => r.id);
 }
@@ -251,9 +266,9 @@ export async function findExistingClinicsByDomain(
 ): Promise<ExistingClinicRef[]> {
   return query<ExistingClinicRef>(
     `SELECT id, name, slug, website FROM clinics
-      WHERE lower(regexp_replace(regexp_replace(website, '^https?://', ''), '^www\\.', '')) LIKE $1
+      WHERE ${WEBSITE_HOST_SQL} = $1
       ORDER BY created_at`,
-    [`${domain}%`]
+    [domain.toLowerCase()]
   );
 }
 
@@ -275,35 +290,70 @@ async function uniqueClinicSlug(base: string): Promise<string> {
 export interface SaveServicesResult {
   matched: number;
   auto: number;
-  unmatched: number;
+  /**
+   * Scraped names that resolved to nothing in the catalog and were therefore NOT
+   * stored. Reported for logging only — see the note on the delete below.
+   */
+  dropped: number;
+}
+
+/**
+ * The two db helpers, bound either to the pool or to a caller's transaction
+ * client, so `saveClinicServices` can run standalone or inside a transaction
+ * without duplicating its body.
+ */
+interface Queryable {
+  query<T = Record<string, unknown>>(sql: string, params?: unknown[]): Promise<T[]>;
+  queryOne<T = Record<string, unknown>>(sql: string, params?: unknown[]): Promise<T | null>;
 }
 
 /**
  * saveClinicServices(clinicId, services, opts) — resolve + persist ONE clinic's
  * treatment/service rows. Standalone and reusable: called by saveClinicBundle
- * (the heuristic-scraper / admin-save / rescrape path, as part of a full bundle
- * save) AND by ingestServicesByDomain (the AI treatments-only refresh path, see
- * ingest/ingest-services.ts) — both need IDENTICAL resolution logic so a clinic's
- * canonical mapping never depends on which caller touched it last.
+ * (the heuristic-scraper / admin-save path, as part of a full bundle save) AND
+ * by the unified treatments/concerns engine (`ingest-treatments-concerns.ts`) —
+ * both need IDENTICAL resolution logic so a clinic's canonical mapping never
+ * depends on which caller touched it last.
  *
  * Resolution order per raw service: deterministic junk/staff-name backstop →
  * admin override (mapped_slug) → public AI decision (own row / curated 15+
- * aliases) → live DB catalog fuzzy → AI general_name fuzzy/create → unmatched
- * (still stored by raw_name).
+ * aliases) → live DB catalog fuzzy → AI general_name fuzzy/create → dropped.
  *
- * overwrite (default true): deletes this clinic's existing clinic_services
- * first, then re-inserts. When false, existing rows for OTHER raw_names are
- * left alone (the per-raw_name upsert still refreshes a matching raw_name).
+ * A name that resolves to NOTHING in the catalog is dropped, not stored. Storing
+ * them was how phone numbers, street addresses and page titles ("385-354-SEGO",
+ * "401 West 500 South Bountiful", "About Sego Lily Spa") ended up as rows with
+ * service_id NULL — and, via the search view's raw_name fallback, as searchable
+ * treatments. The AI already mints a catalog row from `general_name` whenever it
+ * recognises a real treatment, so what is left over is junk by construction.
+ *
+ * overwrite (default true): replaces this clinic's rows, then re-inserts. When
+ * false, rows for OTHER raw_names are left alone entirely.
+ *
+ * `client`: pass a transaction client to make the whole save atomic with the
+ * caller's other writes. Defaults to the pool so existing callers are unchanged.
  */
 export async function saveClinicServices(
   clinicId: string,
   services: SaveService[],
-  opts: { website?: string | null; providerNames?: string[]; overwrite?: boolean } = {}
+  opts: {
+    website?: string | null;
+    providerNames?: string[];
+    overwrite?: boolean;
+    client?: PoolClient;
+  } = {}
 ): Promise<SaveServicesResult> {
   const overwrite = opts.overwrite ?? true;
+  const run: Queryable = opts.client
+    ? {
+        query: async <T>(sql: string, params?: unknown[]) =>
+          (await opts.client!.query(sql, params as never)).rows as T[],
+        queryOne: async <T>(sql: string, params?: unknown[]) =>
+          ((await opts.client!.query(sql, params as never)).rows[0] ?? null) as T | null,
+      }
+    : { query, queryOne };
 
   if (overwrite) {
-    await query(`DELETE FROM clinic_services WHERE clinic_id = $1`, [clinicId]);
+    await run.query(`DELETE FROM clinic_services WHERE clinic_id = $1`, [clinicId]);
   }
 
   // Load the live catalog once (curated 15 + previously AI-grown rows).
@@ -322,7 +372,7 @@ export async function saveClinicServices(
     const root = base || "treatment";
     let slug = root;
     let n = 2;
-    while (catBySlug.has(slug) || (await queryOne(`SELECT 1 FROM services WHERE slug = $1`, [slug]))) {
+    while (catBySlug.has(slug) || (await run.queryOne(`SELECT 1 FROM services WHERE slug = $1`, [slug]))) {
       slug = `${root}-${n++}`;
     }
     return slug;
@@ -330,7 +380,7 @@ export async function saveClinicServices(
   const createAiService = async (generalName: string, rawName: string): Promise<CatRow> => {
     const name = cleanName(generalName) || cleanName(rawName);
     const slug = await uniqueServiceSlug(slugify(name));
-    const ins = await queryOne<{ id: string }>(
+    const ins = await run.queryOne<{ id: string }>(
       `INSERT INTO services (name, slug, origin, is_active)
        VALUES ($1,$2,'ai',true)
        ON CONFLICT (slug) DO UPDATE SET updated_at = NOW()
@@ -351,8 +401,17 @@ export async function saveClinicServices(
 
   let matched = 0;
   let auto = 0;
-  let unmatched = 0;
+  let dropped = 0;
   const seenRaw = new Set<string>();
+  // Rows are collected and inserted in ONE statement at the end. Per-row inserts
+  // meant ~200 sequential round trips per clinic, which pins a connection for
+  // the whole save — and the pool is only `max: 10`.
+  const pending: Array<{
+    serviceId: string | null;
+    raw: string;
+    description: string | null;
+    matchStatus: string;
+  }> = [];
   for (const s of services) {
     const raw = s.raw_name?.trim();
     if (!raw) continue;
@@ -366,7 +425,8 @@ export async function saveClinicServices(
     seenRaw.add(rawKey);
 
     let serviceId: string | null = null;
-    let matchStatus: "matched" | "auto" | "unmatched" = "unmatched";
+    // null until something in the resolution chain claims this name.
+    let matchStatus: "matched" | "auto" | null = null;
 
     const publicDecision = s.public_decision ?? "public";
     const exactNameMatch = (name: string): CatRow | undefined => {
@@ -393,7 +453,7 @@ export async function saveClinicServices(
       const svc = catBySlug.get(s.mapped_slug)
         ?? (await queryOne<{ id: string }>(`SELECT id FROM services WHERE slug = $1`, [s.mapped_slug]));
       serviceId = svc?.id ?? null;
-      matchStatus = serviceId ? "matched" : "unmatched";
+      matchStatus = serviceId ? "matched" : null;
     } else if (publicDecision === "public" && await mapByGeneralName(true)) {
       // Public AI decision wins before the old alias matcher so real searchable
       // brands/devices (Dysport, Morpheus8, MiraDry) do not collapse into broad
@@ -415,35 +475,50 @@ export async function saveClinicServices(
         await mapByGeneralName(false);
       } else {
         // 3. no AI suggestion (heuristic-fallback path) → fuzzy the raw name
-        //    against the live catalog; else leave unmatched (still stored by raw_name).
+        //    against the live catalog; else the name is dropped entirely.
         const dbHit = bestCatalogMatch(raw, catalog);
         if (dbHit) {
           const row = catBySlug.get(dbHit.entry.slug)!;
           serviceId = row.id;
           matchStatus = dbHit.confidence >= 1 ? "matched" : "auto";
-        } else {
-          matchStatus = "unmatched";
         }
       }
     }
+    // Unresolvable → not an offering we can name. Drop it rather than storing a
+    // dangling row whose raw_name leaks into search.
+    if (!serviceId || !matchStatus) {
+      dropped++;
+      continue;
+    }
     if (matchStatus === "matched") matched++;
-    else if (matchStatus === "auto") auto++;
-    else unmatched++;
+    else auto++;
 
-    await query(
+    pending.push({ serviceId, raw, description: s.description ?? null, matchStatus });
+  }
+
+  if (pending.length > 0) {
+    await run.query(
       `INSERT INTO clinic_services
          (clinic_id, service_id, raw_name, description, match_status)
-       VALUES ($1,$2,$3,$4,$5)
+       SELECT $1, t.service_id, t.raw_name, t.description, t.match_status
+         FROM unnest($2::uuid[], $3::text[], $4::text[], $5::text[])
+           AS t(service_id, raw_name, description, match_status)
        ON CONFLICT (clinic_id, raw_name) DO UPDATE SET
          service_id = EXCLUDED.service_id,
-         description = COALESCE(EXCLUDED.description, clinic_services.description),
          match_status = EXCLUDED.match_status,
+         description = COALESCE(EXCLUDED.description, clinic_services.description),
          updated_at = NOW()`,
-      [clinicId, serviceId, raw, s.description ?? null, matchStatus]
+      [
+        clinicId,
+        pending.map((p) => p.serviceId),
+        pending.map((p) => p.raw),
+        pending.map((p) => p.description),
+        pending.map((p) => p.matchStatus),
+      ]
     );
   }
 
-  return { matched, auto, unmatched };
+  return { matched, auto, dropped };
 }
 
 /**
@@ -476,7 +551,7 @@ export async function saveClinicBundle(
     clinics: [],
     servicesMatched: 0,
     servicesAuto: 0,
-    servicesUnmatched: 0,
+    servicesDropped: 0,
     images: 0,
     reviews: 0,
     concernLinks: 0,
@@ -669,7 +744,7 @@ export async function saveClinicBundle(
     });
     result.servicesMatched += svcResult.matched;
     result.servicesAuto += svcResult.auto;
-    result.servicesUnmatched += svcResult.unmatched;
+    result.servicesDropped += svcResult.dropped;
   }
 
   // ── images (logo / gallery / before_after; source_url only) ──────────────

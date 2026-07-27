@@ -173,6 +173,12 @@ export function SearchResults() {
 
   const [results, setResults] = useState<ClinicResult[]>([]);
   const [total, setTotal] = useState(0);
+  /**
+   * What the typed treatment resolved to in the catalog, or null when it named
+   * nothing. Lets the empty state say "we don't recognise that" instead of
+   * implying no clinic offers it.
+   */
+  const [resolved, setResolved] = useState<{ kind: string; name: string } | null>(null);
   const [pagination, setPagination] = useState<{
     page: number;
     limit: number;
@@ -256,6 +262,7 @@ export function SearchResults() {
       if (myId !== fetchIdRef.current) return; // a newer fetch superseded this one
       setResults(data.results);
       setTotal(data.total);
+      setResolved(data.query?.resolved ?? null);
       setPagination(data.pagination);
     } catch {
       if (myId !== fetchIdRef.current) return;
@@ -265,7 +272,7 @@ export function SearchResults() {
     }
     // setState functions are stable; listed to satisfy the React Compiler's
     // inferred dependencies (it refuses to memoize otherwise).
-  }, [q, condition, location, sort, radius, rating, lat, lng, page, setLoading, setError, setResults, setTotal, setPagination]);
+  }, [q, condition, location, sort, radius, rating, lat, lng, page, setLoading, setError, setResults, setTotal, setResolved, setPagination]);
 
   useEffect(() => {
     fetchResults();
@@ -864,6 +871,7 @@ export function SearchResults() {
               <EmptyState
                 q={condition ? serviceName : q}
                 location={stateName}
+                unrecognized={Boolean(q) && !condition && resolved === null}
                 onClear={clearFilters}
               />
             ) : (
@@ -1384,10 +1392,13 @@ function PaginationComponent({
 function EmptyState({
   q,
   location,
+  unrecognized,
   onClear,
 }: {
   q: string;
   location: string;
+  /** The typed term matched no treatment or condition in the catalog. */
+  unrecognized?: boolean;
   onClear: () => void;
 }) {
   return (
@@ -1402,10 +1413,12 @@ function EmptyState({
       </div>
       <div className="text-center">
         <h2 className="text-xl font-semibold text-[#1a1a1a]">
-          No clinics found
+          {unrecognized ? "We don't recognise that treatment" : "No clinics found"}
         </h2>
         <p className="mt-2 max-w-md text-sm text-brand-muted">
-          {q && location
+          {unrecognized
+            ? `"${q}" isn't a treatment or condition we track. Pick one from the suggestions as you type.`
+            : q && location
             ? `We couldn't find any clinics matching "${q}" in "${location}". Try broadening your search.`
             : q
               ? `We couldn't find any clinics matching "${q}". Try a different treatment or service name.`

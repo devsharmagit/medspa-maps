@@ -4,7 +4,8 @@ import type { ExistingClinicRef } from "@/lib/admin/clinic-save";
 import { lookupG99ByDomain, type G99Attach } from "@/lib/g99/harvest";
 import { ingestClinicByDomain, type IngestResult } from "@/lib/ingest/ingest-clinic";
 import {
-  ingestTreatmentsAndConcernsByDomain,
+  ingestTreatmentsAndConcernsForClinic,
+  type RefreshTrigger,
   type TreatmentsConcernsResult,
 } from "@/lib/ingest/ingest-treatments-concerns";
 import { ApiError } from "@/lib/errors";
@@ -32,7 +33,15 @@ async function cleanupNewPartialClinic(clinicId?: string | null): Promise<void> 
   await query(`DELETE FROM clinics WHERE id = $1`, [clinicId]);
 }
 
-export async function importWebsiteWithAi(url: string): Promise<AdminWebsiteImportResponse> {
+/**
+ * Create a clinic from a website URL: details/images/providers, then the shared
+ * treatments/concerns engine. Refuses to touch a domain that already has a
+ * clinic — use `refreshClinicById` for an existing one.
+ */
+export async function importWebsiteWithAi(
+  url: string,
+  trigger: RefreshTrigger = "admin_import"
+): Promise<AdminWebsiteImportResponse> {
   const domain = websiteDomain(url);
   if (!domain) throw ApiError.badRequest("Could not parse a domain from that URL.");
 
@@ -77,22 +86,22 @@ export async function importWebsiteWithAi(url: string): Promise<AdminWebsiteImpo
       ms: Date.now() - started,
     });
     treatmentsConcerns =
-      result.status === "saved"
-        ? await ingestTreatmentsAndConcernsByDomain(url)
+      result.status === "saved" && result.clinicId
+        ? await ingestTreatmentsAndConcernsForClinic(result.clinicId, { trigger })
         : {
             domain,
             status: "skipped" as const,
+            runId: null,
             pagesFetched: 0,
             treatmentsFound: 0,
             servicesMatched: 0,
             servicesAuto: 0,
-            servicesUnmatched: 0,
+            servicesDropped: 0,
             concernsFound: 0,
             concernsSaved: 0,
-            mappingsFound: 0,
-            mappingsSaved: 0,
             createdConcerns: [],
-            associations: [],
+            added: [],
+            removed: [],
             modelUsed: "",
             usage: null,
             note: "clinic details not saved",
@@ -102,7 +111,7 @@ export async function importWebsiteWithAi(url: string): Promise<AdminWebsiteImpo
       pages: treatmentsConcerns.pagesFetched,
       treatments: treatmentsConcerns.treatmentsFound,
       concerns: treatmentsConcerns.concernsSaved,
-      mappings: treatmentsConcerns.mappingsSaved,
+      runId: treatmentsConcerns.runId ?? null,
       model: treatmentsConcerns.modelUsed,
       ms: Date.now() - started,
     });

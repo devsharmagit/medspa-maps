@@ -725,7 +725,37 @@ const CONCERN_NON_CONDITION = new Set<string>([
   "face enhancement", "breast enhancement", "skin resurfacing",
   "jawline", "jaw", "temples", "temple", "hands", "hand", "lips", "lip",
   "face", "neck", "body", "cheeks", "cheek", "brows", "eyes",
+  // Treatment/goal labels the AI kept filing as concerns. The CONDITION is the
+  // thing the treatment fixes: "Brow Lift" -> Drooping Brows, "Jaw Slimming" ->
+  // Masseter (TMJ), "Skin Brightening" -> Hyperpigmentation.
+  "brow lift", "lip flip", "jaw slimming", "jawline slimming", "butt lift",
+  "skin brightening", "skin hydration", "skin firmness", "pain relief",
+  "stress relief", "muscle growth", "weight management", "anti aging", "aging",
+  "recovery", "recovery and repair", "athletic recovery", "muscle recovery",
+  "mood improvement", "improved cognition", "increased energy", "texture",
+  "emotional regulation", "focus and stress", "metabolism issues",
+  // Vague "overall wellness" buckets — every clinic treats these, so they carry
+  // no search signal and just fragment the catalog.
+  "skin health", "overall skin health", "skin wellness", "skin support",
+  "immune resilience", "gut health", "gut health issues", "sexual wellness",
+  "signs of aging", "healthy aging and longevity goals",
+  "healthy weight and body fat percentage",
 ]);
+
+/**
+ * Outcome/goal phrasing rather than a condition: "Improved Cognition",
+ * "Optimal Skin Health", "Better Sleep". Deliberately excludes "Reduced …" —
+ * "Reduced Libido" IS a condition.
+ */
+const CONCERN_GOAL_PREFIX_RE = /^(improved?|increased?|better|optimal|optimi[sz]ed|enhanced|healthy)\s/i;
+/**
+ * Trailing nouns that make a phrase a service or a goal, not a condition. NOTE
+ * "slimming"/"lifting" are absent on purpose: the established
+ * "Masseter (TMJ) / Face Slimming" row must survive. Bare "Jaw Slimming" and
+ * "Brow Lift" are caught by CONCERN_NON_CONDITION above instead.
+ */
+const CONCERN_GOAL_SUFFIX_RE =
+  /\b(wellness|resilience|optimization|maintenance|goals?|relief|rejuvenation|brightening|tightening|contouring|sculpting|augmentation|enhancement|therapy|treatments?|injections?|filler|peel|needling)$/i;
 
 /**
  * isLikelyNoise(name) — true for scraper-junk that is clearly not a real
@@ -861,6 +891,12 @@ export function isConcernNoise(name: string): boolean {
   if (NOISE_EXACT.has(norm)) return true;
   if (NON_SERVICE_JUNK.has(norm)) return true;
   if (CONCERN_NON_CONDITION.has(norm)) return true;
+  if (CONCERN_GOAL_PREFIX_RE.test(norm)) return true;
+  if (CONCERN_GOAL_SUFFIX_RE.test(norm)) return true;
+  // Sentence fragments ("Aging skin and loss of vitality", "Excess Hair Related
+  // To PCOS"). Every established concern normalizes to ≤4 words — including the
+  // compound seeds ("Wrinkles & Fine Lines", "Platysma (Vertical Neck Cords)").
+  if (norm.split(" ").length > 4) return true;
   return false;
 }
 

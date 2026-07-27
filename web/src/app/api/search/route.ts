@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { resolveSearchQuery, type ResolvedQuery } from "@/lib/search/resolve-query";
 import pool from "@/lib/db";
 import { lookupZip, lookupCityState } from "@/lib/location/postal-index";
 
@@ -91,8 +92,9 @@ function resolveTypedLocation(
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
-  let q = searchParams.get("q") || "";
-  const condition = searchParams.get("condition") || "";
+  const qRaw = searchParams.get("q") || "";
+  let q = qRaw;
+  let condition = searchParams.get("condition") || "";
   const location = searchParams.get("location") || "";
   const tier = searchParams.get("tier") || "";
 
@@ -100,6 +102,20 @@ export async function GET(request: NextRequest) {
   // condition wins and q is dropped (the UI enforces this too — one grouped
   // dropdown sets either q or condition, never both).
   if (condition) q = "";
+
+  // A typed treatment must NAME something in the catalog. Anything else — "abc",
+  // a phone number, a page title — resolves to nothing and returns no results,
+  // rather than ILIKE-matching whatever scraped string happened to contain it.
+  // A query that turns out to be a CONDITION is handed to the concern branch, so
+  // typing "melasma" into the treatment box still does the right thing.
+  let resolvedQuery: ResolvedQuery = { kind: "unresolved" };
+  if (q) {
+    resolvedQuery = await resolveSearchQuery(q);
+    if (resolvedQuery.kind === "concern") {
+      condition = resolvedQuery.slug;
+      q = "";
+    }
+  }
 
   // Pagination params
   const pageRaw = searchParams.get("page");
@@ -189,22 +205,16 @@ export async function GET(request: NextRequest) {
       // excludes null-coordinate clinics.
     }
 
-    // Service / treatment search — checks canonical services AND raw scraped
-    // names. raw_name is matched INDEPENDENTLY of catalog mapping so a clinic
-    // whose service didn't resolve to the catalog is still found by its raw
-    // offering (e.g. "botox", "dysport"). Canonical name/slug/category/aliases
-    // are gated behind a published, non-dental service row.
+    // Treatment search — by the CANONICAL slug the query resolved to, never by
+    // raw scraped text. An unresolved query matches nothing at all.
     if (q) {
-      conditions.push(`(
-        cs.raw_name ILIKE $${paramIdx}
-        OR (s.id IS NOT NULL AND (
-          s.name ILIKE $${paramIdx}
-          OR s.slug = $${paramIdx + 1}
-        ))
-        OR c.name ILIKE $${paramIdx}
-      )`);
-      params.push(`%${q}%`, q);
-      paramIdx += 2;
+      if (resolvedQuery.kind !== "treatment") {
+        conditions.push("FALSE");
+      } else {
+        conditions.push(`(s.id IS NOT NULL AND s.slug = $${paramIdx})`);
+        params.push(resolvedQuery.slug);
+        paramIdx += 1;
+      }
     }
 
     // Condition/concern search — slug-based membership (scraped ∪ manual −
@@ -463,8 +473,13 @@ export async function GET(request: NextRequest) {
         hasPrevious: page > 1,
       },
       query: {
-        q,
+        q: qRaw,
         condition,
+        /** What `q` resolved to — null when it named nothing in the catalog. */
+        resolved:
+          resolvedQuery.kind === "unresolved"
+            ? null
+            : { kind: resolvedQuery.kind, slug: resolvedQuery.slug, name: resolvedQuery.name },
         location,
         sort,
         tier,

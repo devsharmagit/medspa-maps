@@ -206,20 +206,6 @@ CREATE TABLE public.clinic_locations (
 );
 
 
---
--- Name: clinic_service_concerns; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.clinic_service_concerns (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    clinic_id uuid NOT NULL,
-    service_id uuid NOT NULL,
-    concern_id uuid NOT NULL,
-    is_active boolean DEFAULT true NOT NULL,
-    extracted_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
 
 --
 -- Name: clinic_services; Type: TABLE; Schema: public; Owner: -
@@ -236,7 +222,7 @@ CREATE TABLE public.clinic_services (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     price_from numeric,
     price_unit text,
-    match_status text DEFAULT 'unmatched'::text
+    match_status text DEFAULT 'auto'::text
 );
 
 
@@ -472,8 +458,12 @@ CREATE MATERIALIZED VIEW public.clinic_search_view AS
     c.ext_rating,
     c.ext_review_count,
     c.featured,
-    COALESCE(array_agg(DISTINCT COALESCE(sv.name, cs.raw_name)) FILTER (WHERE (cs.is_active = true)), '{}'::text[]) AS service_names,
-    COALESCE(array_agg(DISTINCT COALESCE(sv.slug, public.slugify(cs.raw_name))) FILTER (WHERE (cs.is_active = true)), '{}'::text[]) AS service_slugs,
+-- Canonical names ONLY. The old definition fell back to cs.raw_name when
+-- service_id was NULL, which is how phone numbers and street addresses became
+-- searchable treatments. service_id is ON DELETE SET NULL, so a catalog cleanup
+-- can recreate NULLs at any time — the view has to be strict on its own.
+    COALESCE(array_agg(DISTINCT sv.name) FILTER (WHERE cs.is_active = true AND sv.id IS NOT NULL), '{}'::text[]) AS service_names,
+    COALESCE(array_agg(DISTINCT sv.slug) FILTER (WHERE cs.is_active = true AND sv.id IS NOT NULL), '{}'::text[]) AS service_slugs,
     ( SELECT i.source_url
            FROM public.images i
           WHERE ((i.entity_type = 'clinic'::text) AND (i.entity_id = c.id) AND (i.role = 'cover'::text) AND (i.scrape_status = 'ok'::text))
@@ -547,13 +537,6 @@ ALTER TABLE ONLY public.clinic_concerns
 ALTER TABLE ONLY public.clinic_locations
     ADD CONSTRAINT clinic_locations_pkey PRIMARY KEY (id);
 
-
---
--- Name: clinic_service_concerns clinic_service_concerns_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.clinic_service_concerns
-    ADD CONSTRAINT clinic_service_concerns_pkey PRIMARY KEY (id);
 
 
 --
@@ -840,25 +823,7 @@ CREATE INDEX idx_clinics_website ON public.clinics USING btree (website);
 CREATE INDEX idx_concerns_slug ON public.concerns USING btree (slug);
 
 
---
--- Name: idx_csc_clinic; Type: INDEX; Schema: public; Owner: -
---
 
-CREATE INDEX idx_csc_clinic ON public.clinic_service_concerns USING btree (clinic_id);
-
-
---
--- Name: idx_csc_concern; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_csc_concern ON public.clinic_service_concerns USING btree (concern_id);
-
-
---
--- Name: idx_csc_service; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_csc_service ON public.clinic_service_concerns USING btree (service_id);
 
 
 --
@@ -1089,28 +1054,7 @@ ALTER TABLE ONLY public.clinic_locations
     ADD CONSTRAINT clinic_locations_clinic_id_fkey FOREIGN KEY (clinic_id) REFERENCES public.clinics(id) ON DELETE CASCADE;
 
 
---
--- Name: clinic_service_concerns clinic_service_concerns_clinic_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
 
-ALTER TABLE ONLY public.clinic_service_concerns
-    ADD CONSTRAINT clinic_service_concerns_clinic_id_fkey FOREIGN KEY (clinic_id) REFERENCES public.clinics(id) ON DELETE CASCADE;
-
-
---
--- Name: clinic_service_concerns clinic_service_concerns_concern_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.clinic_service_concerns
-    ADD CONSTRAINT clinic_service_concerns_concern_id_fkey FOREIGN KEY (concern_id) REFERENCES public.concerns(id) ON DELETE CASCADE;
-
-
---
--- Name: clinic_service_concerns clinic_service_concerns_service_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.clinic_service_concerns
-    ADD CONSTRAINT clinic_service_concerns_service_id_fkey FOREIGN KEY (service_id) REFERENCES public.services(id) ON DELETE CASCADE;
 
 
 --
@@ -1222,3 +1166,89 @@ CREATE TABLE IF NOT EXISTS public.clinic_leads (
 CREATE INDEX IF NOT EXISTS idx_clinic_leads_created_at ON public.clinic_leads USING btree (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_clinic_leads_status ON public.clinic_leads USING btree (status);
 CREATE INDEX IF NOT EXISTS idx_clinic_leads_email ON public.clinic_leads USING btree (business_email);
+
+
+--
+-- Name: clinic_refresh_runs; Type: TABLE; Schema: public; Owner: -
+--
+-- One row per treatments/concerns refresh ATTEMPT, from any surface (admin
+-- import, g99 import, scheduled refresh, CLI). Skipped attempts are recorded
+-- too: otherwise a clinic whose crawl has been failing for months looks
+-- identical to one that genuinely has not changed.
+--
+
+CREATE TABLE IF NOT EXISTS public.clinic_refresh_runs (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    clinic_id uuid NOT NULL,
+    trigger text NOT NULL,
+    status text NOT NULL,
+    crawl_health numeric,
+    pages_requested integer,
+    pages_fetched integer,
+    services_before integer,
+    services_after integer,
+    concerns_before integer,
+    concerns_after integer,
+    note text,
+    started_at timestamp with time zone DEFAULT now() NOT NULL,
+    finished_at timestamp with time zone,
+    CONSTRAINT clinic_refresh_runs_pkey PRIMARY KEY (id),
+    CONSTRAINT clinic_refresh_runs_clinic_id_fkey FOREIGN KEY (clinic_id)
+        REFERENCES public.clinics(id) ON DELETE CASCADE,
+    CONSTRAINT clinic_refresh_runs_trigger_check CHECK ((trigger = ANY
+        (ARRAY['admin_import'::text, 'g99_import'::text, 'cron_refresh'::text, 'cli'::text]))),
+    CONSTRAINT clinic_refresh_runs_status_check CHECK ((status = ANY
+        (ARRAY['saved'::text, 'skipped'::text, 'failed'::text])))
+);
+
+CREATE INDEX IF NOT EXISTS idx_crr_clinic_started ON public.clinic_refresh_runs USING btree (clinic_id, started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_crr_started ON public.clinic_refresh_runs USING btree (started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_crr_status ON public.clinic_refresh_runs USING btree (status);
+
+
+--
+-- Name: clinic_catalog_changes; Type: TABLE; Schema: public; Owner: -
+--
+-- Canonical catalog rows a clinic gained or lost in one run. `entity_id` has NO
+-- foreign key and name/slug are frozen snapshots ON PURPOSE: a CASCADE FK would
+-- let dedupe-services.ts / clean-catalog-junk.ts erase history whenever the
+-- catalog is next curated.
+--
+
+CREATE TABLE IF NOT EXISTS public.clinic_catalog_changes (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    run_id uuid NOT NULL,
+    clinic_id uuid NOT NULL,
+    entity_type text NOT NULL,
+    change_type text NOT NULL,
+    entity_id uuid,
+    name text NOT NULL,
+    slug text,
+    detected_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT clinic_catalog_changes_pkey PRIMARY KEY (id),
+    CONSTRAINT clinic_catalog_changes_run_id_fkey FOREIGN KEY (run_id)
+        REFERENCES public.clinic_refresh_runs(id) ON DELETE CASCADE,
+    CONSTRAINT clinic_catalog_changes_clinic_id_fkey FOREIGN KEY (clinic_id)
+        REFERENCES public.clinics(id) ON DELETE CASCADE,
+    CONSTRAINT clinic_catalog_changes_entity_type_check CHECK ((entity_type = ANY
+        (ARRAY['service'::text, 'concern'::text]))),
+    CONSTRAINT clinic_catalog_changes_change_type_check CHECK ((change_type = ANY
+        (ARRAY['added'::text, 'removed'::text])))
+);
+
+CREATE INDEX IF NOT EXISTS idx_ccc_clinic_detected ON public.clinic_catalog_changes USING btree (clinic_id, detected_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ccc_detected ON public.clinic_catalog_changes USING btree (detected_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ccc_run ON public.clinic_catalog_changes USING btree (run_id);
+
+
+--
+-- clinic_services.match_status — 'matched' (exact/alias hit) or 'auto' (fuzzy).
+-- 'unmatched' and 'ignored' are retired: a scraped name that resolves to nothing
+-- is now DROPPED by saveClinicServices rather than stored with service_id NULL,
+-- because those rows leaked into clinic_search_view as searchable treatments.
+--
+
+ALTER TABLE public.clinic_services
+    DROP COLUMN IF EXISTS source;
+
+DELETE FROM public.clinic_services WHERE service_id IS NULL;
