@@ -166,9 +166,41 @@ scripts.
   Note the four rescrape harnesses currently **fail**: they reference `scrape_jobs` /
   `clinic_service_changes`, dropped on 2026-07-18. Repairing them is part of Task 4, which is
   why they were kept rather than deleted and rewritten.
-- **3e. Stale docs/comments.** `ARCHITECTURE.md` §Scheduled work, `web/REFERENCE.md`
-  (documents a nonexistent `/api/cron/sync`), `cron-server/README.md`; delete point-in-time
-  reports; refresh `medspa-map-db.md` to 17 tables.
+- **3e. Stale docs/comments. — DONE 2026-07-27.**
+  - **Deleted `web/REFERENCE.md` (24 KB).** Not "a few stale lines" — it is a pre-build spec of
+    a schema that no longer exists: `businesses`, `categories`, `service_categories`,
+    `listing_claims`, `concern_services`, per-table `data_source`/`g99_*_id` columns, plus a
+    three-phase daily sync (`g99-sync.ts`, `web-scraper.ts`, `image-finder.ts`) that was never
+    built. It contradicted `medspa-map-db.md` on nearly every table. Nothing linked to it.
+  - Deleted the point-in-time reports: `DB_MIGRATION_AND_DEMO_PREP_REPORT.md`,
+    `cost-estimation.md` (superseded by `COST-ESTIMATION-OPENAI.md`), and the three
+    `web/reports/*.md` ingest write-ups. **Kept `ai-vision-plan.md`** against the plan — it is
+    linked twice from `weburltodataindb.md` and documents live vision-based image selection.
+  - `ARCHITECTURE.md`: §6 no longer claims the rescrape opens a `scrape_jobs` row and writes
+    `clinic_service_changes` (both dropped) — it now says the deltas are returned and
+    discarded, and points at Task 4. Also fixed "keeps both `bun.lock` + `package-lock.json`"
+    (there is no `package-lock.json`) and "migrations run on boot".
+  - `cron-server/README.md`: gained a **"Not implemented yet"** section. It was advertising an
+    `/admin/treatment-changes` page and a per-clinic "Treatment History" card that have never
+    existed, as though they shipped.
+  - `medspa-map-db.md`: 15 → **17 base tables** (`clinic_leads`, `patient_leads`).
+  - `weburltodataindb.md`: removed the `INGEST_PROVIDER=gemini` / `GEMINI_API_KEY` routing
+    story. `extractViaTool` explicitly ignores `INGEST_PROVIDER` and always delegates to
+    OpenAI, so those env vars have done nothing for some time — the doc was wrong before
+    `lib/ai/gemini.ts` was deleted, not because of it.
+
+  **Found while checking links: `cron-server/node_modules` was committed — 1731 files, 36 MB.**
+  `.gitignore` said `/node_modules`, which is root-anchored, so only the root one was ever
+  ignored. Changed to `node_modules/` (matches at any depth) and untracked the directory; the
+  files stay on disk and the Dockerfile runs its own `bun install --frozen-lockfile`, so
+  neither local dev nor the image is affected.
+
+  Verified: a link-checker over every tracked `.md` reports **zero** broken relative links to
+  files, down from the several the deletions would otherwise have left.
+
+  Follow-up worth doing sometime: `lib/ai/anthropic.ts` no longer talks to Anthropic — it is
+  the OpenAI dispatcher. The name is actively misleading, but it sits on the protected ingest
+  path so renaming it deserves its own change.
 
 ## 4. Fix the treatments/services cron
 

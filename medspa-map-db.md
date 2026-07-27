@@ -4,7 +4,7 @@
 >
 > **Generated:** 2026-07-18 (after the schema simplification — see the migration `web/scripts/2026-07-18-simplify-schema.sql`) · **Source:** live introspection (`information_schema` + `pg_catalog`)
 > **Engine:** PostgreSQL 18.4 · **PostGIS** 3.6.0
-> **Schema:** `public` · **15 base tables + 1 materialized view** (+ PostGIS system table `spatial_ref_sys`, not counted above)
+> **Schema:** `public` · **17 base tables + 1 materialized view** (+ PostGIS system table `spatial_ref_sys`, not counted above). The two not documented below are the lead-capture tables `clinic_leads` and `patient_leads`.
 
 Connection is via `DATABASE_URL` (Neon pooler, `sslmode=require&channel_binding=require`). This is the **application DB** — distinct from the read-only **G99 prod Aurora DB** (accessed via SSH tunnel, documented separately; the `g99_clinic_websites` table below is a *harvested copy* of G99 website URLs, not a live link).
 

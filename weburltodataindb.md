@@ -6,7 +6,7 @@
 >
 > **In scope now:** basic details, all locations, **images (via Claude vision)**, **before/after photos** (own resolution step, §8), booking URL, working hours, **providers**, and **services/treatments (AI-normalized to a general treatment)** — all via the main `ingestClinicByDomain` pipeline. **Concerns/conditions** (§9) are scraped **separately**, on demand, by a standalone `ingestConcernsByDomain` pipeline — not part of the default full ingest. Out of scope: reviews, ratings.
 >
-> **AI provider:** both pipelines call through `extractViaTool` ([ai/anthropic.ts](web/src/lib/ai/anthropic.ts)), which routes to Gemini instead of Anthropic when `INGEST_PROVIDER=gemini` is set ([ai/gemini.ts](web/src/lib/ai/gemini.ts)) — same forced-tool-call contract either way, so nothing below changes per provider except which one actually runs.
+> **AI provider:** both pipelines call through `extractViaTool` ([ai/anthropic.ts](web/src/lib/ai/anthropic.ts) — the filename is historical), and **OpenAI is the only active backend**: that function explicitly ignores a stale `INGEST_PROVIDER` and always delegates to [ai/openai.ts](web/src/lib/ai/openai.ts). The Anthropic and Gemini paths were removed; `GEMINI_API_KEY` / `INGEST_PROVIDER=gemini` do nothing.
 
 ---
 
@@ -403,4 +403,4 @@ psql "$DATABASE_URL" -f scripts/add-services-origin.sql        # services.origin
 psql "$DATABASE_URL" -f scripts/add-concern-evidence.sql       # concerns.origin + clinic_concern_evidence
 ```
 
-Re-ingest is idempotent: dedup by website domain + delete-then-insert refreshes locations/images/providers/services in place; the before/after- and concerns-only scripts are equally idempotent but scoped to just that one field. Needs `DATABASE_URL` + an AI key — either `ANTHROPIC_API_KEY`, or set `INGEST_PROVIDER=gemini` + `GEMINI_API_KEY` to route every call in this doc through Gemini instead (both pipelines share the same `extractViaTool` entry point, so nothing else changes).
+Re-ingest is idempotent: dedup by website domain + delete-then-insert refreshes locations/images/providers/services in place; the before/after- and concerns-only scripts are equally idempotent but scoped to just that one field. Needs `DATABASE_URL` + `OPENAI_API_KEY` — the only AI backend the ingest still uses (see the provider note at the top).

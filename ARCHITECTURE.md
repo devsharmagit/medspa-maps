@@ -47,7 +47,7 @@
 |---|---|---|
 | **Framework** | **Next.js 16.2.7** (App Router, RSC) + **React 19.2.4** | ⚠️ Newer than typical training data — see [web/AGENTS.md](web/AGENTS.md); verify APIs against bundled docs |
 | **Language** | **TypeScript 5** (strict) | path alias `@/* → src/*` |
-| **Runtime / PM** | **Bun** (scripts, cron, Docker) | `web/` keeps both `bun.lock` + `package-lock.json` |
+| **Runtime / PM** | **Bun** (scripts, cron, Docker) | `bun.lock` only — one lockfile per package |
 | **Database** | **Postgres 18 + PostGIS 3.6** | accessed with raw **`pg` Pool** in [web/src/lib/db.ts](web/src/lib/db.ts) — **no ORM**; `geography(Point,4326)` + GiST; `clinic_search_view` matview |
 | **Auth** | **next-auth v4** + **bcryptjs** | gates `/admin/(protected)/*` |
 | **Styling** | **Tailwind v4** (CSS-first, no config file) + **shadcn/ui** (`radix-nova`) | tokens in [web/src/app/globals.css](web/src/app/globals.css); `radix-ui`, `lucide-react`, CVA, `tailwind-merge` |
@@ -56,7 +56,7 @@
 | **Validation** | **zod v4** | validates LLM extraction output |
 | **AI** | **No SDK** — direct `fetch` to Anthropic + OpenRouter | keeps deps light |
 | **Scheduler** | **node-cron** (in `cron-server`) | one job |
-| **Deploy** | **Docker** (`oven/bun`), [start.sh](start.sh) runs Next.js **and** cron side-by-side | migrations run on boot |
+| **Deploy** | **Docker** (`oven/bun`), [start.sh](start.sh) runs Next.js **and** cron side-by-side | DB provisioning on boot; no migration ledger yet |
 
 ---
 
@@ -105,7 +105,8 @@ A public chat widget mounted globally. **Data-grounded, *not* tool/function-call
 **Exactly one scheduled job in the whole repo.** [cron-server/src/index.ts](cron-server/src/index.ts) (Bun + node-cron, **`0 3 * * *`**, also once on boot / `--run-once`) is a thin orchestrator that **never touches the DB** — it calls Next.js internal routes with a shared `x-internal-secret`:
 
 1. `GET /api/internal/rescrape/clinics` — list active clinics with a website (least-recently-scraped first).
-2. `POST /api/internal/rescrape/clinic/[id]` — up to 5 in parallel → [rescrape-clinic.ts](web/src/lib/rescrape/rescrape-clinic.ts): open a `scrape_jobs` row, re-scrape (same heuristic code as add-clinic), **diff canonical services vs. previous**, write add/remove rows to `clinic_service_changes`, refresh scraped images (curated rows protected), bump `last_scraped_at`. Safety guard: a parse hiccup (0 pages/0 services) aborts *unchanged* — it never wipes a menu.
+2. `POST /api/internal/rescrape/clinic/[id]` — up to 5 in parallel → [rescrape-clinic.ts](web/src/lib/rescrape/rescrape-clinic.ts): re-scrape (same heuristic code as add-clinic), **diff canonical services vs. previous**, apply the changes, refresh scraped images (curated rows protected), bump `last_scraped_at`. Safety guard: a parse hiccup (0 pages/0 services) aborts *unchanged* — it never wipes a menu.
+   ⚠️ The add/remove deltas are **returned to the caller and then discarded** — the `scrape_jobs` and `clinic_service_changes` audit tables were dropped on 2026-07-18, so treatment history is currently ephemeral. Reinstating it is Task 4 in [TASKS.md](TASKS.md).
 3. `POST /api/internal/rescrape/refresh-view` — `REFRESH MATERIALIZED VIEW CONCURRENTLY clinic_search_view`.
 
 The matview is otherwise refreshed **on-demand** after admin writes. **G99 sync and image processing are not separately scheduled** (G99 is admin/CLI on-demand; images refresh inline during rescrape).

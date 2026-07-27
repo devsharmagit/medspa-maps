@@ -11,8 +11,8 @@ Every day at **03:00** (and once on boot):
 1. `GET /api/internal/rescrape/clinics` — list every active clinic with a website.
 2. For each clinic (bounded concurrency): `POST /api/internal/rescrape/clinic/:id`
    — Next.js re-scrapes the site with the same logic used when adding a clinic,
-   diffs the detected treatments against what the clinic had, applies the
-   changes, and records each canonical add/remove in `clinic_service_changes`.
+   diffs the detected treatments against what the clinic had, and applies the
+   changes.
 3. `POST /api/internal/rescrape/refresh-view` — refresh the public search view.
 
 All internal calls send `X-Internal-Secret: $INTERNAL_API_SECRET`.
@@ -34,5 +34,13 @@ bun run run-once     # single pass now, then exit (manual runs / testing)
 | `RESCRAPE_CONCURRENCY` | `5` | clinics scraped in parallel |
 | `RESCRAPE_LIMIT` | (all) | cap total clinics per run (useful for testing) |
 
-Changes surface in the admin panel at **/admin/treatment-changes** and in the
-"Treatment History" card on each clinic's detail page.
+## Not implemented yet
+
+The add/remove deltas are computed and returned per clinic, then **discarded** —
+the `clinic_service_changes` audit table was dropped in the 2026-07-18 schema
+simplification, so treatment history does not survive a run. The
+`/admin/treatment-changes` page and the per-clinic "Treatment History" card that
+earlier versions of this README promised **have never existed**.
+
+Reinstating the table, persisting the deltas, and adding the admin page is Task 4
+in the root [TASKS.md](../TASKS.md).
