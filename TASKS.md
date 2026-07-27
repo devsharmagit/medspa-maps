@@ -98,10 +98,38 @@ scripts.
   the placeholder (`openssl rand -hex 32`). Deliberately not enforced in code: making the
   placeholder fail closed would break a production cron that is currently relying on it, which
   is a decision, not a cleanup.
-- **3c. Dead code.** `lib/constants.ts`, `lib/ai/gemini.ts`, `lib/sync/db-helpers.ts`,
-  `lib/concerns/queries.ts`; 7 unmounted components; 5 uncalled API routes. Drop `date-fns`,
-  and add the missing `@radix-ui/react-slot` (currently resolved transitively — a latent
-  install break).
+- **3c. Dead code. — DONE 2026-07-27.** Deleted, each verified to have zero *import-path*
+  importers (a bare basename grep gives false positives — `treatments-carousel` matches
+  `clinic-treatments-carousel`, and `testimonials` matches prose in the scrapers):
+  - libs: `lib/constants.ts`, `lib/ai/gemini.ts`, `lib/sync/db-helpers.ts`,
+    `lib/concerns/queries.ts`
+  - components: `faq-accordion`, `shared/{clinics,reviews,treatments}-carousel`,
+    `hero/{conditions-nav,treatments-nav,testimonials}`
+  - routes: `api/businesses/with-clinics`, `api/scrape`, `api/clinics/[slug]`
+  - deps: dropped `date-fns` (0 uses), moved `shadcn` to devDeps, dropped `tsx` (repo runs
+    bun), **added `@radix-ui/react-slot`** — `components/ui/button.tsx` imports it while it was
+    only ever resolved transitively, i.e. one dependency bump from an install break.
+
+  Deleting `api/scrape` also closes a public, unauthenticated endpoint that fetched an
+  arbitrary caller-supplied URL server-side (SSRF). It was not part of the protected ingest
+  path, which goes through `api/admin/clinics/*`.
+
+  **Two on the list were kept deliberately** — both would have been outages or amputations,
+  not cleanups:
+  - `api/health` is *not* a safe dupe of `app/health`. Both return 200 and **neither is
+    referenced anywhere in the repo**, because the ECS/ALB health check lives in the task
+    definition, which `deploy.yml` pulls from AWS at deploy time and is not in git. The
+    Dockerfile installs `curl` solely for it. Deleting the wrong one takes the service down.
+    *Needs a human:* check which path the task definition probes, then delete the other.
+  - `api/patient-leads` is uncalled, but it is the **only writer** of `patient_leads`, a table
+    the admin dashboard and `api/admin/leads` both read. The capture form was never wired up.
+    Deleting it would make the feature structurally impossible rather than merely unfinished.
+    *Needs a decision:* wire the form, or delete both sides together.
+
+  Verified: `bun run build` clean, `tsc` clean, lint 66 → 63 problems, and a smoke pass over
+  `/`, `/search`, `/conditions`, `/skin-navigator`, `/clinics/[slug]`, `/providers`,
+  `/admin/add-website`, both health paths — all 200, no new console errors. (`/treatments/botox`
+  404s, but that route has never existed; treatments link to `/search?q=…`.)
 - **3d. One-off scripts.** Delete ~60 applied backfill/migration/test scripts;
   `web/scripts/` 88 → ~15 files. Safe because the production DB is being rebuilt from scratch.
 - **3e. Stale docs/comments.** `ARCHITECTURE.md` §Scheduled work, `web/REFERENCE.md`
