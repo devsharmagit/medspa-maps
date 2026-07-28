@@ -132,3 +132,14 @@ Every scraped service name is reconciled against the catalog: the AI's `general_
 - **Single container** ([Dockerfile](Dockerfile), `oven/bun`, multi-stage): builds Next.js, then runs **both** Next.js (`next start -p 3000`) and `cron-server` as sibling processes via [start.sh](start.sh) (`wait -n` — container exits if either dies). Cron talks to Next.js over `localhost`.
 - **Database provisioning** runs on boot (`bun scripts/db-setup.ts` — the single entrypoint, also `bun run db:setup`): applies [web/db/schema.sql](web/db/schema.sql) only when the schema is absent, then converges the canonical taxonomy seed and the admin user. Schema source of truth is raw SQL in `web/db/`. This is **not** a migration tool — it cannot converge an existing DB onto a changed schema; see [TASKS.md](TASKS.md).
 - **Key env vars:** `DATABASE_URL`, `G99_DATABASE_URL` (lazy read-replica pool), `INTERNAL_API_SECRET` (cron↔web), `OPENAI_API_KEY` (ingest + chatbot), `NEXTAUTH_*` (admin auth).
+
+### 8a. Preview deploy (Vercel) — UI only
+
+`web/` is **also** deployed to Vercel, purely to show the UI, data and admin screens to stakeholders. It is **not** the production deployment and deliberately runs **no cron and no ingest** — ECS above is the real one.
+
+Two constraints follow, and both are easy to trip over:
+
+- **Route `maxDuration` must stay ≤ 300.** Vercel validates it at build time and Hobby's default *and* maximum are both 300s ([function limits](https://vercel.com/docs/functions/limitations)), so a higher value fails the deploy with `Builder returned invalid maxDuration value…`. This costs nothing: on ECS `maxDuration` is an inert hint `next start` never enforces, and the real bound is `REFRESH_BUDGET_MS` (240s) in [refresh-clinic.ts](web/src/lib/rescrape/refresh-clinic.ts).
+- **Do not set `INTERNAL_API_SECRET` in the Vercel project.** `isInternalAuthorized` ([internal-auth.ts](web/src/lib/internal-auth.ts)) fails closed, so leaving it unset makes every `/api/internal/*` request 401 — which is what stops anyone triggering a paid AI refresh against the shared Neon database from the demo URL.
+
+**Don't try to move the scheduled refresh onto Vercel.** No long-lived process can exist there, and Vercel Cron on Hobby is limited to **once per day**; at ~150s per clinic inside a 300s function that's ~2 clinics per invocation, so one pass over ~660 clinics would take the better part of a year. If the cron ever needs a new home, it already speaks plain HTTP with a configurable `NEXTJS_URL` — point it at any host and leave the app where it is.

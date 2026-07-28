@@ -17,10 +17,15 @@ import { refreshClinicById } from "@/lib/rescrape/refresh-clinic";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-// Crawling ~130 pages and running several AI batches takes minutes. The engine
-// also enforces its own wall-clock budget (REFRESH_BUDGET_MS) so a wedged run
-// degrades into a skipped save rather than hanging indefinitely.
-export const maxDuration = 600;
+// Crawling ~130 pages and running several AI batches takes minutes.
+//
+// Must stay <= 300: Vercel validates this at BUILD time and Hobby's ceiling is
+// 300s, so a higher value fails the preview deploy outright. It costs nothing to
+// cap it here — on the real ECS deployment `maxDuration` is an inert hint that
+// `next start` never enforces, and the actual bound is the engine's own
+// REFRESH_BUDGET_MS (240s, in lib/rescrape/refresh-clinic.ts), which degrades a
+// wedged run into a recorded `skipped` save rather than hanging.
+export const maxDuration = 300;
 
 interface RouteContext {
   params: Promise<{ id: string }>;
