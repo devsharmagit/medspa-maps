@@ -22,7 +22,7 @@ import type {
   ScrapedService,
   ScrapedImage,
 } from "@/lib/scraper/types";
-import { matchService, isLikelyNoise } from "@/lib/taxonomy/canonical";
+import { matchService, isServiceNoise } from "@/lib/taxonomy/canonical";
 import {
   computePriorityCoverage,
   type PriorityCoverage,
@@ -279,7 +279,16 @@ export async function scrapeClinicPreview(url: string): Promise<ClinicPreview> {
       description: s.description ?? null,
       scraped_from_url: s.scraped_from_url ?? null,
       suggestion: m.slug ? { slug: m.slug, confidence: m.confidence } : null,
-      is_noise: isLikelyNoise(raw),
+      // isServiceNoise, NOT isLikelyNoise: the admin preview's flag must agree
+      // with what the save layer actually enforces (clinic-save.ts applies
+      // isServiceNoise unconditionally). isLikelyNoise carries a city-token
+      // heuristic that guesses against the curated 15, so it flagged real
+      // treatments — Rhinoplasty, Blepharoplasty, Liposuction, Breast
+      // Augmentation, Tummy Tuck, Manicure, Pedicure, Massage — as junk. The UI
+      // turns that flag into `ignored: true` and the save then SILENTLY drops
+      // them, so a plastic-surgery or day-spa clinic added through
+      // /admin/add-website lost its entire core menu with no warning.
+      is_noise: isServiceNoise(raw),
     };
   });
 
