@@ -1,0 +1,40 @@
+{
+  "website": "https://calhounhealthandspine.com/",
+  "name": "Calhoun Health & Spine",
+  "clinic_type": "wellness_plus_aesthetics",
+  "tagline": "Your Trusted Chiropractor in Clemson, SC for Pain Relief & Wellness",
+  "about": "Calhoun Health & Spine is a comprehensive wellness practice combining personalized chiropractic care, integrative medicine, hormone optimization, and medically supervised weight loss programs to address pain and restore balance. The practice also offers a dedicated aesthetics line of skin treatments alongside its chiropractic and regenerative-medicine services.",
+  "phone": "(864) 653-3928",
+  "email": "hellocalhounfc@gmail.com",
+  "booking_url": "https://clinic.patienthealthcenters.org/book?clinic=CALHOU24GSSC",
+  "socials": {"instagram": "https://www.instagram.com/calhounhealthandspine/", "facebook": "https://www.facebook.com/CalhounHealthspine/", "tiktok": null, "youtube": null, "x": null, "linkedin": null, "yelp": null},
+  "hours": "Monday 8:15 AM to 5:15 PM | Tuesday 8:15 AM to 5:15 PM | Wednesday 8:15 AM to 5:15 PM | Thursday 8:15 AM to 5:15 PM | Friday Closed | Saturday Closed | Sunday Closed",
+  "locations": [
+    {"address": "400 Pendleton Rd.", "city": "Clemson", "state": "SC", "zip": "29631", "phone": "(864) 653-3928"}
+  ],
+  "providers": [
+    {"name": "Dr. Ryan Calhoun", "title": "Doctor of Chiropractic (DC)", "image_url": null, "is_owner": true},
+    {"name": "Rachel Hughes", "title": "PA-C, Board-Certified Physician Assistant", "image_url": null, "is_owner": false},
+    {"name": "Fernando Olayo Olvera", "title": "Certified Exercise Physiologist", "image_url": null, "is_owner": false}
+  ],
+  "treatments": [
+    {"raw_name": "Chemical Peels", "general_name": "Chemical Peels"},
+    {"raw_name": "Hydrofacial", "general_name": "HydraFacial"},
+    {"raw_name": "Microdermabrasion", "general_name": "Microdermabrasion"},
+    {"raw_name": "Microneedling", "general_name": "Microneedling"},
+    {"raw_name": "PRP Microneedling", "general_name": "PRP Microneedling"},
+    {"raw_name": "Microneedling with PRP Hair Restoration", "general_name": "PRP Hair Restoration"}
+  ],
+  "concerns": ["Wrinkles & Fine Lines", "Hyperpigmentation", "Acne Scars", "Acne", "Sun Damage", "Enlarged Pores", "Uneven Skin Tone", "Dull Skin", "Stretch Marks", "Thinning Hair"],
+  "images": {
+    "logo": null,
+    "cover": "https://www.calhounhealthandspine.com/storage/2026/02/Chemical-Peels-in-Calhoun-Health-Spine-Peels-in-Clemson-SC.webp",
+    "gallery": [
+      "https://www.calhounhealthandspine.com/storage/2026/02/Hydrofacial-Service-Image-Calhoun-Health-Spine-Peels-in-Clemson-SC.webp",
+      "https://www.calhounhealthandspine.com/storage/2026/02/Microdermabrasion-Calhoun-Health-Spine-Peels-in-Clemson-SC.webp",
+      "https://www.calhounhealthandspine.com/storage/2026/02/Microneedling-Calhoun-Health-Spine-Peels-in-Clemson-SC.webp",
+      "https://www.calhounhealthandspine.com/storage/2026/02/About-Image-Calhoun-Health-Spine.webp"
+    ],
+    "before_after": []
+  }
+}

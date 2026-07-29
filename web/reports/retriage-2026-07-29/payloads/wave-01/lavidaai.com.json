@@ -1,0 +1,69 @@
+{
+  "website": "https://lavidaai.com/",
+  "name": "La Vida Laser & Aesthetics Institute",
+  "clinic_type": "medspa",
+  "tagline": "Quality laser and aesthetic treatments performed by certified and licensed professionals in a clinical setting, by appointment only.",
+  "about": "La Vida Laser & Aesthetics Institute is a Houston-based laser and aesthetics training facility that also runs a genuine public treatment-services menu delivered by certified and licensed professionals. Patients can book laser hair removal, RF skin tightening, dermaplaning, chemical peels, microneedling, and IPL treatments by appointment. The clinic is overseen by Medical Director Dr. Nneka U Edokpayi, MD, with locations in Houston and San Antonio, TX.",
+  "phone": "(713) 539-3458",
+  "email": "info@lavidaai.com",
+  "booking_url": null,
+  "socials": {
+    "instagram": "https://www.instagram.com/lavidaai/",
+    "facebook": "https://www.facebook.com/LaVidaAestheticsInstitute",
+    "tiktok": null,
+    "youtube": "https://www.youtube.com/channel/UCeivBOgDSYfILNyc7oOTJow",
+    "x": null,
+    "linkedin": null,
+    "yelp": null
+  },
+  "hours": "Office Hours: Monday-Friday (9am-5pm)",
+  "locations": [
+    {
+      "address": "6220 Westpark Drive Suite 235",
+      "city": "Houston",
+      "state": "TX",
+      "zip": "77057",
+      "phone": "(713) 539-3458"
+    },
+    {
+      "address": "2115 Pleasanton Rd., Suite 203",
+      "city": "San Antonio",
+      "state": "TX",
+      "zip": "78221",
+      "phone": "(713) 539-3458"
+    }
+  ],
+  "providers": [
+    {
+      "name": "Beth Dugat",
+      "title": "President & Dean, LSO, LHR",
+      "image_url": null,
+      "is_owner": true
+    },
+    {
+      "name": "Dr. Nneka U Edokpayi",
+      "title": "MD, Medical Director",
+      "image_url": null,
+      "is_owner": false
+    }
+  ],
+  "treatments": [
+    {"raw_name": "Laser Hair Removal", "general_name": "Laser Hair Removal"},
+    {"raw_name": "RF Skin Tightening", "general_name": "RF Skin Tightening"},
+    {"raw_name": "Dermaplaning", "general_name": "Dermaplaning"},
+    {"raw_name": "Chemical Peel", "general_name": "Chemical Peel"},
+    {"raw_name": "Microneedling", "general_name": "Microneedling"},
+    {"raw_name": "IPL", "general_name": "IPL"},
+    {"raw_name": "RF Microneedling", "general_name": "RF Microneedling"},
+    {"raw_name": "3D Skin Rejuvenation", "general_name": "Skin Rejuvenation"}
+  ],
+  "concerns": [
+    "Unwanted Hair"
+  ],
+  "images": {
+    "logo": "https://lavidaai.com/storage/2023/08/WHITE-LVLAI-LOGO.png",
+    "cover": null,
+    "gallery": [],
+    "before_after": []
+  }
+}

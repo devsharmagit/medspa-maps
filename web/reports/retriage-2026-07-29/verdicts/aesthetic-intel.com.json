@@ -1,0 +1,58 @@
+{
+ "schema_version": 1,
+ "domain": "aesthetic-intel.com",
+ "classified_by": "classify-agent",
+ "probe": {
+  "pages_read": [
+   "/",
+   "/about-us/",
+   "/trainings-we-offer/",
+   "/upcoming-courses/",
+   "/faqs/",
+   "/shop/",
+   "/upcoming-webinar/",
+   "/recorded-webinar/",
+   "/contact-us/"
+  ],
+  "sitemap_source": "paths.txt",
+  "total_text_chars": 9800,
+  "digest_files": [
+   "digests/aesthetic-intel.com/pass1.txt"
+  ]
+ },
+ "verdict": "EXCLUDE",
+ "confidence": "high",
+ "business_kind": "training_academy_with_clinic",
+ "clinic_type": null,
+ "exclusion_reason_code": "TRAINING_ONLY",
+ "unresolved_code": "AMBIGUOUS_ACADEMY",
+ "aesthetic_evidence": [],
+ "patient_facing": {
+  "sells_to": "providers",
+  "has_public_booking": false,
+  "phone": "(703) 409-0313",
+  "address_seen": "3040 Williams Drive, STE 105, Fairfax VA 22031"
+ },
+ "counter_evidence": [
+  {
+   "note": "Every page (home, about, trainings, upcoming courses, webinars, recorded webinars, shop, FAQ) is addressed to medical providers buying injectable-training courses and webinars; the full sitemap (page + product) shows no service/booking page for a general patient.",
+   "page_path": "/upcoming-courses/",
+   "quote": "Upcoming Courses PRE-RECORDED WEBINAR Add to Cart Upcoming Webinars Upcoming Hands On Trainings"
+  },
+  {
+   "note": "The only patient-facing angle found is recruiting members of the public to be treated as unpaid/discounted 'models' during hands-on training sessions, which is the model-call scenario the brief says is a policy call, not a straightforward INCLUDE.",
+   "page_path": "/faqs/",
+   "quote": "MODEL OPPORTUNITIES? Yes! We are always looking for models for our courses! Students that are participating in trainings are also able to be a model."
+  }
+ ],
+ "prior_reason_rebuttal": "Old reason 'Provider training institute \u2014 not a patient-facing clinic' is largely correct on the content read: home/about/trainings-we-offer/upcoming-courses/webinars/shop are 100% provider-course sales (Foundations of Neurotoxin, Full Face Rejuvenation/8 Point Lift, webinars sold via Square checkout to 'students'). The one wrinkle is the FAQ's 'model opportunities' \u2014 real people can apply to receive injectable treatments as models during training days. Per brief rule 5 (model calls / student clinic = policy call, not agent-decided), this is left UNRESOLVED/AMBIGUOUS_ACADEMY rather than confirmed EXCLUDE or INCLUDE.",
+ "proposed_markdown_reason": "Provider injectable-course business (courses/webinars/shop sold to medical providers). The only patient-facing route is a 'model' programme where the public receives injectables during training sessions for a model fee. DECISION 2026-07-29: model calls are not a service the public can book on demand and the treating hands are trainees, so this stays excluded even under the broadened criteria. Revisit if it opens a real patient clinic.",
+ "extract_hints": {
+  "service_pages": [],
+  "team_page": "/about-us/",
+  "locations_page": "/contact-us/",
+  "gallery_page": null,
+  "est_extract_effort": "small"
+ },
+ "orchestrator_override": "was UNRESOLVED; resolved by user decision at checkpoint 1 (2026-07-29)"
+}

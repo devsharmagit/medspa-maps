@@ -1,0 +1,53 @@
+{
+ "schema_version": 1,
+ "domain": "rumaacademy.com",
+ "classified_by": "classify-agent",
+ "probe": {
+  "pages_read": [
+   "/",
+   "/courses-with-ruma-academy/",
+   "/model-inquiry/",
+   "/training-registration-form/",
+   "/bring-ruma-to-my-facility/",
+   "/courses-with-ruma-academy-faculty/"
+  ],
+  "sitemap_source": "paths.txt",
+  "total_text_chars": 8600,
+  "digest_files": [
+   "digests/rumaacademy.com/pass1.txt"
+  ]
+ },
+ "verdict": "EXCLUDE",
+ "confidence": "high",
+ "business_kind": "training_academy_with_clinic",
+ "clinic_type": null,
+ "exclusion_reason_code": "TRAINING_ONLY",
+ "unresolved_code": "AMBIGUOUS_ACADEMY",
+ "aesthetic_evidence": [],
+ "patient_facing": {
+  "sells_to": "providers",
+  "has_public_booking": false,
+  "phone": "(801) 514-7650",
+  "address_seen": "Lehi, UT"
+ },
+ "counter_evidence": [
+  {
+   "quote": "Become a Model for RUMA Academy Training RUMA Academy is proud to offer high-quality, comprehensive aesthetic injectable courses for all levels of experience. Models for training courses get exclusive discounts on treatments!",
+   "page_path": "/model-inquiry/"
+  },
+  {
+   "quote": "RUMA Academy is proud to offer high-quality, comprehensive aesthetic injectable courses for all levels of experience.",
+   "page_path": "/"
+  }
+ ],
+ "prior_reason_rebuttal": "Prior reason ('Duplicate of: RUMA Academy') is a duplicate-listing note, not a content assessment, so it is set aside here. On the merits: every course page (Beginner/Intermediate Neuromodulator, Lip Course, PDO Threads, Aesthetic Assistant, Shadow programs) is priced and marketed exclusively to aesthetic injectors/providers as CE training, with no general-public service menu or public booking (BOOKING links resolve to Facebook, not a patient scheduler). The one patient-adjacent thread is /model-inquiry/, which offers 'exclusive discounts on treatments' only to people who sign up as live training models for course days \u2014 exactly the 'model call'/discounted-training-day pattern rule 5 flags as a policy call, not a content call I should make myself.",
+ "proposed_markdown_reason": "Aesthetic injector courses sold per-seat to providers; /model-inquiry/ offers the public 'exclusive discounts on treatments' as training models. DECISION 2026-07-29: excluded as a training-model clinic. Note the related RUMA clinic brand is a separate business already in the directory.",
+ "extract_hints": {
+  "service_pages": [],
+  "team_page": null,
+  "locations_page": "/bring-ruma-to-my-facility/",
+  "gallery_page": null,
+  "est_extract_effort": null
+ },
+ "orchestrator_override": "was UNRESOLVED; resolved by user decision at checkpoint 1 (2026-07-29)"
+}

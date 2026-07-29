@@ -1,0 +1,430 @@
+
+══════════════════════════════════════════════════════════════════════════════
+Institute for Pain Relief   /clinics/institute-for-pain-relief
+══════════════════════════════════════════════════════════════════════════════
+website     https://instituteforpainrelief.com/
+active      true
+tagline     Expert Care. Modern Solutions. Pain-Free Living.
+about       The Institute for Pain Relief in Voorhees, NJ, led by Dr. Kavita Gupta, MD, MEng, is a pain-management and workers'-compensation consulting practice s…
+phone       (856) 751-7799
+email       —
+booking     https://instituteforpainrelief.com/intake-form/
+rating      4.30★ / 27 reviews
+g99         clinic=6840 business=6464
+hours       5 day key(s)
+socials     ig=y fb=y
+
+── locations (1) ──────────────────────────────────────────────────
+  • 705 White Horse Rd STE D101, Voorhees Township, NJ, 08043
+    geo=39.8460,-74.9895  maps=n
+
+── providers (1) ──────────────────────────────────────────────────
+  • Dr. Kavita Gupta — MD, MEng, Board-Certified PM&R  [OWNER]  photo=NO
+
+── images (1) — re-fetched live ──────────────────────────────
+  ✓ [cover] 206 image/webp 1500x1000 r=1.5
+      https://instituteforpainrelief.com/storage/2026/02/Advanced-Aesthetics-Institute-for-pain-relief-in-voorhees-nj.webp
+  roles: logo=0 cover=1 gallery=0 before_after=0
+
+── treatments (4) ──────────────────────────────────────────────────
+  • Botox® → Botox
+  • Dermal Fillers (Evolysse & Restylane) → Dermal Fillers
+  • Laser Therapy (Aerolase) → Laser Therapy (ai)
+  • PDO Threads (Non-Surgical Facelift) → PDO Thread Facelift (ai)
+
+── concerns (5) ──────────────────────────────────────────────────
+  • Acne Scars  [scraped]
+  • Fine Lines (ai-created)  [scraped]
+  • Rosacea  [scraped]
+  • Sagging Skin (ai-created)  [scraped]
+  • Volume Loss (ai-created)  [scraped]
+
+search view: present
+
+── FLAGS (1) ────────────────────────────────────────────────────
+  ⚠ no logo image
+
+══════════════════════════════════════════════════════════════════════════════
+ART Spa House   /clinics/art-spa-house
+══════════════════════════════════════════════════════════════════════════════
+website     https://artspahouse.com/
+active      true
+tagline     Premium Skincare & Wellness in San Antonio, TX
+about       For more than 25 years, our mission has remained the same: to help guests feel restored in body, mind, and spirit through intentional, holistic treatm…
+phone       (210) 832-0892
+email       info@artspahouse.com
+booking     https://na0.meevo.com/customerportal/advanced/ob?tenantId=102783
+rating      4.80★ / 740 reviews
+g99         clinic=5209 business=4964
+hours       6 day key(s)
+socials     ig=y fb=y
+
+── locations (2) ──────────────────────────────────────────────────
+  • 215 W Sunset Rd, San Antonio, TX, 78209
+    geo=29.5075,-98.4693  maps=n
+  • 225 S Main St, Boerne, TX, 78006
+    geo=29.7923,-98.7308  maps=n
+
+── providers (0) ──────────────────────────────────────────────────
+
+── images (3) — re-fetched live ──────────────────────────────
+  ✓ [logo] 206 image/webp 1200x630 r=1.9
+      https://artspahouse.com/storage/2025/02/Art-Spa-House-Sharing-Logo-in-San-Antonio-TX.webp
+  ✓ [cover] 206 image/webp 1000x667 r=1.5
+      https://artspahouse.com/storage/2024/12/ART-Spa-House-Services-For-Couples-In-San-Antonio-TX.webp
+  ✓ [gallery] 206 image/webp 1500x1001 r=1.5
+      https://artspahouse.com/storage/2024/12/ART-Spa-House-Spa-Escape-Packages-In-San-Antonio-TX.webp
+  roles: logo=1 cover=1 gallery=1 before_after=0
+
+── treatments (8) ──────────────────────────────────────────────────
+  • Hydrating Body Wrap → Body Wrap
+  • Dermaplane → Dermaplaning (ai)
+  • Facials
+  • Hydrafacial
+  • Manicure
+  • Massage
+  • Pedicure
+  • Waxing
+
+── concerns (0) ──────────────────────────────────────────────────
+
+search view: present
+
+── FLAGS (1) ────────────────────────────────────────────────────
+  ⚠ NO concerns — clinic will not surface in any condition search
+
+══════════════════════════════════════════════════════════════════════════════
+Dr. Leonard Grossman, MD   /clinics/dr-leonard-grossman-md
+══════════════════════════════════════════════════════════════════════════════
+website     https://drgrossman.com/
+active      true
+tagline     #1 Fat Grafting Plastic Surgeon in America
+about       Dr. Leonard Grossman is a reconstructive and plastic surgeon in Brooklyn, NYC who received his medical degree from New York Medical College in 1985 an…
+phone       (212) 585-2133
+email       drgrossmanstaff@hotmail.com
+booking     https://drgrossman.com/contact/
+rating      5.00★ / 106 reviews
+g99         clinic=835 business=789
+hours       — (none)
+socials     ig=y fb=y
+
+── locations (2) ──────────────────────────────────────────────────
+  • 3039 Emmons Ave, Brooklyn, NY, 11235
+    geo=40.5842,-73.9375  maps=n
+  • 800 Fifth Avenue Annex Suite 300A, New York, NY, 10065
+    geo=40.7127,-74.0060  maps=n
+
+── providers (1) ──────────────────────────────────────────────────
+  • Dr. Leonard Grossman — MD, Plastic & Reconstructive Surgeon  [OWNER]  photo=y
+
+── images (6) — re-fetched live ──────────────────────────────
+  ✓ [cover] 206 image/png 481x384 r=1.25
+      https://drgrossman.com/storage/2022/10/about-dr-grossman-nyc-1.png
+  ✓ [gallery] 206 image/webp 1024x683 r=1.5
+      https://drgrossman.com/storage/2024/09/Cellulite-Treatment-Service-by-Dr-Grossman-in-NY-US-1024x683.webp
+  ✓ [gallery] 206 image/webp 1024x683 r=1.5
+      https://drgrossman.com/storage/2024/10/Buffalo-Hump-Treatment-with-Liposuction-by-Dr-Grossman-in-NY-US-1024x683.webp
+  ✓ [gallery] 206 image/webp 1024x683 r=1.5
+      https://drgrossman.com/storage/2024/08/Rhinoplasty-Surgery-by-Dr-Grossman-in-NY-US-1024x683.webp
+  ✓ [gallery] 206 image/webp 1200x825 r=1.45
+      https://drgrossman.com/storage/2024/07/The-Best-Tummy-Tuck-by-Dr-Grossman-in-NY-US.webp
+  ✓ [gallery] 206 image/webp 1617x1201 r=1.35
+      https://drgrossman.com/storage/2022/09/Sculptraa-Injections-by-Dr-Grossman-in-NY-US.webp
+  roles: logo=0 cover=1 gallery=5 before_after=0
+
+── treatments (31) ──────────────────────────────────────────────────
+  • Tummy Tuck → Abdominoplasty
+  • Blepharoplasty/Eyelid Lift → Blepharoplasty
+  • Botox Cosmetic → Botox
+  • Botox Treatment for Hyperhidrosis → Botox
+  • Brazilian Butt Lift (BBL)
+  • Breast Augmentation (Fat, Saline & Silicone) → Breast Augmentation
+  • Transumbilical Breast Augmentation (TUBA) → Breast Augmentation
+  • Breast Lifts → Breast Lift
+  • Breast Reduction
+  • Brow Lifts → Brow Lift
+  • Buccal Fat Removal
+  • Lutronic CO2 Laser Treatment → CO2 Laser (ai)
+  • Cheek Augmentation → Cheek and Chin Enhancement (ai)
+  • Face Lifts → Facelift
+  • Fat Grafting (ai)
+  • NeoGraft Hair Restoration → Hair Restoration (ai)
+  • Juvederm Injections → Juvederm Dermal Fillers (ai)
+  • Labiaplasty
+  • Liposuction
+  • Nose Job in a Bottle (Non-Surgical Rhinoplasty) → Liquid Nose Job (ai)
+  • Male Breast Reduction (ai)
+  • Cheek Lift → Midface/Cheek Lift (ai)
+  • Neck Lift
+  • Otoplasty
+  • Radiesse Injections → Radiesse (ai)
+  • Restylane Injections → Restylane (ai)
+  • Restylane Lyft (ai)
+  • Rhinoplasty
+  • Sculptra Injections → Sculptra (ai)
+  • Renuvion Skin and Tissue Tightening → Skin Tightening (ai)
+  • Thigh Lift → Thigh Lift Surgery
+
+── concerns (16) ──────────────────────────────────────────────────
+  • Acne Scars  [scraped]
+  • Cellulite (ai-created)  [scraped]
+  • Double Chin  [scraped]
+  • Excess Abdominal Skin  [scraped]
+  • Fine Lines (ai-created)  [scraped]
+  • Flat Buttocks  [scraped]
+  • Gynecomastia  [scraped]
+  • Hyperhidrosis (ai-created)  [scraped]
+  • Nose Shape  [scraped]
+  • Overly Large Breasts  [scraped]
+  • Sagging Breasts  [scraped]
+  • Sagging Skin (ai-created)  [scraped]
+  • Small Breasts  [scraped]
+  • Stubborn Body Fat  [scraped]
+  • Thinning Hair (ai-created)  [scraped]
+  • Volume Loss (ai-created)  [scraped]
+
+search view: present
+
+── FLAGS (2) ────────────────────────────────────────────────────
+  ⚠ no hours
+  ⚠ no logo image
+
+══════════════════════════════════════════════════════════════════════════════
+Apex Fit   /clinics/apex-fit
+══════════════════════════════════════════════════════════════════════════════
+website     https://apexfit.com/
+active      true
+tagline     Med spa services combining advanced aesthetic treatments with personalized, medically supervised care.
+about       Apex Medspa, located inside Apex Fit, offers a wide variety of aesthetic services with personalized consultations for natural-looking results. The tea…
+phone       (407) 674-8064
+email       info@apexfit.com
+booking     https://apexsweat.simplybook.me/v2/#book
+rating      5.00★ / 68 reviews
+g99         clinic=4333 business=4154
+hours       7 day key(s)
+socials     ig=y fb=y
+
+── locations (2) ──────────────────────────────────────────────────
+  • 10030 Wellness Way, Orlando, FL, 32832
+    geo=28.5421,-81.3790  maps=n
+  • 2927 Shamrock Ave, Fort Worth, TX, 76107
+    geo=32.7631,-97.3592  maps=n
+
+── providers (4) ──────────────────────────────────────────────────
+  • AJ Piovesan — PA, Anti-Aging Specialist  photo=NO
+  • Alina Benitez — DCNP, Master Injector  photo=y
+  • Dr. Jill Ward — MD, Medical Director  photo=NO
+  • Stephanie Salva — CCE, CME, LSO, Licensed Medical Aesthetician  photo=NO
+
+── images (1) — re-fetched live ──────────────────────────────
+  ✓ [logo] 206 image/webp 1200x630 r=1.9
+      https://apexfit.com/storage/2024/06/Apex-Logo.webp
+  roles: logo=1 cover=0 gallery=0 before_after=0
+
+── treatments (8) ──────────────────────────────────────────────────
+  • Botox
+  • PCA Chemical Peels → Chemical Peels
+  • Dermal Fillers
+  • Facial Fat Removal (Kybella) → Kybella
+  • Laser Hair Removal
+  • Lip Fillers → Lip Filler (ai)
+  • Microneedling
+  • Skin Tightening (ai)
+
+── concerns (9) ──────────────────────────────────────────────────
+  • Acne (ai-created)  [scraped]
+  • Crow's Feet (ai-created)  [scraped]
+  • Double Chin  [scraped]
+  • Fine Lines (ai-created)  [scraped]
+  • Frown Lines (ai-created)  [scraped]
+  • Sagging Skin (ai-created)  [scraped]
+  • Skin Discoloration (ai-created)  [scraped]
+  • Uneven Skin Tone (ai-created)  [scraped]
+  • Unwanted Hair (ai-created)  [scraped]
+
+search view: present
+
+── FLAGS (1) ────────────────────────────────────────────────────
+  ⚠ NO cover image (hero will show a placeholder)
+
+══════════════════════════════════════════════════════════════════════════════
+La Vida Laser & Aesthetics Institute   /clinics/la-vida-laser-aesthetics-institute
+══════════════════════════════════════════════════════════════════════════════
+website     https://lavidaai.com/
+active      true
+tagline     Quality laser and aesthetic treatments performed by certified and licensed professionals in a clinical setting, by appointment only.
+about       La Vida Laser & Aesthetics Institute is a Houston-based laser and aesthetics training facility that also runs a genuine public treatment-services menu…
+phone       (713) 539-3458
+email       info@lavidaai.com
+booking     — (none)
+rating      5.00★ / 164 reviews
+g99         clinic=1743 business=1728
+hours       5 day key(s)
+socials     ig=y fb=y
+
+── locations (2) ──────────────────────────────────────────────────
+  • 6220 Westpark Drive Suite 235, Houston, TX, 77057
+    geo=29.7236,-95.4952  maps=n
+  • 2115 Pleasanton Rd., Suite 203, San Antonio, TX, 78221
+    geo=29.3593,-98.5040  maps=n
+
+── providers (2) ──────────────────────────────────────────────────
+  • Beth Dugat — President & Dean, LSO, LHR  [OWNER]  photo=NO
+  • Dr. Nneka U Edokpayi — MD, Medical Director  photo=NO
+
+── images (1) — re-fetched live ──────────────────────────────
+  ✓ [logo] 206 image/png 1436x1040 r=1.38
+      https://lavidaai.com/storage/2023/08/WHITE-LVLAI-LOGO.png
+  roles: logo=1 cover=0 gallery=0 before_after=0
+
+── treatments (8) ──────────────────────────────────────────────────
+  • Chemical Peel (ai)
+  • Dermaplaning (ai)
+  • IPL (ai)
+  • Laser Hair Removal
+  • Microneedling
+  • RF Microneedling (ai)
+  • RF Skin Tightening
+  • 3D Skin Rejuvenation → Skin Rejuvenation (ai)
+
+── concerns (1) ──────────────────────────────────────────────────
+  • Unwanted Hair (ai-created)  [scraped]
+
+search view: present
+
+── FLAGS (2) ────────────────────────────────────────────────────
+  ⚠ no booking_url
+  ⚠ NO cover image (hero will show a placeholder)
+
+══════════════════════════════════════════════════════════════════════════════
+The Natural Place Med Spa   /clinics/the-natural-place-med-spa
+══════════════════════════════════════════════════════════════════════════════
+website     https://medspabroomfield.com/
+active      true
+tagline     Authentic beauty from within — blending medical aesthetics with a holistic, natural approach.
+about       At The Natural Place Med Spa, we believe authentic beauty shines from within. As Broomfield's trusted medical spa, we blend state-of-the-art medical a…
+phone       (303) 404-0255
+email       info@medspabroomfield.com
+booking     https://thenaturalplacemedspa.com/book
+rating      4.70★ / 439 reviews
+g99         clinic=4392 business=4211
+hours       7 day key(s)
+socials     ig=y fb=y
+
+── locations (1) ──────────────────────────────────────────────────
+  • 11975 Main St, Broomfield, CO, 80020
+    geo=39.9137,-105.0722  maps=n
+
+── providers (4) ──────────────────────────────────────────────────
+  • Bridget Hahn — Founder & Lead Aesthetician  [OWNER]  photo=y
+  • Dr. Aubrey Copeland — Medical Director, Board-Certified Anesthesiologist  photo=y
+  • Dr. Greg Buford — MD, FACS — Board-Certified Plastic Surgeon  photo=y
+  • Shelby Kelley — Laser Specialist & Microblading Artist  photo=y
+
+── images (13) — re-fetched live ──────────────────────────────
+  ✓ [logo] 206 image/png 960x270 r=3.56
+      https://files.manuscdn.com/user_upload_by_module/session_file/310519663082761896/alqZPhurMRiVBQCx.png
+  ✓ [cover] 206 image/webp 1920x1072 r=1.79
+      https://private-us-east-1.manuscdn.com/sessionFile/vPb2ZgwW9N3g1w5ju1Wr9X/sandbox/SJ9WBlCtgUh3VH96zb0tbU-img-1_1772063909000_na1fn_aGVyby1tZWRzcGE.jpg?x-oss-process=image/resize,w_1920,h_1920/format,webp/quality,q_80&Expires=1798761600&Policy=eyJTdGF0ZW1lbnQiOlt7IlJlc291cmNlIjoiaHR0cHM6Ly9wcml2YXRlLXVzLWVhc3QtMS5tYW51c2Nkbi5jb20vc2Vzc2lvbkZpbGUvdlBiMlpnd1c5TjNnMXc1anUxV3I5WC9zYW5kYm94L1NKOVdCbEN0Z1VoM1ZIOTZ6YjB0YlUtaW1nLTFfMTc3MjA2MzkwOTAwMF9uYTFmbl9hR1Z5YnkxdFpXUnpjR0UuanBnP3gtb3NzLXByb2Nlc3M9aW1hZ2UvcmVzaXplLHdfMTkyMCxoXzE5MjAvZm9ybWF0LHdlYnAvcXVhbGl0eSxxXzgwIiwiQ29uZGl0aW9uIjp7IkRhdGVMZXNzVGhhbiI6eyJBV1M6RXBvY2hUaW1lIjoxNzk4NzYxNjAwfX19XX0_&Key-Pair-Id=K2HSFNDJXOU9YS&Signature=omFBlGGk0QbIsGevez3QlGzqAUqrVivC-rS-H8145pIG1hEaSYOiWLfVh2B4tK4l~BH5MKAN-qmvy~KQisHNqxN72qoVdK6TuRqAX3SN-W7MoTtEilYi37~hKdKDwDaqcsptHU~TdY49Pslt4198mMXoIoRwfTzZjEacGl5rWS5vCRSHI3PSuYotTfT3mzq4TY8YCNxA8VOX~HpBgowkrgfYTSSQVy1wEapJjnwgUNgsTWzZfUJz68U41wl6yke4CJLnnZDV3sqVGeSLcIE5drFTN-2RqUyRm1xxeAKwZV0Q3bNlOdQXOVBqsG59BEB24MZsdUPnVPxSaRrUJKBAoQ__
+  ✓ [gallery] 206 image/webp 1920x1072 r=1.79
+      https://private-us-east-1.manuscdn.com/sessionFile/vPb2ZgwW9N3g1w5ju1Wr9X/sandbox/SJ9WBlCtgUh3VH96zb0tbU-img-2_1772063896000_na1fn_c2VydmljZXMtaW5qZWN0YWJsZXM.jpg?x-oss-process=image/resize,w_1920,h_1920/format,webp/quality,q_80&Expires=1798761600&Policy=eyJTdGF0ZW1lbnQiOlt7IlJlc291cmNlIjoiaHR0cHM6Ly9wcml2YXRlLXVzLWVhc3QtMS5tYW51c2Nkbi5jb20vc2Vzc2lvbkZpbGUvdlBiMlpnd1c5TjNnMXc1anUxV3I5WC9zYW5kYm94L1NKOVdCbEN0Z1VoM1ZIOTZ6YjB0YlUtaW1nLTJfMTc3MjA2Mzg5NjAwMF9uYTFmbl9jMlZ5ZG1salpYTXRhVzVxWldOMFlXSnNaWE0uanBnP3gtb3NzLXByb2Nlc3M9aW1hZ2UvcmVzaXplLHdfMTkyMCxoXzE5MjAvZm9ybWF0LHdlYnAvcXVhbGl0eSxxXzgwIiwiQ29uZGl0aW9uIjp7IkRhdGVMZXNzVGhhbiI6eyJBV1M6RXBvY2hUaW1lIjoxNzk4NzYxNjAwfX19XX0_&Key-Pair-Id=K2HSFNDJXOU9YS&Signature=ebmwrrUdtWaTXHuUGMSF9WapUlSLRKIZ25snVoFbbLb0aOCNYFLUvzw2Dqze9V-L0XrNwvtQMYMtGvcu6OJ0tvAMmFN0ePhIUBR~~AmQXX1GjA7oicC82FKGBuEwiQ2Ool~4JkFTS8FZXqHlewNUBssBKqo-rwXC~vnIK3WzPNSTzCNVqcAmiyZOSRhCLIYC1mShB19v78TeycM0FApqBDOCwJWrNZzcLKFBm7iG3FYocQ~bC-U7xOhuvX9Sn5msVjAwcZcW2rnVn7zxv2WCWdbUtjSwLkA~HmQxEgALTIzvGFnaIs1f2-hKBoassOHEOJqBMjZzQTAXxTGxfd7lcQ__
+  ✓ [gallery] 206 application/octet-stream 1200x801 r=1.5
+      https://d2xsxph8kpxj0f.cloudfront.net/310519663082761896/BPFzmUcY5yWP9cyXKgDDyE/prp-facial_0427b377.webp
+  ✓ [gallery] 206 application/octet-stream 1200x418 r=2.87
+      https://d2xsxph8kpxj0f.cloudfront.net/310519663082761896/BPFzmUcY5yWP9cyXKgDDyE/body-sculpting_79685005.webp
+  ✓ [before_after] 206 application/octet-stream 225x300 r=0.75
+      https://d2xsxph8kpxj0f.cloudfront.net/310519663082761896/BPFzmUcY5yWP9cyXKgDDyE/lip-filler-before_c9e8d280.webp
+  ✓ [before_after] 206 application/octet-stream 225x300 r=0.75
+      https://d2xsxph8kpxj0f.cloudfront.net/310519663082761896/BPFzmUcY5yWP9cyXKgDDyE/lip-filler-after_8d091253.webp
+  ✓ [before_after] 206 application/octet-stream 225x300 r=0.75
+      https://d2xsxph8kpxj0f.cloudfront.net/310519663082761896/BPFzmUcY5yWP9cyXKgDDyE/co2-face-1_1e0e5144.webp
+  ✓ [before_after] 206 application/octet-stream 225x300 r=0.75
+      https://d2xsxph8kpxj0f.cloudfront.net/310519663082761896/BPFzmUcY5yWP9cyXKgDDyE/co2-face-2_31276515.webp
+  ✓ [before_after] 206 application/octet-stream 1200x683 r=1.76
+      https://d2xsxph8kpxj0f.cloudfront.net/310519663082761896/BPFzmUcY5yWP9cyXKgDDyE/viora-body-before_2f5118e2.webp
+  ✓ [before_after] 206 application/octet-stream 1200x683 r=1.76
+      https://d2xsxph8kpxj0f.cloudfront.net/310519663082761896/BPFzmUcY5yWP9cyXKgDDyE/viora-body-after_379bf197.webp
+  ✓ [before_after] 206 application/octet-stream 225x300 r=0.75
+      https://d2xsxph8kpxj0f.cloudfront.net/310519663082761896/BPFzmUcY5yWP9cyXKgDDyE/eyebrow-tattoo-before_7c87d56d.webp
+  ✓ [before_after] 206 application/octet-stream 225x300 r=0.75
+      https://d2xsxph8kpxj0f.cloudfront.net/310519663082761896/BPFzmUcY5yWP9cyXKgDDyE/eyebrow-tattoo-after_635f2bef.webp
+  roles: logo=1 cover=1 gallery=3 before_after=8
+
+── treatments (55) ──────────────────────────────────────────────────
+  • Belotero Balance → Belotero (ai)
+  • UltraShape Body Contour → Body Contouring
+  • Body Sculp → Body Sculpting (ai)
+  • FIT Body Wrap → Body Wrap
+  • Lash, Brow or AquaDrop Tint → Brow & Lash Services (ai)
+  • Brow Lamination
+  • PCA/TNP Peels (Face/Body) → Chemical Peels
+  • Cosmelan Mask Treatment → Cosmelan Treatment (ai)
+  • Cryoclear Body Contouring → Cryo Slimming (ai)
+  • Daxxify (ai)
+  • Dermaplaning (ai)
+  • DiamondGlow / Silk Peel → DiamondGlow (ai)
+  • Electrolysis (ai)
+  • Eyebrow Waxing / Facial Waxing (per area) → Facial Hair Waxing (ai)
+  • Fat Dissolving Injections (Large Area) → Fat Dissolving Injections (ai)
+  • Sunetics Laser Hair Regrowth → Hair Restoration (ai)
+  • IPL by Spectrum → IPL (ai)
+  • Photofacial by Spectrum → IPL / Photofacial
+  • IV Drip Therapy → IV Therapy (ai)
+  • Infrared Sauna & Salt Cave → Infrared Sauna (ai)
+  • Ultra Light Therapy (Red/Green/Blue) → LED Light Therapy (ai)
+  • Carbon Laser Facial → Laser Facials (ai)
+  • Laser Hair Removal
+  • Diamond Laser Lipo → Laser Lipo (ai)
+  • Laser Acne, Scars, Wrinkles & Stretchmarks → Laser Skin Resurfacing
+  • Melasma Laser Treatment → Laser Skin Treatments (ai)
+  • Tattoo Removal by Pico Laser → Laser Tattoo Removal (ai)
+  • Lash Lift & Tint (ai)
+  • Lip Plump by Laser → Lip Augmentation (ai)
+  • Lymphatic Drainage (Pressotherapy) → Lymphatic Drainage (ai)
+  • Eyebrow Micropigmentation → Microblading (ai)
+  • DermaSweep Microdermabrasion → Microdermabrasion (ai)
+  • Butt Enhancement / Cupping Therapy → Non-Surgical Butt Lift (ai)
+  • Platelet-Rich Plasma (PRP) → PRP (Platelet-Rich Plasma)
+  • Permanent Makeup (Brows/Eyeliner/Lip Blushing) → Permanent Makeup
+  • Photo Facials → Photofacial (ai)
+  • Skin Rejuvenation by Pico/Q-Switch Laser → Pico Laser Treatment (ai)
+  • Viora RF (Face) → RF Skin Tightening
+  • RHA Filler → RHA (ai)
+  • Radiesse (ai)
+  • Viora RF (Body) → Radiofrequency Skin Tightening & Contouring (ai)
+  • Renuva Fat Filler Matrix → Renuva (ai)
+  • Sclerotherapy (ai)
+  • Skin Tightening (ai)
+  • Leg Vein Treatment (IPL) → Spider Vein Treatment (ai)
+  • Spray Tan → Tanning (ai)
+  • Teeth Whitening (ai)
+  • Toe Nail Fungus Removal by Laser → Toenail Fungus Laser Treatment (ai)
+  • Upneeq (ai)
+  • RejuVAnate by Phoenix Vaginal → Vaginal Rejuvenation (ai)
+  • Vein Treatment (YAG) → Vein Treatment (ai)
+  • B12 or B Complex Injection → Vitamin Injections (ai)
+  • Vitamin Injection → Vitamin Injections (ai)
+  • Warts, Skin Tags & Growths Removal → Wart Removal (ai)
+  • Xeomin (ai)
+
+── concerns (14) ──────────────────────────────────────────────────
+  • Droopy Eyelids (ai-created)  [scraped]
+  • Fine Lines (ai-created)  [scraped]
+  • Melasma (ai-created)  [scraped]
+  • Skin Laxity (ai-created)  [scraped]
+  • Spider Veins (ai-created)  [scraped]
+  • Stretch Marks  [scraped]
+  • Stubborn Body Fat  [scraped]
+  • Sun Damage  [scraped]
+  • Toenail Fungus (ai-created)  [scraped]
+  • Unwanted Hair (ai-created)  [scraped]
+  • Unwanted Tattoos (ai-created)  [scraped]
+  • Vaginal Dryness (ai-created)  [scraped]
+  • Varicose Veins (ai-created)  [scraped]
+  • Volume Loss (ai-created)  [scraped]
+
+search view: present
+
+── FLAGS (0) ────────────────────────────────────────────────────
+  none — everything checks out
+

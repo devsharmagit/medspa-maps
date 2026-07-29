@@ -1,0 +1,71 @@
+{
+ "schema_version": 1,
+ "domain": "mandalynacademy.com",
+ "classified_by": "classify-agent",
+ "probe": {
+  "pages_read": [
+   "/",
+   "/services/",
+   "/treatments/",
+   "/spa-menu/",
+   "/spa-info/",
+   "/lash-brow-design/",
+   "/teeth-whitening/",
+   "/spray-tans/",
+   "/program/",
+   "/admission/"
+  ],
+  "sitemap_source": "paths.txt",
+  "total_text_chars": 20000,
+  "digest_files": [
+   "digests/mandalynacademy.com/pass1.txt"
+  ]
+ },
+ "verdict": "EXCLUDE",
+ "confidence": "high",
+ "business_kind": "training_academy_with_clinic",
+ "clinic_type": null,
+ "exclusion_reason_code": "TRAINING_ONLY",
+ "unresolved_code": "AMBIGUOUS_ACADEMY",
+ "aesthetic_evidence": [
+  {
+   "service_name_on_page": "Facial Treatments",
+   "kind": "facial",
+   "page_path": "/",
+   "quote": "Our facial services focus on improving skin clarity, tone, and texture."
+  }
+ ],
+ "patient_facing": {
+  "sells_to": "patients",
+  "has_public_booking": true,
+  "phone": "801-772-3131",
+  "address_seen": "648 East State Road, Suite B American Fork, Utah 84003"
+ },
+ "counter_evidence": [
+  {
+   "note": "Spa-info page explicitly discloses the spa treatments (facials, body treatments, waxing, lash extensions, laser hair reduction, teeth whitening, spray tans) are performed by supervised students at below-market price as part of their training, not by licensed independent staff",
+   "page_path": "/spa-info/",
+   "quote": "ALL SERVICES PERFORMED BY SUPERVISED STUDENTS"
+  },
+  {
+   "note": "Explicitly framed as discounted training-clinic pricing rather than a standard commercial spa",
+   "page_path": "/spa-info/",
+   "quote": "Spa services, without the spa prices."
+  }
+ ],
+ "prior_reason_rebuttal": "Prior reason was 'Duplicate of: Mandalyn Academy' (a de-dup flag, unrelated to the aesthetic criteria). This is a licensed cosmetology/esthetics school (lash & brow, master/medical esthetics, spray tan, teeth-whitening programs) that also runs a public-facing student spa with real hours, online booking, and named services (facials, body treatments, laser hair reduction, waxing, lash extensions). Per the brief's rule 5, this is exactly the training-academy-with-clinic pattern: the only patient-facing treatments are delivered by supervised students at discounted 'spa services, without the spa prices' rates, so this is a policy call, not one I should decide.",
+ "proposed_markdown_reason": "Esthetics/cosmetology school. Closest of the five to a real business \u2014 published hours, online booking and a full service menu \u2014 but the site itself states 'ALL SERVICES PERFORMED BY SUPERVISED STUDENTS' at 'spa services, without the spa prices'. DECISION 2026-07-29: excluded because the treating hands are students; this was the borderline case of the five and was considered on its own merits. Revisit if it staffs licensed practitioners.",
+ "extract_hints": {
+  "service_pages": [
+   "/services/",
+   "/treatments/",
+   "/spa-menu/",
+   "/spa-info/"
+  ],
+  "team_page": "/our-team/",
+  "locations_page": "/contact/",
+  "gallery_page": "/student-picture-gallery/",
+  "est_extract_effort": "small"
+ },
+ "orchestrator_override": "was UNRESOLVED; resolved by user decision at checkpoint 1 (2026-07-29)"
+}

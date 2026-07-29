@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "domain": "faithfamhealth.com",
+  "classified_by": "classify-agent",
+  "probe": {
+    "pages_read": ["/", "/about-us/", "/clinic-services-pricing/", "/services/", "/weight-loss-and-iv-pricing/", "/contact-us/"],
+    "sitemap_source": "paths.txt",
+    "total_text_chars": 13500,
+    "digest_files": ["digests/faithfamhealth.com/pass1.txt"]
+  },
+  "verdict": "INCLUDE",
+  "confidence": "high",
+  "business_kind": "other_medical_plus_aesthetics",
+  "clinic_type": "other_medical_plus_aesthetics",
+  "exclusion_reason_code": null,
+  "aesthetic_evidence": [
+    {
+      "service_name_on_page": "Laser Tattoo & Permanent Makeup Removal",
+      "kind": "laser",
+      "page_path": "/services/",
+      "quote": "Laser Tattoo & Permanent Makeup Removal"
+    },
+    {
+      "service_name_on_page": "Natural Aesthetics",
+      "kind": "aesthetics",
+      "page_path": "/services/",
+      "quote": "Natural Aesthetics"
+    },
+    {
+      "service_name_on_page": "Botox and lip filler",
+      "kind": "injectable",
+      "page_path": "/about-us/",
+      "quote": "Certified in Aesthetics with advanced training in Botox and lip filler techniques, Mary has also earned certifications in areola medical tattoo and permanent makeup procedures."
+    }
+  ],
+  "patient_facing": {
+    "sells_to": "patients",
+    "has_public_booking": true,
+    "phone": "304-425-2405",
+    "address_seen": "609 Mercer St. Princeton, WV 24740"
+  },
+  "counter_evidence": [],
+  "prior_reason_rebuttal": "Prior verdict was 'Duplicate of: Faith Family Health' (a dedup note, not an aesthetics assessment). The /services/ page lists 'Laser Services', 'Laser Tattoo & Permanent Makeup Removal', and 'Natural Aesthetics' as offered services, and /about-us/ states the founder is 'Certified in Aesthetics with advanced training in Botox and lip filler techniques' plus permanent makeup/areola tattoo certifications - a real aesthetics arm alongside the primary/functional-health practice.",
+  "proposed_markdown_reason": null,
+  "extract_hints": {
+    "service_pages": ["/services/", "/clinic-services-pricing/"],
+    "team_page": "/about-us/",
+    "locations_page": "/contact-us/",
+    "gallery_page": null,
+    "est_extract_effort": "small"
+  }
+}

@@ -1,0 +1,532 @@
+
+══════════════════════════════════════════════════════════════════════════════
+Blue Spark Health   /clinics/blue-spark-health
+══════════════════════════════════════════════════════════════════════════════
+website     https://bluesparkhealth.com/
+active      true
+tagline     The best medicine is to teach people not to need it.
+about       Nestled in Lakebay on the Key Peninsula, Blue Spark Health takes a comprehensive approach to wellness, believing true beauty starts with inner well-be…
+phone       (253) 525-1080
+email       info@bluesparkhealth.com
+booking     https://bluesparkhealth.practicebetter.io/#/64ac918cba50fe403a1d040f/bookings?step=services
+rating      5.00★ / 20 reviews
+g99         clinic=4652 business=4437
+hours       2 day key(s)
+socials     ig=y fb=y
+
+── locations (2) ──────────────────────────────────────────────────
+  • 8912 Key Peninsula Hwy NW, Suite C, Lakebay, WA, 98349
+    geo=47.3389,-122.7474  maps=n
+  • 2609 Jahn Ave NW F12, Gig Harbor, WA, 98335
+    geo=47.3260,-122.5879  maps=n
+
+── providers (2) ──────────────────────────────────────────────────
+  • Dr. Carrie Phillips — ND, Naturopathic Doctor  photo=y
+  • Julia McDonald — Certified Nutritionist / Mental Health Consultant  photo=y
+
+── images (6) — re-fetched live ──────────────────────────────
+  ✓ [logo] 206 image/webp 1200x630 r=1.9
+      https://bluesparkhealth.com/storage/2025/08/bluesparkhealth-business-logo.webp
+  ✓ [cover] 206 image/webp 1024x438 r=2.34
+      https://bluesparkhealth.com/storage/2024/06/naturo-pathic-dermatology-Blue-spark-health-in-Key-center-WA-1024x438.webp
+  ✓ [gallery] 206 image/webp 1024x683 r=1.5
+      https://bluesparkhealth.com/storage/2024/06/Almated-in-lakeway-WA-1024x683.webp
+  ✓ [gallery] 206 image/webp 1025x1536 r=0.67
+      https://bluesparkhealth.com/storage/2024/06/microneedlings-blue-spark-health-lakeway-WA-1025x1536.webp
+  ✓ [gallery] 206 image/webp 750x500 r=1.5
+      https://bluesparkhealth.com/storage/elementor/thumbs/BlueSparkHealth-Lakebay-rlf6u9osb8s6jcxhsqbgb8iz8n48j7ygbvj0hu6jns.webp
+  ✓ [gallery] 206 image/webp 750x500 r=1.5
+      https://bluesparkhealth.com/storage/elementor/thumbs/BlueSparkHealth-Lakebay1-rlf6uammi2tguyw4n8q2vqafu0zlqx26o06hz455hk.webp
+  roles: logo=1 cover=1 gallery=4 before_after=0
+
+── treatments (3) ──────────────────────────────────────────────────
+  • Alma TED Hair Restoration → Hair Restoration (ai)
+  • Microneedling with PRP (ai)
+  • SkinPen → SkinPen Microneedling (ai)
+
+── concerns (6) ──────────────────────────────────────────────────
+  • Acne (ai-created)  [scraped]
+  • Eczema (ai-created)  [scraped]
+  • Hair Loss (ai-created)  [scraped]
+  • Psoriasis (ai-created)  [scraped]
+  • Rosacea  [scraped]
+  • Thinning Hair (ai-created)  [scraped]
+
+search view: present
+
+── FLAGS (1) ────────────────────────────────────────────────────
+  ⚠ hours covers only 2 day(s)
+
+══════════════════════════════════════════════════════════════════════════════
+Calhoun Health & Spine   /clinics/calhoun-health-spine
+══════════════════════════════════════════════════════════════════════════════
+website     https://calhounhealthandspine.com/
+active      true
+tagline     Your Trusted Chiropractor in Clemson, SC for Pain Relief & Wellness
+about       Calhoun Health & Spine is a comprehensive wellness practice combining personalized chiropractic care, integrative medicine, hormone optimization, and …
+phone       (864) 653-3928
+email       hellocalhounfc@gmail.com
+booking     https://clinic.patienthealthcenters.org/book?clinic=CALHOU24GSSC
+rating      4.90★ / 297 reviews
+g99         clinic=7104 business=6728
+hours       7 day key(s)
+socials     ig=y fb=y
+
+── locations (1) ──────────────────────────────────────────────────
+  • 400 Pendleton Rd., Clemson, SC, 29631
+    geo=34.6657,-82.7983  maps=n
+
+── providers (3) ──────────────────────────────────────────────────
+  • Dr. Ryan Calhoun — Doctor of Chiropractic (DC)  [OWNER]  photo=NO
+  • Fernando Olayo Olvera — Certified Exercise Physiologist  photo=NO
+  • Rachel Hughes — PA-C, Board-Certified Physician Assistant  photo=NO
+
+── images (5) — re-fetched live ──────────────────────────────
+  ✓ [cover] 206 image/webp 1500x1000 r=1.5
+      https://www.calhounhealthandspine.com/storage/2026/02/Chemical-Peels-in-Calhoun-Health-Spine-Peels-in-Clemson-SC.webp
+  ✓ [gallery] 206 image/webp 1500x1000 r=1.5
+      https://www.calhounhealthandspine.com/storage/2026/02/Hydrofacial-Service-Image-Calhoun-Health-Spine-Peels-in-Clemson-SC.webp
+  ✓ [gallery] 206 image/webp 1500x1000 r=1.5
+      https://www.calhounhealthandspine.com/storage/2026/02/Microdermabrasion-Calhoun-Health-Spine-Peels-in-Clemson-SC.webp
+  ✓ [gallery] 206 image/webp 1500x1000 r=1.5
+      https://www.calhounhealthandspine.com/storage/2026/02/Microneedling-Calhoun-Health-Spine-Peels-in-Clemson-SC.webp
+  ✓ [gallery] 206 image/webp 1000x667 r=1.5
+      https://www.calhounhealthandspine.com/storage/2026/02/About-Image-Calhoun-Health-Spine.webp
+  roles: logo=0 cover=1 gallery=4 before_after=0
+
+── treatments (6) ──────────────────────────────────────────────────
+  • Chemical Peels
+  • Hydrofacial → HydraFacial
+  • Microdermabrasion (ai)
+  • Microneedling
+  • Microneedling with PRP Hair Restoration → PRP Hair Restoration (ai)
+  • PRP Microneedling (ai)
+
+── concerns (10) ──────────────────────────────────────────────────
+  • Acne (ai-created)  [scraped]
+  • Acne Scars  [scraped]
+  • Dull Skin (ai-created)  [scraped]
+  • Enlarged Pores (ai-created)  [scraped]
+  • Hyperpigmentation  [scraped]
+  • Stretch Marks  [scraped]
+  • Sun Damage  [scraped]
+  • Thinning Hair (ai-created)  [scraped]
+  • Uneven Skin Tone (ai-created)  [scraped]
+  • Wrinkles & Fine Lines  [scraped]
+
+search view: present
+
+── FLAGS (1) ────────────────────────────────────────────────────
+  ⚠ no logo image
+
+══════════════════════════════════════════════════════════════════════════════
+Equilibrium Handtherapy   /clinics/equilibrium-handtherapy
+══════════════════════════════════════════════════════════════════════════════
+website     https://equilibrium-handtherapy.com/
+active      true
+tagline     Lymphatic, Therapeutic & Aesthetic Massage
+about       We are a specialized therapy center, experts in lymphatic, therapeutic, and aesthetic massage. We provide post-operative therapies designed to promote…
+phone       (954) 261-3366
+email       info@equilibriumlymphatic.com
+booking     https://equilibrium-handtherapy.com/book-now/
+rating      4.90★ / 74 reviews
+g99         clinic=5160 business=4916
+hours       7 day key(s)
+socials     ig=y fb=y
+
+── locations (1) ──────────────────────────────────────────────────
+  • 900 S Federal Highway, Suite C, Hollywood, FL, 33020
+    geo=26.0253,-80.1433  maps=n
+
+── providers (1) ──────────────────────────────────────────────────
+  • Siomara Sierra — Founder & Licensed Massage Therapist  [OWNER]  photo=NO
+
+── images (6) — re-fetched live ──────────────────────────────
+  ✓ [cover] 206 image/webp 1024x683 r=1.5
+      https://equilibrium-handtherapy.com/storage/2025/01/home-about-equilibrium-handtherapy-hollywood-fl-1024x683.webp
+  ✓ [gallery] 206 image/webp 1024x683 r=1.5
+      https://equilibrium-handtherapy.com/storage/2026/06/HydroFacial-in-Hollywood-FL-1024x683.webp
+  ✓ [gallery] 206 image/webp 1024x683 r=1.5
+      https://equilibrium-handtherapy.com/storage/2026/06/Facial-Massages-in-Hollywood-FL-1024x683.webp
+  ✓ [gallery] 206 image/webp 1537x1023 r=1.5
+      https://equilibrium-handtherapy.com/storage/2026/06/Facial-Hydration-in-Hollywood-FL.webp
+  ✓ [gallery] 206 image/webp 1400x933 r=1.5
+      https://equilibrium-handtherapy.com/storage/2025/02/fractional-rf-microneedlings-procedure-equilibrium-handtherapy-hollywood-fl.webp
+  ✓ [gallery] 206 image/webp 1024x683 r=1.5
+      https://equilibrium-handtherapy.com/storage/2026/06/Carboxytherapy-1024x683.webp
+  roles: logo=0 cover=1 gallery=5 before_after=0
+
+── treatments (17) ──────────────────────────────────────────────────
+  • Figure Molding → Body Contouring
+  • Botox
+  • Carboxytherapy (ai)
+  • Chemical Peel (ai)
+  • Facial Hydration → Deep Hydration Facial (ai)
+  • Fillers → Dermal Fillers
+  • Facial Lymphatic Massage (ai)
+  • Facial Massages → Facial Massage (ai)
+  • HydroFacial → HydraFacial
+  • IV Therapy (Intravenous Vitamins) → IV Therapy (ai)
+  • Laser Hair Removal
+  • Prenatal Massage → Massage
+  • Sports Massage → Massage
+  • Deep Detox Massage → Massage Therapy
+  • Microneedling
+  • PRP Therapy → PRP (Platelet-Rich Plasma)
+  • Fractional RF Microneedling Facial → RF Microneedling (ai)
+
+── concerns (11) ──────────────────────────────────────────────────
+  • Acne (ai-created)  [scraped]
+  • Acne Scars  [scraped]
+  • Cellulite (ai-created)  [scraped]
+  • Dark Circles (ai-created)  [scraped]
+  • Dryness (ai-created)  [scraped]
+  • Dull Skin (ai-created)  [scraped]
+  • Enlarged Pores (ai-created)  [scraped]
+  • Fine Lines (ai-created)  [scraped]
+  • Hyperpigmentation  [scraped]
+  • Sagging Skin (ai-created)  [scraped]
+  • Stretch Marks  [scraped]
+
+search view: present
+
+── FLAGS (1) ────────────────────────────────────────────────────
+  ⚠ no logo image
+
+══════════════════════════════════════════════════════════════════════════════
+Dr. Joseph Field, DDS   /clinics/dr-joseph-field-dds
+══════════════════════════════════════════════════════════════════════════════
+website     https://drjosephfield.com/
+active      true
+tagline     Cosmetic and Reconstructive Dentistry
+about       Dr. Joseph Field is the Bay Area's premier specialist in cosmetic and reconstructive dentistry. He is a caring provider unafraid to tackle extreme smi…
+phone       (650) 948-5524
+email       —
+booking     https://app.smilevirtual.com/Dr-Field/sign-up
+rating      5.00★ / 11 reviews
+g99         clinic=1727 business=1714
+hours       7 day key(s)
+socials     ig=y fb=y
+
+── locations (2) ──────────────────────────────────────────────────
+  • 99 Third Street, Los Altos, CA, 94022
+    geo=37.3791,-122.1166  maps=n
+  • 1850 W Ashton Blvd Ste 100, Lehi, UT, 84043
+    geo=40.4197,-111.8812  maps=n
+
+── providers (1) ──────────────────────────────────────────────────
+  • Dr. Joseph Field — DDS, FAAID, FICOI, FAGD, DABOI/ID  [OWNER]  photo=y
+
+── images (10) — re-fetched live ──────────────────────────────
+  ✓ [cover] 206 image/webp 1024x576 r=1.78
+      https://drjosephfield.com/storage/2026/04/Cosmetic-and-Reconstructive-Dentistry-bg-1024x576.webp
+  ✓ [gallery] 206 image/webp 1920x1080 r=1.78
+      https://drjosephfield.com/storage/2026/04/Reconstructive-Dentistry.webp
+  ✓ [gallery] 206 image/webp 1500x844 r=1.78
+      https://drjosephfield.com/storage/2026/03/drjosephfield-Dental-Crowns-service.webp
+  ✓ [gallery] 206 image/webp 537x541 r=0.99
+      https://drjosephfield.com/storage/2026/03/improve-smile.webp
+  ✓ [before_after] 206 image/webp 500x330 r=1.52
+      https://drjosephfield.com/storage/2026/07/Patient_1_Before.webp
+  ✓ [before_after] 206 image/webp 500x330 r=1.52
+      https://drjosephfield.com/storage/2026/07/Patient_1_After.webp
+  ✓ [before_after] 206 image/webp 500x330 r=1.52
+      https://drjosephfield.com/storage/2026/07/Patient_2_Before.webp
+  ✓ [before_after] 206 image/webp 500x330 r=1.52
+      https://drjosephfield.com/storage/2026/07/Patient_2_After.webp
+  ✓ [before_after] 206 image/webp 2560x1707 r=1.5
+      https://drjosephfield.com/storage/2026/06/Chris-Before-scaled.webp
+  ✓ [before_after] 206 image/webp 2560x1707 r=1.5
+      https://drjosephfield.com/storage/2026/06/Chris-After-scaled.webp
+  roles: logo=0 cover=1 gallery=3 before_after=6
+
+── treatments (6) ──────────────────────────────────────────────────
+  • Smile Makeover (ai)
+  • Snap-On Smile® → Snap-On Smile (ai)
+  • Zoom Whitening → Teeth Whitening (ai)
+  • Lumineers® → Veneers (ai)
+  • Porcelain Veneers → Veneers (ai)
+  • SmileSculpt™ → Veneers (ai)
+
+── concerns (0) ──────────────────────────────────────────────────
+
+search view: present
+
+── FLAGS (2) ────────────────────────────────────────────────────
+  ⚠ no logo image
+  ⚠ NO concerns — clinic will not surface in any condition search
+
+══════════════════════════════════════════════════════════════════════════════
+Faith Family Health   /clinics/faith-family-health
+══════════════════════════════════════════════════════════════════════════════
+website     https://faithfamhealth.com/
+active      true
+tagline     Family is Our Middle Name
+about       An independent, nurse practitioner-owned private practice founded by Mary Curry, APRN, FNP-C, blending traditional primary care with functional medici…
+phone       (304) 425-2405
+email       info@faithfamhealth.com
+booking     https://faithfamhealth.com/contact-us/
+rating      4.30★ / 22 reviews
+g99         clinic=5589 business=5312
+hours       4 day key(s)
+socials     ig=y fb=y
+
+── locations (1) ──────────────────────────────────────────────────
+  • 609 Mercer St., Princeton, WV, 24740
+    geo=37.3696,-81.0916  maps=n
+
+── providers (1) ──────────────────────────────────────────────────
+  • Mary S. Curry — APRN, FNP-C, RN, Family Nurse Practitioner  [OWNER]  photo=y
+
+── images (4) — re-fetched live ──────────────────────────────
+  ✓ [logo] 206 image/webp 1200x630 r=1.9
+      https://faithfamhealth.com/storage/2025/06/featured-image.webp
+  ✓ [cover] 206 image/webp 2000x1333 r=1.5
+      https://faithfamhealth.com/storage/2025/06/Faith-Family-Health-Laser-Services-in-Princeton-WV.webp
+  ✓ [gallery] 206 image/webp 2000x1333 r=1.5
+      https://faithfamhealth.com/storage/2025/06/Faith-Family-Health-Natural-Aesthetics-in-Princeton-WV.webp
+  ✓ [gallery] 206 image/webp 2000x1333 r=1.5
+      https://faithfamhealth.com/storage/2025/06/Faith-Family-Health-Laser-Tattoo-Permanent-Makeup-Removal-in-Princeton-WV.webp
+  roles: logo=1 cover=1 gallery=2 before_after=0
+
+── treatments (12) ──────────────────────────────────────────────────
+  • Botox
+  • Laser Hair Removal
+  • Laser Facial Skin Resurfacing → Laser Skin Resurfacing
+  • Laser Skin Tightening (ai)
+  • Laser Tattoo Removal (ai)
+  • Lip Filler (ai)
+  • PRF Under-Eye Treatment → PRP & PRF (ai)
+  • PRP Hair Restoration (ai)
+  • PRP Microneedling Facial → PRP Microneedling (ai)
+  • Permanent Makeup Removal → Permanent Makeup
+  • Vascular/Spider Vein Treatment → Spider Vein Treatment (ai)
+  • Vaginal Rejuvenation (ai)
+
+── concerns (9) ──────────────────────────────────────────────────
+  • Dark Circles (ai-created)  [scraped]
+  • Fine Lines (ai-created)  [scraped]
+  • Hair Loss (ai-created)  [scraped]
+  • Hyperpigmentation  [scraped]
+  • Sagging Skin (ai-created)  [scraped]
+  • Spider Veins (ai-created)  [scraped]
+  • Unwanted Hair (ai-created)  [scraped]
+  • Unwanted Tattoos (ai-created)  [scraped]
+  • Vaginal Laxity (ai-created)  [scraped]
+
+search view: present
+
+── FLAGS (1) ────────────────────────────────────────────────────
+  ⚠ hours covers only 4 day(s)
+
+══════════════════════════════════════════════════════════════════════════════
+Glamour Nails & Spa   /clinics/glamour-nails-spa
+══════════════════════════════════════════════════════════════════════════════
+website     https://glamournailsandspa.com/
+active      true
+tagline     Good Nail Polish for Good Moments.
+about       Glamour Nails & Spa is a modern, luxury-inspired nail salon in Union, KY offering a full menu of manicures, pedicures, and nail enhancements alongside…
+phone       (859) 777-7979
+email       info@glamournailsandspa.com
+booking     https://glamournailsandspa.com/location-book-now/
+rating      4.40★ / 647 reviews
+g99         clinic=1665 business=1651
+hours       7 day key(s)
+socials     ig=y fb=y
+
+── locations (2) ──────────────────────────────────────────────────
+  • 9085 US-42 Suite B, Union, KY, 41091
+    geo=38.9600,-84.6775  maps=n
+  • 9232 US-42 Suite B, Union, KY, 41091
+    geo=38.9595,-84.6822  maps=n
+
+── providers (1) ──────────────────────────────────────────────────
+  • Chi Le — Owner, Registered Kentucky Beautician  [OWNER]  photo=y
+
+── images (5) — re-fetched live ──────────────────────────────
+  ✓ [logo] 206 image/jpeg 1200x630 r=1.9
+      https://glamournailsandspa.com/storage/2024/10/Glamour-Nails-and-Spa-in-Union-Kentucky-.jpg
+  ✓ [cover] 206 image/jpeg 1024x680 r=1.51
+      https://glamournailsandspa.com/storage/2023/02/services-manicurea-1024x680.jpeg
+  ✓ [gallery] 206 image/jpeg 1024x683 r=1.5
+      https://glamournailsandspa.com/storage/2023/01/services-pedicures-1024x683.jpeg
+  ✓ [gallery] 206 image/jpeg 1024x683 r=1.5
+      https://glamournailsandspa.com/storage/2023/02/services-acrylic-nails-c-1024x683.jpeg
+  ✓ [gallery] 206 image/jpeg 768x1024 r=0.75
+      https://glamournailsandspa.com/storage/2023/02/Gallery-eighty-eight-768x1024.jpg
+  roles: logo=1 cover=1 gallery=3 before_after=0
+
+── treatments (10) ──────────────────────────────────────────────────
+  • Gel Manicure
+  • Manicure
+  • Acrylic Nails → Nail Enhancements
+  • Builder Gel → Nail Enhancements
+  • Dipping Powder → Nail Enhancements
+  • Gel-X Nail Extensions → Nail Enhancements
+  • Nail Design → Nail Enhancements
+  • Gel Pedicure → Pedicure
+  • Pedicure
+  • Face Waxing → Waxing
+
+── concerns (0) ──────────────────────────────────────────────────
+
+search view: present
+
+── FLAGS (1) ────────────────────────────────────────────────────
+  ⚠ NO concerns — clinic will not surface in any condition search
+
+══════════════════════════════════════════════════════════════════════════════
+Highlands Health and Wellness Center   /clinics/highlands-health-and-wellness-center
+══════════════════════════════════════════════════════════════════════════════
+website     https://highlandshealthandwellness.com/
+active      true
+tagline     Enhancing Care for Holistic Well-Being, Both Inside and Out.
+about       At Highlands Health and Wellness Center, our guiding principle is that care must be personal, and every patient receives our undivided attention. Our …
+phone       (863) 382-4860
+email       highlandshealthandwellness@yahoo.com
+booking     https://highlandshealthandwellness.com/contact/
+rating      4.40★ / 26 reviews
+g99         clinic=6056 business=5874
+hours       5 day key(s)
+socials     ig=n fb=n
+
+── locations (1) ──────────────────────────────────────────────────
+  • 119 US 27 North, Sebring, FL, 33870
+    geo=27.4957,-81.4410  maps=n
+
+── providers (2) ──────────────────────────────────────────────────
+  • Dr. Marie Rosy Toussaint — Internal Medicine Physician  [OWNER]  photo=NO
+  • Natasha Tolentino — Medical Assistant  photo=NO
+
+── images (0) — re-fetched live ──────────────────────────────
+  roles: logo=0 cover=0 gallery=0 before_after=0
+
+── treatments (1) ──────────────────────────────────────────────────
+  • Emsculpt Neo® → EMSCULPT NEO (ai)
+
+── concerns (1) ──────────────────────────────────────────────────
+  • Stubborn Body Fat  [scraped]
+
+search view: present
+
+── FLAGS (2) ────────────────────────────────────────────────────
+  ⚠ NO cover image (hero will show a placeholder)
+  ⚠ no logo image
+
+══════════════════════════════════════════════════════════════════════════════
+Texas Vein and Vascular   /clinics/texas-vein-and-vascular
+══════════════════════════════════════════════════════════════════════════════
+website     https://texasveinandvascular.com/
+active      true
+tagline     — (none)
+about       Texas Vein and Vascular is a premier varicose vein practice dedicated to improving the cardiovascular health of the Corpus Christi, TX community for o…
+phone       (361) 991-6611
+email       —
+booking     https://www.facebook.com/TexasVeinAndVascular
+rating      4.60★ / 69 reviews
+g99         clinic=4786 business=4550
+hours       5 day key(s)
+socials     ig=y fb=y
+
+── locations (1) ──────────────────────────────────────────────────
+  • 5242 Holly Rd, Corpus Christi, TX, 78411
+    geo=27.7014,-97.3819  maps=n
+
+── providers (5) ──────────────────────────────────────────────────
+  • Dr. Javier Alonso — MD, PhD, PA  [OWNER]  photo=NO
+  • Amanda Trevino — Registered Nurse  photo=NO
+  • Mandy Flores — MSN, APRN, FNP-C  photo=NO
+  • Norma Reyes — Office Manager  photo=NO
+  • Salome Dheming — Registered Nurse  photo=NO
+
+── images (1) — re-fetched live ──────────────────────────────
+  ✓ [logo] 206 image/jpeg 1280x720 r=1.78
+      https://texasveinandvascular.com/storage/2024/10/Texas-Vein-and-Vascular-Logo.jpg
+  roles: logo=1 cover=0 gallery=0 before_after=0
+
+── treatments (2) ──────────────────────────────────────────────────
+  • BOTOX® for Hyperhidrosis → Botox
+  • Sclerotherapy for Varicose and Spider Veins → Sclerotherapy (ai)
+
+── concerns (3) ──────────────────────────────────────────────────
+  • Hyperhidrosis (ai-created)  [scraped]
+  • Spider Veins (ai-created)  [scraped]
+  • Varicose Veins (ai-created)  [scraped]
+
+search view: present
+
+── FLAGS (2) ────────────────────────────────────────────────────
+  ⚠ no tagline
+  ⚠ NO cover image (hero will show a placeholder)
+
+══════════════════════════════════════════════════════════════════════════════
+Pacific OBGYN + Aesthetics   /clinics/pacific-obgyn-aesthetics
+══════════════════════════════════════════════════════════════════════════════
+website     https://pacific-obgyn.com/
+active      true
+tagline     Skin and body aesthetic treatments from Pacific OBGYN + Aesthetics, serving Newport Beach and Irvine, CA.
+about       Pacific OBGYN + Aesthetics is the aesthetics arm of Pacific Obstetrics and Gynecology, serving Newport Beach and Irvine, CA. The Skin menu covers Boto…
+phone       (949) 548-6800
+email       aesthetics@pacific-obgyn.com
+booking     https://app.growth99.com/ap-booking?b=4283&c=4476
+rating      3.30★ / 13 reviews
+g99         clinic=4476 business=4283
+hours       — (none)
+socials     ig=y fb=n
+
+── locations (2) ──────────────────────────────────────────────────
+  • 496 Old Newport Blvd, Suite 4, Newport Beach, CA, 92663
+    geo=33.6170,-117.9294  maps=n
+  • 16305 Sand Canyon Ave, Suite 220, Irvine, CA, 92618
+    geo=33.6622,-117.7741  maps=n
+
+── providers (2) ──────────────────────────────────────────────────
+  • Dr. Christina Lee — MD, FACOG  photo=NO
+  • Dr. Jennifer Lee — MD, FACOG  photo=NO
+
+── images (8) — re-fetched live ──────────────────────────────
+  ✓ [logo] 206 image/webp 1200x630 r=1.9
+      https://pacific-obgyn.com/storage/2024/09/Pacific-Obstetrics-and-Gynecology-Main-header-Logo-In-Newport-Beach-CA.webp
+  ✓ [cover] 206 image/webp 1200x630 r=1.9
+      https://pacific-obgyn.com/storage/2025/10/Close-up-of-a-person-receiving-Laser-Hair-Removal-in-Newport-Beach-CA-on-their-leg-in-a-clinical-setting-with-a-gloved-hand-holding-the-laser-device.webp
+  ✓ [gallery] 206 image/webp 2000x1333 r=1.5
+      https://pacific-obgyn.com/storage/2024/02/pacific-obgyn-filler-in-newport-beach-ca.webp
+  ✓ [gallery] 206 image/webp 1200x800 r=1.5
+      https://pacific-obgyn.com/storage/2024/02/Pacific-Obstetrics-and-Gynecology_RF-Microneedlings_in-Newport-Beach-CA.webp
+  ✓ [gallery] 206 image/webp 2000x1333 r=1.5
+      https://pacific-obgyn.com/storage/2024/02/Pacific-Obstetrics-and-Gynecology-Laser-Facial-Rejuvenations-in-Newport-Beach-CA.webp
+  ✓ [gallery] 206 image/webp 1920x1281 r=1.5
+      https://pacific-obgyn.com/storage/2024/02/Pacific-Obstetrics-and-Gynecology-laser-acne-treatment-in-Newport-Beach-CA.webp
+  ✓ [gallery] 206 image/webp 1100x752 r=1.46
+      https://pacific-obgyn.com/storage/2024/02/Pacific-Obstetrics-and-Gynecology_Body-Contouring-In-Newport-Beach-CA.webp
+  ✓ [before_after] 206 image/webp 621x350 r=1.77
+      https://pacific-obgyn.com/storage/elementor/thumbs/Pacific-Obstetrics-and-Gynecology-Body-Contouring-In-Before-After-m-Newport-Beach-CA-scaled-qo3lsdqn5x7w69an37bzvwxeqokggarm5x6fq6yyuk.webp
+  roles: logo=1 cover=1 gallery=5 before_after=1
+
+── treatments (9) ──────────────────────────────────────────────────
+  • Body Contouring (truSculpt/truFlex) → Body Contouring
+  • Botox
+  • Fillers → Dermal Fillers
+  • Hair Restoration (Exosome Microneedling) → Hair Restoration (ai)
+  • Laser Acne Treatment (Aviclear) → Laser Acne Treatment (ai)
+  • Laser Facial Rejuvenation (excelV Laser Genesis) → Laser Genesis (ai)
+  • Laser Hair Removal
+  • RF Microneedling (Secret RF by Cutera) → RF Microneedling (ai)
+  • Vaginal Remodeling with Laser → Vaginal Rejuvenation (ai)
+
+── concerns (9) ──────────────────────────────────────────────────
+  • Acne (ai-created)  [scraped]
+  • Acne Scars  [scraped]
+  • Hair Loss (ai-created)  [scraped]
+  • Stubborn Body Fat  [scraped]
+  • Unwanted Hair (ai-created)  [scraped]
+  • Vaginal Dryness (ai-created)  [scraped]
+  • Vaginal Laxity (ai-created)  [scraped]
+  • Volume Loss (ai-created)  [scraped]
+  • Wrinkles & Fine Lines  [scraped]
+
+search view: present
+
+── FLAGS (1) ────────────────────────────────────────────────────
+  ⚠ no hours
+

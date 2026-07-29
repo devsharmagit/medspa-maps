@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "domain": "rockymountainsnowmobile.com",
+  "classified_by": "classify-agent",
+  "probe": {
+    "pages_read": ["/", "/pages/about-us", "/pages/contact-us", "/pages/terms-of-service"],
+    "sitemap_source": "paths.txt (only sitemap index/collection XML files listed; no page paths, so auto-discovery was used)",
+    "total_text_chars": 5300,
+    "digest_files": ["digests/rockymountainsnowmobile.com/pass1.txt"]
+  },
+  "verdict": "EXCLUDE",
+  "confidence": "high",
+  "business_kind": "non_clinic_business",
+  "clinic_type": null,
+  "exclusion_reason_code": "NON_CLINIC_BUSINESS",
+  "aesthetic_evidence": [],
+  "patient_facing": {
+    "sells_to": "consumers (e-commerce shoppers)", "has_public_booking": false,
+    "phone": "1-801-224-5073", "address_seen": "1182 N. State Street, Orem, Utah 84057"
+  },
+  "counter_evidence": [],
+  "prior_reason_rebuttal": "Prior verdict was a de-dup label ('Duplicate of: Rocky Mountain Snowmobile'), not a content review. Re-checked directly: this is a Shopify e-commerce store (MotoFrugals, Inc.) selling snowmobile parts, apparel, helmets, and accessories -- no patient services of any kind, aesthetic or otherwise. Confirmed NON_CLINIC_BUSINESS under the new criteria as well.",
+  "proposed_markdown_reason": "Retail e-commerce store selling snowmobile parts and gear; not a clinic or aesthetic service provider of any kind.",
+  "extract_hints": {
+    "service_pages": [], "team_page": null,
+    "locations_page": "/pages/contact-us", "gallery_page": null,
+    "est_extract_effort": "small"
+  }
+}

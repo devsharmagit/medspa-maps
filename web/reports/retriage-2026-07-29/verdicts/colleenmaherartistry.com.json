@@ -1,0 +1,56 @@
+{
+ "schema_version": 1,
+ "domain": "colleenmaherartistry.com",
+ "classified_by": "classify-agent",
+ "probe": {
+  "pages_read": [
+   "/",
+   "/about/",
+   "/clients/",
+   "/contact/",
+   "/self-assessment/",
+   "/services/"
+  ],
+  "sitemap_source": "paths.txt",
+  "total_text_chars": 4200,
+  "digest_files": [
+   "digests/colleenmaherartistry.com/pass1.txt"
+  ]
+ },
+ "verdict": "EXCLUDE",
+ "confidence": "high",
+ "business_kind": "day_spa_or_salon",
+ "clinic_type": null,
+ "exclusion_reason_code": "NO_AESTHETIC_SERVICES",
+ "aesthetic_evidence": [
+  {
+   "service_name_on_page": "False Eyelash Application",
+   "kind": "lash",
+   "page_path": "/services/",
+   "quote": "False Eyelash Application $20.00"
+  }
+ ],
+ "patient_facing": {
+  "sells_to": "patients",
+  "has_public_booking": true,
+  "phone": "267-312-7218",
+  "address_seen": null
+ },
+ "counter_evidence": [
+  {
+   "note": "The overwhelming majority of the menu (Signature Bridal Makeup, Bridesmaid Full Face, Flower girl, Trial, Make up lesson) is event/bridal makeup artistry and a paid lesson, not a general spa/beauty service."
+  }
+ ],
+ "prior_reason_rebuttal": "Prior verdict was a de-dup label ('Duplicate of: Colleen Maher Artistry'), not a content review. Colleen Maher Artistry is primarily a bridal/event makeup artist (Signature Bridal Makeup, Bridesmaid Full Face, Flower girl, Trial are all wedding-party packages, and 'Make up lesson' is training, not a treatment). However, /services/ also lists a standalone 'False Eyelash Application $20.00' with its own BOOK AN APPOINTMENT button, not bundled into any bridal package or restricted to wedding parties. Per the brief, lash services count as a day-spa/salon aesthetic service, so this tips to INCLUDE, but on thin, single-line-item evidence \u2014 everything else on the site is bridal/event makeup artistry only.",
+ "proposed_markdown_reason": "Philadelphia bridal/event makeup artist. NOT excluded for lack of any aesthetic signal \u2014 /services/ does list a bookable 'False Eyelash Application $20.00'. DECISION 2026-07-29: dropped as too thin \u2014 one line item inside an otherwise entirely bridal menu is an add-on to event makeup, not a standing lash service. Revisit if it adds lash/brow or skin services.",
+ "extract_hints": {
+  "service_pages": [
+   "/services/"
+  ],
+  "team_page": "/about/",
+  "locations_page": "/contact/",
+  "gallery_page": "/clients/",
+  "est_extract_effort": "small"
+ },
+ "orchestrator_override": "was INCLUDE; resolved by user decision at checkpoint 1 (2026-07-29)"
+}

@@ -1,0 +1,50 @@
+{
+  "website": "https://instituteforpainrelief.com/",
+  "name": "Institute for Pain Relief",
+  "clinic_type": "other_medical_plus_aesthetics",
+  "tagline": "Expert Care. Modern Solutions. Pain-Free Living.",
+  "about": "The Institute for Pain Relief in Voorhees, NJ, led by Dr. Kavita Gupta, MD, MEng, is a pain-management and workers'-compensation consulting practice specializing in spine and musculoskeletal conditions. Alongside its pain-management and regenerative-treatment services, the practice offers a small Advanced Aesthetics line of cosmetic services performed under medical supervision, including Botox, dermal fillers, PDO thread facelifts, and Aerolase laser therapy.",
+  "phone": "(856) 751-7799",
+  "email": null,
+  "booking_url": "https://instituteforpainrelief.com/intake-form/",
+  "socials": {
+    "instagram": "https://www.instagram.com/institutepainrelief/",
+    "facebook": "https://www.facebook.com/advocarepaininstitute/",
+    "tiktok": "https://www.tiktok.com/@instituteforpainreliefnj",
+    "youtube": null,
+    "x": null,
+    "linkedin": null,
+    "yelp": null
+  },
+  "hours": "Mon-Fri: 9:00 am - 4:30 pm Sat-Sun: Closed",
+  "locations": [
+    {
+      "address": "705 White Horse Rd STE D101",
+      "city": "Voorhees Township",
+      "state": "NJ",
+      "zip": "08043",
+      "phone": "(856) 751-7799"
+    }
+  ],
+  "providers": [
+    {
+      "name": "Dr. Kavita Gupta",
+      "title": "MD, MEng, Board-Certified PM&R",
+      "image_url": null,
+      "is_owner": true
+    }
+  ],
+  "treatments": [
+    {"raw_name": "Botox®", "general_name": "Botox"},
+    {"raw_name": "Dermal Fillers (Evolysse & Restylane)", "general_name": "Dermal Fillers"},
+    {"raw_name": "PDO Threads (Non-Surgical Facelift)", "general_name": "PDO Thread Facelift"},
+    {"raw_name": "Laser Therapy (Aerolase)", "general_name": "Laser Therapy"}
+  ],
+  "concerns": ["Fine Lines", "Volume Loss", "Sagging Skin", "Acne Scars", "Rosacea"],
+  "images": {
+    "logo": null,
+    "cover": "https://instituteforpainrelief.com/storage/2026/02/Advanced-Aesthetics-Institute-for-pain-relief-in-voorhees-nj.webp",
+    "gallery": [],
+    "before_after": []
+  }
+}

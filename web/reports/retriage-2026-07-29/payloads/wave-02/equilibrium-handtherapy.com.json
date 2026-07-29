@@ -1,0 +1,84 @@
+{
+  "website": "https://equilibrium-handtherapy.com/",
+  "name": "Equilibrium Handtherapy",
+  "clinic_type": "other_medical_plus_aesthetics",
+  "tagline": "Lymphatic, Therapeutic & Aesthetic Massage",
+  "about": "We are a specialized therapy center, experts in lymphatic, therapeutic, and aesthetic massage. We provide post-operative therapies designed to promote well-being and accelerate healing, ensuring a comprehensive recovery experience tailored to your needs.",
+  "phone": "(954) 261-3366",
+  "email": "info@equilibriumlymphatic.com",
+  "booking_url": "https://equilibrium-handtherapy.com/book-now/",
+  "socials": {
+    "instagram": "https://www.instagram.com/equilibrium.hands",
+    "facebook": "https://www.facebook.com/EquilibriumLymphatic",
+    "tiktok": null,
+    "youtube": null,
+    "x": null,
+    "linkedin": null,
+    "yelp": null
+  },
+  "hours": "Monday - Friday: 10:00 AM - 06:00 PM | Saturday: 10:00 AM - 04:00 PM | Sunday: Closed",
+  "locations": [
+    {
+      "address": "900 S Federal Highway, Suite C",
+      "city": "Hollywood",
+      "state": "FL",
+      "zip": "33020",
+      "phone": "(954) 261-3366"
+    }
+  ],
+  "providers": [
+    {
+      "name": "Siomara Sierra",
+      "title": "Founder & Licensed Massage Therapist",
+      "image_url": null,
+      "is_owner": true
+    }
+  ],
+  "treatments": [
+    { "raw_name": "Botox", "general_name": "Botox" },
+    { "raw_name": "Fillers", "general_name": "Dermal Fillers" },
+    { "raw_name": "Laser Hair Removal", "general_name": "Laser Hair Removal" },
+    { "raw_name": "HydroFacial", "general_name": "HydraFacial" },
+    { "raw_name": "Fractional RF Microneedling Facial", "general_name": "RF Microneedling" },
+    { "raw_name": "Microneedling", "general_name": "Microneedling" },
+    { "raw_name": "PRP Therapy", "general_name": "PRP (Platelet-Rich Plasma)" },
+    { "raw_name": "Chemical Peel", "general_name": "Chemical Peel" },
+    { "raw_name": "Facial Massages", "general_name": "Facial Massage" },
+    { "raw_name": "Facial Lymphatic Massage", "general_name": "Facial Lymphatic Massage" },
+    { "raw_name": "Facial Hydration", "general_name": "Deep Hydration Facial" },
+    { "raw_name": "IV Therapy (Intravenous Vitamins)", "general_name": "IV Therapy" },
+    { "raw_name": "Carboxytherapy", "general_name": "Carboxytherapy" },
+    { "raw_name": "Figure Molding", "general_name": "Body Contouring" },
+    { "raw_name": "Sports Massage", "general_name": "Massage" },
+    { "raw_name": "Prenatal Massage", "general_name": "Massage" },
+    { "raw_name": "Deep Detox Massage", "general_name": "Massage Therapy" }
+  ],
+  "new_general_names": [
+    { "general_name": "Carboxytherapy", "why": "Site sells standalone CO2 carboxytherapy for skin firmness/circulation/cellulite; allowlist only has the branded 'CO2Lift Pro Carboxy Treatment' row, not this generic modality." }
+  ],
+  "concerns": [
+    "Fine Lines",
+    "Acne",
+    "Acne Scars",
+    "Hyperpigmentation",
+    "Enlarged Pores",
+    "Dryness",
+    "Dull Skin",
+    "Cellulite",
+    "Dark Circles",
+    "Sagging Skin",
+    "Stretch Marks"
+  ],
+  "images": {
+    "logo": null,
+    "cover": "https://equilibrium-handtherapy.com/storage/2025/01/home-about-equilibrium-handtherapy-hollywood-fl-1024x683.webp",
+    "gallery": [
+      "https://equilibrium-handtherapy.com/storage/2026/06/HydroFacial-in-Hollywood-FL-1024x683.webp",
+      "https://equilibrium-handtherapy.com/storage/2026/06/Facial-Massages-in-Hollywood-FL-1024x683.webp",
+      "https://equilibrium-handtherapy.com/storage/2026/06/Facial-Hydration-in-Hollywood-FL.webp",
+      "https://equilibrium-handtherapy.com/storage/2025/02/fractional-rf-microneedlings-procedure-equilibrium-handtherapy-hollywood-fl.webp",
+      "https://equilibrium-handtherapy.com/storage/2026/06/Carboxytherapy-1024x683.webp"
+    ],
+    "before_after": []
+  }
+}

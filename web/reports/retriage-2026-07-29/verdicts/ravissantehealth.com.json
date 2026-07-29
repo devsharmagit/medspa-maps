@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "domain": "ravissantehealth.com",
+  "classified_by": "classify-agent",
+  "probe": {
+    "pages_read": ["/ (redirects to fitfutureclinic.com/)", "/contact/", "/semaglutide-therapy/", "/tirzepatide-therapy/", "/peptide-therapy-for-weight-loss-recovery-performance-optimization/", "/erectile-dysfunction-treatment-viagra-sildenafil-cialis-tadalafil/", "/supportive-injectables-for-weight-loss-glutathione-b12-l-carnitine/", "/testosterone-therapy-for-weight-loss-a-complete-medical-guide/"],
+    "sitemap_source": "paths.txt",
+    "total_text_chars": 9600,
+    "digest_files": ["digests/ravissantehealth.com/pass1.txt", "digests/ravissantehealth.com/pass2.txt"]
+  },
+  "verdict": "EXCLUDE",
+  "confidence": "high",
+  "business_kind": "other_medical_plus_aesthetics",
+  "clinic_type": null,
+  "exclusion_reason_code": "NO_AESTHETIC_SERVICES",
+  "aesthetic_evidence": [],
+  "patient_facing": {
+    "sells_to": "patients",
+    "has_public_booking": true,
+    "phone": null,
+    "address_seen": null
+  },
+  "counter_evidence": [
+    { "note": "Full site-wide service nav (present on every page) lists only weight-loss/hormone/peptide/ED categories — no skin, face, body-contouring, nail, or lash service anywhere.",
+      "page_path": "/",
+      "quote": "Our Services Weight & Metabolic Control Semaglutide (GLP-1 RA) Therapy Tirzepatide (GIP/GLP-1 RA) Therapy HRT & HPTA Support Testosterone Therapy Testosterone Creams HCG Therapy Enclomiphene Therapy HGH & Secretagogues HGH Therapy Sermorelin Therapy Peptides / Tissue Repair BPC-157 TB-500 Copper Peptide (GHK-Cu) Pentadeca Arginate (PDA) SLU-PP-332 ED Treatment Supportive Injectables Peptide Therapy Efficacy Lower Blood Sugar Lose Excess Weight Reduce Cardiovascular Issues Improve Life Quality" },
+    { "note": "One peptide (GHK-Cu) is marketed partly for 'skin quality' as a side-effect of a systemic recovery injectable, not as a cosmetic/aesthetic skin service in its own right — no facial, peel, laser, or dedicated skin-treatment service page exists.",
+      "page_path": "/peptide-therapy-for-weight-loss-recovery-performance-optimization/",
+      "quote": "GHK-Cu (Copper Peptide) – improves skin quality, healing, and tissue regeneration" }
+  ],
+  "prior_reason_rebuttal": "IMPORTANT: ravissantehealth.com no longer serves its own content — every URL on the domain (root and all sitemap subpaths) 301-redirects offsite to fitfutureclinic.com, a same-brand 'Weight-Loss Clinic in USA'. I classified what actually loads there. Old reason ('Weight-loss & hormone-replacement clinic — no aesthetic services') is CONFIRMED correct under the new rule: fitfutureclinic.com's own nav (repeated on every page: home, contact, semaglutide-therapy, tirzepatide-therapy, peptide-therapy, ED-treatment, supportive-injectables, testosterone-therapy) is exhaustively Semaglutide/Tirzepatide/HRT/HGH/peptides/ED/supportive-injectables — pure medical weight-loss and hormone wellness, with zero skin, face, body-contouring, nail, or lash offering. This is the textbook 'wellness-only' EXCLUDE the brief calls out explicitly.",
+  "proposed_markdown_reason": "Domain redirects to fitfutureclinic.com, a medical weight-loss/hormone-replacement/peptide clinic; its full service menu (GLP-1 therapy, TRT, HGH, peptides, ED treatment) contains no skin, face, body-contouring, nail, or lash aesthetic service.",
+  "extract_hints": {
+    "service_pages": [],
+    "team_page": null,
+    "locations_page": "/contact/",
+    "gallery_page": null,
+    "est_extract_effort": "small"
+  }
+}

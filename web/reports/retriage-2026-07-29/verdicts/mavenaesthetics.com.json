@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "domain": "mavenaesthetics.com",
+  "classified_by": "classify-agent",
+  "probe": {
+    "pages_read": ["/", "/lander", "/thank-you/", "/contact/", "/services/"],
+    "sitemap_source": "wp-sitemap-posts-page-1.xml / wp-sitemap-posts-post-1.xml (no additional real pages found; /lander, /thank-you/, /contact/, /services/ all fetch-failed)",
+    "total_text_chars": 260,
+    "digest_files": ["digests/mavenaesthetics.com/pass1.txt"]
+  },
+  "verdict": "EXCLUDE",
+  "confidence": "high",
+  "business_kind": "dead_or_placeholder",
+  "clinic_type": null,
+  "exclusion_reason_code": "PLACEHOLDER_COMING_SOON",
+  "aesthetic_evidence": [],
+  "patient_facing": {
+    "sells_to": null, "has_public_booking": false,
+    "phone": "(512) 222-6764", "address_seen": "Servicing in Austin, TX"
+  },
+  "counter_evidence": [],
+  "prior_reason_rebuttal": "Re-verified as instructed. Live homepage title is literally 'Coming Soon', body text is just phone/address/social labels (no hrefs) and a 'BOOK AN APPOINTMENT' button that only dials the phone number -- no services, no team, no contact form. Checked archive.org: the only pre-2026 captures for this domain are a robots.txt and favicon from 2021-2022 (unrelated placeholder history), and the closest full capture (2026-03-07) is also a placeholder that redirects to /lander with no content. There is no evidence anywhere, live or archived, of an actual service menu. Confirms the prior 'Coming Soon' call still holds under the new criteria.",
+  "proposed_markdown_reason": "Live site is a bare 'Coming Soon' placeholder (business name, phone, and a vague service-area line only); no services, team, or contact page exists, and no archived capture shows real content either.",
+  "extract_hints": {
+    "service_pages": [], "team_page": null,
+    "locations_page": null, "gallery_page": null,
+    "est_extract_effort": "n/a (no content to extract)"
+  }
+}

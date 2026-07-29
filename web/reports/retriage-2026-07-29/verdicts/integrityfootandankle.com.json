@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "domain": "integrityfootandankle.com",
+  "classified_by": "classify-agent",
+  "probe": {
+    "pages_read": ["/", "/services/", "/about/", "/contact/", "/skin-conditions/", "/toenail-fungus-treatment-in-avon-ohio/", "/common-foot-conditions/"],
+    "sitemap_source": "paths.txt",
+    "total_text_chars": 4226,
+    "digest_files": ["digests/integrityfootandankle.com/pass1.txt"]
+  },
+  "verdict": "EXCLUDE",
+  "confidence": "high",
+  "business_kind": "non_clinic_business",
+  "clinic_type": null,
+  "exclusion_reason_code": "NO_AESTHETIC_SERVICES",
+  "aesthetic_evidence": [],
+  "patient_facing": {
+    "sells_to": "patients",
+    "has_public_booking": true,
+    "phone": "440-282-1221",
+    "address_seen": "1740 Cooper Foster Park Road #B Lorain, OH 44053"
+  },
+  "counter_evidence": [
+    { "note": "/services/ and /skin-conditions/ list only medical podiatry conditions/treatments (ingrown toenails, bunions, hammertoes, toenail fungus, skin conditions like dermatitis/warts/corns, foot & ankle surgery). The toenail-fungus page explicitly frames the condition's appearance as incidental to a medical infection, not an elective cosmetic service — no medspa-style injectable, laser-for-appearance, body-contouring, or nail-salon/lash offering appears anywhere.", "page_path": "/toenail-fungus-treatment-in-avon-ohio/", "quote": "While it may seem like the condition is just an aesthetic concern, fungal infections can lead to worsened symptoms and pain." }
+  ],
+  "prior_reason_rebuttal": "Prior reason flagged this as a duplicate listing; independently checking the full /services/ and /skin-conditions/ pages under the new criteria confirms this is a medical podiatry practice (diabetic foot care, ingrown toenails, bunions, hammertoes, fungal infections, minimally invasive foot/ankle surgery) with no elective aesthetic offering — the site itself even distinguishes fungal-nail treatment from a purely cosmetic service.",
+  "proposed_markdown_reason": "Medical podiatry practice (Integrity Foot and Ankle Associates) treating diabetic foot care, ingrown toenails, bunions, fungal infections, and foot/ankle surgery; services and skin-conditions pages reviewed and contain no elective aesthetic/cosmetic offering.",
+  "extract_hints": {
+    "service_pages": ["/services/", "/skin-conditions/"],
+    "team_page": "/about/",
+    "locations_page": "/contact/",
+    "gallery_page": null,
+    "est_extract_effort": "small"
+  }
+}

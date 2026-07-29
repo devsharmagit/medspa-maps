@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "domain": "artspahouse.com",
+  "classified_by": "classify-agent",
+  "probe": {
+    "pages_read": ["/", "/services/", "/about/", "/specials/", "/shop-all/", "/couples-spa-treatments-in-san-antonio-tx/", "/contact/"],
+    "sitemap_source": "paths.txt",
+    "total_text_chars": 29485,
+    "digest_files": ["digests/artspahouse.com/pass1.txt"]
+  },
+  "verdict": "INCLUDE",
+  "confidence": "high",
+  "business_kind": "day_spa_or_salon",
+  "clinic_type": "day_spa_salon",
+  "exclusion_reason_code": null,
+  "aesthetic_evidence": [
+    { "service_name_on_page": "Facials & Hydrafacials", "kind": "facial",
+      "page_path": "/",
+      "quote": "Our facial treatments combine clean, nutrient rich botanicals from Eminence® with expert techniques tailored to your skin type and concerns." },
+    { "service_name_on_page": "Manicures & Pedicures", "kind": "nail_service",
+      "page_path": "/services/",
+      "quote": "Manicures And Pedicures" },
+    { "service_name_on_page": "Waxing & Tinting", "kind": "waxing",
+      "page_path": "/services/",
+      "quote": "waxing And Tinting" }
+  ],
+  "patient_facing": {
+    "sells_to": "patients", "has_public_booking": true,
+    "phone": "210.832.0892", "address_seen": "215 W Sunset Rd, San Antonio, TX 78209"
+  },
+  "counter_evidence": [],
+  "prior_reason_rebuttal": "Prior verdict said 'Day spa (massage/facials/nails) — no medical aesthetics or injectables', which was correct on the facts but applied the old (too narrow) rule. Under the new criteria, day-spa facial/HydraFacial, manicure/pedicure, and waxing services on /services/ and the homepage each independently qualify as aesthetic services, so this flips to INCLUDE.",
+  "proposed_markdown_reason": null,
+  "extract_hints": {
+    "service_pages": ["/services/"], "team_page": "/about/",
+    "locations_page": "/contact/", "gallery_page": null,
+    "est_extract_effort": "small"
+  }
+}

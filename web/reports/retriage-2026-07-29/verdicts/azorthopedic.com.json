@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "domain": "azorthopedic.com",
+  "classified_by": "classify-agent",
+  "probe": {
+    "pages_read": ["/", "/services/", "/about/", "/orthopedic-services-in-chandler-az/", "/location/"],
+    "sitemap_source": "paths.txt",
+    "total_text_chars": 5624,
+    "digest_files": ["digests/azorthopedic.com/pass1.txt"]
+  },
+  "verdict": "EXCLUDE",
+  "confidence": "high",
+  "business_kind": "non_clinic_business",
+  "clinic_type": null,
+  "exclusion_reason_code": "NO_AESTHETIC_SERVICES",
+  "aesthetic_evidence": [],
+  "patient_facing": {
+    "sells_to": "patients",
+    "has_public_booking": true,
+    "phone": "(480) 659-7147",
+    "address_seen": "2900 W Ray Road, Suite 5 Chandler, Arizona 85224"
+  },
+  "counter_evidence": [
+    { "note": "Full /services/ page enumerates the entire service line (sports medicine, arthroscopy, cartilage treatments, FDA clinical trials, knee replacement, fractures, regenerative medicine/biologics, viscosupplementation, PRP, stem cell injections) — all knee/shoulder orthopedic surgery and sports medicine, with no skin, injectable-for-appearance, laser, body-contouring, nail, or lash offering anywhere.", "page_path": "/services/", "quote": "Explore advanced orthopedic services in Arizona, including arthroscopy, cartilage treatments, regenerative medicine, knee surgery, and sports medicine solutions." }
+  ],
+  "prior_reason_rebuttal": "Prior reason called this 'orthopedic surgery practice — not a medspa,' which the new criteria explicitly reject as insufficient on its own (an aesthetics arm would flip the verdict). However, the full services page was read and confirms the practice is limited to knee/shoulder orthopedic surgery, sports medicine, and regenerative injections for joint pain — none of which is an aesthetic/cosmetic service — so the exclusion holds, now correctly coded as NO_AESTHETIC_SERVICES rather than 'not a medspa.'",
+  "proposed_markdown_reason": "Orthopedic surgery and sports-medicine practice (knee/shoulder) with a full services page reviewed; no aesthetic or cosmetic offering of any kind.",
+  "extract_hints": {
+    "service_pages": ["/services/"],
+    "team_page": "/about/",
+    "locations_page": "/location/",
+    "gallery_page": null,
+    "est_extract_effort": "small"
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "domain": "santosh.yoga",
+  "classified_by": "classify-agent",
+  "probe": {
+    "pages_read": ["/", "/about/", "/yoga-teacher-training/", "/yoga-retreats/", "/project-santosha/", "/contact-us/", "/terms-and-conditions/"],
+    "sitemap_source": "paths.txt",
+    "total_text_chars": 10500,
+    "digest_files": ["digests/santosh.yoga/pass1.txt"]
+  },
+  "verdict": "EXCLUDE",
+  "confidence": "high",
+  "business_kind": "non_clinic_business",
+  "clinic_type": null,
+  "exclusion_reason_code": "NON_CLINIC_BUSINESS",
+  "aesthetic_evidence": [],
+  "patient_facing": {
+    "sells_to": "students_and_retreat_guests",
+    "has_public_booking": false,
+    "phone": null,
+    "address_seen": "Private Studio, Salt Lake City, Utah"
+  },
+  "counter_evidence": [
+    { "quote": "At Santosh.Yoga, we create a personalized Yoga lifestyle plan based on your age, your health data, and information from your wearables, fitness trackers, and medical reports.", "page_path": "/" },
+    { "quote": "Become A Yoga Teacher Who is this course for? Course Details Community Group Project Certified Teachers Contact Our Team", "page_path": "/yoga-teacher-training/" }
+  ],
+  "prior_reason_rebuttal": "Prior reason ('Duplicate of: Santosh Yoga Institute') was a dedup note, not a content call. On content: this is a yoga studio/teacher-training institute (200/500-hour certification programs) plus retreats and an Ayurvedic ghee/chai/wellness-kit product line. No skin, face, body-contouring, nail, or lash service anywhere on the site, and no clinic/medical staff — it is a fitness/wellness-lifestyle business, analogous to the brief's 'fitness-only studio' example of NON_CLINIC_BUSINESS, not merely NO_AESTHETIC_SERVICES (there is no clinic here to begin with).",
+  "proposed_markdown_reason": "Yoga studio, teacher-training academy, and retreat/product business (Ayurvedic ghee, chai, wellness kits) with no medical or aesthetic clinic component of any kind.",
+  "extract_hints": {
+    "service_pages": [],
+    "team_page": "/about/",
+    "locations_page": "/contact-us/",
+    "gallery_page": "/photos/",
+    "est_extract_effort": null
+  }
+}

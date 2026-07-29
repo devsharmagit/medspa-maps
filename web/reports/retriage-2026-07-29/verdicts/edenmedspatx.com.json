@@ -1,0 +1,27 @@
+{
+ "schema_version": 1,
+ "domain": "edenmedspatx.com",
+ "classified_at": "2026-07-29T14:27:23Z",
+ "classified_by": "orchestrator-deterministic",
+ "probe": {
+  "dns": "144.208.75.83",
+  "best_http_status": "000",
+  "variants_tried": [
+   "https://d/",
+   "http://d/",
+   "https://www.d/",
+   "http://www.d/"
+  ],
+  "pages_read": [],
+  "sitemap_source": null
+ },
+ "verdict": "EXCLUDE",
+ "confidence": "high",
+ "business_kind": "dead_or_placeholder",
+ "clinic_type": null,
+ "exclusion_reason_code": "DEAD_SITE",
+ "aesthetic_evidence": [],
+ "counter_evidence": [],
+ "prior_reason_rebuttal": null,
+ "proposed_markdown_reason": "DNS resolves but the server answers on no http/https/www variant \u2014 site offline"
+}

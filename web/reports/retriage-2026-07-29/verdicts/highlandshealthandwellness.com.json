@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "domain": "highlandshealthandwellness.com",
+  "classified_by": "classify-agent",
+  "probe": {
+    "pages_read": ["/", "/about/", "/services/", "/self-assessment/", "/financing/", "/contact/", "/review/", "/services/emsculpt-neo-in-sebring-fl/"],
+    "sitemap_source": "paths.txt + astra-portfolio-sitemap.xml",
+    "total_text_chars": 13500,
+    "digest_files": ["digests/highlandshealthandwellness.com/pass1.txt"]
+  },
+  "verdict": "INCLUDE",
+  "confidence": "high",
+  "business_kind": "other_medical_plus_aesthetics",
+  "clinic_type": "other_medical_plus_aesthetics",
+  "exclusion_reason_code": null,
+  "aesthetic_evidence": [
+    { "service_name_on_page": "Emsculpt Neo®", "kind": "body_contouring",
+      "page_path": "/services/emsculpt-neo-in-sebring-fl/",
+      "quote": "the most advanced non-invasive body contouring technology designed to build muscle, burn fat, and tone your body, all in one treatment" }
+  ],
+  "patient_facing": {
+    "sells_to": "patients",
+    "has_public_booking": true,
+    "phone": "(863) 382-4860",
+    "address_seen": "119 US 27 North, Sebring, FL 33870"
+  },
+  "counter_evidence": [
+    { "note": "Practice is primarily internal medicine/primary care (physician has 45 years internal-medicine experience) and 3 of 4 listed services (Emsella pelvic floor, Exomind cognitive wellness, Primary Care) are non-aesthetic.",
+      "page_path": "/services/",
+      "quote": "Services Emsculpt Neo® Emsella™ Exomind™ Primary Care Physician" }
+  ],
+  "prior_reason_rebuttal": "Old reason was a dedup tag ('Duplicate of: Highlands Health and Wellness'), not a content judgment. This is an internal-medicine/primary-care practice, but its /services/ menu (confirmed via the site's full astra-portfolio sitemap, only 4 service pages total) includes Emsculpt Neo®, a non-invasive body-contouring device offered to patients with public booking — a genuine, if small, aesthetics arm on an otherwise non-aesthetic practice.",
+  "proposed_markdown_reason": null,
+  "extract_hints": {
+    "service_pages": ["/services/", "/services/emsculpt-neo-in-sebring-fl/"],
+    "team_page": "/about/",
+    "locations_page": "/contact/",
+    "gallery_page": null,
+    "est_extract_effort": "small"
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "domain": "drgrossman.com",
+  "classified_by": "classify-agent",
+  "probe": {
+    "pages_read": ["/", "/procedures/", "/cosmetic-surgery-dr-grossman/", "/about-the-surgery-center/", "/dr-leonard-grossman/", "/buffalo-hump-treatment-with-liposuction-in-nyc/", "/botox-hyperhidrosis-sweating-treatment-in-nyc/", "/laser-treatment-in-nyc/", "/cellulite-treatment-in-nyc/"],
+    "sitemap_source": "paths.txt",
+    "total_text_chars": 39961,
+    "digest_files": ["digests/drgrossman.com/pass1.txt"]
+  },
+  "verdict": "INCLUDE",
+  "confidence": "high",
+  "business_kind": "plastic_surgery",
+  "clinic_type": "plastic_surgery",
+  "exclusion_reason_code": null,
+  "aesthetic_evidence": [
+    { "service_name_on_page": "Botox Cosmetic in NYC", "kind": "injectable",
+      "page_path": "/",
+      "quote": "Botox Cosmetic in NYC" },
+    { "service_name_on_page": "Laser Treatment", "kind": "laser_skin_treatment",
+      "page_path": "/laser-treatment-in-nyc/",
+      "quote": "laser treatments use cutting-edge technology to solve various skin concerns" },
+    { "service_name_on_page": "Cellulite Treatment", "kind": "body_contouring",
+      "page_path": "/cellulite-treatment-in-nyc/",
+      "quote": "offers specialized cellulite treatment services" },
+    { "service_name_on_page": "Brazilian Butt Lift", "kind": "plastic_surgery",
+      "page_path": "/",
+      "quote": "Brazilian Butt Lift in New York" }
+  ],
+  "patient_facing": {
+    "sells_to": "patients",
+    "has_public_booking": true,
+    "phone": "212-585-2133",
+    "address_seen": "3039 Emmons Avenue"
+  },
+  "counter_evidence": [],
+  "prior_reason_rebuttal": "Prior verdict excluded this as 'surgical plastic-surgery practice only' under old criteria that treated plastic surgery as out of scope. Under the new criteria plastic surgery is an explicit INCLUDE category. /procedures/ enumerates FACE, BODY, BREAST and REJUVENATING procedure menus (Blepharoplasty, face lifts, liposuction, breast augmentation, Botox, Restylane, Radiesse, facial rejuvenation); dedicated pages also cover Botox for hyperhidrosis, CO2 laser skin treatment, and cellulite treatment via fat grafting — a full menu of both surgical and non-surgical aesthetic services sold directly to the public with phone/contact booking.",
+  "proposed_markdown_reason": null,
+  "extract_hints": {
+    "service_pages": ["/procedures/", "/cosmetic-surgery-dr-grossman/", "/laser-treatment-in-nyc/", "/cellulite-treatment-in-nyc/", "/botox-hyperhidrosis-sweating-treatment-in-nyc/", "/buffalo-hump-treatment-with-liposuction-in-nyc/"],
+    "team_page": "/dr-leonard-grossman/",
+    "locations_page": "/about-the-surgery-center/",
+    "gallery_page": null,
+    "est_extract_effort": "medium"
+  }
+}

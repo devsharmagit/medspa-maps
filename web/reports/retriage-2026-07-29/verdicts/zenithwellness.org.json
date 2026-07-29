@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "domain": "zenithwellness.org",
+  "classified_by": "classify-agent",
+  "probe": {
+    "pages_read": ["/", "/about-us/", "/solutions/", "/solutions/bioidentical-hormones-in-orlando-fl/", "/solutions/heartmath/", "/solutions/lathmized-nad-in-orlando-fl/", "/membership/", "/membership-packages/", "/contact-us/"],
+    "sitemap_source": "paths.txt",
+    "total_text_chars": 15000,
+    "digest_files": ["digests/zenithwellness.org/pass1.txt"]
+  },
+  "verdict": "EXCLUDE",
+  "confidence": "high",
+  "business_kind": "other_medical_plus_aesthetics",
+  "clinic_type": null,
+  "exclusion_reason_code": "NO_AESTHETIC_SERVICES",
+  "aesthetic_evidence": [],
+  "patient_facing": {
+    "sells_to": "patients",
+    "has_public_booking": true,
+    "phone": "407-204-0336",
+    "address_seen": "200 East Robinson Street, Suite 1120 Orlando Fl, 32801"
+  },
+  "counter_evidence": [
+    "Full /solutions/ list read: Advanced Bio-marker Testing & Analysis, BioIdentical Hormones, Biometric Remote Patient Care & Monitoring, Brain Mapping & Neurobio feedback, Customized Genetic Testing, Customized Integrative Concierge Precision Medicine, Customized Nutritional Counseling, Fitness Assessment & Personal Training, Integrative Medicine, Medically Supervised Weight Loss, Mental Health Counseling, Zenith App with AI, HeartMath - none are skin, face, body-contouring, nail, or lash services."
+  ],
+  "prior_reason_rebuttal": "Prior reason ('Functional-medicine / longevity clinic - no aesthetic or injectable services') holds up under the new rule: the full /solutions/ services list is hormones, genetics, brain/nervous-system, weight loss, nutrition, and fitness coaching - wellness/longevity only, with no skin, face, body-contouring, nail, or lash offering anywhere on the site.",
+  "proposed_markdown_reason": "Zenith Wellness is a concierge longevity/functional-medicine practice (bioidentical hormones, genetic testing, NAD+, HeartMath, weight loss) with no skin, body-contouring, or other aesthetic service offered to the public.",
+  "extract_hints": {
+    "service_pages": ["/solutions/"],
+    "team_page": "/about-us/",
+    "locations_page": "/contact-us/",
+    "gallery_page": null,
+    "est_extract_effort": "small"
+  }
+}

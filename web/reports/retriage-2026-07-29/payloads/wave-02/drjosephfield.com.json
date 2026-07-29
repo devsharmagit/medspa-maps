@@ -1,0 +1,102 @@
+{
+ "website": "https://drjosephfield.com/",
+ "name": "Dr. Joseph Field, DDS",
+ "clinic_type": "dental_aesthetics",
+ "tagline": "Cosmetic and Reconstructive Dentistry",
+ "about": "Dr. Joseph Field is the Bay Area's premier specialist in cosmetic and reconstructive dentistry. He is a caring provider unafraid to tackle extreme smile makeovers, and capable of compassionately guiding anxious patients to a smile that changes their lives. Care is the cornerstone of Dr. Field's vision and practice, meticulously and individually designed for each patient.",
+ "phone": "(650) 948-5524",
+ "email": null,
+ "booking_url": "https://app.smilevirtual.com/Dr-Field/sign-up",
+ "socials": {
+  "instagram": "https://www.instagram.com/dr_joseph_field/",
+  "facebook": "https://www.facebook.com/JosephFieldDDS",
+  "tiktok": null,
+  "youtube": "https://www.youtube.com/channel/UCSQtb_RfMh6LeL6cMXs2mdw",
+  "x": "https://x.com/JosephFieldDDS",
+  "linkedin": "https://www.linkedin.com/in/joseph-field-dds-faaid-ficoi-fagd-daboi-id-1b062312/",
+  "yelp": null
+ },
+ "hours": "Los Altos: Monday - Thursday 7:00 AM - 5:00 PM, Friday 8:00 AM - 4:00 PM | Lehi: Monday - Tuesday Closed, Wednesday 8:00 AM - 4:00 PM, Thursday Closed, Friday 8:00 AM - 4:00 PM, Saturday - Sunday Closed",
+ "locations": [
+  {
+   "address": "99 Third Street",
+   "city": "Los Altos",
+   "state": "CA",
+   "zip": "94022",
+   "phone": "(650) 948-5524"
+  },
+  {
+   "address": "1850 W Ashton Blvd Ste 100",
+   "city": "Lehi",
+   "state": "UT",
+   "zip": "84043",
+   "phone": "(801) 514-7650"
+  }
+ ],
+ "providers": [
+  {
+   "name": "Dr. Joseph Field",
+   "title": "DDS, FAAID, FICOI, FAGD, DABOI/ID",
+   "image_url": "https://drjosephfield.com/storage/2026/04/Dr.-Joseph-Field-owner.webp",
+   "is_owner": true
+  }
+ ],
+ "treatments": [
+  {
+   "raw_name": "Porcelain Veneers",
+   "general_name": "Veneers"
+  },
+  {
+   "raw_name": "SmileSculpt\u2122",
+   "general_name": "Veneers"
+  },
+  {
+   "raw_name": "Lumineers\u00ae",
+   "general_name": "Veneers"
+  },
+  {
+   "raw_name": "Smile Makeover",
+   "general_name": "Smile Makeover"
+  },
+  {
+   "raw_name": "Snap-On Smile\u00ae",
+   "general_name": "Snap-On Smile"
+  },
+  {
+   "raw_name": "Zoom Whitening",
+   "general_name": "Teeth Whitening"
+  }
+ ],
+ "new_general_names": [
+  {
+   "general_name": "Veneers",
+   "why": "Porcelain Veneers, SmileSculpt\u2122, and Lumineers\u00ae are all veneer-based cosmetic smile products sold directly to patients; allowlist has no generic veneer row (Teeth Whitening is the only dental row)."
+  },
+  {
+   "general_name": "Smile Makeover",
+   "why": "Site sells a named, personalized multi-treatment 'Smile Makeover' package; no equivalent allowlist row."
+  },
+  {
+   "general_name": "Snap-On Smile",
+   "why": "A distinct removable cosmetic dental appliance product the site sells; no equivalent allowlist row."
+  }
+ ],
+ "concerns": [],
+ "images": {
+  "logo": null,
+  "cover": "https://drjosephfield.com/storage/2026/04/Cosmetic-and-Reconstructive-Dentistry-bg-1024x576.webp",
+  "gallery": [
+   "https://drjosephfield.com/storage/2026/04/Reconstructive-Dentistry.webp",
+   "https://drjosephfield.com/storage/2026/03/drjosephfield-Dental-Crowns-service.webp",
+   "https://drjosephfield.com/storage/2026/03/improve-smile.webp"
+  ],
+  "before_after": [
+   "https://drjosephfield.com/storage/2026/07/Patient_1_Before.webp",
+   "https://drjosephfield.com/storage/2026/07/Patient_1_After.webp",
+   "https://drjosephfield.com/storage/2026/07/Patient_2_Before.webp",
+   "https://drjosephfield.com/storage/2026/07/Patient_2_After.webp",
+   "https://drjosephfield.com/storage/2026/06/Chris-Before-scaled.webp",
+   "https://drjosephfield.com/storage/2026/06/Chris-After-scaled.webp"
+  ]
+ }
+}

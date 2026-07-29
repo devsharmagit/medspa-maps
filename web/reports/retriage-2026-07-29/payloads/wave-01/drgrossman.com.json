@@ -1,0 +1,210 @@
+{
+ "website": "https://drgrossman.com/",
+ "name": "Dr. Leonard Grossman, MD",
+ "clinic_type": "plastic_surgery",
+ "tagline": "#1 Fat Grafting Plastic Surgeon in America",
+ "about": "Dr. Leonard Grossman is a reconstructive and plastic surgeon in Brooklyn, NYC who received his medical degree from New York Medical College in 1985 and completed his Fully Accredited Plastic Surgery Residency at Texas A&M and Scott & White Memorial Hospital. In 1995 he became the first American plastic surgeon to utilize Ultrasound Assisted Liposuction technology, and he is known worldwide as the inventor of the Brazilian Butt Lift and a pioneer of fat grafting. His practice offers a full menu of facial, body, breast, and skin-rejuvenating procedures at the state-of-the-art New York Center For Plastic Surgery.",
+ "phone": "(212) 585-2133",
+ "email": "drgrossmanstaff@hotmail.com",
+ "booking_url": "https://drgrossman.com/contact/",
+ "socials": {
+  "instagram": "https://www.instagram.com/DrGrossmanNYC/",
+  "facebook": "https://www.facebook.com/Dr.LeonardGrossman",
+  "tiktok": null,
+  "youtube": "https://www.youtube.com/channel/UC0LR6R8ZZ_DKaKJRaLpIwrw",
+  "x": "https://twitter.com/Dr_Grossman",
+  "linkedin": "https://www.linkedin.com/in/leonard-grossman-a453a117",
+  "yelp": null
+ },
+ "hours": null,
+ "locations": [
+  {
+   "address": "3039 Emmons Ave",
+   "city": "Brooklyn",
+   "state": "NY",
+   "zip": "11235",
+   "phone": "(212) 585-2133"
+  },
+  {
+   "address": "800 Fifth Avenue Annex Suite 300A",
+   "city": "New York",
+   "state": "NY",
+   "zip": "10065",
+   "phone": "(212) 585-2133"
+  }
+ ],
+ "providers": [
+  {
+   "name": "Dr. Leonard Grossman",
+   "title": "MD, Plastic & Reconstructive Surgeon",
+   "image_url": "https://drgrossman.com/storage/2025/12/Dr-image.webp",
+   "is_owner": true
+  }
+ ],
+ "treatments": [
+  {
+   "raw_name": "Blepharoplasty/Eyelid Lift",
+   "general_name": "Blepharoplasty"
+  },
+  {
+   "raw_name": "Brow Lifts",
+   "general_name": "Brow Lift"
+  },
+  {
+   "raw_name": "Buccal Fat Removal",
+   "general_name": "Buccal Fat Removal"
+  },
+  {
+   "raw_name": "Cheek Augmentation",
+   "general_name": "Cheek and Chin Enhancement"
+  },
+  {
+   "raw_name": "Cheek Lift",
+   "general_name": "Midface/Cheek Lift"
+  },
+  {
+   "raw_name": "Face Lifts",
+   "general_name": "Facelift"
+  },
+  {
+   "raw_name": "Neck Lift",
+   "general_name": "Neck Lift"
+  },
+  {
+   "raw_name": "Rhinoplasty",
+   "general_name": "Rhinoplasty"
+  },
+  {
+   "raw_name": "Nose Job in a Bottle (Non-Surgical Rhinoplasty)",
+   "general_name": "Liquid Nose Job"
+  },
+  {
+   "raw_name": "Otoplasty",
+   "general_name": "Otoplasty"
+  },
+  {
+   "raw_name": "Breast Augmentation (Fat, Saline & Silicone)",
+   "general_name": "Breast Augmentation"
+  },
+  {
+   "raw_name": "Transumbilical Breast Augmentation (TUBA)",
+   "general_name": "Breast Augmentation"
+  },
+  {
+   "raw_name": "Breast Lifts",
+   "general_name": "Breast Lift"
+  },
+  {
+   "raw_name": "Breast Reduction",
+   "general_name": "Breast Reduction"
+  },
+  {
+   "raw_name": "Male Breast Reduction",
+   "general_name": "Male Breast Reduction"
+  },
+  {
+   "raw_name": "Brazilian Butt Lift (BBL)",
+   "general_name": "Brazilian Butt Lift (BBL)"
+  },
+  {
+   "raw_name": "Liposuction",
+   "general_name": "Liposuction"
+  },
+  {
+   "raw_name": "Tummy Tuck",
+   "general_name": "Abdominoplasty"
+  },
+  {
+   "raw_name": "Thigh Lift",
+   "general_name": "Thigh Lift Surgery"
+  },
+  {
+   "raw_name": "Labiaplasty",
+   "general_name": "Labiaplasty"
+  },
+  {
+   "raw_name": "Renuvion Skin and Tissue Tightening",
+   "general_name": "Skin Tightening"
+  },
+  {
+   "raw_name": "Botox Cosmetic",
+   "general_name": "Botox"
+  },
+  {
+   "raw_name": "Botox Treatment for Hyperhidrosis",
+   "general_name": "Botox"
+  },
+  {
+   "raw_name": "Juvederm Injections",
+   "general_name": "Juvederm Dermal Fillers"
+  },
+  {
+   "raw_name": "Radiesse Injections",
+   "general_name": "Radiesse"
+  },
+  {
+   "raw_name": "Restylane Injections",
+   "general_name": "Restylane"
+  },
+  {
+   "raw_name": "Restylane Lyft",
+   "general_name": "Restylane Lyft"
+  },
+  {
+   "raw_name": "Sculptra Injections",
+   "general_name": "Sculptra"
+  },
+  {
+   "raw_name": "Lutronic CO2 Laser Treatment",
+   "general_name": "CO2 Laser"
+  },
+  {
+   "raw_name": "Cellulite Treatment",
+   "general_name": "Body Contouring"
+  },
+  {
+   "raw_name": "Fat Grafting",
+   "general_name": "Fat Grafting"
+  },
+  {
+   "raw_name": "NeoGraft Hair Restoration",
+   "general_name": "Hair Restoration"
+  }
+ ],
+ "new_general_names": [
+  {
+   "general_name": "Midface/Cheek Lift",
+   "why": "Site's surgical/fat-grafting Cheek Lift procedure (distinct from injectable Cheek Filler) is not in the current allowlist file; using this name per the known catalog convention for this exact procedure."
+  }
+ ],
+ "concerns": [
+  "Fine Lines",
+  "Volume Loss",
+  "Sagging Skin",
+  "Double Chin",
+  "Excess Abdominal Skin",
+  "Small Breasts",
+  "Sagging Breasts",
+  "Overly Large Breasts",
+  "Stubborn Body Fat",
+  "Cellulite",
+  "Flat Buttocks",
+  "Nose Shape",
+  "Gynecomastia",
+  "Thinning Hair",
+  "Acne Scars",
+  "Hyperhidrosis"
+ ],
+ "images": {
+  "logo": null,
+  "cover": "https://drgrossman.com/storage/2022/10/about-dr-grossman-nyc-1.png",
+  "gallery": [
+   "https://drgrossman.com/storage/2024/09/Cellulite-Treatment-Service-by-Dr-Grossman-in-NY-US-1024x683.webp",
+   "https://drgrossman.com/storage/2024/10/Buffalo-Hump-Treatment-with-Liposuction-by-Dr-Grossman-in-NY-US-1024x683.webp",
+   "https://drgrossman.com/storage/2024/08/Rhinoplasty-Surgery-by-Dr-Grossman-in-NY-US-1024x683.webp",
+   "https://drgrossman.com/storage/2024/07/The-Best-Tummy-Tuck-by-Dr-Grossman-in-NY-US.webp",
+   "https://drgrossman.com/storage/2022/09/Sculptraa-Injections-by-Dr-Grossman-in-NY-US.webp"
+  ],
+  "before_after": []
+ }
+}

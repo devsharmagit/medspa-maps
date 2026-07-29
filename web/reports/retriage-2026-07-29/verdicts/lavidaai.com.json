@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "domain": "lavidaai.com",
+  "classified_by": "classify-agent",
+  "probe": {
+    "pages_read": [
+      "/",
+      "/about/",
+      "/treatment-services/",
+      "/model-services/",
+      "/advanced-aesthetic-courses/",
+      "/injectable-courses/",
+      "/laser-courses/",
+      "/bundle-courses/",
+      "/contact-us/"
+    ],
+    "sitemap_source": "paths.txt",
+    "total_text_chars": 9800,
+    "digest_files": ["digests/lavidaai.com/pass1.txt"]
+  },
+  "verdict": "INCLUDE",
+  "confidence": "high",
+  "business_kind": "training_academy_with_clinic",
+  "clinic_type": "medspa",
+  "exclusion_reason_code": null,
+  "aesthetic_evidence": [
+    {
+      "service_name_on_page": "Laser Hair Removal",
+      "kind": "laser",
+      "page_path": "/treatment-services/",
+      "quote": "Experience quality treatments performed by certified/ licensed professionals in a clinical setting at reasonable prices. Treatment sessions areby appointment ONLY!"
+    },
+    {
+      "service_name_on_page": "RF Skin Tightening / Chemical Peel / Microneedling / IPL",
+      "kind": "skin/facial",
+      "page_path": "/treatment-services/",
+      "quote": "Facial TreatmentsRF Skin Tightening$120Dermaplaning $120Chemical Peel $150Microneedling$150IPL$200RF Microneedling $2503D Skin Rejuvenation– IPL– RF Microneedling$375"
+    }
+  ],
+  "patient_facing": {
+    "sells_to": "patients (via /treatment-services/, separate from the model/training program)",
+    "has_public_booking": true,
+    "phone": "254-308-1161",
+    "address_seen": "6220 Westpark Drive Suite 235 Houston, Tx. 77057 (also San Antonio: 2115 Pleasanton Rd., Suite 203)"
+  },
+  "counter_evidence": [],
+  "prior_reason_rebuttal": "Prior verdict called this 'Aesthetics training institute/school — not a patient-facing clinic'. That is true of most of the site (advanced-aesthetic-courses, injectable-courses, laser-courses, bundle-courses are all tuition-priced certification courses for aestheticians/medical professionals), and /model-services/ is a free-but-discounted 'apply to become a model' program where students under supervision practice on volunteers -- the classic model-call pattern the brief says not to decide alone. But the site also has a distinct, genuinely public-facing page, /treatment-services/, explicitly describing treatments 'performed by certified/licensed professionals' (not students) at published per-treatment prices (Laser Hair Removal from $20, RF Skin Tightening $120, Chemical Peel $150, Microneedling $150, IPL $200, etc.), booked 'by appointment ONLY' via phone/email -- and /model-services/ itself explicitly distinguishes this from the model program: 'We also offer scheduled treatment services that are open to the public... please visit our services page.' Because there is a real patient-facing, publicly-bookable treatment menu independent of the training/model activity, this clears the bar in rule 5 for INCLUDE rather than AMBIGUOUS_ACADEMY.",
+  "proposed_markdown_reason": null,
+  "extract_hints": {
+    "service_pages": ["/treatment-services/"],
+    "team_page": "/about/",
+    "locations_page": "/contact-us/",
+    "gallery_page": null,
+    "est_extract_effort": "small (single priced service-menu page)"
+  }
+}

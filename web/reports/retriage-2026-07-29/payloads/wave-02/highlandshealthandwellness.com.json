@@ -1,0 +1,29 @@
+{
+  "website": "https://highlandshealthandwellness.com/",
+  "name": "Highlands Health and Wellness Center",
+  "clinic_type": "other_medical_plus_aesthetics",
+  "tagline": "Enhancing Care for Holistic Well-Being, Both Inside and Out.",
+  "about": "At Highlands Health and Wellness Center, our guiding principle is that care must be personal, and every patient receives our undivided attention. Our clinic offers a foundation of decades of medical expertise, blending traditional internal medicine with advanced knowledge in functional wellness and specialized wound care. We take the time to educate patients about their health and treatment plan, ensuring their journey is knowledgeable, supportive, and tailored to their life.",
+  "phone": "(863) 382-4860",
+  "email": "highlandshealthandwellness@yahoo.com",
+  "booking_url": "https://highlandshealthandwellness.com/contact/",
+  "socials": {"instagram": null, "facebook": null, "tiktok": null, "youtube": null, "x": null, "linkedin": null, "yelp": null},
+  "hours": "Monday–Friday: 9:00 AM – 5:00 PM",
+  "locations": [
+    {"address": "119 US 27 North", "city": "Sebring", "state": "FL", "zip": "33870", "phone": "(863) 382-4860"}
+  ],
+  "providers": [
+    {"name": "Dr. Marie Rosy Toussaint", "title": "Internal Medicine Physician", "image_url": null, "is_owner": true},
+    {"name": "Natasha Tolentino", "title": "Medical Assistant", "image_url": null, "is_owner": false}
+  ],
+  "treatments": [
+    {"raw_name": "Emsculpt Neo®", "general_name": "EMSCULPT NEO"}
+  ],
+  "concerns": ["Stubborn Body Fat"],
+  "images": {
+    "logo": null,
+    "cover": "https://highlandshealthandwellness.com/storage/2025/11/Emsculpt-Neo%C2%AE-at-highlands-in-Sebring-FL.webp",
+    "gallery": [],
+    "before_after": []
+  }
+}

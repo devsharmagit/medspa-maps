@@ -1,0 +1,91 @@
+{
+  "website": "https://niloura.com/",
+  "name": "Niloura Wellness & Aesthetics",
+  "clinic_type": "medspa",
+  "tagline": "Advanced aesthetic medicine and restorative wellness, delivered with the precision, privacy, and personal touch you deserve.",
+  "about": "At Niloura Wellness & Aesthetics Clinic, we believe exceptional care begins long before your treatment. We combine evidence-based medical aesthetics with a deeply personalized approach because your skin, your concerns, and your goals are entirely your own. We don't believe in one-size-fits-all solutions; every consultation is a conversation that builds a plan aligned with your lifestyle, timeline, and vision of yourself.",
+  "phone": "(647) 803-5037",
+  "email": null,
+  "booking_url": "https://niloura.com/contact-us/",
+  "socials": {
+    "instagram": "https://www.instagram.com/niloura.clinic/",
+    "facebook": "https://www.facebook.com/profile.php?id=61588849724565",
+    "tiktok": "https://www.tiktok.com/@nilourawellnessaesthetic",
+    "youtube": null,
+    "x": "https://x.com/NilouraWA",
+    "linkedin": null,
+    "yelp": null
+  },
+  "hours": "Sun: 10 am to 6 pm | Mon & Thu: 5 pm to 9 pm | Tue, Wed & Fri: 6 pm to 9 pm | Office Hours Everyday: 9 am to 9 pm",
+  "locations": [
+    {
+      "address": "4553 Badminton Drive",
+      "city": "Mississauga",
+      "state": "ON",
+      "zip": "",
+      "phone": "(647) 803-5037"
+    }
+  ],
+  "providers": [
+    {
+      "name": "Aref",
+      "title": "Internationally Trained Plastic Surgeon & Aesthetic Injector",
+      "image_url": "https://niloura.com/storage/2026/06/arefniloura-at-niloura.webp",
+      "is_owner": false
+    },
+    {
+      "name": "Nilou",
+      "title": "Registered Nurse",
+      "image_url": "https://niloura.com/storage/2026/07/nilouniloura-at-niloura.webp",
+      "is_owner": false
+    },
+    {
+      "name": "Niloofar",
+      "title": "Clinical Concierge",
+      "image_url": "https://niloura.com/storage/2026/06/niloofarniloura-at-niloura.webp",
+      "is_owner": false
+    },
+    {
+      "name": "Avery",
+      "title": "Clinical Concierge",
+      "image_url": "https://niloura.com/storage/2026/06/averyniloura-at-niloura.webp",
+      "is_owner": false
+    }
+  ],
+  "treatments": [
+    { "raw_name": "Botox® Treatment", "general_name": "Botox" },
+    { "raw_name": "Dermal Fillers", "general_name": "Dermal Fillers" },
+    { "raw_name": "Exosome Treatments", "general_name": "Exosomes" },
+    { "raw_name": "IV Therapy", "general_name": "IV Therapy" },
+    { "raw_name": "PRP Therapy - Hair Loss Treatments", "general_name": "PRP Hair Restoration" },
+    { "raw_name": "PRP Therapy - Joint Treatments", "general_name": "PRP Joint Injections" },
+    { "raw_name": "Sculptra®", "general_name": "Sculptra" }
+  ],
+  "concerns": [
+    "Wrinkles & Fine Lines",
+    "Migraines",
+    "Volume Loss",
+    "Hair Loss",
+    "Joint Pain",
+    "Fatigue",
+    "Dehydration",
+    "Dullness"
+  ],
+  "images": {
+    "logo": null,
+    "cover": "https://niloura.com/storage/2026/06/Our-team-At-Niloura-Wellness-Aesthetics-Clinic-in-mississauga-on.webp",
+    "gallery": [
+      "https://niloura.com/storage/2026/06/niloura-clinic-Tour-four.webp",
+      "https://niloura.com/storage/2026/06/niloura-clinic-Tour-one.webp",
+      "https://niloura.com/storage/2026/06/niloura-clinic-Tour-three.webp",
+      "https://niloura.com/storage/2026/06/niloura-clinic-tour-image-two.webp"
+    ],
+    "before_after": [
+      "https://niloura.com/storage/2026/06/uppder-head-after-before-Niloura-Wellness-Aesthetics-Clinic-in-mississauga-on.webp",
+      "https://niloura.com/storage/2026/06/lip-filler-after-beforeNiloura-Wellness-Aesthetics-Clinic-in-mississauga-on.webp",
+      "https://niloura.com/storage/2026/06/niloura-lipfiller-before-after-image-three.webp",
+      "https://niloura.com/storage/2026/06/niloura-lipfiller-before-after-image-two.webp",
+      "https://niloura.com/storage/2026/06/home-after-before-Niloura-Wellness-Aesthetics-Clinic-in-mississauga-on.webp"
+    ]
+  }
+}

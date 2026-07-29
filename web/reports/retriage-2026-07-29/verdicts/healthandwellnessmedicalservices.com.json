@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "domain": "healthandwellnessmedicalservices.com",
+  "classified_by": "classify-agent",
+  "probe": {
+    "pages_read": ["/", "/services/", "/about/pricelist-and-services/", "/about/", "/provider/", "/provider/courtney-salaway-rn-msn-fnp-bc/", "/provider/jenny-furlow-np-c/", "/provider/lauren-adams-fnp-bc/", "/provider/sue-kiley-agacnp-bc/"],
+    "sitemap_source": "paths.txt",
+    "total_text_chars": 19483,
+    "digest_files": ["digests/healthandwellnessmedicalservices.com/pass1.txt", "digests/healthandwellnessmedicalservices.com/pass2.txt"]
+  },
+  "verdict": "EXCLUDE",
+  "confidence": "high",
+  "business_kind": "other_medical_plus_aesthetics",
+  "clinic_type": null,
+  "exclusion_reason_code": "NO_AESTHETIC_SERVICES",
+  "aesthetic_evidence": [],
+  "patient_facing": {
+    "sells_to": "patients",
+    "has_public_booking": true,
+    "phone": "434-933-3318",
+    "address_seen": null
+  },
+  "counter_evidence": [
+    { "page_path": "/provider/", "quote": "having expertise in Aesthetic Treatments" },
+    { "page_path": "/services/", "quote": "Primary Care more info Behavioral Health more info Chronic Care Management more info Annual Physicals more info Assisted Living Services more info Telemedicine more info Weight Loss Program more info" }
+  ],
+  "prior_reason_rebuttal": "Prior verdict called this a 'Duplicate' entry, which was not a real classification. Under the new criteria: read both /services/ and /about/pricelist-and-services/ plus 4 provider bio pages. The full service list is primary care, behavioral health, chronic care management, annual physicals, assisted-living visits, telemedicine, weight-loss program, mental-health/psychiatric services, pain management, and medical-marijuana certification — no skin, injectable, laser, body-contouring, nail or lash service anywhere. Every page carries a 'MEDICAL SPA' nav button, but its href resolves to a different domain (cvillehealthspa.com), a separate sister business, not a service this site itself performs. The /provider/ page's meta description claims staff have 'expertise in Aesthetic Treatments' but no provider bio or service listing names any actual aesthetic treatment.",
+  "proposed_markdown_reason": "Primary-care/behavioral-health/weight-loss medical practice; no skin, injectable, laser, body-contouring, nail, or lash service on this domain (its 'Medical Spa' nav link points to a separate site, cvillehealthspa.com).",
+  "extract_hints": {
+    "service_pages": ["/services/", "/about/pricelist-and-services/"],
+    "team_page": "/provider/",
+    "locations_page": "/contactus/",
+    "gallery_page": null,
+    "est_extract_effort": "small"
+  }
+}

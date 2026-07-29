@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "domain": "wellnesslifezone.com",
+  "classified_by": "classify-agent",
+  "probe": {
+    "pages_read": ["/", "/about/", "/courses/", "/courses/foot-zone-certification-course/", "/foot-zone-technique/", "/foot-zoning/", "/contact/", "/directory/", "/health-and-wellness/"],
+    "sitemap_source": "paths.txt",
+    "total_text_chars": 11799,
+    "digest_files": ["digests/wellnesslifezone.com/pass1.txt"]
+  },
+  "verdict": "EXCLUDE",
+  "confidence": "high",
+  "business_kind": "training_academy",
+  "clinic_type": null,
+  "exclusion_reason_code": "TRAINING_ONLY",
+  "aesthetic_evidence": [],
+  "patient_facing": {
+    "sells_to": "aspiring practitioners (career trainees), not patients",
+    "has_public_booking": false,
+    "phone": "801-897-1153",
+    "address_seen": "Sandy, UT"
+  },
+  "counter_evidence": [
+    { "note": "Every path examined (home, about, courses, technique, foot-zoning, directory) sells foot-zone certification training/tuition to future practitioners; there is no page offering a bookable patient session, and the practitioner directory lists third-party graduates, not an in-house clinic.", "page_path": "/courses/foot-zone-certification-course/", "quote": "Our course fee of $3950 covers tuition and includes access to 24/7 online resources, foot zone and anatomy books and videos, and more." }
+  ],
+  "prior_reason_rebuttal": "Prior reason ('foot-zone-technique training academy/school — not a clinic') holds up under the new criteria too: even setting the academy framing aside, foot-zone therapy itself is a reflexology-style wellness modality with no skin, face, body-contouring, nail, or lash service, so this would also fail as NO_AESTHETIC_SERVICES if it were a clinic. No patient-facing booking page was found anywhere in the sitemap.",
+  "proposed_markdown_reason": "Foot Zone Technique certification academy selling training/tuition to aspiring practitioners; no bookable patient clinic and the modality taught (reflexology-style foot zoning) is not an aesthetic service.",
+  "extract_hints": {
+    "service_pages": [],
+    "team_page": "/about/",
+    "locations_page": "/contact/",
+    "gallery_page": null,
+    "est_extract_effort": "small"
+  }
+}

@@ -1,0 +1,89 @@
+{
+  "website": "https://apexfit.com/",
+  "name": "Apex Fit",
+  "clinic_type": "other_medical_plus_aesthetics",
+  "tagline": "Med spa services combining advanced aesthetic treatments with personalized, medically supervised care.",
+  "about": "Apex Medspa, located inside Apex Fit, offers a wide variety of aesthetic services with personalized consultations for natural-looking results. The team includes a Dermatology Certified Nurse Practitioner and master injector, a PA anti-aging specialist, a licensed medical aesthetician/laser specialist, and a physician medical director. Med spa services span injectables, laser hair removal, microneedling, chemical peels, and skin tightening across Apex Fit's Florida and Texas locations.",
+  "phone": "(407) 674-8064",
+  "email": "info@apexfit.com",
+  "booking_url": "https://apexsweat.simplybook.me/v2/#book",
+  "socials": {
+    "instagram": "https://www.instagram.com/apexfitstudios/",
+    "facebook": "https://www.facebook.com/profile.php?id=100093416619647",
+    "tiktok": null,
+    "youtube": null,
+    "x": null,
+    "linkedin": null,
+    "yelp": null
+  },
+  "hours": "Mon - Fri: 5:00AM - 8:00PM, Sat - Sun: By Appointment",
+  "locations": [
+    {
+      "address": "10030 Wellness Way",
+      "city": "Orlando",
+      "state": "FL",
+      "zip": "32832",
+      "phone": "(407) 674-8064"
+    },
+    {
+      "address": "2927 Shamrock Ave",
+      "city": "Fort Worth",
+      "state": "TX",
+      "zip": "76107",
+      "phone": "(407) 674-8064"
+    }
+  ],
+  "providers": [
+    {
+      "name": "Alina Benitez",
+      "title": "DCNP, Master Injector",
+      "image_url": "https://apexfit.com/storage/2023/12/Alina-Benitez-im-testimonial.webp",
+      "is_owner": false
+    },
+    {
+      "name": "AJ Piovesan",
+      "title": "PA, Anti-Aging Specialist",
+      "image_url": null,
+      "is_owner": false
+    },
+    {
+      "name": "Stephanie Salva",
+      "title": "CCE, CME, LSO, Licensed Medical Aesthetician",
+      "image_url": null,
+      "is_owner": false
+    },
+    {
+      "name": "Dr. Jill Ward",
+      "title": "MD, Medical Director",
+      "image_url": null,
+      "is_owner": false
+    }
+  ],
+  "treatments": [
+    {"raw_name": "Botox", "general_name": "Botox"},
+    {"raw_name": "Dermal Fillers", "general_name": "Dermal Fillers"},
+    {"raw_name": "Lip Fillers", "general_name": "Lip Filler"},
+    {"raw_name": "Laser Hair Removal", "general_name": "Laser Hair Removal"},
+    {"raw_name": "Skin Tightening", "general_name": "Skin Tightening"},
+    {"raw_name": "Facial Fat Removal (Kybella)", "general_name": "Kybella"},
+    {"raw_name": "Microneedling", "general_name": "Microneedling"},
+    {"raw_name": "PCA Chemical Peels", "general_name": "Chemical Peels"}
+  ],
+  "concerns": [
+    "Fine Lines",
+    "Crow's Feet",
+    "Frown Lines",
+    "Sagging Skin",
+    "Unwanted Hair",
+    "Double Chin",
+    "Uneven Skin Tone",
+    "Acne",
+    "Skin Discoloration"
+  ],
+  "images": {
+    "logo": "https://apexfit.com/storage/2024/06/Apex-Logo.webp",
+    "cover": null,
+    "gallery": [],
+    "before_after": []
+  }
+}

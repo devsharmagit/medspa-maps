@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "domain": "ascentintegrativemedicine.com",
+  "classified_by": "classify-agent",
+  "probe": {
+    "pages_read": ["/", "/about-us/", "/contact-us/", "/hormone-replacement-therapy/", "/weight-management/", "/memberships/", "/virtual-consultation/", "/our-services/ (dead link, FETCH FAILED)"],
+    "sitemap_source": "paths.txt",
+    "total_text_chars": 7200,
+    "digest_files": ["digests/ascentintegrativemedicine.com/pass1.txt"]
+  },
+  "verdict": "EXCLUDE",
+  "confidence": "medium",
+  "business_kind": "other_medical_plus_aesthetics",
+  "clinic_type": null,
+  "exclusion_reason_code": "NO_AESTHETIC_SERVICES",
+  "aesthetic_evidence": [],
+  "patient_facing": {
+    "sells_to": "patients",
+    "has_public_booking": true,
+    "phone": "832-598-5695",
+    "address_seen": "13022 hermitage lane, Houston, TX 77079"
+  },
+  "counter_evidence": [
+    { "note": "Home page's own nav lists only two service categories, both wellness/hormone, and the 'VIEW ALL SERVICES' link points to /our-services/, which does not exist (fetch failed / dead link) — confirming there is no hidden aesthetics service list.",
+      "page_path": "/",
+      "quote": "What We Offer Hormone Replacement Therapy Learn more Weight Management Learn more VIEW ALL SERVICES" },
+    { "note": "SOCIAL/BOOKING links on every page reference a separate Facebook page 'ZI Bloom Aesthetics' and its own AestheticRecord booking widget (zibloom.myaestheticrecord.com) — this looks like a sister/affiliated aesthetics brand, but it is a distinct business entity linked from the footer, not a service sold on ascentintegrativemedicine.com itself. No page on this domain describes or lists any ZI Bloom service.",
+      "page_path": "/contact-us/",
+      "quote": "SOCIAL: https://www.facebook.com/ZI-Bloom-Aesthetics-102616368521072/ | https://www.instagram.com/zi_bloom_aesthetics/" }
+  ],
+  "prior_reason_rebuttal": "Old reason was the non-informative 'Duplicate of: Ascent Integrative Medicine' (a dedup tag, not a content judgment about aesthetics). Evaluating content directly: every real page on this domain (home, about-us, contact-us, hormone-replacement-therapy, weight-management, memberships, virtual-consultation) covers only men's testosterone/HRT and Semaglutide weight-loss injections — a textbook wellness-only offering with no skin, face, body-contouring, nail, or lash service. The one link that could have pointed to an aesthetics menu ('VIEW ALL SERVICES' -> /our-services/) is a dead/broken link (fetch failed, not in sitemap). Confidence is medium rather than high because of the unexplained 'ZI Bloom Aesthetics' / 'melt lipotherapy' social-media cross-links in the footer, which hint the practitioner may run a separate aesthetics brand — but that brand's content is not present on ascentintegrativemedicine.com itself.",
+  "proposed_markdown_reason": "Concierge men's testosterone-replacement and Semaglutide weight-management clinic; its only listed services are hormone/weight-loss related, with no skin, face, body-contouring, nail, or lash aesthetic service on the domain itself.",
+  "extract_hints": {
+    "service_pages": [],
+    "team_page": "/about-us/",
+    "locations_page": "/contact-us/",
+    "gallery_page": null,
+    "est_extract_effort": "small"
+  }
+}

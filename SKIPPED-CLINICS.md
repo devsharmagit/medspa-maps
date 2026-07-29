@@ -1,66 +1,76 @@
-# Skipped clinics — not added to the directory
+# Skipped websites — evaluated and deliberately not added
 
-These G99 website entries were evaluated during ingestion but **deliberately not added**, because they are not medical spas / aesthetics clinics (or had no usable data). Kept as a record for the demo.
+Harvested G99 websites that are NOT in the directory, with the reason. Re-triaged
+2026-07-29 under BROADENED criteria: a site qualifies if it offers **any** aesthetic
+service — full medspa, plastic surgery, cosmetic dermatology, cosmetic dentistry, or
+a day spa / nail salon doing manicure-pedicure. Wellness-only clinics (hormones,
+weight loss, IV) do **not** qualify. Every reason below is written against those
+criteria; 15 domains previously listed here or in DUPLICATE-DOMAINS.md turned out to
+be false positives and are now live clinics.
 
-| Domain | Business | Reason not added |
-|---|---|---|
-| corlettexpress.com | Corlett Express | Freight / delivery company — not a medical spa |
-| drgrossman.com | Leonard Grossman, MD | Surgical plastic-surgery practice only (liposuction, facelifts) — no medspa menu |
-| elev8wellnesscenter.com | Elev8 Wellness Center | Recovery therapies (cryotherapy, float, hydromassage) + weight mgmt — not aesthetic |
-| equilibrium-handtherapy.com | Equilibrium Hand Therapy | Hand therapy & lymphatic/prenatal massage clinic — not a medspa |
-| hudson-pt.com | Hudson Premier PT & Sports | Physical therapy clinic — not a medspa |
-| ravissantehealth.com | Ravissante Health & Wellness | Weight-loss & hormone-replacement clinic — no aesthetic services |
-| reshapehealthclinic.com | Reshape Health Clinic | Primary-care clinic (hormones, weight loss, physicals) — not aesthetics |
-| wellnesslifezone.com | Wellness Life Zone | Foot-zone-technique training academy/school — not a clinic |
-| zenithwellness.com | Zenith Wellness | Longevity/integrative medicine (genetic testing, precision medicine) — no aesthetic services |
-| utahtitle.com | Utah Title | Title/escrow company — mislabeled in source list, not a medspa |
-| azorthopedic.com | AZ Orthopedic | Orthopedic surgery practice — not a medspa |
-| medspabroomfield.com | (Broomfield med spa) | Website returned no usable content (empty/placeholder) — could not verify or extract |
-| deeplyvitalmedical.com | Deeply Vital Medical | Website returned almost no content — insufficient data to add |
-| vanityskinaesthetic.com | Vanity Skin Aesthetic | Website returned almost no content — insufficient data to add |
-| lumify.* | Lumify | Website returned almost no content — insufficient data to add |
-| instituteforpainrelief.com | Institute for Pain Relief | Orthopedic pain-management clinic — not a medspa |
-| skinandaura.com | Skin & Aura Medical Aesthetics | "Coming Soon" placeholder site — no services or contact to add |
-| drjosephfield.com | Joseph Field DDS | Cosmetic dentistry practice — not a medspa |
-| lavidaai.com | La Vida Laser & Aesthetics | Aesthetics training institute/school — not a patient-facing clinic |
-| artspahouse.com | ART Spa House | Day spa (massage/facials/nails) — no medical aesthetics or injectables |
-| highlifeintegrativemed.com | High Life Integrative Medicine | Integrative dermatology — no published treatment menu (individualized consults only) |
-| zenithwellness.org | Zenith Wellness | Functional-medicine / longevity clinic (genetics, hormones, mental health) — no aesthetic or injectable services |
-| lumify.com | Lumify Aesthetics & Medspa | Education & training platform (LMS) — not a clinic |
-| niloura.com | Niloura Wellness & Aesthetics Clinic | Minimal placeholder site — no services, providers, or contact to add |
-| courses.myaestheticinstitute.com | My Aesthetic Institute  | Aesthetic-medicine training school for professionals — not a patient clinic |
-| bluesparkhealth.com | Blue Spark Health | Naturopathic medicine clinic — minimal/no aesthetic services |
-| covecreek.com | Cove Creek Partners | Empty site — no text, services, or contact to extract |
-| jumpstartmedical.care | JumpStart Medical | Primary/urgent care clinic — no medspa/aesthetic/injectable services |
-| coreaestheticstraining.com | Core Aesthetics Training Institute | Aesthetics training institute — not a patient-facing clinic |
-| mattslocalpharmacy.com | Matt's Local Pharmacy | Retail pharmacy — not a medspa/aesthetics clinic |
-| syringescience.com | Syringe Science Aesthetic Training  | Aesthetic-provider training academy — not a patient clinic |
-| cachevalleyent.com | Cache Valley ENT | ENT (ear/nose/throat) clinic — not a medspa |
-| paramountspecialtytraining.com | Paramount Specialty Training | Training institute/education center — not a patient clinic |
-| trinitylongevitycenters.com | Trinity Longevity Center for Wellness and Medical Aesthetics | "Coming Soon" site — no services or content to add |
-| faceitlive.org | FACEit LIVE | Educational conference for professionals — not a patient clinic |
-| apexfit.com | Apex Fit | Fitness training studio (personal training, DEXA) — no listed aesthetic services |
-| fsdpa.org | Florida Society of Dermatology PAs | Professional association for dermatology PAs — not a patient clinic |
-| jimenezgastro.com | Arnaldo Jimenez, MD PC | Gastroenterology practice — not a medspa/aesthetics clinic |
-| aesthetic-intel.com | Aesthetic Intel | Provider training institute — not a patient-facing clinic |
-| maisondezenbk.com | Maison De Zen | Empty site — no content to extract |
-| edenmedspatx | (unknown) | Website returned no usable content (empty/unreachable) — could not extract |
-| charissfamilyclinic | (unknown) | Website returned no usable content (empty/unreachable) — could not extract |
-| poonamedicalspa | (unknown) | Website returned no usable content (empty/unreachable) — could not extract |
-| nursemarni | (unknown) | Website returned no usable content (empty/unreachable) — could not extract |
-| ovillamed | (unknown) | Website returned no usable content (empty/unreachable) — could not extract |
-| slsaesthetics | (unknown) | Website returned no usable content (empty/unreachable) — could not extract |
-| saiassethics | (unknown) | Website returned no usable content (empty/unreachable) — could not extract |
-| g99 | (unknown) | Website returned no usable content (empty/unreachable) — could not extract |
-| microscalpclinic | (unknown) | Website returned no usable content (empty/unreachable) — could not extract |
-| chiweilinmd | (unknown) | Website returned no usable content (empty/unreachable) — could not extract |
-| edenmedspatx | (unknown) | Website returned no usable content (empty/unreachable) |
-| charissfamilyclinic | (unknown) | Website returned no usable content (empty/unreachable) |
-| poonamedicalspa | (unknown) | Website returned no usable content (empty/unreachable) |
-| nursemarni | (unknown) | Website returned no usable content (empty/unreachable) |
-| ovillamed | (unknown) | Website returned no usable content (empty/unreachable) |
-| slsaesthetics | (unknown) | Website returned no usable content (empty/unreachable) |
-| saiassethics | (unknown) | Website returned no usable content (empty/unreachable) |
-| g99 | (unknown) | Website returned no usable content (empty/unreachable) |
-| microscalpclinic | (unknown) | Website returned no usable content (empty/unreachable) |
-| chiweilinmd | (unknown) | Website returned no usable content (empty/unreachable) |
+`web/reports/retriage-2026-07-29/` holds the evidence: per-domain page digests, a
+machine-checked verdict JSON per domain, and the payloads that were saved.
+
+| Domain | Business | Reason code | Reason not added |
+|---|---|---|---|
+| drjosephfield.com | Joseph Field DDS | OUT_OF_SCOPE_DENTISTRY | Cosmetic dentistry practice (porcelain veneers, SmileSculpt, Lumineers, Snap-On Smile, smile makeovers, Zoom whitening) in Los Altos CA and Lehi UT. Genuinely cosmetic, and it WAS added on 2026-07-29 under the broadened criteria — then removed the same day: this is a medspa directory and carries no dentistry. Consistent with api/search/route.ts, which already filtered dentistry/dental/orthodont/veneer out of treatment search, so dental services were listed but unsearchable. All 6 of its treatments were dental, leaving nothing to keep. |
+| highlifeintegrativemed.com | High Life Integrative Medicine | NO_AESTHETIC_SERVICES | Integrative dermatology — no published treatment menu (individualized consults only) |
+| zenithwellness.com | Zenith Wellness | NO_AESTHETIC_SERVICES | Longevity/integrative medicine (genetic testing, precision medicine) — no aesthetic services |
+| aesthetic-intel.com |  | TRAINING_ONLY | Provider injectable-course business (courses/webinars/shop sold to medical providers). The only patient-facing route is a 'model' programme where the public receives injectables during training sessions for a model fee. DECISION 2026-07-29: model calls are not a service the public can book on demand and the treating hands are trainees, so this stays excluded even under the broadened criteria. Revisit if it opens a real patient clinic. |
+| afivestarsmile.com |  | OUT_OF_SCOPE_DENTISTRY | Cosmetic dental spa. Out of scope regardless of site state — this is a medspa directory and carries no dentistry (see scripts/2026-07-29-remove-dentistry.sql). Separately, the live site is a 'Coming Soon' placeholder with every service path 404; archive.org captures from 2025 showed cosmetic dentistry plus a small medspa line (Botox, fillers, HydraFacial, Fotona laser). If it relaunches, only a genuinely non-dental aesthetic menu would qualify. |
+| americanprep.org |  | NON_CLINIC_BUSINESS | K-12 tuition-free public charter school system (American Preparatory Academy) with no clinical or aesthetic services offered to the public. |
+| ascentintegrativemedicine.com |  | NO_AESTHETIC_SERVICES | Concierge men's testosterone-replacement and Semaglutide weight-management clinic; its only listed services are hormone/weight-loss related, with no skin, face, body-contouring, nail, or lash aesthetic service on the domain itself. |
+| azorthopedic.com |  | NO_AESTHETIC_SERVICES | Orthopedic surgery and sports-medicine practice (knee/shoulder) with a full services page reviewed; no aesthetic or cosmetic offering of any kind. |
+| bodyrevolutionwellness.com |  | PLACEHOLDER_COMING_SOON | Body Revolution Aesthetics & Wellness — a REAL, OPEN, currently-booking aesthetics business (live Zenoti booking, sitemap slugs for injectables/facial-treatments/rf-microneedling/skin-health). Its marketing site serves an identical ~190-character 'coming soon' splash on EVERY route, including a headless render, so no page yields a citable service. DECISION 2026-07-29: not added because there is nothing to ingest — this is NOT 'not a medspa'. Almost certainly qualifies; re-check once the real site publishes. |
+| charissfamilyclinic.com |  | DEAD_SITE | Domain does not resolve (NXDOMAIN) on any http/https/www variant |
+| chiweilinmd.com |  | DEAD_SITE | Domain does not resolve (NXDOMAIN) on any http/https/www variant |
+| colleenmaherartistry.com |  | NO_AESTHETIC_SERVICES | Philadelphia bridal/event makeup artist. NOT excluded for lack of any aesthetic signal — /services/ does list a bookable 'False Eyelash Application $20.00'. DECISION 2026-07-29: dropped as too thin — one line item inside an otherwise entirely bridal menu is an add-on to event makeup, not a standing lash service. Revisit if it adds lash/brow or skin services. |
+| coreaestheticstraining.com |  | TRAINING_ONLY | Injector training school. Real injectable treatments do happen on-site, but only via the discounted /models/ programme. DECISION 2026-07-29: excluded as a training-model clinic, not a bookable patient clinic. Revisit if a public treatment menu appears. |
+| corlettexpress.com |  | NON_CLINIC_BUSINESS | Freight and logistics trucking company; no clinic, patients, or aesthetic services of any kind. |
+| courses.myaestheticinstitute.com |  | TRAINING_ONLY | Training academy: courses.myaestheticinstitute.com (and its apex myaestheticinstitute.com) sell CME-accredited injector courses to medical professionals only; the actual med spa is a separate sister company/domain (My Face Lady), so there is no patient-facing clinic on this domain. |
+| covecreek.com |  | DEAD_SITE | Domain does not resolve (NXDOMAIN) on any http/https/www variant |
+| deeplyvitalmedical.com |  | DEAD_SITE | Domain resolves but only serves a hosting-provider 'Site Unavailable' outage page on every fetch; the actual site is unreachable. |
+| drpravinsuryawanshi.com |  | NO_AESTHETIC_SERVICES | General/hepatobiliary surgeon and liver-transplant practice with no aesthetic, cosmetic, or spa offering anywhere on the site. |
+| edenmedspatx.com |  | DEAD_SITE | DNS resolves but the server answers on no http/https/www variant — site offline |
+| elev8wellnesscenter.com |  | NO_AESTHETIC_SERVICES | Recovery and weight-loss wellness centre (dry float, cryotherapy, hydromassage, 3D body scan, GLP-1). NOT excluded for lack of any aesthetic signal — Red Light Therapy is marketed for skin health/anti-aging and one page title brands the business 'MedSpa'. DECISION 2026-07-29: dropped as too thin — red light is the only line item with a skin claim and everything else is recovery/wellness. Revisit if a real aesthetic menu appears. |
+| faceitlive.org |  | CONFERENCE | Professional aesthetic-medicine conference/symposium for injectors (The Sonoanatomy Experience); no patient clinic, no patient-facing treatment menu, no booking for the public. |
+| fsdpa.org |  | ASSOCIATION | Professional association (Florida Society of Dermatology PAs) running membership programs, journal clubs, and CME conferences for practicing PAs/NPs — no patient clinic, no aesthetic services sold to the public. |
+| g99.com |  | DEAD_SITE | Domain does not resolve (NXDOMAIN) on any http/https/www variant |
+| healthandwellnessmedicalservices.com |  | NO_AESTHETIC_SERVICES | Primary-care/behavioral-health/weight-loss medical practice; no skin, injectable, laser, body-contouring, nail, or lash service on this domain (its 'Medical Spa' nav link points to a separate site, cvillehealthspa.com). |
+| hudson-pt.com |  | NO_AESTHETIC_SERVICES | Physical-therapy and sports-rehab practice. NOT excluded for lack of any aesthetic signal — it does run one /joovv-led-light-therapy/ page titled 'Skin Treatment' marketing skin rejuvenation and collagen. DECISION 2026-07-29: dropped as too thin — a single LED-panel page inside an otherwise wholly musculoskeletal practice is recovery marketing, not an aesthetics arm. Revisit if it adds injectables, lasers or a real skin menu. |
+| integrityfootandankle.com |  | NO_AESTHETIC_SERVICES | Medical podiatry practice (Integrity Foot and Ankle Associates) treating diabetic foot care, ingrown toenails, bunions, fungal infections, and foot/ankle surgery; services and skin-conditions pages reviewed and contain no elective aesthetic/cosmetic offering. |
+| jimenezgastro.com |  | NO_AESTHETIC_SERVICES | Practice offers GI procedures plus medical weight loss, NAD+/peptide therapy, and semaglutide/tirzepatide injections, but no skin, face, body-contouring, nail, or lash aesthetic service — wellness/GI only, no aesthetic offering. |
+| jumpstartmedical.care |  | NO_AESTHETIC_SERVICES | Primary/urgent-care practice; full service menu (/services/) covers primary care, urgent care, telemedicine, chronic disease management, women's/men's health, joint injections, EKG, and medically-supervised weight loss, with no skin, injectable, laser, body-contouring, nail, or lash service anywhere on the site. |
+| lumify.com |  | DEAD_SITE | Cloudflare 403 on every access method (curl, headless browser, http/https/www) — contents never seen, so no judgement about services is possible. Separately, the G99 business 'Lumify Aesthetics & Medspa' (Oviedo, FL) appears to trade at lumifymedspa.com, a DIFFERENT domain; lumify.com resolves in search to unrelated entities (an investment holding co., an LMS platform, an eye-care brand). DECISION 2026-07-29: not added. The right follow-up is to harvest lumifymedspa.com as a new candidate, not to retry this domain. |
+| maisondezenbk.com |  | DEAD_SITE | Domain does not resolve (NXDOMAIN) on any http/https/www variant |
+| mandalynacademy.com |  | TRAINING_ONLY | Esthetics/cosmetology school. Closest of the five to a real business — published hours, online booking and a full service menu — but the site itself states 'ALL SERVICES PERFORMED BY SUPERVISED STUDENTS' at 'spa services, without the spa prices'. DECISION 2026-07-29: excluded because the treating hands are students; this was the borderline case of the five and was considered on its own merits. Revisit if it staffs licensed practitioners. |
+| mattslocalpharmacy.com |  | NON_CLINIC_BUSINESS | Retail and compounding pharmacy (vaccines, prescription transfers, compounded medications for hormone/weight-loss/dermatology/hair-loss conditions dispensed on a provider's prescription) with no in-house aesthetic procedures — a pharmacy, not a clinic or spa. |
+| mavenaesthetics.com |  | PLACEHOLDER_COMING_SOON | Live site is a bare 'Coming Soon' placeholder (business name, phone, and a vague service-area line only); no services, team, or contact page exists, and no archived capture shows real content either. |
+| microscalpclinic.com |  | DEAD_SITE | DNS misconfigured to 127.0.0.1 — site unreachable from anywhere |
+| neosaestheticacademy.com |  | TRAINING_ONLY | Online + in-person training academy selling injectable courses, private hands-on training, and mentorship to nurse/provider injectors; no patient-bookable treatment is offered on this domain (its booking link points to a separate business, SkinSpirit SLC). |
+| nursemarni.com |  | PLACEHOLDER_COMING_SOON | Returns 401 on every variant — password-protected site, contents could not be verified |
+| orthoifyortho.com |  | NO_AESTHETIC_SERVICES | Orthopedic surgery and sports-medicine practice (joint replacement, ACL/rotator cuff repair, fracture care, orthobiologics for joint pain) with no skin, face, body-contouring, nail, or lash service offered anywhere on the site. |
+| ovillamed.com |  | PLACEHOLDER_COMING_SOON | Site is an unconfigured, default WordPress install (title 'My WordPress', stock Sample Page only, empty blog) with no real business content, and is also a known alternate/duplicate domain for a clinic already in the database. |
+| paramountspecialtytraining.com |  | TRAINING_ONLY | Redirects to injectionhealthinstitute.com, a botulinum-toxin/dermal-filler training academy for medical professionals. Only patient contact is 'Live Patient Participation' / volunteer patients during hands-on courses. DECISION 2026-07-29: excluded as a training-model clinic. Revisit if a patient-facing clinic launches. |
+| poonamedicalspa.com |  | DEAD_SITE | Domain does not resolve (NXDOMAIN) on any http/https/www variant |
+| ravissantehealth.com |  | NO_AESTHETIC_SERVICES | Domain redirects to fitfutureclinic.com, a medical weight-loss/hormone-replacement/peptide clinic; its full service menu (GLP-1 therapy, TRT, HGH, peptides, ED treatment) contains no skin, face, body-contouring, nail, or lash aesthetic service. |
+| reevaspa.com |  | PARKED_DOMAIN | Domain resolves only to a generic ad-network domain-parking page (noindex, no business content); the Reeva Spa & IV Drip website is not live at this address. |
+| reshapehealthclinic.com |  | NO_AESTHETIC_SERVICES | Direct-primary-care and hormone/weight-loss membership clinic; its full service list (hormones, GLP-1 weight loss, physicals, general wellness add-ons) contains no skin, face, body-contouring, nail, or lash aesthetic service. |
+| reviveketaminecenters.com |  | NO_AESTHETIC_SERVICES | Site offers ketamine infusion therapy plus NAD, nutrient, and massage wellness add-ons only — no skin, face, body-contouring, nail, or lash aesthetic service is offered anywhere on the site. |
+| rockymountainsnowmobile.com |  | NON_CLINIC_BUSINESS | Retail e-commerce store selling snowmobile parts and gear; not a clinic or aesthetic service provider of any kind. |
+| rumaacademy.com |  | TRAINING_ONLY | Aesthetic injector courses sold per-seat to providers; /model-inquiry/ offers the public 'exclusive discounts on treatments' as training models. DECISION 2026-07-29: excluded as a training-model clinic. Note the related RUMA clinic brand is a separate business already in the directory. |
+| saiassethics.com |  | DEAD_SITE | Domain does not resolve (NXDOMAIN) on any http/https/www variant |
+| santosh.yoga |  | NON_CLINIC_BUSINESS | Yoga studio, teacher-training academy, and retreat/product business (Ayurvedic ghee, chai, wellness kits) with no medical or aesthetic clinic component of any kind. |
+| skinandaura.com |  | PLACEHOLDER_COMING_SOON | Live 'Coming Soon Summer 2025' launch page with no services, pricing, or contact-for-care content, and the site's own sitemap confirms no other pages exist yet. |
+| slsaesthetics.com |  | DEAD_SITE | Returns 404 on every http/https/www variant — site removed |
+| smilevirtual.com |  | NON_CLINIC_BUSINESS | B2B SaaS/marketing platform ('Smile Virtual') sold to dentists for running virtual cosmetic consultations; the domain itself is not a clinic. |
+| southernazlaw.com |  | NON_CLINIC_BUSINESS | Law firm (family law, juvenile dependency, criminal defense, employee benefits); not a clinic or aesthetic service provider. |
+| syringescience.com |  | TRAINING_ONLY | Site is a private training academy for licensed aesthetic injectors (Botox/Dysport, filler, and Sculptra technique training); every page targets providers seeking training, not patients seeking treatment, and there is no bookable patient service. |
+| thewinnerschool.com |  | NON_CLINIC_BUSINESS | Children's preschool/after-school/dance/karate/summer-camp school — no medical or aesthetic services of any kind. |
+| totalmskcare.com |  | NO_AESTHETIC_SERVICES | Total Musculoskeletal Care is a physiatry/sports-medicine and regenerative-orthopedic practice (PRP, exosomes, joint injections, hormone/peptide therapy for recovery) with no skin, face, body-contouring, or other aesthetic service offered. |
+| trinitylongevitycenters.com |  | PLACEHOLDER_COMING_SOON | Site is a live WordPress install showing only 'Coming Soon' placeholder pages and default WP scaffolding (sample-page, hello-world) — no services, pricing, or contact-for-care content exists to classify as aesthetic or otherwise. |
+| utahtitle.com |  | NON_CLINIC_BUSINESS | Title insurance and escrow company for home buyers/sellers in Utah; no clinical or aesthetic services of any kind. |
+| vanityskinaesthetic.com |  | DEAD_SITE | The website is gone; the domain redirects to an Instagram profile (injector__kimk) that itself no longer exists ('Profile isn't available'), leaving no page content of any kind to assess for aesthetic services. |
+| wellnesslifezone.com |  | TRAINING_ONLY | Foot Zone Technique certification academy selling training/tuition to aspiring practitioners; no bookable patient clinic and the modality taught (reflexology-style foot zoning) is not an aesthetic service. |
+| zenithwellness.org |  | NO_AESTHETIC_SERVICES | Zenith Wellness is a concierge longevity/functional-medicine practice (bioidentical hormones, genetic testing, NAD+, HeartMath, weight loss) with no skin, body-contouring, or other aesthetic service offered to the public. |
+| niloura.com | Niloura Wellness & Aesthetics | OUT_OF_SCOPE_GEOGRAPHY | QUALIFIES but NOT ADDED — clinic is in Mississauga, Ontario, CANADA and this directory is US-only (all clinics country='US', US postal-code table, US-state search, USA-only geo detection). Fully-extracted payload is preserved at web/reports/retriage-2026-07-29/payloads/_holdback/niloura.com.json and can be saved in one command if non-US scope is opened. |

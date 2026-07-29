@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "domain": "trinitylongevitycenters.com",
+  "classified_by": "classify-agent",
+  "probe": {
+    "pages_read": ["/", "/sample-page/", "/test-a/", "/test-b/", "/hello-world/"],
+    "sitemap_source": "wp-sitemap-posts-page-1.xml + wp-sitemap-posts-post-1.xml (fetched directly)",
+    "total_text_chars": 950,
+    "digest_files": [
+      "digests/trinitylongevitycenters.com/pass1.txt",
+      "digests/trinitylongevitycenters.com/pass2.txt",
+      "digests/trinitylongevitycenters.com/pass3.txt"
+    ]
+  },
+  "verdict": "EXCLUDE",
+  "confidence": "high",
+  "business_kind": "dead_or_placeholder",
+  "clinic_type": null,
+  "exclusion_reason_code": "PLACEHOLDER_COMING_SOON",
+  "aesthetic_evidence": [],
+  "patient_facing": {
+    "sells_to": "unknown",
+    "has_public_booking": false,
+    "phone": "1-855-8TLCMED",
+    "address_seen": "5895 Trinity Pkwy, Suite #100, Centreville Virginia 20120"
+  },
+  "counter_evidence": [
+    {
+      "note": "Homepage and every discoverable page say 'Coming Soon'; the WordPress sitemap lists only default-theme scaffolding pages (sample-page, test-a, test-b, hello-world), no real content.",
+      "page_path": "/",
+      "quote": "Coming Soon Get In Touch Phone 1-855-8TLCMED Address 5895 Trinity Pkwy, Suite #100, Centreville Virginia 20120"
+    }
+  ],
+  "prior_reason_rebuttal": "Prior verdict said this was a 'Coming Soon' placeholder with no content — this is confirmed, not falsified. Fetched the site directly (not JS-blocked; cheerio digest renders full text) and also pulled the WordPress XML sitemaps directly: the only pages that exist are the WP default 'sample-page' (stock 'Hi there! I'm a bike messenger...' boilerplate text), 'hello-world' (default first post), and two additional 'Coming Soon' stub pages (test-a, test-b). No services, treatments, or booking of any kind are present anywhere on the site.",
+  "proposed_markdown_reason": "Site is a live WordPress install showing only 'Coming Soon' placeholder pages and default WP scaffolding (sample-page, hello-world) — no services, pricing, or contact-for-care content exists to classify as aesthetic or otherwise.",
+  "extract_hints": {
+    "service_pages": [],
+    "team_page": null,
+    "locations_page": null,
+    "gallery_page": null,
+    "est_extract_effort": "small"
+  }
+}

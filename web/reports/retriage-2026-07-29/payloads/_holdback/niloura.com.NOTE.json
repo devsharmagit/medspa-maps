@@ -1,0 +1,7 @@
+{
+ "domain": "niloura.com",
+ "held_back_at": "2026-07-29",
+ "reason": "Real, fully-verified medspa (Botox, fillers, Sculptra, exosomes, PRP; 4 providers with headshots; cover + 4 gallery + 5 before/after images) \u2014 but located at 4553 Badminton Drive, Mississauga, ONTARIO, CANADA. This directory is US-only: all 671 existing clinics are country='US', the postal_codes table is US, /api/search resolves US state abbreviations, and the app has explicit USA-only geo detection. A Canadian clinic would be listed but effectively unfindable by location search.",
+ "decision": "NOT saved. Payload is complete and kept here so it can be added in one command if non-US scope is opened.",
+ "payload": "payloads/_holdback/niloura.com.json"
+}

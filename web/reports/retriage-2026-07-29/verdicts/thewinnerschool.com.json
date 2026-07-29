@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "domain": "thewinnerschool.com",
+  "classified_by": "classify-agent",
+  "probe": {
+    "pages_read": ["/", "/dance/", "/karate/", "/preschool/", "/after-school/", "/summer-programs/", "/contact-us/"],
+    "sitemap_source": "paths.txt",
+    "total_text_chars": 11200,
+    "digest_files": ["digests/thewinnerschool.com/pass1.txt"]
+  },
+  "verdict": "EXCLUDE",
+  "confidence": "high",
+  "business_kind": "non_clinic_business",
+  "clinic_type": null,
+  "exclusion_reason_code": "NON_CLINIC_BUSINESS",
+  "aesthetic_evidence": [],
+  "patient_facing": {
+    "sells_to": "families_and_children",
+    "has_public_booking": false,
+    "phone": "801-278-2500",
+    "address_seen": "6120 S 2075 E, Salt Lake City, UT 84121"
+  },
+  "counter_evidence": [
+    { "quote": "The Winner School is a family-owned and operated school and multi-purpose center for children that focuses on teaching the whole child.", "page_path": "/" },
+    { "quote": "Our beautiful and unique 14,000 square foot facility is one of a kind. The Winner School offers the finest programs in Preschool, After School care, Dance, Karate, Summer Camps, Music, and more!", "page_path": "/" }
+  ],
+  "prior_reason_rebuttal": "Prior reason ('Duplicate of: The Winner School') was a dedup note, not a content call. On content: this is a K-12-adjacent preschool/after-school/dance/karate/summer-camp center for children, explicitly named in the brief's own NON_CLINIC_BUSINESS examples ('K-12 school'). No medical staff, no skin/face/body/nail/lash service, no aesthetic offering anywhere across preschool, after-school, dance, karate, or summer-program pages.",
+  "proposed_markdown_reason": "Children's preschool/after-school/dance/karate/summer-camp school — no medical or aesthetic services of any kind.",
+  "extract_hints": {
+    "service_pages": [],
+    "team_page": null,
+    "locations_page": "/contact-us/",
+    "gallery_page": "/gallery/",
+    "est_extract_effort": null
+  }
+}

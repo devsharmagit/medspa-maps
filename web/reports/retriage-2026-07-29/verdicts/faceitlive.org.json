@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "domain": "faceitlive.org",
+  "classified_by": "classify-agent",
+  "probe": {
+    "pages_read": ["/", "/services/", "/about-us/", "/faculty/", "/conference/", "/schedule-2026/", "/contact/"],
+    "sitemap_source": "paths.txt",
+    "total_text_chars": 22158,
+    "digest_files": ["digests/faceitlive.org/pass1.txt"]
+  },
+  "verdict": "EXCLUDE",
+  "confidence": "high",
+  "business_kind": "association_or_conference",
+  "clinic_type": null,
+  "exclusion_reason_code": "CONFERENCE",
+  "aesthetic_evidence": [],
+  "patient_facing": {
+    "sells_to": "practitioners", "has_public_booking": false,
+    "phone": "781-524-3223", "address_seen": "296 State St Boston, MA 02109"
+  },
+  "counter_evidence": [
+    { "note": "Site is a recurring ultrasound-in-aesthetics symposium ('The Sonoanatomy Experience') for injectors/practitioners; /services/ is unfilled boilerplate theme copy ('Service 1', 'This is a Call to Action widget'), not a real service menu, and there is no patient booking or patient-facing treatment menu anywhere.",
+      "page_path": "/services/" }
+  ],
+  "prior_reason_rebuttal": "Prior reason ('Educational conference for professionals — not a patient clinic') holds up after re-check: /about-us/ and /faculty/ confirm it is a three-day CME-style conference for aesthetic injectors, /services/ is generic unedited page-builder placeholder text (not real services), and /schedule-2026/ says 'Coming soon' with no patient offering.",
+  "proposed_markdown_reason": "Professional aesthetic-medicine conference/symposium for injectors (The Sonoanatomy Experience); no patient clinic, no patient-facing treatment menu, no booking for the public.",
+  "extract_hints": {
+    "service_pages": [], "team_page": "/faculty/",
+    "locations_page": "/contact/", "gallery_page": null,
+    "est_extract_effort": "small"
+  }
+}

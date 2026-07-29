@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "domain": "corlettexpress.com",
+  "classified_by": "classify-agent",
+  "probe": {
+    "pages_read": ["/", "/about-us/", "/transport-services/", "/service-centers/", "/contact/", "/faq/"],
+    "sitemap_source": "paths.txt",
+    "total_text_chars": 9000,
+    "digest_files": ["digests/corlettexpress.com/pass1.txt"]
+  },
+  "verdict": "EXCLUDE",
+  "confidence": "high",
+  "business_kind": "non_clinic_business",
+  "clinic_type": null,
+  "exclusion_reason_code": "NON_CLINIC_BUSINESS",
+  "aesthetic_evidence": [],
+  "patient_facing": {
+    "sells_to": "patients",
+    "has_public_booking": false,
+    "phone": "801-973-2288",
+    "address_seen": "1627 Pioneer Road, Salt Lake City, Utah 84104"
+  },
+  "counter_evidence": [
+    {
+      "note": "Site is a Utah freight/trucking and logistics company (LTL shipments, distribution, service centers); no clinic, no patients, no medical or aesthetic content anywhere",
+      "page_path": "/"
+    }
+  ],
+  "prior_reason_rebuttal": "Prior reason 'Freight / delivery company — not a medical spa' is confirmed correct under the new criteria too. Checked home, about, transport-services, service-centers, contact, and FAQ — this is exclusively a freight/trucking business (LTL, distribution, lift-gate service) with no patient-facing or aesthetic content of any kind.",
+  "proposed_markdown_reason": "Freight and logistics trucking company; no clinic, patients, or aesthetic services of any kind.",
+  "extract_hints": {
+    "service_pages": [],
+    "team_page": "/about-us/",
+    "locations_page": "/service-centers/",
+    "gallery_page": null,
+    "est_extract_effort": "small"
+  }
+}

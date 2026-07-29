@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "domain": "vanityskinaesthetic.com",
+  "classified_by": "classify-agent",
+  "probe": {
+    "pages_read": ["/"],
+    "sitemap_source": "none (sitemap.MISSING)",
+    "total_text_chars": 0,
+    "digest_files": ["digests/vanityskinaesthetic.com/pass1.txt"]
+  },
+  "verdict": "EXCLUDE",
+  "confidence": "high",
+  "business_kind": "dead_or_placeholder",
+  "clinic_type": null,
+  "exclusion_reason_code": "DEAD_SITE",
+  "aesthetic_evidence": [],
+  "patient_facing": {
+    "sells_to": null,
+    "has_public_booking": false,
+    "phone": null,
+    "address_seen": null
+  },
+  "counter_evidence": [
+    {
+      "note": "curl -L on the domain resolves (final HTTP 200) directly to an Instagram profile URL, confirming the domain no longer hosts its own website and has been pointed at a social page instead.",
+      "page_path": "/",
+      "quote": "TITLE: Instagram"
+    },
+    {
+      "note": "The Instagram profile the domain redirects to is itself gone, so there is no content at all reachable from this domain, social or otherwise.",
+      "page_path": "/",
+      "quote": "Profile isn't available"
+    }
+  ],
+  "prior_reason_rebuttal": "Prior reason was 'Website returned almost no content — insufficient data to add', treated as a thin-content case worth revisiting. On re-check the domain does not host a website at all: it now redirects straight to https://www.instagram.com/injector__kimk/, and that Instagram profile itself returns 'Profile isn't available. The link may be broken or the profile may have been removed.' There is no clinic page, service list, or any content to evaluate for aesthetic services under the new criteria -- a social-only presence (and a broken one at that) yields no page content to ingest.",
+  "proposed_markdown_reason": "The website is gone; the domain redirects to an Instagram profile (injector__kimk) that itself no longer exists ('Profile isn't available'), leaving no page content of any kind to assess for aesthetic services.",
+  "extract_hints": {
+    "service_pages": [],
+    "team_page": null,
+    "locations_page": null,
+    "gallery_page": null,
+    "est_extract_effort": "none"
+  }
+}

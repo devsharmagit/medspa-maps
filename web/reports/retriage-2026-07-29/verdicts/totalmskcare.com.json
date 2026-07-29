@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "domain": "totalmskcare.com",
+  "classified_by": "classify-agent",
+  "probe": {
+    "pages_read": ["/", "/about-us/", "/services/", "/concierge-sports-medicine/", "/contact-us/", "/dry-needling-treatment-in-delray-beach-fl/", "/nerve-pain-treatment-in-delray-beach-fl/"],
+    "sitemap_source": "paths.txt",
+    "total_text_chars": 13000,
+    "digest_files": ["digests/totalmskcare.com/pass1.txt"]
+  },
+  "verdict": "EXCLUDE",
+  "confidence": "high",
+  "business_kind": "other_medical_plus_aesthetics",
+  "clinic_type": null,
+  "exclusion_reason_code": "NO_AESTHETIC_SERVICES",
+  "aesthetic_evidence": [],
+  "patient_facing": {
+    "sells_to": "patients",
+    "has_public_booking": true,
+    "phone": "561-858-8767",
+    "address_seen": "5341 W Atlantic Ave #300 Delray Beach, FL 33484"
+  },
+  "counter_evidence": [
+    "Full /services/ list read: Hormone Replacement Therapy, Peptide Therapy, Evaluation of Muscular/Tendon/Joint Pain, Evaluation of Neck and Back Pain, In-Depth Musculoskeletal Ultrasound, Exosome injections and stem cell treatment, Gel Injections for Arthritis, Joint and Tendon Steroid Injections, PRP / Regenerative Medicine, Concussion Management, EMG and Nerve Conduction Testing, Dry Needling Treatment, Management of Nerve-Related Pain - all musculoskeletal/pain-management or regenerative-medicine for joints and nerves, none skin/face/body-contouring/nail/lash."
+  ],
+  "prior_reason_rebuttal": "Prior verdict was 'Duplicate of: Total Musculoskeletal Care' (a dedup note, not an aesthetics assessment). Under the new rule the site is still an EXCLUDE: it is a physiatry/sports-medicine regenerative practice (PRP, exosomes, stem cells, steroid injections, dry needling, hormone/peptide therapy for recovery) with zero skin, face, body-contouring, nail, or lash offerings anywhere on the full services page or sub-pages read.",
+  "proposed_markdown_reason": "Total Musculoskeletal Care is a physiatry/sports-medicine and regenerative-orthopedic practice (PRP, exosomes, joint injections, hormone/peptide therapy for recovery) with no skin, face, body-contouring, or other aesthetic service offered.",
+  "extract_hints": {
+    "service_pages": ["/services/"],
+    "team_page": "/about-us/",
+    "locations_page": "/contact-us/",
+    "gallery_page": null,
+    "est_extract_effort": "small"
+  }
+}

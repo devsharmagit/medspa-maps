@@ -1,0 +1,92 @@
+{
+  "website": "https://pacific-obgyn.com/",
+  "name": "Pacific OBGYN + Aesthetics",
+  "clinic_type": "other_medical_plus_aesthetics",
+  "tagline": "Skin and body aesthetic treatments from Pacific OBGYN + Aesthetics, serving Newport Beach and Irvine, CA.",
+  "about": "Pacific OBGYN + Aesthetics is the aesthetics arm of Pacific Obstetrics and Gynecology, serving Newport Beach and Irvine, CA. The Skin menu covers Botox, Fillers, Laser Acne Treatment, Laser Facial Rejuvenation, Laser Hair Removal, and RF Microneedling, while the Body menu covers Body Contouring, Hair Restoration, and Vaginal Remodeling with Laser. The aesthetics team has its own contact channel at aesthetics@pacific-obgyn.com and its own Instagram, @pacific.obgyn.aesthetics.",
+  "phone": "(949) 548-6800",
+  "email": "aesthetics@pacific-obgyn.com",
+  "booking_url": "https://app.growth99.com/ap-booking?b=4283&c=4476",
+  "socials": {
+    "instagram": "https://www.instagram.com/pacific.obgyn.aesthetics/",
+    "facebook": null,
+    "tiktok": null,
+    "youtube": null,
+    "x": null,
+    "linkedin": null,
+    "yelp": null
+  },
+  "hours": null,
+  "locations": [
+    {
+      "address": "496 Old Newport Blvd, Suite 4",
+      "city": "Newport Beach",
+      "state": "CA",
+      "zip": "92663",
+      "phone": "(949) 548-6800"
+    },
+    {
+      "address": "16305 Sand Canyon Ave, Suite 220",
+      "city": "Irvine",
+      "state": "CA",
+      "zip": "92618",
+      "phone": "(949) 548-6801"
+    }
+  ],
+  "providers": [
+    {
+      "name": "Dr. Christina Lee",
+      "title": "MD, FACOG",
+      "image_url": null,
+      "is_owner": false
+    },
+    {
+      "name": "Dr. Jennifer Lee",
+      "title": "MD, FACOG",
+      "image_url": "https://pacific-obgyn.com/storage/2024/02/elementor/thumbs/Pacific-Obstetrics-Gynecology-Dr-Jennifer-In-Newport-Beach-CA-qj5ocwc4d0ib4zn7v2sxpfydhbb3q8lgefxdexe19k.webp",
+      "is_owner": false
+    }
+  ],
+  "treatments": [
+    { "raw_name": "Botox", "general_name": "Botox" },
+    { "raw_name": "Fillers", "general_name": "Dermal Fillers" },
+    { "raw_name": "Laser Hair Removal", "general_name": "Laser Hair Removal" },
+    { "raw_name": "Laser Facial Rejuvenation (excelV Laser Genesis)", "general_name": "Laser Genesis" },
+    { "raw_name": "Laser Acne Treatment (Aviclear)", "general_name": "Laser Acne Treatment" },
+    { "raw_name": "RF Microneedling (Secret RF by Cutera)", "general_name": "RF Microneedling" },
+    { "raw_name": "Body Contouring (truSculpt/truFlex)", "general_name": "Body Contouring" },
+    { "raw_name": "Hair Restoration (Exosome Microneedling)", "general_name": "Hair Restoration" },
+    { "raw_name": "Vaginal Remodeling with Laser", "general_name": "Vaginal Rejuvenation" }
+  ],
+  "new_general_names": [
+    {
+      "general_name": "Laser Acne Treatment",
+      "why": "Site has a dedicated Aviclear-based laser acne page; no acne-specific entry exists in the allowlist (Laser Genesis/Skin Rejuvenation are for wrinkles/texture, not acne)."
+    }
+  ],
+  "concerns": [
+    "Wrinkles & Fine Lines",
+    "Volume Loss",
+    "Unwanted Hair",
+    "Acne",
+    "Acne Scars",
+    "Hair Loss",
+    "Stubborn Body Fat",
+    "Vaginal Laxity",
+    "Vaginal Dryness"
+  ],
+  "images": {
+    "logo": "https://pacific-obgyn.com/storage/2024/09/Pacific-Obstetrics-and-Gynecology-Main-header-Logo-In-Newport-Beach-CA.webp",
+    "cover": "https://pacific-obgyn.com/storage/2025/10/Close-up-of-a-person-receiving-Laser-Hair-Removal-in-Newport-Beach-CA-on-their-leg-in-a-clinical-setting-with-a-gloved-hand-holding-the-laser-device.webp",
+    "gallery": [
+      "https://pacific-obgyn.com/storage/2024/02/pacific-obgyn-filler-in-newport-beach-ca.webp",
+      "https://pacific-obgyn.com/storage/2024/02/Pacific-Obstetrics-and-Gynecology_RF-Microneedlings_in-Newport-Beach-CA.webp",
+      "https://pacific-obgyn.com/storage/2024/02/Pacific-Obstetrics-and-Gynecology-Laser-Facial-Rejuvenations-in-Newport-Beach-CA.webp",
+      "https://pacific-obgyn.com/storage/2024/02/Pacific-Obstetrics-and-Gynecology-laser-acne-treatment-in-Newport-Beach-CA.webp",
+      "https://pacific-obgyn.com/storage/2024/02/Pacific-Obstetrics-and-Gynecology_Body-Contouring-In-Newport-Beach-CA.webp"
+    ],
+    "before_after": [
+      "https://pacific-obgyn.com/storage/elementor/thumbs/Pacific-Obstetrics-and-Gynecology-Body-Contouring-In-Before-After-m-Newport-Beach-CA-scaled-qo3lsdqn5x7w69an37bzvwxeqokggarm5x6fq6yyuk.webp"
+    ]
+  }
+}

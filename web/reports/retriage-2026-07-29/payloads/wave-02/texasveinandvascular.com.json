@@ -1,0 +1,33 @@
+{
+  "website": "https://texasveinandvascular.com/",
+  "name": "Texas Vein and Vascular",
+  "clinic_type": "other_medical_plus_aesthetics",
+  "tagline": null,
+  "about": "Texas Vein and Vascular is a premier varicose vein practice dedicated to improving the cardiovascular health of the Corpus Christi, TX community for over 24 years. Under the guidance of Medical Director Dr. Javier Alonso, MD, PhD, PA, the practice provides cutting-edge vein and vascular treatments and compassionate care, including cosmetic and aesthetic services alongside its core vascular medicine.",
+  "phone": "(361) 991-6611",
+  "email": null,
+  "booking_url": "https://www.facebook.com/TexasVeinAndVascular",
+  "socials": {"instagram": "https://www.instagram.com/texasveinandvascular/", "facebook": "https://www.facebook.com/TexasVeinAndVascular", "tiktok": null, "youtube": null, "x": null, "linkedin": null, "yelp": null},
+  "hours": "Mon - Fri: 8:30 AM - 5:00 PM Sat and Sunday: Closed",
+  "locations": [
+    {"address": "5242 Holly Rd", "city": "Corpus Christi", "state": "TX", "zip": "78411", "phone": "(361) 991-6611"}
+  ],
+  "providers": [
+    {"name": "Dr. Javier Alonso", "title": "MD, PhD, PA", "image_url": null, "is_owner": true},
+    {"name": "Mandy Flores", "title": "MSN, APRN, FNP-C", "image_url": null, "is_owner": false},
+    {"name": "Norma Reyes", "title": "Office Manager", "image_url": null, "is_owner": false},
+    {"name": "Amanda Trevino", "title": "Registered Nurse", "image_url": null, "is_owner": false},
+    {"name": "Salome Dheming", "title": "Registered Nurse", "image_url": null, "is_owner": false}
+  ],
+  "treatments": [
+    {"raw_name": "Sclerotherapy for Varicose and Spider Veins", "general_name": "Sclerotherapy"},
+    {"raw_name": "BOTOX® for Hyperhidrosis", "general_name": "Botox"}
+  ],
+  "concerns": ["Spider Veins", "Varicose Veins", "Hyperhidrosis"],
+  "images": {
+    "logo": "https://texasveinandvascular.com/storage/2024/10/Texas-Vein-and-Vascular-Logo.jpg",
+    "cover": null,
+    "gallery": [],
+    "before_after": []
+  }
+}

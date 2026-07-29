@@ -1,0 +1,37 @@
+{
+  "website": "https://bluesparkhealth.com/",
+  "name": "Blue Spark Health",
+  "clinic_type": "other_medical_plus_aesthetics",
+  "tagline": "The best medicine is to teach people not to need it.",
+  "about": "Nestled in Lakebay on the Key Peninsula, Blue Spark Health takes a comprehensive approach to wellness, believing true beauty starts with inner well-being. We recognize the deep connection between mind, body, and spirit, offering services like botanical medicine, hydrotherapy, and bodywork alongside a growing naturopathic dermatology and hair-restoration practice.",
+  "phone": "(253) 525-1080",
+  "email": "info@bluesparkhealth.com",
+  "booking_url": "https://bluesparkhealth.practicebetter.io/#/64ac918cba50fe403a1d040f/bookings?step=services",
+  "socials": {"instagram": "https://www.instagram.com/dr.carriephillips/", "facebook": "https://www.facebook.com/BlueSparkHealth", "tiktok": null, "youtube": null, "x": null, "linkedin": null, "yelp": null},
+  "hours": "Lakebay: Tuesdays and Thursdays by appointment (front desk Monday to Friday, 9:00 AM - 3:00 PM). Gig Harbor: Wednesdays only, by appointment.",
+  "locations": [
+    {"address": "8912 Key Peninsula Hwy NW, Suite C", "city": "Lakebay", "state": "WA", "zip": "98349", "phone": "(253) 525-1080"},
+    {"address": "2609 Jahn Ave NW F12", "city": "Gig Harbor", "state": "WA", "zip": "98335", "phone": "(253) 525-1080"}
+  ],
+  "providers": [
+    {"name": "Dr. Carrie Phillips", "title": "ND, Naturopathic Doctor", "image_url": "https://bluesparkhealth.com/storage/2024/06/dr-phillips-about-us-blue-spark-health-lakeway-WA.webp", "is_owner": false},
+    {"name": "Julia McDonald", "title": "Certified Nutritionist / Mental Health Consultant", "image_url": "https://bluesparkhealth.com/storage/2024/06/julia-about-blue-spark-health-lakeway-WA.webp", "is_owner": false}
+  ],
+  "treatments": [
+    {"raw_name": "Alma TED Hair Restoration", "general_name": "Hair Restoration"},
+    {"raw_name": "SkinPen", "general_name": "SkinPen Microneedling"},
+    {"raw_name": "Microneedling with PRP", "general_name": "Microneedling with PRP"}
+  ],
+  "concerns": ["Acne", "Eczema", "Rosacea", "Psoriasis", "Hair Loss", "Thinning Hair"],
+  "images": {
+    "logo": "https://bluesparkhealth.com/storage/2025/08/bluesparkhealth-business-logo.webp",
+    "cover": "https://bluesparkhealth.com/storage/2024/06/naturo-pathic-dermatology-Blue-spark-health-in-Key-center-WA-1024x438.webp",
+    "gallery": [
+      "https://bluesparkhealth.com/storage/2024/06/Almated-in-lakeway-WA-1024x683.webp",
+      "https://bluesparkhealth.com/storage/2024/06/microneedlings-blue-spark-health-lakeway-WA-1025x1536.webp",
+      "https://bluesparkhealth.com/storage/elementor/thumbs/BlueSparkHealth-Lakebay-rlf6u9osb8s6jcxhsqbgb8iz8n48j7ygbvj0hu6jns.webp",
+      "https://bluesparkhealth.com/storage/elementor/thumbs/BlueSparkHealth-Lakebay1-rlf6uammi2tguyw4n8q2vqafu0zlqx26o06hz455hk.webp"
+    ],
+    "before_after": []
+  }
+}

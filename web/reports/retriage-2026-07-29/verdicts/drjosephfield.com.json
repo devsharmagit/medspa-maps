@@ -1,0 +1,62 @@
+{
+ "schema_version": 1,
+ "domain": "drjosephfield.com",
+ "classified_by": "classify-agent",
+ "probe": {
+  "pages_read": [
+   "/",
+   "/services/",
+   "/services-lehi-ut/",
+   "/services-los-altos-ca/",
+   "/before-and-after/",
+   "/about-us/",
+   "/contact/",
+   "/financing/"
+  ],
+  "sitemap_source": "paths.txt",
+  "total_text_chars": 24000,
+  "digest_files": [
+   "digests/drjosephfield.com/pass1.txt"
+  ]
+ },
+ "verdict": "EXCLUDE",
+ "confidence": "high",
+ "business_kind": "dental_aesthetics",
+ "clinic_type": null,
+ "exclusion_reason_code": "OUT_OF_SCOPE_DENTISTRY",
+ "aesthetic_evidence": [
+  {
+   "service_name_on_page": "Porcelain Veneers",
+   "kind": "cosmetic_dental",
+   "page_path": "/services/",
+   "quote": "Dr. Joseph Field offers an elegant solution with porcelain veneers to reshape, recolor, and realign your teeth."
+  },
+  {
+   "service_name_on_page": "SmileSculpt",
+   "kind": "cosmetic_dental",
+   "page_path": "/services/",
+   "quote": "SmileSculpt\u2122 is a sophisticated veneer solution designed to reshape, brighten, and perfect your smile."
+  }
+ ],
+ "patient_facing": {
+  "sells_to": "patients",
+  "has_public_booking": true,
+  "phone": "(650) 948-5524",
+  "address_seen": "99 Third Street, Los Altos, CA 94022"
+ },
+ "counter_evidence": [],
+ "prior_reason_rebuttal": "Prior reason was 'Cosmetic dentistry practice \u2014 not a medspa'. Under the new criteria, cosmetic dentistry with a genuine aesthetic offering is an INCLUDE. The homepage, /services/, and both location pages (/services-lehi-ut/, /services-los-altos-ca/) are headed 'Cosmetic Dentistry' and list porcelain veneers, SmileSculpt, smile makeovers, Lumineers, and Snap-On Smile \u2014 clearly aesthetic/cosmetic services sold directly to the public, with a before-and-after smile gallery and public booking via smilevirtual.com.",
+ "proposed_markdown_reason": "Cosmetic dentistry practice (porcelain veneers, SmileSculpt, Lumineers, Snap-On Smile, smile makeovers, Zoom whitening) in Los Altos CA and Lehi UT. Genuinely cosmetic, and it WAS added on 2026-07-29 under the broadened criteria \u2014 then removed the same day: this is a medspa directory and carries no dentistry. Consistent with api/search/route.ts, which already filtered dentistry/dental/orthodont/veneer out of treatment search, so dental services were listed but unsearchable. All 6 of its treatments were dental, leaving nothing to keep.",
+ "extract_hints": {
+  "service_pages": [
+   "/services/",
+   "/services-lehi-ut/",
+   "/services-los-altos-ca/"
+  ],
+  "team_page": "/about-us/",
+  "locations_page": "/contact/",
+  "gallery_page": "/before-and-after/",
+  "est_extract_effort": "small"
+ },
+ "orchestrator_override": "was INCLUDE and saved as clinic dr-joseph-field-dds; clinic and its 6 dental treatments deleted 2026-07-29 by scripts/2026-07-29-remove-dentistry.sql after the user ruled dentistry out of scope."
+}

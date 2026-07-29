@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "domain": "drpravinsuryawanshi.com",
+  "classified_by": "classify-agent",
+  "probe": {
+    "pages_read": ["/", "/about/", "/services/", "/services/endoscopy/", "/services/hepatobiliary/", "/services/laparoscopy/", "/services/open-general-surgery/", "/services/transplants/", "/team/", "/contact-us/"],
+    "sitemap_source": "paths.txt",
+    "total_text_chars": 26000,
+    "digest_files": ["digests/drpravinsuryawanshi.com/pass1.txt"]
+  },
+  "verdict": "EXCLUDE",
+  "confidence": "high",
+  "business_kind": "other_medical_plus_aesthetics",
+  "clinic_type": null,
+  "exclusion_reason_code": "NO_AESTHETIC_SERVICES",
+  "aesthetic_evidence": [],
+  "patient_facing": {
+    "sells_to": "patients",
+    "has_public_booking": true,
+    "phone": "0240-6482060",
+    "address_seen": "MGM Medical College & Hospital, N-6 Cidco, Aurangabad 431 003"
+  },
+  "counter_evidence": [
+    {
+      "note": "Full services listing is ENDOSCOPY, LAPROSCOPY, OPEN GENERAL SURGERY, TRANSPLANT, HEPATOBILIARY only",
+      "page_path": "/services/"
+    }
+  ],
+  "prior_reason_rebuttal": "Prior reason was 'Duplicate of: Dr Pravin Suryawanshi' (a de-dup flag, not an aesthetic-criteria judgment). Independently checked against the new rule: this is a GI/hepatobiliary/transplant surgeon at MGM Medical College, Aurangabad, India. Read home, about, team, contact, and every /services/ subpage (endoscopy, hepatobiliary, laparoscopy, open-general-surgery, transplants) — content is exclusively colonoscopy, ERCP, liver/pancreas/biliary surgery, hernia repair, organ transplantation. No skin, injectable, laser, body-contouring, or any cosmetic/aesthetic offering appears anywhere.",
+  "proposed_markdown_reason": "General/hepatobiliary surgeon and liver-transplant practice with no aesthetic, cosmetic, or spa offering anywhere on the site.",
+  "extract_hints": {
+    "service_pages": ["/services/", "/services/endoscopy/", "/services/hepatobiliary/", "/services/laparoscopy/", "/services/open-general-surgery/", "/services/transplants/"],
+    "team_page": "/team/",
+    "locations_page": "/contact-us/",
+    "gallery_page": "/gallery/",
+    "est_extract_effort": "small"
+  }
+}

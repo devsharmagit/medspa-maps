@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "domain": "bluesparkhealth.com",
+  "classified_by": "classify-agent",
+  "probe": {
+    "pages_read": ["/", "/services/", "/contact/", "/dr-carrie-phillips/", "/gig-harbor/", "/lakebay/", "/self-assessment/", "/services/alma-ted-hair-restoration-in-lakebay-wa/", "/services/naturopathic-dermatology-in-lakebay-wa/"],
+    "sitemap_source": "paths.txt",
+    "total_text_chars": 13400,
+    "digest_files": ["digests/bluesparkhealth.com/pass1.txt"]
+  },
+  "verdict": "INCLUDE",
+  "confidence": "high",
+  "business_kind": "other_medical_plus_aesthetics",
+  "clinic_type": "other_medical_plus_aesthetics",
+  "exclusion_reason_code": null,
+  "aesthetic_evidence": [
+    { "service_name_on_page": "Alma TED Hair Restoration", "kind": "hair_restoration_device",
+      "page_path": "/services/alma-ted-hair-restoration-in-lakebay-wa/",
+      "quote": "Alma TED Hair Restoration offers a comprehensive approach to tackling hair loss through a unique combination of treatments." },
+    { "service_name_on_page": "Microneedling/Collagen Induction Therapy", "kind": "skin_treatment",
+      "page_path": "/services/",
+      "quote": "Alma TED Hair Restoration Naturopathic Medicine Energy Medicine Longevity Medicine Microneedling/Collagen Induction Therapy Naturopathic Dermatology Pediatric Medicine" }
+  ],
+  "patient_facing": {
+    "sells_to": "patients",
+    "has_public_booking": true,
+    "phone": "(253) 525-1080",
+    "address_seen": "8912 Key Peninsula Hwy, Suite C, Lakebay, WA 98349"
+  },
+  "counter_evidence": [],
+  "prior_reason_rebuttal": "Prior reason ('Naturopathic medicine clinic — minimal/no aesthetic services') is falsified: /services/ lists Alma TED Hair Restoration (an ultrasound hair-restoration device treatment) and Microneedling/Collagen Induction Therapy alongside Naturopathic Dermatology for skin conditions (acne, eczema, psoriasis, rosacea) — real body/skin/hair aesthetic services, publicly bookable via a PracticeBetter online scheduler, not gated behind 'wellness only' criteria. This is a naturopathic medical clinic with a genuine aesthetics arm.",
+  "proposed_markdown_reason": null,
+  "extract_hints": {
+    "service_pages": ["/services/", "/services/alma-ted-hair-restoration-in-lakebay-wa/", "/services/naturopathic-dermatology-in-lakebay-wa/"],
+    "team_page": "/dr-carrie-phillips/",
+    "locations_page": "/lakebay/",
+    "gallery_page": null,
+    "est_extract_effort": "small"
+  }
+}

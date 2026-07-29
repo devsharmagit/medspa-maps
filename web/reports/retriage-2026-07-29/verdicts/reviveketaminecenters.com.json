@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "domain": "reviveketaminecenters.com",
+  "classified_by": "classify-agent",
+  "probe": {
+    "pages_read": ["/", "/about-us/", "/for-physicians/", "/contact/", "/self-assessment/"],
+    "sitemap_source": "paths.txt",
+    "total_text_chars": 9500,
+    "digest_files": ["digests/reviveketaminecenters.com/pass1.txt"]
+  },
+  "verdict": "EXCLUDE",
+  "confidence": "high",
+  "business_kind": "wellness_plus_aesthetics",
+  "clinic_type": null,
+  "exclusion_reason_code": "NO_AESTHETIC_SERVICES",
+  "aesthetic_evidence": [],
+  "patient_facing": {
+    "sells_to": "patients",
+    "has_public_booking": true,
+    "phone": "470-389-5400",
+    "address_seen": "2725 Mall of Georgia Blvd. FL 2, Buford, GA 30519"
+  },
+  "counter_evidence": [
+    {
+      "note": "Full service list across home, about-us, for-physicians, and contact pages: Ketamine Infusion Therapy (mood disorders, chronic pain, addiction), NAD Therapy, Nutrient Therapy, and Massage Therapy. Sitemap has no service/menu page beyond these; no skin, face, body-contouring, nail, or lash service is mentioned anywhere."
+    }
+  ],
+  "prior_reason_rebuttal": "Old reason field just said 'Duplicate of: Revive Ketamine Centers' (a dedup flag, not a content classification), so there is nothing to falsify there — I evaluated content directly per the brief's specific instruction to check this domain for anything genuinely aesthetic. It offers only ketamine infusion therapy plus NAD/nutrient/massage wellness add-ons; massage here is a general wellness therapy bundled with IV/ketamine services, not a day-spa aesthetic offering, and no skin/face/body-contouring/nail/lash service appears anywhere in the crawled content.",
+  "proposed_markdown_reason": "Site offers ketamine infusion therapy plus NAD, nutrient, and massage wellness add-ons only — no skin, face, body-contouring, nail, or lash aesthetic service is offered anywhere on the site.",
+  "extract_hints": {
+    "service_pages": [],
+    "team_page": "/about-us/",
+    "locations_page": "/contact/",
+    "gallery_page": null,
+    "est_extract_effort": "small"
+  }
+}

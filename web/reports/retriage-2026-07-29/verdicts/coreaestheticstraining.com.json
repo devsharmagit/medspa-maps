@@ -1,0 +1,66 @@
+{
+ "schema_version": 1,
+ "domain": "coreaestheticstraining.com",
+ "classified_by": "classify-agent",
+ "probe": {
+  "pages_read": [
+   "/",
+   "/about/",
+   "/aesthetics-fellowship/",
+   "/courses/",
+   "/courses-page/",
+   "/level-1-beginner-course/",
+   "/level-2-advanced-courses/",
+   "/models/",
+   "/training-sessions/"
+  ],
+  "sitemap_source": "paths.txt",
+  "total_text_chars": 15200,
+  "digest_files": [
+   "digests/coreaestheticstraining.com/pass1.txt"
+  ]
+ },
+ "verdict": "EXCLUDE",
+ "confidence": "high",
+ "business_kind": "training_academy_with_clinic",
+ "clinic_type": null,
+ "exclusion_reason_code": "TRAINING_ONLY",
+ "unresolved_code": "AMBIGUOUS_ACADEMY",
+ "aesthetic_evidence": [],
+ "patient_facing": {
+  "sells_to": "mixed",
+  "has_public_booking": true,
+  "phone": "(720) 340-1022",
+  "address_seen": "10459 Park Meadows Drive, Suite 100 Lone Tree, CO 80124"
+ },
+ "counter_evidence": [
+  {
+   "note": "Public patients CAN book a real injectable/laser/peel treatment here, but only as a discounted training 'model', not as an ordinary patient \u2014 this is the exact pattern rule 5 reserves for a policy call rather than a unilateral verdict.",
+   "page_path": "/models/",
+   "quote": "Become a Model! Premium results, at a discounted rate"
+  },
+  {
+   "note": "Model reviews confirm real injectable treatments (Botox/filler) are performed on public models during training sessions.",
+   "page_path": "/models/",
+   "quote": "I was a botox model this weekend with Lauren, who is simply incredible."
+  },
+  {
+   "note": "Reference to a separate 'busy plastic surgery practice' (Dr. Buford's clinical practice) used for trainee shadowing \u2014 implies a real patient clinic exists, but it is not the thing being sold on this domain; no independent booking/service page for that clinic was found on coreaestheticstraining.com.",
+   "page_path": "/courses/",
+   "quote": "Our busy plastic surgery practice offers a wide variety of aesthetic treatments in a real-world setting"
+  }
+ ],
+ "prior_reason_rebuttal": "Old reason ('Aesthetics training institute \u2014 not a patient-facing clinic') is mostly right but incomplete: I did look at the course/training pages (courses/, courses-page/, level-1-beginner-course/, level-2-advanced-courses/, aesthetics-fellowship/, training-sessions/) as instructed, and all patient-facing bookable treatment on this domain is gated through the /models/ 'Become a Model' program \u2014 discounted treatment in exchange for being a training subject, not ordinary public booking. Per the brief's rule 5 this is training_academy_with_clinic and must be left as a policy call (AMBIGUOUS_ACADEMY), not decided as INCLUDE or EXCLUDE by me. Founder Dr. Buford's separate plastic-surgery practice is mentioned but not sold/booked on this domain.",
+ "proposed_markdown_reason": "Injector training school. Real injectable treatments do happen on-site, but only via the discounted /models/ programme. DECISION 2026-07-29: excluded as a training-model clinic, not a bookable patient clinic. Revisit if a public treatment menu appears.",
+ "extract_hints": {
+  "service_pages": [
+   "/models/",
+   "/courses/"
+  ],
+  "team_page": "/about/",
+  "locations_page": "/aesthetics-fellowship/",
+  "gallery_page": null,
+  "est_extract_effort": "medium"
+ },
+ "orchestrator_override": "was UNRESOLVED; resolved by user decision at checkpoint 1 (2026-07-29)"
+}

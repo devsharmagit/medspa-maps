@@ -1,0 +1,42 @@
+{
+  "website": "https://faithfamhealth.com/",
+  "name": "Faith Family Health",
+  "clinic_type": "other_medical_plus_aesthetics",
+  "tagline": "Family is Our Middle Name",
+  "about": "An independent, nurse practitioner-owned private practice founded by Mary Curry, APRN, FNP-C, blending traditional primary care with functional medicine and treating the whole family, not just symptoms. Alongside primary and chronic care, weight loss, and hormone therapy, the clinic offers a Natural Aesthetics and Laser Services line, and Mary is certified in aesthetics with advanced training in Botox and lip filler techniques, plus permanent makeup and areola medical tattoo certifications.",
+  "phone": "(304) 425-2405",
+  "email": "info@faithfamhealth.com",
+  "booking_url": "https://faithfamhealth.com/contact-us/",
+  "socials": {"instagram": "https://www.instagram.com/faithfamhealth/", "facebook": "https://www.facebook.com/faithfamhealth", "tiktok": null, "youtube": null, "x": "https://x.com/faithfamhealth/", "linkedin": null, "yelp": null},
+  "hours": "Monday to Thursday: 8:00 am to 6:00 pm; Friday: Closed; Saturday (2nd & 4th Saturday each month): 8:00 am to 4:00 pm",
+  "locations": [
+    {"address": "609 Mercer St.", "city": "Princeton", "state": "WV", "zip": "24740", "phone": "(304) 425-2405"}
+  ],
+  "providers": [
+    {"name": "Mary S. Curry", "title": "APRN, FNP-C, RN, Family Nurse Practitioner", "image_url": "https://faithfamhealth.com/storage/2025/12/Mary-Curry.webp", "is_owner": true}
+  ],
+  "treatments": [
+    {"raw_name": "Botox", "general_name": "Botox"},
+    {"raw_name": "Lip Filler", "general_name": "Lip Filler"},
+    {"raw_name": "Laser Tattoo Removal", "general_name": "Laser Tattoo Removal"},
+    {"raw_name": "Permanent Makeup Removal", "general_name": "Permanent Makeup"},
+    {"raw_name": "PRP Microneedling Facial", "general_name": "PRP Microneedling"},
+    {"raw_name": "PRF Under-Eye Treatment", "general_name": "PRP & PRF"},
+    {"raw_name": "PRP Hair Restoration", "general_name": "PRP Hair Restoration"},
+    {"raw_name": "Laser Facial Skin Resurfacing", "general_name": "Laser Skin Resurfacing"},
+    {"raw_name": "Laser Skin Tightening", "general_name": "Laser Skin Tightening"},
+    {"raw_name": "Vaginal Rejuvenation", "general_name": "Vaginal Rejuvenation"},
+    {"raw_name": "Laser Hair Removal", "general_name": "Laser Hair Removal"},
+    {"raw_name": "Vascular/Spider Vein Treatment", "general_name": "Spider Vein Treatment"}
+  ],
+  "concerns": ["Fine Lines", "Dark Circles", "Hair Loss", "Unwanted Tattoos", "Vaginal Laxity", "Spider Veins", "Unwanted Hair", "Sagging Skin", "Hyperpigmentation"],
+  "images": {
+    "logo": "https://faithfamhealth.com/storage/2025/06/featured-image.webp",
+    "cover": "https://faithfamhealth.com/storage/2025/06/Faith-Family-Health-Laser-Services-in-Princeton-WV.webp",
+    "gallery": [
+      "https://faithfamhealth.com/storage/2025/06/Faith-Family-Health-Natural-Aesthetics-in-Princeton-WV.webp",
+      "https://faithfamhealth.com/storage/2025/06/Faith-Family-Health-Laser-Tattoo-Permanent-Makeup-Removal-in-Princeton-WV.webp"
+    ],
+    "before_after": []
+  }
+}

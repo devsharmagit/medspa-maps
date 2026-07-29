@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "domain": "texasveinandvascular.com",
+  "classified_by": "classify-agent",
+  "probe": {
+    "pages_read": ["/", "/about-us/", "/services-in-corpus-cristi-tx/", "/symptoms/", "/our-staff/", "/results/", "/contact-us/"],
+    "sitemap_source": "paths.txt",
+    "total_text_chars": 12000,
+    "digest_files": ["digests/texasveinandvascular.com/pass1.txt"]
+  },
+  "verdict": "INCLUDE",
+  "confidence": "high",
+  "business_kind": "other_medical_plus_aesthetics",
+  "clinic_type": "other_medical_plus_aesthetics",
+  "exclusion_reason_code": null,
+  "aesthetic_evidence": [
+    {
+      "service_name_on_page": "Sclerotherapy for Varicose and Spider Veins",
+      "kind": "cosmetic spider-vein / sclerotherapy",
+      "page_path": "/services-in-corpus-cristi-tx/",
+      "quote": "Sclerotherapy for Varicose and Spider Veins"
+    },
+    {
+      "service_name_on_page": "cosmetic and aesthetic concerns",
+      "kind": "cosmetic vein care",
+      "page_path": "/about-us/",
+      "quote": "He constantly educates himself and his staff on the latest technologies to present the local community with medically proven results regarding cosmetic and aesthetic concerns."
+    },
+    {
+      "service_name_on_page": "BOTOX® for Hyperhidrosis",
+      "kind": "injectable",
+      "page_path": "/services-in-corpus-cristi-tx/",
+      "quote": "BOTOX® for Hyperhidrosis"
+    }
+  ],
+  "patient_facing": {
+    "sells_to": "patients",
+    "has_public_booking": true,
+    "phone": "(361) 991-6611",
+    "address_seen": "5242 Holly Rd Corpus Christi, TX 78411"
+  },
+  "counter_evidence": [
+    "Primary framing throughout is medical/vascular health (varicose veins, circulation, cardiovascular), not a spa; Sclerotherapy and Veinwave here treat spider veins which is the cosmetic component per policy, while ClosureFast/VenaSeal/Varithena/phlebectomy target medically symptomatic varicose veins."
+  ],
+  "prior_reason_rebuttal": "Prior verdict was 'Duplicate of: Texas Vein and Vascular' (a dedup note, not an aesthetics assessment). The /services-in-corpus-cristi-tx/ page lists 'Sclerotherapy for Varicose and Spider Veins' (cosmetic spider-vein treatment) and 'BOTOX® for Hyperhidrosis', and /about-us/ explicitly credits the medical director with 'medically proven results regarding cosmetic and aesthetic concerns' - matching the brief's note that vein/vascular practices often qualify via cosmetic spider-vein/sclerotherapy work.",
+  "proposed_markdown_reason": null,
+  "extract_hints": {
+    "service_pages": ["/services-in-corpus-cristi-tx/"],
+    "team_page": "/our-staff/",
+    "locations_page": "/contact-us/",
+    "gallery_page": "/results/",
+    "est_extract_effort": "small"
+  }
+}

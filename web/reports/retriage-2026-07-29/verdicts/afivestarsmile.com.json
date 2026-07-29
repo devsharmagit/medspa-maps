@@ -1,0 +1,84 @@
+{
+ "schema_version": 1,
+ "domain": "afivestarsmile.com",
+ "classified_by": "classify-agent",
+ "probe": {
+  "pages_read": [
+   "/",
+   "/top-10-tips-for-maintaining-healthy-teeth-and-gums-at-home/",
+   "/dental-cleanings-vs-deep-cleanings-what-is-the-difference/",
+   "/category/general-dentistry/",
+   "/category/dental-cleanings/",
+   "/hello-world/",
+   "wayback:/services/cosmetic-dentistry",
+   "wayback:/services/botox",
+   "wayback:/services/dermal-fillers",
+   "wayback:/services/hydrafacial-md"
+  ],
+  "sitemap_source": "wp-sitemap.xml (live site currently has only 2 real pages: / and /thank-you/; historical content pulled from web.archive.org captures dated 2025-03 through 2025-07 and saved verbatim into a local digest file)",
+  "total_text_chars": 15200,
+  "digest_files": [
+   "digests/afivestarsmile.com/pass1.txt",
+   "digests/afivestarsmile.com/pass2.txt",
+   "digests/afivestarsmile.com/wayback-pass1.txt"
+  ]
+ },
+ "verdict": "EXCLUDE",
+ "confidence": "high",
+ "business_kind": "dead_or_placeholder",
+ "clinic_type": null,
+ "exclusion_reason_code": "OUT_OF_SCOPE_DENTISTRY",
+ "aesthetic_evidence": [
+  {
+   "service_name_on_page": "Botox",
+   "kind": "injectable",
+   "page_path": "wayback:/services/botox",
+   "quote": "This treatment is typically used to remove wrinkles or fine lines in the face."
+  },
+  {
+   "service_name_on_page": "Dermal Fillers",
+   "kind": "injectable",
+   "page_path": "wayback:/services/dermal-fillers",
+   "quote": "We offer dermal filler treatments to volumize lips, fill your smile lines and turn up the corners of your mouth."
+  },
+  {
+   "service_name_on_page": "HydraFacial MD",
+   "kind": "skin_treatment",
+   "page_path": "wayback:/services/hydrafacial-md",
+   "quote": "The HydraFacial treatment merges soothing and invigorating spa therapies with advanced medical technology to achieve instant, lasting results."
+  },
+  {
+   "service_name_on_page": "Medspa (Fotona / HydraFacial MD / Botox / Dermal Fillers)",
+   "kind": "service_menu_category",
+   "page_path": "wayback:/services/cosmetic-dentistry",
+   "quote": "Medspa Fotona Hydrafacial MD Botox Dermal Fillers"
+  }
+ ],
+ "patient_facing": {
+  "sells_to": "patients",
+  "has_public_booking": true,
+  "phone": "(925) 687-2299",
+  "address_seen": "81 Gregory Lane, Suite 320, Pleasant Hill, CA 94523 US"
+ },
+ "counter_evidence": [
+  {
+   "note": "The LIVE site as fetched today is a bare 'Coming Soon' / 'Under Construction' splash page (title 'Coming Soon' on every URL, sitemap reduced to just / and /thank-you/, and direct probes of /services/, /services/cosmetic-dentistry/, /services/botox/, /veneers/, /teeth-whitening/ etc. all 404). It still shows the real business phone, address, and social handles (Instagram @riicardoperezdds, TikTok @ricardoperezdds), and a live blog with recent (2026) general-dentistry posts, so this reads as a mid-rebuild/relaunch of an active practice rather than an abandoned domain."
+  }
+ ],
+ "prior_reason_rebuttal": "Prior verdict was a de-dup label ('Duplicate of: Cosmetic Dental Spa Ricardo M. Perez, DDS'), not a content review. Per the brief's explicit note, this is a cosmetic dental spa, which is an INCLUDE. The current live site is temporarily a 'Coming Soon' placeholder with no services pages (only / and /thank-you/ in wp-sitemap.xml; common cosmetic-dentistry paths 404 live), so I pulled Wayback Machine captures from Mar-Jul 2025 (the site's last known full state, same domain/business, same phone/address) which show an extensive 'Medspa' section (Fotona laser, HydraFacial MD, Botox, Dermal Fillers) alongside a full 'Cosmetic Dentistry' service line (veneers, whitening, bonding, Invisalign, smile makeover) -- clearly a cosmetic dental spa with a real aesthetic offering, not just general/preventive dentistry. Confidence is medium rather than high because the aesthetic evidence comes from an archived snapshot rather than the currently-live pages; this should be re-verified once the live rebuild is complete before final extraction.",
+ "proposed_markdown_reason": "Cosmetic dental spa. Out of scope regardless of site state \u2014 this is a medspa directory and carries no dentistry (see scripts/2026-07-29-remove-dentistry.sql). Separately, the live site is a 'Coming Soon' placeholder with every service path 404; archive.org captures from 2025 showed cosmetic dentistry plus a small medspa line (Botox, fillers, HydraFacial, Fotona laser). If it relaunches, only a genuinely non-dental aesthetic menu would qualify.",
+ "extract_hints": {
+  "service_pages": [
+   "wayback:/services",
+   "wayback:/services/cosmetic-dentistry",
+   "wayback:/services/botox",
+   "wayback:/services/dermal-fillers",
+   "wayback:/services/hydrafacial-md"
+  ],
+  "team_page": "wayback:/about",
+  "locations_page": "wayback:/contact",
+  "gallery_page": null,
+  "est_extract_effort": "medium (live site is mid-rebuild; extraction will likely need to wait for the new site to publish, or be sourced from Wayback captures dated 2025-03 to 2025-07)"
+ },
+ "orchestrator_override": "Agent returned INCLUDE on archive.org evidence. Overridden: the aesthetic services are real but historical. Verified live 2026-07-29 \u2014 title 'Coming Soon', all four service paths 404. An INCLUDE we cannot extract would either fail the payload validator or create a contentless clinic row."
+}

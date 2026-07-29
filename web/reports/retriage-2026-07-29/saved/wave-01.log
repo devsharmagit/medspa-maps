@@ -1,0 +1,19 @@
+6 payload file(s)
+
+
+
+
+[geocoder] No results for "705 White Horse Rd STE D101, Voorhees Township, NJ, 08043"
+✓ Institute for Pain Relief — {"domain":"instituteforpainrelief.com","status":"saved","slug":"institute-for-pain-relief","clinicId":"4c02c27d-0d0b-41c5-8736-45a2d417df92","locations":1,"geocoded":1,"treatments":4,"matched":4,"auto":0,"dropped":0,"concernsSaved":5,"providers":1,"images":1,"cover":"yes","rating":"4.3★/27 (google_places)","g99":"6840/6464"}
+✓ ART Spa House — {"domain":"artspahouse.com","status":"saved","slug":"art-spa-house","clinicId":"3cfc8d0c-c4d9-44db-8d1c-398a49fd697d","locations":2,"geocoded":2,"treatments":8,"matched":8,"auto":0,"dropped":0,"concernsSaved":0,"providers":0,"images":3,"cover":"yes","rating":"4.8★/740 (google_places)","g99":"5209/4964"}
+[geocoder] No results for "800 Fifth Avenue Annex Suite 300A, New York, NY, 10065"
+[geocoder] No results for "800 Fifth Avenue Annex, New York, NY, 10065"
+✓ Dr. Leonard Grossman, MD — {"domain":"drgrossman.com","status":"saved","slug":"dr-leonard-grossman-md","clinicId":"e6572955-a0eb-4f28-8530-0503970ee492","locations":2,"geocoded":2,"treatments":31,"matched":31,"auto":0,"dropped":0,"concernsSaved":16,"providers":1,"images":6,"cover":"yes","rating":"5★/106 (website)","g99":"835/789"}
+[geocoder] No results for "10030 Wellness Way, Orlando, FL, 32832"
+✓ Apex Fit — {"domain":"apexfit.com","status":"saved","slug":"apex-fit","clinicId":"6792d280-de5b-450b-8f06-658b071f5092","locations":2,"geocoded":2,"treatments":8,"matched":8,"auto":0,"dropped":0,"concernsSaved":9,"providers":4,"images":1,"cover":"NONE","rating":"5★/68 (google_places)","g99":"4333/4154"}
+[geocoder] No results for "6220 Westpark Drive Suite 235, Houston, TX, 77057"
+[geocoder] No results for "2115 Pleasanton Rd., Suite 203, San Antonio, TX, 78221"
+✓ La Vida Laser & Aesthetics Institute — {"domain":"lavidaai.com","status":"saved","slug":"la-vida-laser-aesthetics-institute","clinicId":"b178d2a6-cfff-4385-af47-a4c4333be949","locations":2,"geocoded":2,"treatments":8,"matched":8,"auto":0,"dropped":0,"concernsSaved":1,"providers":2,"images":1,"cover":"NONE","rating":"5★/164 (google_places)","g99":"1743/1728"}
+✓ The Natural Place Med Spa — {"domain":"medspabroomfield.com","status":"saved","slug":"the-natural-place-med-spa","clinicId":"26d398c4-f557-44d8-a849-5b0de2a995e1","locations":1,"geocoded":1,"treatments":55,"matched":54,"auto":1,"dropped":0,"concernsSaved":14,"providers":4,"images":13,"cover":"yes","rating":"4.7★/439 (google_places)","g99":"4392/4211"}
+
+── Summary ──  saved=6 skipped=0 failed=0  (view refreshed)

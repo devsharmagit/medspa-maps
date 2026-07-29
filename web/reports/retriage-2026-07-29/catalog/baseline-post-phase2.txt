@@ -1,0 +1,26 @@
+=== POST-PHASE-2 BASELINE 2026-07-29T14:24:31Z ===
+    t     | origin | count 
+----------+--------+-------
+ concerns | ai     |   187
+ concerns | manual |    13
+ concerns | seed   |    10
+ services | ai     |  1031
+ services | manual |    38
+ services | seed   |    15
+(6 rows)
+
+ total | orphans | singletons | singleton_pct 
+-------+---------+------------+---------------
+  1084 |      34 |        706 |          65.1
+(1 row)
+
+ links | clinics 
+-------+---------
+  7832 |     664
+(1 row)
+
+ null_service_id | active_clinics 
+-----------------+----------------
+               0 |            664
+(1 row)
+

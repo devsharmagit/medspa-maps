@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "domain": "courses.myaestheticinstitute.com",
+  "classified_by": "classify-agent",
+  "probe": {
+    "pages_read": ["/bedside-to-beautified/", "/courses-page/", "/neurotoxin-presentation/", "/home/", "/gallery/", "https://myaestheticinstitute.com/ (apex)", "https://myaestheticinstitute.com/meet-the-team/", "https://myaestheticinstitute.com/peptide-therapy-a-course-for-medical-providers/"],
+    "sitemap_source": "paths.txt",
+    "total_text_chars": 9800,
+    "digest_files": ["digests/courses.myaestheticinstitute.com/pass1.txt", "digests/myaestheticinstitute.com/pass1.txt"]
+  },
+  "verdict": "EXCLUDE",
+  "confidence": "high",
+  "business_kind": "training_academy",
+  "clinic_type": null,
+  "exclusion_reason_code": "TRAINING_ONLY",
+  "aesthetic_evidence": [],
+  "patient_facing": {
+    "sells_to": "providers",
+    "has_public_booking": false,
+    "phone": "832-895-9645",
+    "address_seen": "13201 NW Freeway Suite 800 Houston TX 77040"
+  },
+  "counter_evidence": [
+    { "quote": "This 2-day, comprehensive aesthetic medical training course takes the bedside clinician to the beautiful world of aesthetics, covering Neuromodulators, Dermal Fillers, Deoxycholic acid, and more!", "page_path": "/bedside-to-beautified/" },
+    { "quote": "The Aesthetic Institute (AI) is a training institution that provides instructional seminars in aesthetic medicine.", "page_path": "/home/" }
+  ],
+  "prior_reason_rebuttal": "Prior reason ('Aesthetic-medicine training school for professionals — not a patient clinic') is confirmed rather than falsified. Every course page (Bedside to Beautified, Neurotoxin Presentation, Courses Page, Home) targets 'the bedside clinician'/'medical professionals'/'aspiring aesthetic injector' seeking CME-accredited injector certification, priced per-seat ($2500-$3499), with no patient booking or service menu. Per rule 6 the apex myaestheticinstitute.com was also probed: it is the SAME training entity (course catalog, 'Meet the Team' of Clinical Education Specialists, CME accreditation), not a separate patient clinic — it explicitly names a different sister company ('My Face Lady PLLC... concierge med spas') as the actual clinic, which is a distinct domain outside this scope. No page on either host lists a public/patient-bookable service.",
+  "proposed_markdown_reason": "Training academy: courses.myaestheticinstitute.com (and its apex myaestheticinstitute.com) sell CME-accredited injector courses to medical professionals only; the actual med spa is a separate sister company/domain (My Face Lady), so there is no patient-facing clinic on this domain.",
+  "extract_hints": {
+    "service_pages": [],
+    "team_page": "https://myaestheticinstitute.com/meet-the-team/",
+    "locations_page": null,
+    "gallery_page": "/gallery/",
+    "est_extract_effort": null
+  }
+}

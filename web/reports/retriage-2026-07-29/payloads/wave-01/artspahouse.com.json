@@ -1,0 +1,56 @@
+{
+  "website": "https://artspahouse.com/",
+  "name": "ART Spa House",
+  "clinic_type": "day_spa_salon",
+  "tagline": "Premium Skincare & Wellness in San Antonio, TX",
+  "about": "For more than 25 years, our mission has remained the same: to help guests feel restored in body, mind, and spirit through intentional, holistic treatments. We offer a curated menu of therapeutic massages, organic facials, Hydrafacials, and natural nail care, each designed to rejuvenate and relax. Whether you're visiting for deep renewal, radiant skin, or a calm escape, our experienced team is devoted to creating an unforgettable day spa experience in San Antonio, TX.",
+  "phone": "(210) 832-0892",
+  "email": "info@artspahouse.com",
+  "booking_url": "https://na0.meevo.com/customerportal/advanced/ob?tenantId=102783",
+  "socials": {
+    "instagram": "https://www.instagram.com/artspahouse/",
+    "facebook": "https://www.facebook.com/ARTSpaHouse/",
+    "tiktok": "https://www.tiktok.com/@artspahouse",
+    "youtube": null,
+    "x": null,
+    "linkedin": null,
+    "yelp": "https://www.yelp.com/biz/art-spa-house-san-antonio"
+  },
+  "hours": "Mon - Sat: 9:00 AM - 7:00 PM Sun: 11:00 AM - 6:00 PM",
+  "locations": [
+    {
+      "address": "215 W Sunset Rd",
+      "city": "San Antonio",
+      "state": "TX",
+      "zip": "78209",
+      "phone": "(210) 832-0892"
+    },
+    {
+      "address": "225 S Main St",
+      "city": "Boerne",
+      "state": "TX",
+      "zip": "78006",
+      "phone": "(210) 832-0892"
+    }
+  ],
+  "providers": [],
+  "treatments": [
+    { "raw_name": "Facials", "general_name": "Facials" },
+    { "raw_name": "Hydrafacial", "general_name": "HydraFacial" },
+    { "raw_name": "Massage", "general_name": "Massage" },
+    { "raw_name": "Manicure", "general_name": "Manicure" },
+    { "raw_name": "Pedicure", "general_name": "Pedicure" },
+    { "raw_name": "Waxing", "general_name": "Waxing" },
+    { "raw_name": "Dermaplane", "general_name": "Dermaplaning" },
+    { "raw_name": "Hydrating Body Wrap", "general_name": "Body Wrap" }
+  ],
+  "concerns": [],
+  "images": {
+    "logo": "https://artspahouse.com/storage/2025/02/Art-Spa-House-Sharing-Logo-in-San-Antonio-TX.webp",
+    "cover": "https://artspahouse.com/storage/2024/12/ART-Spa-House-Services-For-Couples-In-San-Antonio-TX.webp",
+    "gallery": [
+      "https://artspahouse.com/storage/2024/12/ART-Spa-House-Spa-Escape-Packages-In-San-Antonio-TX.webp"
+    ],
+    "before_after": []
+  }
+}

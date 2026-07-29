@@ -1,0 +1,27 @@
+{
+ "schema_version": 1,
+ "domain": "slsaesthetics.com",
+ "classified_at": "2026-07-29T14:27:23Z",
+ "classified_by": "orchestrator-deterministic",
+ "probe": {
+  "dns": "13.248.243.5",
+  "best_http_status": "404",
+  "variants_tried": [
+   "https://d/",
+   "http://d/",
+   "https://www.d/",
+   "http://www.d/"
+  ],
+  "pages_read": [],
+  "sitemap_source": null
+ },
+ "verdict": "EXCLUDE",
+ "confidence": "high",
+ "business_kind": "dead_or_placeholder",
+ "clinic_type": null,
+ "exclusion_reason_code": "DEAD_SITE",
+ "aesthetic_evidence": [],
+ "counter_evidence": [],
+ "prior_reason_rebuttal": null,
+ "proposed_markdown_reason": "Returns 404 on every http/https/www variant \u2014 site removed"
+}

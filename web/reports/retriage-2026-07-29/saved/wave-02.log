@@ -1,0 +1,37 @@
+✓ Blue Spark Health — {"domain":"bluesparkhealth.com","status":"saved","slug":"blue-spark-health","clinicId":"062e7dea-f32d-41a3-9f77-d824c390013d","locations":2,"geocoded":2,"treatments":3,"matched":3,"auto":0,"dropped":0,"co
+     "images":6,"cover":"yes"
+     "rating":"5★/20 (google_places)"
+     "g99":"4652/4437"}
+✓ Calhoun Health & Spine — {"domain":"calhounhealthandspine.com","status":"saved","slug":"calhoun-health-spine","clinicId":"8c839fab-c5a9-423a-9bd0-1e5c825586b6","locations":1,"geocoded":1,"treatments":6,"matched":6,"auto":0,"
+     "images":5,"cover":"yes"
+     "rating":"4.9★/297 (google_places)"
+     "g99":"7104/6728"}
+✓ Equilibrium Handtherapy — {"domain":"equilibrium-handtherapy.com","status":"saved","slug":"equilibrium-handtherapy","clinicId":"104ae84f-9e15-49e7-8309-feecf7a78e27","locations":1,"geocoded":1,"treatments":17,"matched":17,"a
+     "images":6,"cover":"yes"
+     "rating":"4.9★/74 (google_places)"
+     "g99":"5160/4916"}
+✓ Dr. Joseph Field, DDS — {"domain":"drjosephfield.com","status":"saved","slug":"dr-joseph-field-dds","clinicId":"5f8a7bec-972a-489c-a107-a48cdffe5c1f","locations":2,"geocoded":2,"treatments":6,"matched":3,"auto":3,"dropped":0
+     "images":10,"cover":"yes"
+     "rating":"5★/11 (google_places)"
+     "g99":"1727/1714"}
+✓ Faith Family Health — {"domain":"faithfamhealth.com","status":"saved","slug":"faith-family-health","clinicId":"d48e8dc2-7287-418e-9052-57ae662b4700","locations":1,"geocoded":1,"treatments":12,"matched":12,"auto":0,"dropped":
+     "images":4,"cover":"yes"
+     "rating":"4.3★/22 (google_places)"
+     "g99":"5589/5312"}
+✓ Glamour Nails & Spa — {"domain":"glamournailsandspa.com","status":"saved","slug":"glamour-nails-spa","clinicId":"8190ca48-8b71-48d4-9878-9e5dd3c27dad","locations":2,"geocoded":2,"treatments":10,"matched":10,"auto":0,"dropped
+     "images":5,"cover":"yes"
+     "rating":"4.4★/647 (website)"
+     "g99":"1665/1651"}
+✓ Highlands Health and Wellness Center — {"domain":"highlandshealthandwellness.com","status":"saved","slug":"highlands-health-and-wellness-center","clinicId":"e837b155-d9a4-4fb0-b7a4-56ce6955e909","locations":1,"geocoded":1,"t
+     "images":0,"cover":"NONE"
+     "rating":"4.4★/26 (google_places)"
+     "g99":"6056/5874"}
+✓ Texas Vein and Vascular — {"domain":"texasveinandvascular.com","status":"saved","slug":"texas-vein-and-vascular","clinicId":"87192ae0-c1da-4fa3-a49f-c61d452a33cc","locations":1,"geocoded":1,"treatments":2,"matched":2,"auto":
+     "images":1,"cover":"NONE"
+     "rating":"4.6★/69 (google_places)"
+     "g99":"4786/4550"}
+✓ Pacific OBGYN + Aesthetics — {"domain":"pacific-obgyn.com","status":"saved","slug":"pacific-obgyn-aesthetics","clinicId":"4a9f5f5b-b721-4977-8bc2-2cc96acba2d1","locations":2,"geocoded":2,"treatments":9,"matched":8,"auto":1,"
+     "images":8,"cover":"yes","headshotsDropped":["Dr. Jennifer Lee"]
+     "rating":"3.3★/13 (google_places)"
+     "g99":"4476/4283"}
+── Summary ──  saved=9 skipped=0 failed=0  (view refreshed)

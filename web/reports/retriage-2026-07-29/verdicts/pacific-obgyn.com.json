@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "domain": "pacific-obgyn.com",
+  "classified_by": "classify-agent",
+  "probe": {
+    "pages_read": ["/", "/aesthetic/", "/body/", "/skin/", "/services/", "/medical/", "/about-us/", "/gallery/", "/before-after/"],
+    "sitemap_source": "paths.txt",
+    "total_text_chars": 3400,
+    "digest_files": ["digests/pacific-obgyn.com/pass1.txt"]
+  },
+  "verdict": "INCLUDE",
+  "confidence": "high",
+  "business_kind": "other_medical_plus_aesthetics",
+  "clinic_type": "other_medical_plus_aesthetics",
+  "exclusion_reason_code": null,
+  "aesthetic_evidence": [
+    {
+      "service_name_on_page": "Botox / Fillers / Laser Hair Removal",
+      "kind": "injectable/laser",
+      "page_path": "/skin/",
+      "quote": "BOTOX FILLERS LASER ACNE TREATMENT LASER FACIAL REJUVENATION LASER HAIR REMOVAL LASER REJUVENATION RF MICRONEEDLING"
+    },
+    {
+      "service_name_on_page": "Body Contouring",
+      "kind": "body_contouring",
+      "page_path": "/body/",
+      "quote": "BODY CONTOURING HAIR RESTORATION VAGINAL REMODELING WITH LASER"
+    }
+  ],
+  "patient_facing": {
+    "sells_to": "patients",
+    "has_public_booking": true,
+    "phone": "949.548.6800",
+    "address_seen": "Newport Beach and Irvine, CA (exact street address not shown on pages read)"
+  },
+  "counter_evidence": [],
+  "prior_reason_rebuttal": "Prior verdict said 'Duplicate of: Pacific Obstetrics and Gynecology', which is a data-hygiene call, not a content call, and I independently checked whether that duplicate actually exists. I queried the live app DB directly: the clinics table has zero rows matching name ILIKE '%pacific%' or '%obgyn%' (no existing clinic record for this business under any domain), and g99_clinic_websites has exactly one row for g99_business_id 4283 / g99_clinic_id 4476 — pacific-obgyn.com itself, with no other domain sharing those ids. So there is no actual duplicate in the current DB to defer to; the flag appears stale. On content: this is a real OBGYN practice (Dr. Christina Lee, Dr. Jennifer Lee, both board-certified OB/GYNs, serving Newport Beach/Orange County since 2001) that also runs a distinct, real aesthetics arm branded 'Pacific OBGYN + Aesthetics' with its own contact email (aesthetics@pacific-obgyn.com), its own Instagram (@pacific.obgyn.aesthetics), and dedicated service pages: /skin/ (Botox, Fillers, Laser Acne Treatment, Laser Facial Rejuvenation, Laser Hair Removal, RF Microneedling) and /body/ (Body Contouring, Hair Restoration, Vaginal Remodeling with Laser), plus a before/after gallery of body-contouring results. This squarely matches the brief's core new-inclusion case: a non-aesthetic medical practice with a real aesthetics arm.",
+  "proposed_markdown_reason": null,
+  "extract_hints": {
+    "service_pages": ["/skin/", "/body/", "/aesthetic/"],
+    "team_page": "/about-us/",
+    "locations_page": "/services/ (contact via /contact/, not in digest)",
+    "gallery_page": "/before-after/",
+    "est_extract_effort": "small"
+  }
+}

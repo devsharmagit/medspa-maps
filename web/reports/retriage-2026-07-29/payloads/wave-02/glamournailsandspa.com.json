@@ -1,0 +1,42 @@
+{
+  "website": "https://glamournailsandspa.com/",
+  "name": "Glamour Nails & Spa",
+  "clinic_type": "day_spa_salon",
+  "tagline": "Good Nail Polish for Good Moments.",
+  "about": "Glamour Nails & Spa is a modern, luxury-inspired nail salon in Union, KY offering a full menu of manicures, pedicures, and nail enhancements alongside natural, result-driven treatments. The salon sanitizes and disinfects all reusable nail tools to the highest industry standards. It is owned and operated by Chi Le, a registered Kentucky Beautician with over 14 years in the beauty industry, specializing in nail art, waxing, brows, and microblading.",
+  "phone": "(859) 777-7979",
+  "email": "info@glamournailsandspa.com",
+  "booking_url": "https://glamournailsandspa.com/location-book-now/",
+  "socials": {"instagram": "https://www.instagram.com/glamournailsunion_ky/", "facebook": "https://www.facebook.com/GlamourNailsUnion", "tiktok": null, "youtube": null, "x": null, "linkedin": null, "yelp": "https://www.yelp.com/biz/glamour-nails-and-spa-iii-union"},
+  "hours": "Glamour Nails and Spa III: Mon-Fri 9:30am-8:00pm, Saturday 9:30am-7:00pm, Sunday 12:00pm-5:00pm. Glamour Nails and Spa V: Mon-Sat 9:30am-8:00pm, Sun 12:00pm-5:00pm.",
+  "locations": [
+    {"address": "9085 US-42 Suite B", "city": "Union", "state": "KY", "zip": "41091", "phone": "(859) 777-7979 ext. 3"},
+    {"address": "9232 US-42 Suite B", "city": "Union", "state": "KY", "zip": "41091", "phone": "(859) 777-7979 ext. 5"}
+  ],
+  "providers": [
+    {"name": "Chi Le", "title": "Owner, Registered Kentucky Beautician", "image_url": "https://glamournailsandspa.com/storage/2023/08/About-Feature-Image-Chi-le.jpg", "is_owner": true}
+  ],
+  "treatments": [
+    {"raw_name": "Manicure", "general_name": "Manicure"},
+    {"raw_name": "Gel Manicure", "general_name": "Gel Manicure"},
+    {"raw_name": "Pedicure", "general_name": "Pedicure"},
+    {"raw_name": "Gel Pedicure", "general_name": "Pedicure"},
+    {"raw_name": "Acrylic Nails", "general_name": "Nail Enhancements"},
+    {"raw_name": "Builder Gel", "general_name": "Nail Enhancements"},
+    {"raw_name": "Gel-X Nail Extensions", "general_name": "Nail Enhancements"},
+    {"raw_name": "Dipping Powder", "general_name": "Nail Enhancements"},
+    {"raw_name": "Nail Design", "general_name": "Nail Enhancements"},
+    {"raw_name": "Face Waxing", "general_name": "Waxing"}
+  ],
+  "concerns": [],
+  "images": {
+    "logo": "https://glamournailsandspa.com/storage/2024/10/Glamour-Nails-and-Spa-in-Union-Kentucky-.jpg",
+    "cover": "https://glamournailsandspa.com/storage/2023/02/services-manicurea-1024x680.jpeg",
+    "gallery": [
+      "https://glamournailsandspa.com/storage/2023/01/services-pedicures-1024x683.jpeg",
+      "https://glamournailsandspa.com/storage/2023/02/services-acrylic-nails-c-1024x683.jpeg",
+      "https://glamournailsandspa.com/storage/2023/02/Gallery-eighty-eight-768x1024.jpg"
+    ],
+    "before_after": []
+  }
+}

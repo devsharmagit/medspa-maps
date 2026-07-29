@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "domain": "medspabroomfield.com",
+  "classified_by": "classify-agent",
+  "probe": {
+    "pages_read": ["/ (redirects to thenaturalplacemedspa.com/)", "/services"],
+    "sitemap_source": "paths.txt",
+    "total_text_chars": 3600,
+    "digest_files": [
+      "digests/medspabroomfield.com/pass1.txt",
+      "digests/medspabroomfield.com/pass2-browser.txt"
+    ]
+  },
+  "verdict": "INCLUDE",
+  "confidence": "high",
+  "business_kind": "full_medspa",
+  "clinic_type": "medspa",
+  "exclusion_reason_code": null,
+  "aesthetic_evidence": [
+    {
+      "service_name_on_page": "XEOMIN",
+      "kind": "injectable",
+      "page_path": "/ (home)",
+      "quote": "XEOMIN®\nDaxxify\nBelotero Balance®\nRadiesse®\nLip Augmentation with Laser"
+    },
+    {
+      "service_name_on_page": "Laser & Skin",
+      "kind": "laser/skin",
+      "page_path": "/services",
+      "quote": "Injectables\nLaser & Skin\nFacials & Body\nWellness & IV\nBody Sculpting"
+    }
+  ],
+  "patient_facing": {
+    "sells_to": "patients",
+    "has_public_booking": true,
+    "phone": "303-404-0255",
+    "address_seen": "11975 Main St, Broomfield, CO 80020"
+  },
+  "counter_evidence": [],
+  "prior_reason_rebuttal": "Prior verdict said 'Website returned no usable content (empty/placeholder)'. medspabroomfield.com now 301-redirects to thenaturalplacemedspa.com, which is a fully-built, real medspa site (address, phone, booking, service categories Injectables/Laser & Skin/Facials & Body/Wellness/Body Sculpting, named injectables XEOMIN/Daxxify/Belotero Balance/Radiesse). The old 'no usable content' read was an artifact of the site being a pure client-side React SPA (confirmed via curl: raw HTML is just a JS bundle with no server-rendered text) — scrape-digest.ts's cheerio-based fetch legitimately sees empty TEXT on every path (see pass1.txt), but a JS-executing browser fetch (pass2-browser.txt) shows a normal, complete medspa site underneath. This is not a placeholder/dead site; it was mis-triaged because the tooling couldn't render JS.",
+  "proposed_markdown_reason": null,
+  "extract_hints": {
+    "service_pages": ["/services", "/services-overview", "/shop/services-menu"],
+    "team_page": "/about-us",
+    "locations_page": "/ (footer) / /contact (not in sitemap, address+phone in footer)",
+    "gallery_page": "/results/before-after",
+    "est_extract_effort": "medium (site is JS-rendered SPA; scrape-digest.ts/cheerio will not see content — extraction needs a JS-executing fetch, e.g. headless browser)"
+  }
+}

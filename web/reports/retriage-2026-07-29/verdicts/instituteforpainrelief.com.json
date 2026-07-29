@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "domain": "instituteforpainrelief.com",
+  "classified_by": "classify-agent",
+  "probe": {
+    "pages_read": ["/", "/about/", "/pain-management/", "/regenerative-treatments/", "/wellness-aesthetics/", "/self-assessment/", "/contact/", "/services/advanced-aesthetics/"],
+    "sitemap_source": "paths.txt + astra-portfolio-sitemap.xml",
+    "total_text_chars": 22000,
+    "digest_files": ["digests/instituteforpainrelief.com/pass1.txt", "digests/instituteforpainrelief.com/pass2.txt"]
+  },
+  "verdict": "INCLUDE",
+  "confidence": "high",
+  "business_kind": "other_medical_plus_aesthetics",
+  "clinic_type": "other_medical_plus_aesthetics",
+  "exclusion_reason_code": null,
+  "aesthetic_evidence": [
+    { "service_name_on_page": "Botox®", "kind": "injectable",
+      "page_path": "/services/advanced-aesthetics/",
+      "quote": "Botox® Helps reduce the appearance of fine lines and wrinkles by relaxing specific muscles—often used on the forehead, between the eyebrows, and around the eyes." },
+    { "service_name_on_page": "Dermal Fillers (Evolysse & Restylane)", "kind": "injectable",
+      "page_path": "/services/advanced-aesthetics/",
+      "quote": "Dermal Fillers (Evolysse & Restylane) Restores volume and smooths deeper facial lines." },
+    { "service_name_on_page": "Laser Therapy (Aerolase)", "kind": "laser",
+      "page_path": "/services/advanced-aesthetics/",
+      "quote": "Experience the gold standard in skin health with Aerolase, a revolutionary laser technology designed for maximum results with zero downtime." },
+    { "service_name_on_page": "PDO Threads (Non-Surgical Facelift)", "kind": "skin_tightening",
+      "page_path": "/services/advanced-aesthetics/",
+      "quote": "PDO Threads (Non-Surgical Facelift) PDO threads is a minimally invasive, non-surgical procedure that uses dissolvable threads to lift and tighten sagging skin" }
+  ],
+  "patient_facing": {
+    "sells_to": "patients",
+    "has_public_booking": true,
+    "phone": "(856) 751-7799",
+    "address_seen": "705 White Horse Rd STE D101, Voorhees Township, NJ 08043, United States"
+  },
+  "counter_evidence": [
+    { "note": "The bulk of the site (pain-management, regenerative-treatments, workers-comp/med-legal, therapeutic injections, surgical options) is a workers'-compensation-focused pain/spine consulting practice with no aesthetic content; the aesthetics arm is one page ('Advanced Aesthetics') among ~15 service pages.",
+      "page_path": "/wellness-aesthetics/",
+      "quote": "Functional & Longevity Vitamin Therapy Weight Management Hydrogen Therapy Exosome Therapy Peptide Therapy Holistic Modalities Advanced Aesthetics" }
+  ],
+  "prior_reason_rebuttal": "Old reason 'Orthopedic pain-management clinic — not a medspa' is true of most of the site, but the /wellness-aesthetics/ nav lists an 'Advanced Aesthetics' item that leads to /services/advanced-aesthetics/ (not in paths.txt; found via the site's astra-portfolio-sitemap.xml). That page offers real cosmetic services directly to the public — Botox for wrinkles, dermal fillers, PDO thread facelifts, laser skin therapy, dermaplaning — with a 'Request An Appointment' booking flow, satisfying the new 'even a small aesthetics arm' rule.",
+  "proposed_markdown_reason": null,
+  "extract_hints": {
+    "service_pages": ["/services/advanced-aesthetics/", "/wellness-aesthetics/"],
+    "team_page": "/about/",
+    "locations_page": "/contact/",
+    "gallery_page": null,
+    "est_extract_effort": "medium"
+  }
+}

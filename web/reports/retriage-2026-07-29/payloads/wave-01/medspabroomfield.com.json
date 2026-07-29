@@ -1,0 +1,151 @@
+{
+  "website": "https://medspabroomfield.com/",
+  "name": "The Natural Place Med Spa",
+  "clinic_type": "medspa",
+  "tagline": "Authentic beauty from within — blending medical aesthetics with a holistic, natural approach.",
+  "about": "At The Natural Place Med Spa, we believe authentic beauty shines from within. As Broomfield's trusted medical spa, we blend state-of-the-art medical aesthetics with a holistic, natural philosophy to help you achieve radiant, healthy skin and total wellness. Our experienced team of skilled professionals is committed to delivering safe, effective, and personalized treatments tailored to your unique needs.",
+  "phone": "(303) 404-0255",
+  "email": "info@medspabroomfield.com",
+  "booking_url": "https://thenaturalplacemedspa.com/book",
+  "socials": {
+    "instagram": "https://www.instagram.com/thenaturalplacemedspa",
+    "facebook": "https://www.facebook.com/thenaturalmedspa",
+    "tiktok": null,
+    "youtube": null,
+    "x": null,
+    "linkedin": null,
+    "yelp": "https://www.yelp.com/biz/the-natural-place-med-spa-broomfield"
+  },
+  "hours": "Tue – Fri: 9:00 AM – 3:00 PM; Saturday: 9:00 AM – 1:00 PM; Sun – Mon: Closed",
+  "locations": [
+    {
+      "address": "11975 Main St",
+      "city": "Broomfield",
+      "state": "CO",
+      "zip": "80020",
+      "phone": "(303) 404-0255"
+    }
+  ],
+  "providers": [
+    {
+      "name": "Bridget Hahn",
+      "title": "Founder & Lead Aesthetician",
+      "image_url": "https://d2xsxph8kpxj0f.cloudfront.net/310519663082761896/BPFzmUcY5yWP9cyXKgDDyE/bridget-hahn_00276bb5.webp",
+      "is_owner": true
+    },
+    {
+      "name": "Shelby Kelley",
+      "title": "Laser Specialist & Microblading Artist",
+      "image_url": "https://d2xsxph8kpxj0f.cloudfront.net/310519663082761896/BPFzmUcY5yWP9cyXKgDDyE/shelby-kelley_fcb8a7d7.webp",
+      "is_owner": false
+    },
+    {
+      "name": "Dr. Aubrey Copeland",
+      "title": "Medical Director, Board-Certified Anesthesiologist",
+      "image_url": "https://d2xsxph8kpxj0f.cloudfront.net/310519663082761896/BPFzmUcY5yWP9cyXKgDDyE/dr-aubrey-copeland_a9284091.webp",
+      "is_owner": false
+    },
+    {
+      "name": "Dr. Greg Buford",
+      "title": "MD, FACS — Board-Certified Plastic Surgeon",
+      "image_url": "https://d2xsxph8kpxj0f.cloudfront.net/310519663082761896/BPFzmUcY5yWP9cyXKgDDyE/dr-greg-buford_afc936e1.jpg",
+      "is_owner": false
+    }
+  ],
+  "treatments": [
+    { "raw_name": "Vitamin Injection", "general_name": "Vitamin Injections" },
+    { "raw_name": "B12 or B Complex Injection", "general_name": "Vitamin Injections" },
+    { "raw_name": "IV Drip Therapy", "general_name": "IV Therapy" },
+    { "raw_name": "Eyebrow Waxing / Facial Waxing (per area)", "general_name": "Facial Hair Waxing" },
+    { "raw_name": "Electrolysis", "general_name": "Electrolysis" },
+    { "raw_name": "Laser Hair Removal", "general_name": "Laser Hair Removal" },
+    { "raw_name": "Upneeq", "general_name": "Upneeq" },
+    { "raw_name": "Leg Vein Treatment (IPL)", "general_name": "Spider Vein Treatment" },
+    { "raw_name": "Vein Treatment (YAG)", "general_name": "Vein Treatment" },
+    { "raw_name": "Sclerotherapy", "general_name": "Sclerotherapy" },
+    { "raw_name": "Platelet-Rich Plasma (PRP)", "general_name": "PRP (Platelet-Rich Plasma)" },
+    { "raw_name": "Sunetics Laser Hair Regrowth", "general_name": "Hair Restoration" },
+    { "raw_name": "Butt Enhancement / Cupping Therapy", "general_name": "Non-Surgical Butt Lift" },
+    { "raw_name": "RejuVAnate by Phoenix Vaginal", "general_name": "Vaginal Rejuvenation" },
+    { "raw_name": "Tattoo Removal by Pico Laser", "general_name": "Laser Tattoo Removal" },
+    { "raw_name": "Permanent Makeup (Brows/Eyeliner/Lip Blushing)", "general_name": "Permanent Makeup" },
+    { "raw_name": "Eyebrow Micropigmentation", "general_name": "Microblading" },
+    { "raw_name": "Warts, Skin Tags & Growths Removal", "general_name": "Wart Removal" },
+    { "raw_name": "Teeth Whitening", "general_name": "Teeth Whitening" },
+    { "raw_name": "Spray Tan", "general_name": "Tanning" },
+    { "raw_name": "Infrared Sauna & Salt Cave", "general_name": "Infrared Sauna" },
+    { "raw_name": "Laser Acne, Scars, Wrinkles & Stretchmarks", "general_name": "Laser Skin Resurfacing" },
+    { "raw_name": "Carbon Laser Facial", "general_name": "Laser Facials" },
+    { "raw_name": "PCA/TNP Peels (Face/Body)", "general_name": "Chemical Peels" },
+    { "raw_name": "Brow Lamination", "general_name": "Brow Lamination" },
+    { "raw_name": "Lash Lift & Tint", "general_name": "Lash Lift & Tint" },
+    { "raw_name": "DiamondGlow / Silk Peel", "general_name": "DiamondGlow" },
+    { "raw_name": "DermaSweep Microdermabrasion", "general_name": "Microdermabrasion" },
+    { "raw_name": "Cosmelan Mask Treatment", "general_name": "Cosmelan Treatment" },
+    { "raw_name": "Lash, Brow or AquaDrop Tint", "general_name": "Brow & Lash Services" },
+    { "raw_name": "Dermaplaning", "general_name": "Dermaplaning" },
+    { "raw_name": "Photo Facials", "general_name": "Photofacial" },
+    { "raw_name": "Photofacial by Spectrum", "general_name": "IPL / Photofacial" },
+    { "raw_name": "IPL by Spectrum", "general_name": "IPL" },
+    { "raw_name": "Skin Tightening", "general_name": "Skin Tightening" },
+    { "raw_name": "Lip Plump by Laser", "general_name": "Lip Augmentation" },
+    { "raw_name": "Skin Rejuvenation by Pico/Q-Switch Laser", "general_name": "Pico Laser Treatment" },
+    { "raw_name": "Melasma Laser Treatment", "general_name": "Laser Skin Treatments" },
+    { "raw_name": "Viora RF (Face)", "general_name": "RF Skin Tightening" },
+    { "raw_name": "Ultra Light Therapy (Red/Green/Blue)", "general_name": "LED Light Therapy" },
+    { "raw_name": "FIT Body Wrap", "general_name": "Body Wrap" },
+    { "raw_name": "Viora RF (Body)", "general_name": "Radiofrequency Skin Tightening & Contouring" },
+    { "raw_name": "UltraShape Body Contour", "general_name": "Body Contouring" },
+    { "raw_name": "Cryoclear Body Contouring", "general_name": "Cryo Slimming" },
+    { "raw_name": "Body Sculp", "general_name": "Body Sculpting" },
+    { "raw_name": "Fat Dissolving Injections (Large Area)", "general_name": "Fat Dissolving Injections" },
+    { "raw_name": "Diamond Laser Lipo", "general_name": "Laser Lipo" },
+    { "raw_name": "Lymphatic Drainage (Pressotherapy)", "general_name": "Lymphatic Drainage" },
+    { "raw_name": "Xeomin", "general_name": "Xeomin" },
+    { "raw_name": "RHA Filler", "general_name": "RHA" },
+    { "raw_name": "Daxxify", "general_name": "Daxxify" },
+    { "raw_name": "Radiesse", "general_name": "Radiesse" },
+    { "raw_name": "Belotero Balance", "general_name": "Belotero" },
+    { "raw_name": "Renuva Fat Filler Matrix", "general_name": "Renuva" },
+    { "raw_name": "Toe Nail Fungus Removal by Laser", "general_name": "Toenail Fungus Laser Treatment" }
+  ],
+  "new_general_names": [
+    { "general_name": "Electrolysis", "why": "FDA-approved permanent hair removal via electric current per follicle; distinct modality from Laser Hair Removal, not present in allowlist" },
+    { "general_name": "Toenail Fungus Laser Treatment", "why": "Laser treatment for toenail fungus, explicitly booked as its own service and shown in the before/after gallery; no matching allowlist entry" }
+  ],
+  "concerns": [
+    "Fine Lines",
+    "Volume Loss",
+    "Spider Veins",
+    "Varicose Veins",
+    "Unwanted Hair",
+    "Skin Laxity",
+    "Stubborn Body Fat",
+    "Sun Damage",
+    "Melasma",
+    "Droopy Eyelids",
+    "Toenail Fungus",
+    "Unwanted Tattoos",
+    "Stretch Marks",
+    "Vaginal Dryness"
+  ],
+  "images": {
+    "logo": "https://files.manuscdn.com/user_upload_by_module/session_file/310519663082761896/alqZPhurMRiVBQCx.png",
+    "cover": "https://private-us-east-1.manuscdn.com/sessionFile/vPb2ZgwW9N3g1w5ju1Wr9X/sandbox/SJ9WBlCtgUh3VH96zb0tbU-img-1_1772063909000_na1fn_aGVyby1tZWRzcGE.jpg?x-oss-process=image/resize,w_1920,h_1920/format,webp/quality,q_80&Expires=1798761600&Policy=eyJTdGF0ZW1lbnQiOlt7IlJlc291cmNlIjoiaHR0cHM6Ly9wcml2YXRlLXVzLWVhc3QtMS5tYW51c2Nkbi5jb20vc2Vzc2lvbkZpbGUvdlBiMlpnd1c5TjNnMXc1anUxV3I5WC9zYW5kYm94L1NKOVdCbEN0Z1VoM1ZIOTZ6YjB0YlUtaW1nLTFfMTc3MjA2MzkwOTAwMF9uYTFmbl9hR1Z5YnkxdFpXUnpjR0UuanBnP3gtb3NzLXByb2Nlc3M9aW1hZ2UvcmVzaXplLHdfMTkyMCxoXzE5MjAvZm9ybWF0LHdlYnAvcXVhbGl0eSxxXzgwIiwiQ29uZGl0aW9uIjp7IkRhdGVMZXNzVGhhbiI6eyJBV1M6RXBvY2hUaW1lIjoxNzk4NzYxNjAwfX19XX0_&Key-Pair-Id=K2HSFNDJXOU9YS&Signature=omFBlGGk0QbIsGevez3QlGzqAUqrVivC-rS-H8145pIG1hEaSYOiWLfVh2B4tK4l~BH5MKAN-qmvy~KQisHNqxN72qoVdK6TuRqAX3SN-W7MoTtEilYi37~hKdKDwDaqcsptHU~TdY49Pslt4198mMXoIoRwfTzZjEacGl5rWS5vCRSHI3PSuYotTfT3mzq4TY8YCNxA8VOX~HpBgowkrgfYTSSQVy1wEapJjnwgUNgsTWzZfUJz68U41wl6yke4CJLnnZDV3sqVGeSLcIE5drFTN-2RqUyRm1xxeAKwZV0Q3bNlOdQXOVBqsG59BEB24MZsdUPnVPxSaRrUJKBAoQ__",
+    "gallery": [
+      "https://private-us-east-1.manuscdn.com/sessionFile/vPb2ZgwW9N3g1w5ju1Wr9X/sandbox/SJ9WBlCtgUh3VH96zb0tbU-img-2_1772063896000_na1fn_c2VydmljZXMtaW5qZWN0YWJsZXM.jpg?x-oss-process=image/resize,w_1920,h_1920/format,webp/quality,q_80&Expires=1798761600&Policy=eyJTdGF0ZW1lbnQiOlt7IlJlc291cmNlIjoiaHR0cHM6Ly9wcml2YXRlLXVzLWVhc3QtMS5tYW51c2Nkbi5jb20vc2Vzc2lvbkZpbGUvdlBiMlpnd1c5TjNnMXc1anUxV3I5WC9zYW5kYm94L1NKOVdCbEN0Z1VoM1ZIOTZ6YjB0YlUtaW1nLTJfMTc3MjA2Mzg5NjAwMF9uYTFmbl9jMlZ5ZG1salpYTXRhVzVxWldOMFlXSnNaWE0uanBnP3gtb3NzLXByb2Nlc3M9aW1hZ2UvcmVzaXplLHdfMTkyMCxoXzE5MjAvZm9ybWF0LHdlYnAvcXVhbGl0eSxxXzgwIiwiQ29uZGl0aW9uIjp7IkRhdGVMZXNzVGhhbiI6eyJBV1M6RXBvY2hUaW1lIjoxNzk4NzYxNjAwfX19XX0_&Key-Pair-Id=K2HSFNDJXOU9YS&Signature=ebmwrrUdtWaTXHuUGMSF9WapUlSLRKIZ25snVoFbbLb0aOCNYFLUvzw2Dqze9V-L0XrNwvtQMYMtGvcu6OJ0tvAMmFN0ePhIUBR~~AmQXX1GjA7oicC82FKGBuEwiQ2Ool~4JkFTS8FZXqHlewNUBssBKqo-rwXC~vnIK3WzPNSTzCNVqcAmiyZOSRhCLIYC1mShB19v78TeycM0FApqBDOCwJWrNZzcLKFBm7iG3FYocQ~bC-U7xOhuvX9Sn5msVjAwcZcW2rnVn7zxv2WCWdbUtjSwLkA~HmQxEgALTIzvGFnaIs1f2-hKBoassOHEOJqBMjZzQTAXxTGxfd7lcQ__",
+      "https://d2xsxph8kpxj0f.cloudfront.net/310519663082761896/BPFzmUcY5yWP9cyXKgDDyE/prp-facial_0427b377.webp",
+      "https://d2xsxph8kpxj0f.cloudfront.net/310519663082761896/BPFzmUcY5yWP9cyXKgDDyE/body-sculpting_79685005.webp"
+    ],
+    "before_after": [
+      "https://d2xsxph8kpxj0f.cloudfront.net/310519663082761896/BPFzmUcY5yWP9cyXKgDDyE/lip-filler-before_c9e8d280.webp",
+      "https://d2xsxph8kpxj0f.cloudfront.net/310519663082761896/BPFzmUcY5yWP9cyXKgDDyE/lip-filler-after_8d091253.webp",
+      "https://d2xsxph8kpxj0f.cloudfront.net/310519663082761896/BPFzmUcY5yWP9cyXKgDDyE/co2-face-1_1e0e5144.webp",
+      "https://d2xsxph8kpxj0f.cloudfront.net/310519663082761896/BPFzmUcY5yWP9cyXKgDDyE/co2-face-2_31276515.webp",
+      "https://d2xsxph8kpxj0f.cloudfront.net/310519663082761896/BPFzmUcY5yWP9cyXKgDDyE/viora-body-before_2f5118e2.webp",
+      "https://d2xsxph8kpxj0f.cloudfront.net/310519663082761896/BPFzmUcY5yWP9cyXKgDDyE/viora-body-after_379bf197.webp",
+      "https://d2xsxph8kpxj0f.cloudfront.net/310519663082761896/BPFzmUcY5yWP9cyXKgDDyE/eyebrow-tattoo-before_7c87d56d.webp",
+      "https://d2xsxph8kpxj0f.cloudfront.net/310519663082761896/BPFzmUcY5yWP9cyXKgDDyE/eyebrow-tattoo-after_635f2bef.webp"
+    ]
+  }
+}
