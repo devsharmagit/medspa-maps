@@ -278,19 +278,22 @@ export const CANONICAL_SERVICES: CanonicalService[] = [
     name: "HydraFacial",
     slug: "hydrafacial",
     category: "Skin",
+    // Brand terms ONLY. The generic "facial"/"facials"/"facial treatment(s)"/
+    // "signature facial"/"dermaplaning facial" aliases were removed: they made
+    // `matchService("Facials")` return `hydrafacial` at confidence 1.0, and
+    // because `resolveSearchQuery` consults the curated matcher first, that
+    // SHADOWED the live catalog's own `Facials` row (144 clinics) and
+    // `Dermaplaning` row (94 clinics) — a search for either sent users to
+    // HydraFacial clinics instead. A basic facial at a day spa is not a
+    // HydraFacial. "dermaplaning facial" also contradicted dedupe-services.ts,
+    // which folds dermaplaning-facial into dermaplaning.
     aliases: [
       "hydrafacial",
       "hydra facial",
       "hydro facial",
       "hydrodermabrasion",
-      "facial",
-      "facials",
-      "facial treatment",
-      "facial treatments",
       "medical facial",
       "medical-grade facial",
-      "signature facial",
-      "dermaplaning facial",
     ],
     summary:
       "A medical-grade facial that cleanses, exfoliates, extracts, and hydrates in one session.",
@@ -947,18 +950,32 @@ export function matchService(rawName: string): MatchResult {
   const exact = aliasIndex.get(norm);
   if (exact) return { slug: exact, confidence: 1.0 };
 
-  // 2. fuzzy — Dice coefficient over token sets against every name + alias
+  // 2. fuzzy — Dice coefficient over token sets against every name + alias.
+  //
+  // A SINGLE-TOKEN input never reaches the fuzzy stage. One word carries no
+  // disambiguating signal, yet Dice happily scores it 2/(1+2)=0.667 against any
+  // two-word alias that shares it — which is above the 0.55 bar. Every
+  // single-token fuzzy hit in the live corpus was wrong:
+  //   Facelift       -> prp-prf     (via "vampire facelift")
+  //   Dermaplaning   -> hydrafacial (via "dermaplaning facial")
+  //   Radiofrequency -> microneedling
+  //   Ultrasound     -> ultherapy
+  //   Medical        -> hydrafacial
+  // For one word, only an exact/alias hit is trustworthy; anything else should
+  // fall through to the caller's live-catalog lookup.
   const target = tokenSet(norm);
   let bestSlug: string | null = null;
   let bestScore = 0;
 
-  for (const svc of CANONICAL_SERVICES) {
-    const candidates = [svc.name, svc.slug, ...svc.aliases];
-    for (const cand of candidates) {
-      const score = diceCoefficient(target, tokenSet(normalize(cand)));
-      if (score > bestScore) {
-        bestScore = score;
-        bestSlug = svc.slug;
+  if (target.size > 1) {
+    for (const svc of CANONICAL_SERVICES) {
+      const candidates = [svc.name, svc.slug, ...svc.aliases];
+      for (const cand of candidates) {
+        const score = diceCoefficient(target, tokenSet(normalize(cand)));
+        if (score > bestScore) {
+          bestScore = score;
+          bestSlug = svc.slug;
+        }
       }
     }
   }

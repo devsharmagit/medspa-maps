@@ -61,6 +61,19 @@ export async function resolveSearchQuery(q: string): Promise<ResolvedQuery> {
 
   // Curated aliases first — "tox", "wrinkle relaxers" → botox — then the live
   // catalog by exact name/slug, then a bounded fuzzy match for typos.
+  //
+  // This order is DELIBERATE and must stay: the curated aliases encode
+  // brand→bucket collapses that intentionally over-return a superset. "Dysport"
+  // resolving to `botox` surfaces 562 clinics rather than the 174 that happen to
+  // spell out Dysport; "Juvederm" → `dermal-fillers` surfaces 523 rather than 20.
+  // Putting the live catalog first would silently narrow every brand search.
+  //
+  // Treatments whose own name was being shadowed by this order — `Facials`
+  // (144 clinics) and `Dermaplaning` (94) both resolved to `hydrafacial`,
+  // `Facelift` to `prp-prf` — were fixed in canonical.ts instead, by removing the
+  // generic facial aliases and by refusing to fuzzy-match single-token input.
+  // That is the narrower fix: it unshadows those rows without touching the
+  // intentional collapses.
   const curated = matchService(trimmed);
   if (curated.slug) {
     const row = services.find((s) => s.slug === curated.slug);
