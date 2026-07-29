@@ -268,7 +268,8 @@ CREATE TABLE public.clinics (
     ext_rating_source text,
     ext_rating_updated_at timestamp with time zone,
     g99_business_id bigint,
-    g99_tenant_id bigint
+    g99_tenant_id bigint,
+    clinic_type text
 );
 
 

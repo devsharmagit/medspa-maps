@@ -201,6 +201,15 @@ export interface ClinicBundle {
   g99_tenant_id?: string | number | null;
   /** Google Place ID carried over from G99 (clinics.google_place_id). */
   google_place_id?: string | null;
+  /**
+   * Practice type as read from the site: 'medspa' | 'plastic_surgery' |
+   * 'cosmetic_derm' | 'dental_aesthetics' | 'day_spa_salon' |
+   * 'wellness_plus_aesthetics' | 'other_medical_plus_aesthetics'.
+   *
+   * Only ever written when non-null (COALESCE on update), so a re-save that does
+   * not know the type cannot erase a type an earlier pass established.
+   */
+  clinic_type?: string | null;
 }
 
 export interface SaveClinicResult {
@@ -619,6 +628,7 @@ export async function saveClinicBundle(
           hours = ${overwrite ? "$19::jsonb" : "COALESCE($19::jsonb, hours)"},
           g99_business_id = COALESCE($20::bigint, g99_business_id),
           g99_tenant_id   = COALESCE($21::bigint, g99_tenant_id),
+          clinic_type     = COALESCE($22, clinic_type),
           data_source = 'scraped',
           last_scraped_at = NOW(),
           updated_at = NOW()
@@ -634,6 +644,7 @@ export async function saveClinicBundle(
         cYelp, cGmb,
         cHoursJson,
         g99BusinessId, g99TenantId,
+        payload.clinic_type ?? null,
       ]
     );
     const existing = await queryOne<{ slug: string }>(
@@ -648,8 +659,8 @@ export async function saveClinicBundle(
          (name, slug, website, booking_url, address,
           phone, email, about, instagram_url, facebook_url, tiktok_url, youtube_url,
           tagline, google_maps_url, x_url, linkedin_url, yelp_url, google_my_business,
-          hours, g99_business_id, g99_tenant_id, data_source, last_scraped_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19::jsonb,$20::bigint,$21::bigint,'scraped',NOW())
+          hours, g99_business_id, g99_tenant_id, clinic_type, data_source, last_scraped_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19::jsonb,$20::bigint,$21::bigint,$22,'scraped',NOW())
        RETURNING id`,
       [
         clinicName, slug, website,
@@ -662,6 +673,7 @@ export async function saveClinicBundle(
         cYelp, cGmb,
         cHoursJson,
         g99BusinessId, g99TenantId,
+        payload.clinic_type ?? null,
       ]
     );
     clinicId = ins!.id;
