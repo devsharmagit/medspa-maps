@@ -98,7 +98,7 @@ const initialState: WizardState = {
     ageRange: "",
     gender: "",
     skinTone: "",
-    location: { label: "", value: "", lat: null, lng: null },
+    location: { label: "", value: "", lat: null, lng: null, kind: "text" },
   },
   goals: {
     selected: [],
@@ -257,7 +257,13 @@ export function SkinNavigatorClient() {
       ...current,
       basics: {
         ...current.basics,
-        location: { label, value: label, lat: userLocation.lat ?? null, lng: userLocation.lng ?? null },
+        location: {
+          label,
+          value: label,
+          lat: userLocation.lat ?? null,
+          lng: userLocation.lng ?? null,
+          kind: userLocation.city ? "city" : "state",
+        },
       },
     }));
   }, [
