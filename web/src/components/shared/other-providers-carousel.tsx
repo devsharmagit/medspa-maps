@@ -1,7 +1,20 @@
 "use client";
 
-import { ArrowLeft, ArrowRight, BadgeCheck, Calendar, Phone, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, BadgeCheck, Calendar, Phone, X, Loader2 } from "lucide-react";
 import { useRef, useState, useEffect } from "react";
+
+import { useDragScroll } from "@/lib/hooks/use-drag-scroll";
+
+/** Two-letter initials from a name, for the photo-less avatar fallback. */
+function initials(name: string): string {
+  return name
+    .split(" ")
+    .map((w) => w[0])
+    .filter(Boolean)
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+}
 
 interface OtherProvider {
   id: string;
@@ -9,13 +22,14 @@ interface OtherProvider {
   title: string | null;
   image_url: string | null;
   is_verified: boolean;
+  expertise_summary?: string | null;
 }
 
 interface Props {
   clinicName?: string;
   title?: string;
   providers: OtherProvider[];
-  bookUrl: string;
+  bookUrl: string | null;
   clinicPhone?: string | null;
   /** Retained for API compatibility; provider profile pages no longer exist, so
    *  cards are always static. */
@@ -24,14 +38,16 @@ interface Props {
 
 export function OtherProvidersCarousel({ clinicName, title, providers, bookUrl, clinicPhone }: Props) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const dragScroll = useDragScroll(scrollContainerRef);
+  const [activeProvider, setActiveProvider] = useState<OtherProvider | null>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(true);
 
   const checkScrollability = () => {
     if (scrollContainerRef.current) {
       const { scrollLeft, scrollWidth, clientWidth } = scrollContainerRef.current;
-      setCanScrollLeft(scrollLeft > 0);
-      setCanScrollRight(Math.ceil(scrollLeft) < scrollWidth - clientWidth);
+      setCanScrollLeft(scrollLeft > 1);
+      setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 1);
     }
   };
 
@@ -53,23 +69,14 @@ export function OtherProvidersCarousel({ clinicName, title, providers, bookUrl, 
     }
   };
 
-  const defaultPhoto = "https://images.stockcake.com/public/1/9/d/19d13828-c999-4e2d-a191-9da4dd8bd824_large/confident-medical-professional-stockcake.jpg";
-
   if (providers.length === 0) return null;
 
-  /** Split a provider title like "MSN, FNP-C, FMACP - Nurse Practitioner | Functional Medicine Practitioner"
-   *  into a credential badge ("MSN, FNP-C, FMACP") and a role ("Nurse Practitioner · Functional Medicine Practitioner"). */
-  const parseTitle = (raw: string | null): { credentials: string | null; role: string } => {
-    if (!raw) return { credentials: null, role: "Aesthetic Specialist" };
-    // Try splitting on " - " first (e.g. "BSN, RN - General Manager | Lead Nurse")
-    const dashIdx = raw.indexOf(" - ");
-    if (dashIdx !== -1) {
-      const creds = raw.slice(0, dashIdx).trim();
-      const role = raw.slice(dashIdx + 3).trim().replace(/\s*\|\s*/g, " · ");
-      return { credentials: creds || null, role: role || "Aesthetic Specialist" };
-    }
-    // No dash — entire string is the role (e.g. "Social Media & Marketing Coordinator")
-    return { credentials: null, role: raw.replace(/\s*\|\s*/g, " · ") };
+  /** Display subtitle for a provider — the full title as-is, so every clinic
+   *  renders consistently (no credential chip). Separators are normalized:
+   *  " - " and " | " both become " · ". */
+  const formatTitle = (raw: string | null): string => {
+    if (!raw) return "Aesthetic Specialist";
+    return raw.replace(/\s+-\s+/g, " · ").replace(/\s*\|\s*/g, " · ").trim() || "Aesthetic Specialist";
   };
 
   return (
@@ -107,7 +114,7 @@ export function OtherProvidersCarousel({ clinicName, title, providers, bookUrl, 
             onClick={() => scroll("right")}
             aria-label="Next provider"
             disabled={!canScrollRight}
-            className={`flex h-[31px] w-[40px] items-center justify-center rounded-r-full border-[0.6px] border-[#A5A5A5] bg-white transition-all ${
+            className={`flex h-[31px] w-[40px] items-center justify-center rounded-r-full border-[0.6px] border-[#D9D9D9] bg-white transition-all ${
               canScrollRight ? "cursor-pointer hover:bg-gray-50 active:bg-gray-100" : "cursor-not-allowed opacity-50"
             }`}
           >
@@ -121,24 +128,32 @@ export function OtherProvidersCarousel({ clinicName, title, providers, bookUrl, 
         <div
           ref={scrollContainerRef}
           onScroll={checkScrollability}
-          className="flex w-full flex-row items-start gap-8 overflow-x-auto scrollbar-none snap-x snap-mandatory pb-3"
+          {...dragScroll}
+          className="flex w-full flex-row items-start gap-8 overflow-x-auto scrollbar-none pb-3 cursor-grab active:cursor-grabbing select-none"
         >
           {providers.map((other) => {
-            const { credentials, role } = parseTitle(other.title);
+            const role = formatTitle(other.title);
             const cardClassName =
-              "group relative flex w-[264px] shrink-0 snap-start flex-col overflow-hidden rounded-2xl bg-white transition-all duration-300 hover:-translate-y-1.5 hover:shadow-[0_16px_40px_rgba(207,93,154,0.18)]";
+              "group relative flex w-[264px] shrink-0 flex-col overflow-hidden rounded-2xl bg-white transition-all duration-300 hover:-translate-y-1.5 hover:shadow-[0_16px_40px_rgba(207,93,154,0.18)]";
             const cardStyle = { boxShadow: "0 4px 20px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04)" };
 
             const cardContent = (
               <>
                 {/* ── Image with gradient overlay ── */}
                 <div className="relative h-[340px] w-full overflow-hidden">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={other.image_url || defaultPhoto}
-                    alt={other.name}
-                    className="h-full w-full object-cover object-top transition-transform duration-700 ease-out group-hover:scale-[1.06]"
-                  />
+                  {other.image_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={other.image_url}
+                      alt={other.name}
+                      className="h-full w-full object-cover object-top transition-transform duration-700 ease-out group-hover:scale-[1.06]"
+                      draggable={false}
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#CF5D9A] to-[#C341D7] text-6xl font-semibold text-white/90">
+                      {initials(other.name)}
+                    </div>
+                  )}
 
                   {/* Bottom gradient overlay for text readability */}
                   <div
@@ -160,16 +175,6 @@ export function OtherProvidersCarousel({ clinicName, title, providers, bookUrl, 
 
                   {/* ── Provider info overlay ── */}
                   <div className="absolute inset-x-0 bottom-0 flex flex-col gap-2.5 p-5">
-                    {/* Credentials badge */}
-                    {credentials && (
-                      <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 backdrop-blur-md">
-                        <Sparkles className="h-3 w-3 text-amber-300" />
-                        <span className="font-montserrat text-[11px] font-semibold tracking-wide text-white/95">
-                          {credentials}
-                        </span>
-                      </span>
-                    )}
-
                     {/* Name */}
                     <h3 className="font-montserrat text-[20px] font-semibold leading-tight tracking-[-0.01em] text-white drop-shadow-sm">
                       {other.name}
@@ -193,9 +198,16 @@ export function OtherProvidersCarousel({ clinicName, title, providers, bookUrl, 
             );
 
             return (
-              <div key={other.id} className={cardClassName} style={cardStyle}>
+              <button
+                key={other.id}
+                type="button"
+                onClick={() => setActiveProvider(other)}
+                className={`${cardClassName} cursor-pointer text-left`}
+                style={cardStyle}
+                aria-label={`View ${other.name}'s expertise`}
+              >
                 {cardContent}
-              </div>
+              </button>
             );
           })}
         </div>
@@ -203,17 +215,19 @@ export function OtherProvidersCarousel({ clinicName, title, providers, bookUrl, 
 
       {/* ── Footer Buttons ── */}
       <div className="flex w-full flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-start gap-4 px-5 sm:px-12">
-        <a
-          href={bookUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="flex h-[48px] w-full sm:w-[210px] items-center justify-center gap-2.5 rounded-lg bg-[linear-gradient(90deg,#DE7F4C_0%,#C341D7_100%)] px-4 sm:px-6 py-2.5 transition-opacity hover:opacity-90"
-        >
-          <span className="font-montserrat text-[14px] font-semibold leading-[17px] text-white whitespace-nowrap">
-            Book Appointment
-          </span>
-          <Calendar className="h-5 w-5 text-white shrink-0" />
-        </a>
+        {bookUrl && (
+          <a
+            href={bookUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="flex h-[48px] w-full sm:w-[210px] items-center justify-center gap-2.5 rounded-lg bg-[linear-gradient(90deg,#DE7F4C_0%,#C341D7_100%)] px-4 sm:px-6 py-2.5 transition-opacity hover:opacity-90"
+          >
+            <span className="font-montserrat text-[14px] font-semibold leading-[17px] text-white whitespace-nowrap">
+              Book Appointment
+            </span>
+            <Calendar className="h-5 w-5 text-white shrink-0" />
+          </a>
+        )}
 
         {clinicPhone && (
           <a
@@ -221,12 +235,135 @@ export function OtherProvidersCarousel({ clinicName, title, providers, bookUrl, 
             className="flex h-[48px] w-full sm:w-[150px] items-center justify-center gap-2.5 rounded-lg border-[1.5px] border-[#CF5B9D] px-4 sm:px-6 py-2.5 transition-colors hover:bg-pink-50"
           >
             <span className="font-montserrat text-[14px] font-semibold leading-[17px] text-[#CF5B9D] whitespace-nowrap">
-              Call Clinic
+              Call Practice
             </span>
             <Phone className="h-[17px] w-[17px] text-[#CF5B9D] shrink-0" />
           </a>
         )}
       </div>
+
+      {activeProvider && (
+        <ProviderExpertiseModal
+          provider={activeProvider}
+          onClose={() => setActiveProvider(null)}
+        />
+      )}
     </section>
+  );
+}
+
+/** Modal showing a provider's expertise. Uses the cached `expertise_summary`
+ *  when present; otherwise fetches (and generates+caches) it on open. */
+function ProviderExpertiseModal({
+  provider,
+  onClose,
+}: {
+  provider: OtherProvider;
+  onClose: () => void;
+}) {
+  const [summary, setSummary] = useState<string | null>(
+    provider.expertise_summary?.trim() || null
+  );
+  const [loading, setLoading] = useState(!provider.expertise_summary?.trim());
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (summary) return; // cached — nothing to fetch
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(`/api/providers/${provider.id}/expertise`);
+        const payload = (await res.json()) as {
+          success: boolean;
+          data?: { summary: string };
+          error?: string;
+        };
+        if (cancelled) return;
+        if (!res.ok || !payload.success || !payload.data?.summary) {
+          setError(payload.error || "Couldn't load this provider's details.");
+        } else {
+          setSummary(payload.data.summary);
+        }
+      } catch {
+        if (!cancelled) setError("Network error. Please try again.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [provider.id]);
+
+  return (
+    <div
+      className="fixed inset-0 z-[130] flex items-center justify-center bg-black/50 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${provider.name} — expertise`}
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex gap-4 p-5 sm:p-6">
+          {provider.image_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={provider.image_url}
+              alt={provider.name}
+              className="h-20 w-20 shrink-0 rounded-xl object-cover object-top"
+            />
+          ) : (
+            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#CF5D9A] to-[#C341D7] text-2xl font-semibold text-white">
+              {initials(provider.name)}
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start justify-between gap-3">
+              <h2 className="font-montserrat text-[20px] font-semibold leading-tight text-[#373634]">
+                {provider.name}
+              </h2>
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Close"
+                className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-[#6b6a68] transition-colors hover:bg-[#f3eef3]"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+            {provider.title && (
+              <p className="mt-0.5 font-montserrat text-[13px] text-[#727272]">{provider.title}</p>
+            )}
+          </div>
+        </div>
+
+        <div className="px-5 pb-5 sm:px-6 sm:pb-6">
+          {loading ? (
+            <div className="flex items-center gap-2 py-6 text-sm text-[#727272]">
+              <Loader2 className="size-4 animate-spin" />
+              Summarizing this provider&apos;s expertise…
+            </div>
+          ) : error ? (
+            <p className="py-4 text-sm text-red-600">{error}</p>
+          ) : (
+            <>
+              <p className="whitespace-pre-line font-montserrat text-[14px] leading-[160%] text-[#575757]">
+                {summary}
+              </p>
+              <p className="mt-4 font-montserrat text-[11px] italic leading-[150%] text-[#9a9a9a]">
+                AI-generated summary of publicly available information. Not medical advice — confirm
+                details with the practice.
+              </p>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }

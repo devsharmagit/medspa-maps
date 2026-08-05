@@ -8,6 +8,7 @@
  * wrong in ways that are expensive to undo once written:
  *
  *  H1 parses, and has website/name/at least one treatment/a located city+state
+ *     (US state only — Canadian province codes are hard-rejected)
  *  H2 every `treatments` entry is an OBJECT with a general_name. A plain string is
  *     accepted by the save layer and then mints a brand-new catalog row per
  *     variant — the single largest source of catalog fragmentation.
@@ -35,6 +36,9 @@ const CLINIC_TYPES = new Set([
   "day_spa_salon", "wellness_plus_aesthetics", "other_medical_plus_aesthetics",
 ]);
 const PLACEHOLDER_EMAIL = /^(seo\.loginuser|onboarding\.india)@growth99\.com$/i;
+// US-only directory: reject Canadian provinces (2-letter, so they'd otherwise
+// pass the "is 2 letters" check silently — see canadian-clinics-excluded-2026-08-04.csv).
+const CA_PROVINCES = new Set(["ON", "BC", "AB", "QC", "MB", "SK", "NS", "NB", "NL", "PE", "YT", "NT", "NU"]);
 
 const args = process.argv.slice(2);
 const target = args.find((a) => !a.startsWith("--")) ?? "";
@@ -74,6 +78,7 @@ for (const file of files) {
   locs.forEach((l, i) => {
     if (!l?.city || !l?.state) hard.push(`H1 location[${i}] missing city/state`);
     if (l?.state && String(l.state).length !== 2) hard.push(`H1 location[${i}] state "${l.state}" not 2-letter`);
+    if (l?.state && CA_PROVINCES.has(String(l.state).toUpperCase())) hard.push(`H1 location[${i}] state "${l.state}" is a Canadian province — this directory is US-only`);
   });
   const addrs = locs.map((l) => normalize(String(l?.address ?? "")));
   if (new Set(addrs.filter(Boolean)).size !== addrs.filter(Boolean).length) soft.push("duplicate location address");

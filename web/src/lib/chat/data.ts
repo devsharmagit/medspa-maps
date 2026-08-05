@@ -252,7 +252,7 @@ export async function searchClinics(args: SearchArgs): Promise<SearchResult> {
       return {
         name: r.name,
         slug: r.slug,
-        url: `/clinics/${r.slug}`,
+        url: `/practices/${r.slug}`,
         city: r.city,
         state: r.state,
         rating: r.avg_rating != null ? Number(r.avg_rating) : null,
@@ -289,7 +289,7 @@ export function buildSearchUrl(treatment: string, location: string): string {
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// getClinicBySlug — page context for /clinics/[slug] and /providers/[id]/[slug]
+// getClinicBySlug — page context for /practices/[slug] and /providers/[id]/[slug]
 // ──────────────────────────────────────────────────────────────────────────
 export async function getClinicBySlug(
   slug: string
@@ -327,7 +327,7 @@ export async function getClinicBySlug(
     return {
       name: r.name,
       slug: r.slug,
-      url: `/clinics/${r.slug}`,
+      url: `/practices/${r.slug}`,
       city: r.city,
       state: r.state,
       rating: r.avg_rating != null ? Number(r.avg_rating) : null,

@@ -81,7 +81,7 @@ export function HeroSearchBar({ className }: { className?: string }) {
     <div className={cn("flex w-full flex-col items-start gap-3", className)}>
       <div className="inline-flex items-center gap-2 rounded-full border border-white/35 bg-white/18 p-1 shadow-[0_8px_30px_rgba(61,46,56,0.12)] backdrop-blur-md">
         <span className="pl-3 pr-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-white/85">
-          Search for
+          Search by
         </span>
         <button
           type="button"

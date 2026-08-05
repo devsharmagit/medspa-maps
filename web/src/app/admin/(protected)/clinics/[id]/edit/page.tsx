@@ -612,7 +612,7 @@ export default function EditClinicPage(props: {
             className="gap-1.5 border-slate-200 text-slate-700"
           >
             <Link
-              href={`/clinics/${form.slug}`}
+              href={`/practices/${form.slug}`}
               target="_blank"
               rel="noopener noreferrer"
             >

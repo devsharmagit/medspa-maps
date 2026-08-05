@@ -4,11 +4,11 @@ import { HeroHeader } from "@/components/hero/hero-header";
 import { Footer } from "@/components/footer";
 
 export const metadata = {
-  title: "Page Not Found — Medspa Map",
+  title: "Page Not Found — Med Spa Maps",
 };
 
 const quickLinks = [
-  { label: "Find a Clinic", href: "/search", icon: MapPin },
+  { label: "Find a Practice", href: "/search", icon: MapPin },
   { label: "Browse Treatments", href: "/treatments", icon: Sparkles },
   { label: "Back to Home", href: "/", icon: Home },
 ];
@@ -45,7 +45,7 @@ export default function NotFound() {
 
         <p className="mt-4 max-w-[520px] font-montserrat text-[15px] leading-[160%] text-[#727272] sm:text-[16px]">
           The page you&apos;re looking for doesn&apos;t exist or may have moved.
-          Let&apos;s get you back to finding the right medspa &amp; treatment near you.
+          Let&apos;s get you back to finding the right med spa &amp; treatment near you.
         </p>
 
         {/* Primary CTAs */}
@@ -61,7 +61,7 @@ export default function NotFound() {
             href="/search"
             className="inline-flex h-[50px] items-center justify-center gap-2 rounded-[10px] border border-[#E3CED8] bg-white px-7 font-montserrat text-[15px] font-semibold text-[#CF5B9D] transition-colors hover:bg-pink-50"
           >
-            Find a Clinic
+            Find a Practice
             <ArrowRight className="size-[18px]" />
           </Link>
         </div>

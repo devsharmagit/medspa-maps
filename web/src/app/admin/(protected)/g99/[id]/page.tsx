@@ -209,7 +209,7 @@ export default function G99BusinessDetailPage({
                   <div className="flex shrink-0 items-center gap-2.5">
                     {info.state !== "new" && info.slug && (
                       <Link
-                        href={`/clinics/${info.slug}`}
+                        href={`/practices/${info.slug}`}
                         target="_blank"
                         className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 hover:underline"
                       >

@@ -899,13 +899,13 @@ export default function NewClinicPage() {
               {result.clinics.map((c) => (
                 <a
                   key={c.id}
-                  href={`/clinics/${c.slug}`}
+                  href={`/practices/${c.slug}`}
                   target="_blank"
                   rel="noreferrer"
                   className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-emerald-800 hover:underline"
                 >
                   <ExternalLink size={14} />
-                  /clinics/{c.slug}
+                  /practices/{c.slug}
                   <Badge
                     variant="secondary"
                     className="ml-1 bg-emerald-100 text-emerald-700"
@@ -962,7 +962,7 @@ export default function NewClinicPage() {
                 </Link>
                 {c.slug && (
                   <a
-                    href={`/clinics/${c.slug}`}
+                    href={`/practices/${c.slug}`}
                     target="_blank"
                     rel="noreferrer"
                     className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-white/60 px-2.5 py-1 text-xs font-medium text-amber-900 hover:bg-white"

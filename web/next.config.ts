@@ -29,6 +29,18 @@ const nextConfig: NextConfig = {
         source: '/clinics',
         destination: '/search',
         permanent: false,
+      },
+      {
+        // Renamed "Find My Treatment" slug — keep old links/SEO working.
+        source: '/skin-navigator',
+        destination: '/ai-aesthetic-treatment-finder',
+        permanent: true,
+      },
+      {
+        // Renamed public clinic page route — keep old links/SEO working.
+        source: '/clinics/:slug',
+        destination: '/practices/:slug',
+        permanent: true,
       }
     ];
   },

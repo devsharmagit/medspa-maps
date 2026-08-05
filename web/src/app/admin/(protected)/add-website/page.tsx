@@ -258,7 +258,7 @@ export default function AddWebsitePage() {
                         Edit in admin
                       </Button>
                     </Link>
-                    <Link href={`/clinics/${res.result.slug}`} target="_blank">
+                    <Link href={`/practices/${res.result.slug}`} target="_blank">
                       <Button variant="ghost" size="sm">
                         View public page <ExternalLink />
                       </Button>

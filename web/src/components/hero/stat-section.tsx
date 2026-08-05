@@ -75,10 +75,10 @@ function CountUp({
 }
 
 const stats: Array<{ value: number; suffix: string; label: string; isDecimal?: boolean }> = [
-  { value: 600, suffix: "+", label: "Verified Clinics" },
-  { value: 500, suffix: "+", label: "Cities Covered" },
-  { value: 50, suffix: "", label: "States Represented" },
-  { value: 100, suffix: "%", label: "PERSONALIZED CARE" },
+  { value: 600, suffix: "+", label: "Verified practices" },
+  { value: 500, suffix: "+", label: "Cities covered" },
+  { value: 50, suffix: "", label: "States represented" },
+  { value: 100, suffix: "%", label: "Practices Meet Med Spa Maps Standards" },
 ];
 
 export default function StatsSection() {
@@ -89,13 +89,12 @@ export default function StatsSection() {
       {/* Heading */}
       <h2
         className={cn(
-          "w-full text-center text-[30px] sm:text-[42px] lg:text-[56px] leading-[116.02%] tracking-[-0.04em] text-[#373634]",
+          "w-full text-center font-montserrat text-[26px] sm:text-[30px] lg:text-[34px] font-normal leading-[116.02%] tracking-[-0.04em] text-[#373634]",
           "transition-all duration-1000 ease-out",
           isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
         )}
-        style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontWeight: 400 }}
       >
-        Trusted by Thousands. <span style={{fontFamily: "'Montserrat', sans-serif", color: "#CF5B9D", fontStyle: "normal"}}> Loved Everywhere. </span>
+        Trusted by <span className="font-heading">Thousands.</span>
       </h2>
 
       {/* Stats — 2-col grid on mobile/tablet, single divider-separated row on desktop */}

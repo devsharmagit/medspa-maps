@@ -333,7 +333,7 @@ export default function G99ImportPage() {
                         <div className="flex items-center justify-end gap-2">
                           {r.info.state !== "new" && r.info.slug && (
                             <a
-                              href={`/clinics/${r.info.slug}`}
+                              href={`/practices/${r.info.slug}`}
                               target="_blank"
                               rel="noreferrer"
                               className="text-emerald-600 hover:text-emerald-700"

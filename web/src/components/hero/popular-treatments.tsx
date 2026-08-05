@@ -1,11 +1,12 @@
 "use client";
 
 import { ArrowLeft, ArrowRight, type LucideIcon } from "lucide-react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useRef } from "react";
 
 import { POPULAR_TREATMENTS } from "@/data/popular-treatments";
 import { formatCountPlus } from "@/lib/utils";
+import { useDragScroll } from "@/lib/hooks/use-drag-scroll";
 
 interface PopularTreatmentsProps {
   titleNode?: React.ReactNode;
@@ -16,16 +17,27 @@ function TreatmentCard({
   name,
   clinicCount,
   icon: Icon,
+  onNavigate,
 }: {
   slug: string;
   name: string;
   clinicCount: number;
   icon: LucideIcon;
+  onNavigate: (slug: string) => void;
 }) {
   return (
-    <Link
-      href={`/search?q=${slug}`}
-      className="box-border flex h-[166px] w-[130px] sm:h-[201px] sm:w-[161px] shrink-0 flex-col items-center justify-center gap-2 rounded-2xl bg-white px-[10px] pt-[3px] shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)] transition-transform hover:scale-105 hover:shadow-lg"
+    <div
+      role="button"
+      tabIndex={0}
+      draggable={false}
+      onClick={() => onNavigate(slug)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onNavigate(slug);
+        }
+      }}
+      className="box-border flex h-[166px] w-[130px] sm:h-[201px] sm:w-[161px] shrink-0 flex-col items-center justify-center gap-2 rounded-2xl bg-white px-[10px] pt-[3px] shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)] transition-transform hover:scale-105 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-[#CF5B9D]/60"
     >
       <div className="flex h-[52px] w-[56px] sm:h-[62px] sm:w-[66px] items-center justify-center rounded-[10px] border border-[#F5DEE8] bg-[linear-gradient(144.23deg,#F5F0F7_-33.1%,#FFFFFF_48.72%)]">
         <Icon
@@ -43,18 +55,23 @@ function TreatmentCard({
 
       {/* Clinics */}
       <p className="flex items-center justify-center text-center font-inter text-[11px] sm:text-[12px] font-normal leading-[100%] text-[#9A9A9A]">
-        {formatCountPlus(clinicCount)} clinics
+        {formatCountPlus(clinicCount)} practices
       </p>
-    </Link>
+    </div>
   );
 }
 
 export function PopularTreatments({ titleNode }: PopularTreatmentsProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
+
+  // Cards are plain buttons (not <Link>) so a drag never grabs/ghosts an anchor.
+  // Navigation happens here on a genuine click (drags are cancelled in onClickCapture).
+  const navigate = (slug: string) => router.push(`/search?q=${slug}`);
 
   const scroll = (direction: "left" | "right") => {
     if (scrollContainerRef.current) {
-      const scrollAmount = 169; // card width + gap
+      const scrollAmount = 181; // card width + gap
       scrollContainerRef.current.scrollTo({
         left:
           scrollContainerRef.current.scrollLeft +
@@ -64,12 +81,15 @@ export function PopularTreatments({ titleNode }: PopularTreatmentsProps) {
     }
   };
 
+  // Click-and-hold drag-to-scroll (mouse/pen); touch uses native scroll.
+  const dragScroll = useDragScroll(scrollContainerRef);
+
   return (
     <section className="flex w-full flex-col items-center pt-[44px] lg:px-8">
       {/* ── Section Header ── */}
       <div className="mb-[38px] flex h-[39px] w-full max-w-[1342px] items-center gap-4 sm:gap-[40px] px-4">
         <div className="h-0 flex-1 border-t border-[rgba(193,121,165,0.4)]" />
-        <h2 className="whitespace-nowrap text-center font-montserrat text-[24px] sm:text-[30px] lg:text-[34px] font-normal leading-[116.02%] tracking-[-0.04em] text-[#373634]">
+        <h2 className="whitespace-nowrap text-center font-montserrat text-[26px] sm:text-[30px] lg:text-[34px] font-normal leading-[116.02%] tracking-[-0.04em] text-[#373634]">
           {titleNode || (
             <>
               Popular <span className="font-heading">Treatments</span>
@@ -96,10 +116,11 @@ export function PopularTreatments({ titleNode }: PopularTreatmentsProps) {
         {/* Scrollable card row */}
         <div
           ref={scrollContainerRef}
-          className="flex w-full gap-2 overflow-x-auto px-2 py-[38px] scrollbar-none"
+          {...dragScroll}
+          className="flex w-full gap-4 sm:gap-5 overflow-x-auto px-2 py-[38px] scrollbar-none select-none cursor-grab active:cursor-grabbing"
         >
           {POPULAR_TREATMENTS.map((treatment) => (
-            <TreatmentCard key={treatment.slug} {...treatment} />
+            <TreatmentCard key={treatment.slug} {...treatment} onNavigate={navigate} />
           ))}
         </div>
 

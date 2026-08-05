@@ -11,7 +11,9 @@ import {
   Eye,
   HeartPulse,
   Images,
+  List,
   LocateFixed,
+  Map as MapIcon,
   MapPin,
   Phone,
   Search,
@@ -36,6 +38,19 @@ import { useLocation } from "@/lib/location/location-context";
 import { toStateCode } from "@/lib/location/states";
 import { NOTICE_REFRESH_EVENT } from "@/components/location/usa-only-notice";
 import { cn } from "@/lib/utils";
+import dynamic from "next/dynamic";
+import type { MapPin as MapPinData } from "./results-map";
+
+// Leaflet touches `window` at import time, so the map is loaded client-only.
+// (This is already a "use client" component, so ssr:false is allowed here.)
+const ResultsMap = dynamic(() => import("./results-map"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-full w-full items-center justify-center text-sm text-brand-muted">
+      Loading map…
+    </div>
+  ),
+});
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -193,6 +208,13 @@ export function SearchResults() {
   const [showFilters, setShowFilters] = useState(false);
   // Track if we need to show a "share location" hint on the distance filter
   const [showShareHint, setShowShareHint] = useState(false);
+  // List vs. map view (UI-only local state — never sent to the API or URL).
+  const [viewMode, setViewMode] = useState<"list" | "map">("list");
+  // All matching clinics' coordinates for the map (separate from the paginated
+  // `results`); fetched on demand via ?pins=1 only while the map is open.
+  const [pins, setPins] = useState<MapPinData[]>([]);
+  // The clinic whose marker is highlighted (map ↔ list sync).
+  const [activeClinicId, setActiveClinicId] = useState<string | null>(null);
 
   // Search-bar state. The single dropdown holds EITHER a treatment (plain
   // value → q) OR a condition (encoded `c:<slug>` → condition) — never both.
@@ -237,6 +259,8 @@ export function SearchResults() {
   // Set true while an explicit "Near Me" detection is in flight, so we can turn
   // its result into the right URL state (pin the visitor's own state + coords).
   const nearMeRef = useRef(false);
+  // Out-of-order guard for the separate map-pins fetch.
+  const pinsFetchIdRef = useRef(0);
 
   const fetchResults = useCallback(async () => {
     const myId = ++fetchIdRef.current;
@@ -277,6 +301,48 @@ export function SearchResults() {
   useEffect(() => {
     fetchResults();
   }, [fetchResults]);
+
+  // Map pins: all matching clinics' coordinates (not just the current page),
+  // fetched only while the map is open and refetched when the filters change.
+  // Uses the SAME filters as the list via ?pins=1, so the pins always match.
+  const fetchPins = useCallback(async () => {
+    const myId = ++pinsFetchIdRef.current;
+    try {
+      const params = new URLSearchParams();
+      if (q) params.set("q", q);
+      if (condition) params.set("condition", condition);
+      if (location) params.set("location", location);
+      if (radius) params.set("radius", radius);
+      if (rating) params.set("rating", rating);
+      if (lat && lng) {
+        params.set("lat", lat);
+        params.set("lng", lng);
+      }
+      params.set("pins", "1");
+      const res = await fetch(`/api/search?${params.toString()}`);
+      if (!res.ok) throw new Error("pins failed");
+      const data = await res.json();
+      if (myId !== pinsFetchIdRef.current) return;
+      setPins(Array.isArray(data.pins) ? data.pins : []);
+    } catch {
+      if (myId !== pinsFetchIdRef.current) return;
+      setPins([]);
+    }
+  }, [q, condition, location, radius, rating, lat, lng, setPins]);
+
+  useEffect(() => {
+    if (viewMode === "map") fetchPins();
+  }, [viewMode, fetchPins]);
+
+  // Map → list: clicking a marker highlights it and scrolls its card into view
+  // (when that clinic is on the current results page).
+  const handleMarkerActivate = useCallback((clinicId: string) => {
+    setActiveClinicId(clinicId);
+    if (typeof document !== "undefined") {
+      const el = document.querySelector(`[data-clinic-id="${clinicId}"]`);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [setActiveClinicId]);
 
   // Reflect the URL into the search fields, and prefill the state from the
   // visitor's detected location when the URL has none yet. Only runs on URL /
@@ -482,6 +548,7 @@ export function SearchResults() {
     value: string;
     lat: number | null;
     lng: number | null;
+    kind: "zip" | "city" | "state" | "text";
   }) => {
     setSearchState(sel.value);
     if (sel.lat !== null && sel.lng !== null) {
@@ -493,6 +560,11 @@ export function SearchResults() {
         radius: null,
         sort: null,
       });
+    } else if (sel.kind === "state") {
+      // A picked STATE carries no coordinates — auto-apply it as a statewide
+      // filter immediately (same as city/zip picks), instead of waiting for a
+      // manual "Search" click. Typing (kind "text") still just fills the box.
+      applyState(sel.value);
     }
   };
 
@@ -566,7 +638,7 @@ export function SearchResults() {
 
         <div className="mt-5 mb-2 inline-flex items-center gap-2 rounded-full border border-[#e8e0e8] bg-[#fdfafb] p-1">
           <span className="pl-3 pr-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-brand-muted">
-            Search for
+            Search by
           </span>
           <button
             type="button"
@@ -802,7 +874,7 @@ export function SearchResults() {
               <h2 className="text-lg font-semibold text-[#1a1a1a]">
                 {loading ? "Searching…" : (
                   <>
-                    {total.toLocaleString()} {total === 1 ? 'Clinic' : 'Clinics'} Found
+                    {total.toLocaleString()} {total === 1 ? 'Practice' : 'Practices'} Found
                     {location && ` in ${stateName}`}
                   </>
                 )}
@@ -815,36 +887,71 @@ export function SearchResults() {
               )}
             </div>
 
-            {/* Mobile: open filters + sort in a modal */}
-            <button
-              type="button"
-              onClick={() => setShowFilters(true)}
-              className="inline-flex items-center gap-2 rounded-xl border border-[#e1e1e1] bg-white px-4 py-2 text-sm font-medium text-[#4a4a4a] transition-colors hover:border-brand-magenta/40 hover:text-brand-magenta lg:hidden"
-            >
-              <SlidersHorizontal className="size-4" />
-              Filters &amp; Sort
-              {(rating || radius) && (
-                <span className="flex size-5 items-center justify-center rounded-full bg-brand-magenta text-[11px] font-semibold text-white">
-                  {[rating, radius].filter(Boolean).length}
-                </span>
-              )}
-            </button>
-
-            {/* Desktop: inline sort */}
-            <div className="hidden items-center gap-2 lg:flex">
-              <span className="text-sm text-brand-muted">Sorted By:</span>
-              <div className="relative flex items-center">
-                <select
-                  value={sort}
-                  onChange={(e) => updateParam("sort", e.target.value)}
-                  className="appearance-none rounded-xl border border-[#e1e1e1] bg-white py-2 pl-3.5 pr-9 text-sm font-medium text-[#4a4a4a] transition-colors hover:border-brand-magenta/40 focus:outline-none focus:ring-2 focus:ring-brand-magenta/20"
+            {/* Right controls: List/Map toggle + filters/sort */}
+            <div className="flex items-center gap-2">
+              {/* List | Map view toggle */}
+              <div className="inline-flex shrink-0 items-center rounded-xl border border-[#e1e1e1] bg-white p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setViewMode("list")}
+                  aria-pressed={viewMode === "list"}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors",
+                    viewMode === "list"
+                      ? "bg-brand-magenta text-white shadow-sm"
+                      : "text-brand-muted hover:text-brand-magenta",
+                  )}
                 >
-                  <option value="distance" disabled={!hasOrigin}>
-                    Distance{outsideUS ? " (USA only)" : !hasOrigin ? " (share location)" : ""}
-                  </option>
-                  <option value="rating">Rating</option>
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-3 size-3.5 text-brand-muted" />
+                  <List className="size-4" />
+                  <span className="hidden sm:inline">List</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode("map")}
+                  aria-pressed={viewMode === "map"}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors",
+                    viewMode === "map"
+                      ? "bg-brand-magenta text-white shadow-sm"
+                      : "text-brand-muted hover:text-brand-magenta",
+                  )}
+                >
+                  <MapIcon className="size-4" />
+                  <span className="hidden sm:inline">Map</span>
+                </button>
+              </div>
+
+              {/* Mobile: open filters + sort in a modal */}
+              <button
+                type="button"
+                onClick={() => setShowFilters(true)}
+                className="inline-flex items-center gap-2 rounded-xl border border-[#e1e1e1] bg-white px-4 py-2 text-sm font-medium text-[#4a4a4a] transition-colors hover:border-brand-magenta/40 hover:text-brand-magenta lg:hidden"
+              >
+                <SlidersHorizontal className="size-4" />
+                <span className="hidden sm:inline">Filters &amp; Sort</span>
+                {(rating || radius) && (
+                  <span className="flex size-5 items-center justify-center rounded-full bg-brand-magenta text-[11px] font-semibold text-white">
+                    {[rating, radius].filter(Boolean).length}
+                  </span>
+                )}
+              </button>
+
+              {/* Desktop: inline sort */}
+              <div className="hidden items-center gap-2 lg:flex">
+                <span className="text-sm text-brand-muted">Sorted By:</span>
+                <div className="relative flex items-center">
+                  <select
+                    value={sort}
+                    onChange={(e) => updateParam("sort", e.target.value)}
+                    className="appearance-none rounded-xl border border-[#e1e1e1] bg-white py-2 pl-3.5 pr-9 text-sm font-medium text-[#4a4a4a] transition-colors hover:border-brand-magenta/40 focus:outline-none focus:ring-2 focus:ring-brand-magenta/20"
+                  >
+                    <option value="distance" disabled={!hasOrigin}>
+                      Distance{outsideUS ? " (USA only)" : !hasOrigin ? " (share location)" : ""}
+                    </option>
+                    <option value="rating">Rating</option>
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-3 size-3.5 text-brand-muted" />
+                </div>
               </div>
             </div>
           </div>
@@ -874,6 +981,29 @@ export function SearchResults() {
                 unrecognized={Boolean(q) && !condition && resolved === null}
                 onClear={clearFilters}
               />
+            ) : viewMode === "map" ? (
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+                {/* Card list — below the map on mobile, left column on desktop.
+                    Block (not flex) so cards keep their natural height and the
+                    column scrolls instead of squashing them. */}
+                <div className="order-2 space-y-5 lg:order-1 lg:max-h-[calc(100vh-150px)] lg:w-[42%] lg:overflow-y-auto lg:pr-1 scrollbar-none">
+                  {results.map((clinic) => (
+                    <ClinicCard key={clinic.clinic_id} clinic={clinic} compact />
+                  ))}
+                </div>
+                {/* Map — above on mobile, sticky right column on desktop */}
+                <div className="order-1 lg:order-2 lg:flex-1 lg:sticky lg:top-24">
+                  <div className="h-[60vh] w-full overflow-hidden rounded-2xl border border-[#ece6ec] shadow-sm lg:h-[calc(100vh-150px)]">
+                    <ResultsMap
+                      pins={pins}
+                      origin={hasOrigin ? { lat: Number(lat), lng: Number(lng) } : null}
+                      radius={radius ? Number(radius) : null}
+                      activeClinicId={activeClinicId}
+                      onMarkerActivate={handleMarkerActivate}
+                    />
+                  </div>
+                </div>
+              </div>
             ) : (
               <div className="flex flex-col gap-5">
                 {results.map((clinic) => (
@@ -1035,7 +1165,14 @@ export function SearchResults() {
 
 // ─── Clinic Card ──────────────────────────────────────────────────────────────
 
-function ClinicCard({ clinic }: { clinic: ClinicResult }) {
+function ClinicCard({
+  clinic,
+  compact = false,
+}: {
+  clinic: ClinicResult;
+  /** Vertical layout for the narrow list beside the map. */
+  compact?: boolean;
+}) {
   const uniqueServices = Array.from(
     new Map(clinic.services.map((s) => [s.slug, s])).values()
   );
@@ -1076,13 +1213,19 @@ function ClinicCard({ clinic }: { clinic: ClinicResult }) {
     .join("")
     .slice(0, 2);
 
-  const profileUrl = `/clinics/${clinic.clinic_slug}`;
+  const profileUrl = `/practices/${clinic.clinic_slug}`;
   const bookUrl = clinic.booking_url || clinic.website || profileUrl;
 
   return (
-    <div className="flex flex-col gap-5 overflow-hidden rounded-2xl border border-[#ece6ec] bg-white p-4 shadow-sm transition-shadow hover:shadow-[0_8px_30px_rgba(170,78,179,0.10)] sm:flex-row sm:p-5">
+    <div
+      data-clinic-id={clinic.clinic_id}
+      className={cn(
+        "flex scroll-mt-24 flex-col gap-5 overflow-hidden rounded-2xl border border-[#ece6ec] bg-white p-4 shadow-sm transition-shadow hover:shadow-[0_8px_30px_rgba(170,78,179,0.10)]",
+        compact ? "" : "sm:flex-row sm:p-5",
+      )}
+    >
       {/* Left: cover + thumbnails */}
-      <div className="w-full shrink-0 sm:w-[220px]">
+      <div className={cn("w-full", compact ? "" : "shrink-0 sm:w-[220px]")}>
         <a
           href={profileUrl}
           className="relative block h-[160px] w-full overflow-hidden rounded-xl bg-gradient-to-br from-brand-coral/20 to-brand-purple/20"
@@ -1197,7 +1340,7 @@ function ClinicCard({ clinic }: { clinic: ClinicResult }) {
       </div>
 
       {/* Right: CTAs (no pricing shown) */}
-      <div className="flex shrink-0 flex-col justify-center gap-2.5 sm:w-[180px]">
+      <div className={cn("flex flex-col justify-center gap-2.5", compact ? "" : "shrink-0 sm:w-[180px]")}>
         <Button
           variant="gradient"
           className="h-[42px] gap-2 rounded-xl text-sm font-semibold"
@@ -1215,7 +1358,7 @@ function ClinicCard({ clinic }: { clinic: ClinicResult }) {
         >
           <a href={`tel:${clinic.phone}`}>
             <Phone className="size-4" />
-            Call Clinic
+            Call Practice
           </a>
         </Button>
         <Button
@@ -1225,7 +1368,7 @@ function ClinicCard({ clinic }: { clinic: ClinicResult }) {
         >
           <a href={profileUrl}>
             <Eye className="size-4" />
-            View Clinic
+            View Practice
           </a>
         </Button>
       </div>
@@ -1413,18 +1556,18 @@ function EmptyState({
       </div>
       <div className="text-center">
         <h2 className="text-xl font-semibold text-[#1a1a1a]">
-          {unrecognized ? "We don't recognise that treatment" : "No clinics found"}
+          {unrecognized ? "We don't recognise that treatment" : "No practices found"}
         </h2>
         <p className="mt-2 max-w-md text-sm text-brand-muted">
           {unrecognized
             ? `"${q}" isn't a treatment or condition we track. Pick one from the suggestions as you type.`
             : q && location
-            ? `We couldn't find any clinics matching "${q}" in "${location}". Try broadening your search.`
+            ? `We couldn't find any practices matching "${q}" in "${location}". Try broadening your search.`
             : q
-              ? `We couldn't find any clinics matching "${q}". Try a different treatment or service name.`
+              ? `We couldn't find any practices matching "${q}". Try a different treatment or service name.`
               : location
-                ? `We couldn't find any clinics in "${location}". Try a different state.`
-                : "Try searching for a treatment or location to find clinics near you."}
+                ? `We couldn't find any practices in "${location}". Try a different state.`
+                : "Try searching for a treatment or location to find practices near you."}
         </p>
       </div>
       <div className="flex gap-3">

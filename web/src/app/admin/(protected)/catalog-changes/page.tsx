@@ -307,7 +307,7 @@ function ClinicRow({ clinic }: { clinic: ClinicSummary }) {
           <div className="flex items-center gap-2">
             <span className="truncate font-medium text-slate-900">{hostOf(clinic.website)}</span>
             <Link
-              href={`/clinics/${clinic.clinic_slug}`}
+              href={`/practices/${clinic.clinic_slug}`}
               target="_blank"
               onClick={(e) => e.stopPropagation()}
               className="shrink-0 text-slate-400 hover:text-violet-600"
@@ -547,7 +547,7 @@ export default function CatalogChangesPage() {
                         {hostOf(c.website)}
                       </span>
                       <Link
-                        href={`/clinics/${c.clinic_slug}`}
+                        href={`/practices/${c.clinic_slug}`}
                         target="_blank"
                         className="shrink-0 text-slate-400 hover:text-violet-600"
                       >

@@ -228,7 +228,7 @@ function mapClinicRow(row: ClinicMatchRow, hasOrigin: boolean): NavigatorClinicM
     clinicId: row.clinic_id,
     name: row.clinic_name,
     slug: row.clinic_slug,
-    profileUrl: `/clinics/${row.clinic_slug}`,
+    profileUrl: `/practices/${row.clinic_slug}`,
     distanceMiles: distance,
     address: row.address,
     city: row.city,

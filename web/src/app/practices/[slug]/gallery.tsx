@@ -191,12 +191,6 @@ export function ClinicGallery({
             className="w-full h-full object-cover transition duration-300 group-hover:scale-[1.03]"
             loading="lazy"
           />
-          {/* Play Button Overlay (Mock) — desktop only; mobile shows a clean cover image */}
-          <div className="absolute inset-0 hidden items-center justify-center lg:flex">
-            <div className="flex h-[80px] w-[80px] items-center justify-center rounded-full bg-white shadow-md transition group-hover:scale-110">
-              <div className="ml-1 h-0 w-0 border-y-[12px] border-l-[18px] border-y-transparent border-l-[#C5B39A]" />
-            </div>
-          </div>
         </button>
 
         {thumbs.length > 0 && (

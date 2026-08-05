@@ -8,7 +8,7 @@ import { CONCERN_CATALOG } from "@/lib/concerns/catalog";
 import { conditionImage } from "@/lib/images/catalog-images";
 
 export const metadata: Metadata = {
-  title: "Skin & Body Conditions — Medspa Map",
+  title: "Skin & Body Conditions — Med Spa Maps",
   description:
     "Explore treatment guides and expert information for various skin and body conditions.",
 };
@@ -23,7 +23,7 @@ export default function ConditionsIndexPage() {
         crumbs={[{ label: "Home", href: "/" }, { label: "Conditions" }]}
         title="Skin & Body"
         accent="Conditions"
-        subtitle="Understand what's behind your concern and the proven treatments that address it — then find vetted clinics ready to help."
+        subtitle="Understand what's behind your concern and the proven treatments that address it — then find vetted practices ready to help."
       />
 
       <div className="mx-auto w-full max-w-[1400px] flex-1 px-4 pb-20 sm:px-6">
@@ -53,7 +53,7 @@ export default function ConditionsIndexPage() {
                   {concern.overview}
                 </p>
                 <div className="mt-auto inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#CF5B9D]">
-                  Find Clinics
+                  Find Practices
                   <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" />
                 </div>
               </div>

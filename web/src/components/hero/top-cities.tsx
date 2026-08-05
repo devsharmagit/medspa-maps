@@ -13,7 +13,7 @@ export function TopCities() {
           <p className="font-montserrat text-[11px] font-semibold uppercase tracking-[0.14em] text-brand-magenta">
             Explore by
           </p>
-          <h2 className="font-montserrat font-normal text-[#373634] text-[28px] sm:text-[34px] tracking-[-0.04em] leading-[116.02%]">
+          <h2 className="font-montserrat text-[26px] sm:text-[30px] lg:text-[34px] font-normal leading-[116.02%] tracking-[-0.04em] text-[#373634]">
             Top <span className="font-heading italic">States</span>
           </h2>
         </div>

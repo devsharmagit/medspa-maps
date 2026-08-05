@@ -5,13 +5,11 @@ import Link from "next/link";
 import { Menu, X } from "lucide-react";
 import { useState, useEffect } from "react";
 
-import { Button } from "@/components/ui/button";
-import { scrollToListYourMedspa } from "@/lib/scroll-to-list-your-medspa";
 import { cn } from "@/lib/utils";
 
 const navLinks = [
-  { label: "Find My Treatment", href: "/skin-navigator" },
-  { label: "Clinics", href: "/search" },
+  { label: "Find My Treatment", href: "/ai-aesthetic-treatment-finder" },
+  { label: "Explore Practices", href: "/search" },
 ] as const;
 
 export function HeroHeader({ className }: { className?: string }) {
@@ -55,7 +53,7 @@ export function HeroHeader({ className }: { className?: string }) {
         <Link href="/" className="block shrink-0">
           <Image
             src="/images/hero/logo.svg"
-            alt="MedSpa Maps"
+            alt="Med Spa Maps"
             width={380}
             height={120}
             className="h-[52px] w-auto object-contain"
@@ -76,14 +74,6 @@ export function HeroHeader({ className }: { className?: string }) {
         </nav>
 
         <div className="flex items-center gap-2 sm:gap-[9px]">
-          <Button
-            variant="outline"
-            onClick={scrollToListYourMedspa}
-            className="hidden h-auto rounded-lg border-[#c8c8c8] bg-transparent px-6 py-2.5 text-sm font-semibold text-white shadow-none hover:bg-white/10 hover:text-white sm:inline-flex cursor-pointer"
-          >
-            List Your Medspa
-          </Button>
-
           {/* Mobile menu toggle — nav collapses below xl */}
           <button
             type="button"
@@ -119,16 +109,6 @@ export function HeroHeader({ className }: { className?: string }) {
               </Link>
             ))}
           </nav>
-          <Button
-            variant="outline"
-            onClick={() => {
-              setMenuOpen(false);
-              scrollToListYourMedspa();
-            }}
-            className="mt-5 h-auto w-full rounded-lg border-white/50 bg-white/10 px-6 py-3 text-sm font-semibold text-white shadow-none hover:bg-white/20 hover:text-white cursor-pointer"
-          >
-            List Your Medspa
-          </Button>
         </div>
       </div>
     </header>

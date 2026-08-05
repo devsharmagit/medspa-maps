@@ -53,7 +53,7 @@ const COUNTER_VISIBLE_FROM = MAX_INPUT_CHARS - 100;
 /** Composer growth ceiling in px (~6 lines) before it starts scrolling. */
 const INPUT_MAX_HEIGHT = 132;
 const SUGGESTIONS = [
-  "Find Botox clinics near me",
+  "Find Botox practices near me",
   "What helps with acne scars?",
   "What treatments do you cover?",
 ];
@@ -287,7 +287,7 @@ export default function ChatWidget() {
         <button
           type="button"
           onClick={() => setOpen(true)}
-          aria-label="Open the Medspa Map assistant"
+          aria-label="Open the Med Spa Maps assistant"
           className="fixed bottom-5 right-5 z-50 flex h-12 items-center gap-2 rounded-full bg-[linear-gradient(90deg,#DE7F4C_0%,#C341D7_100%)] px-4 text-white shadow-[0_8px_24px_rgba(195,65,215,0.35)] transition hover:brightness-105 active:translate-y-px"
         >
           <MessageCircle className="size-5" />
@@ -300,7 +300,7 @@ export default function ChatWidget() {
         <div
           role="dialog"
           aria-modal="false"
-          aria-label="Medspa Map assistant"
+          aria-label="Med Spa Maps assistant"
           className={cn(
             "fixed z-50 flex flex-col overflow-hidden border border-border bg-background shadow-2xl",
             // mobile: bottom sheet
@@ -314,9 +314,9 @@ export default function ChatWidget() {
             <div className="flex items-center gap-2">
               <Sparkles className="size-5" />
               <div className="leading-tight">
-                <p className="text-sm font-semibold">Medspa Map Assistant</p>
+                <p className="text-sm font-semibold">Med Spa Maps Assistant</p>
                 <p className="text-[11px] text-white/80">
-                  Find clinics &amp; treatments
+                  Find practices &amp; treatments
                 </p>
               </div>
             </div>
@@ -354,10 +354,10 @@ export default function ChatWidget() {
             {isEmpty ? (
               <div className="flex flex-col gap-4">
                 <div className="rounded-2xl bg-muted px-3 py-2.5 text-sm text-foreground">
-                  <p className="font-medium">Hi! 👋 I&apos;m your medspa concierge.</p>
+                  <p className="font-medium">Hi! 👋 I&apos;m your med spa concierge.</p>
                   <p className="mt-1 text-muted-foreground">
                     Ask me about treatments, skin concerns, or finding vetted
-                    clinics near you.
+                    practices near you.
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -465,8 +465,8 @@ export default function ChatWidget() {
                     setInput(e.target.value.slice(0, MAX_INPUT_CHARS))
                   }
                   onKeyDown={onTextareaKeyDown}
-                  placeholder="Ask about treatments or clinics…"
-                  aria-label="Ask about treatments or clinics"
+                  placeholder="Ask about treatments or practices…"
+                  aria-label="Ask about treatments or practices"
                   className="col-start-1 row-start-1 resize-none overflow-hidden bg-transparent text-sm leading-relaxed text-foreground outline-none placeholder:text-muted-foreground"
                 />
                 <span

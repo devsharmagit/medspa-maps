@@ -452,7 +452,7 @@ export function SkinNavigatorClient() {
             Find the right aesthetic treatment with a calmer first step.
           </h1>
           <p className="mt-4 max-w-2xl text-base leading-7 text-white/86">
-            Share a few basics and goals, then get cosmetic treatment ideas and nearby clinics.
+            Share a few basics and goals, then get cosmetic treatment ideas and nearby practices.
           </p>
           {step !== "results" && (
             <p className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-white/80">
@@ -609,7 +609,7 @@ function AnalyzingView({ hasPhoto }: { hasPhoto: boolean }) {
         "Reviewing your goals",
         hasPhoto ? "Looking over your photo" : "Weighing your preferences",
         "Matching treatments to your profile",
-        "Finding clinics near you",
+        "Finding practices near you",
       ].filter(Boolean) as string[],
     [hasPhoto]
   );
@@ -707,7 +707,7 @@ function BasicsStep({
     <StepShell
       eyebrow="Step 1"
       title="A few basics"
-      body="Only your age range is required. Add a location if you'd like nearby clinic suggestions too."
+      body="Only your age range is required. Add a location if you'd like nearby practice suggestions too."
     >
       <div className="space-y-6">
         <div>
@@ -1283,7 +1283,7 @@ function ResultsStep({
           <div>
             <h3 className="text-base font-bold text-slate-950">Your photo</h3>
             <p className="mt-1 text-xs leading-5 text-slate-500">
-              Used only for this analysis request and not stored by MedSpaMaps.
+              Used only for this analysis request and not stored by Med Spa Maps.
             </p>
           </div>
         </section>
@@ -1345,11 +1345,11 @@ function ResultsStep({
       {/* 3: Clinics (only when a location was given) */}
       {hasLocation && (
         <section>
-          <h3 className="mb-1 text-xl font-bold text-slate-950">Nearby clinics</h3>
+          <h3 className="mb-1 text-xl font-bold text-slate-950">Nearby practices</h3>
           <p className="mb-4 text-sm text-slate-600">Matched to your treatments near {locationLabel}.</p>
           {result.clinics.length === 0 ? (
             <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm leading-6 text-slate-600">
-              We could not find a nearby clinic match yet. You can still search the full directory by treatment above.
+              We could not find a nearby practice match yet. You can still search the full directory by treatment above.
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -1362,7 +1362,7 @@ function ResultsStep({
       )}
 
       <p className="border-t border-slate-100 pt-6 text-sm leading-6 text-slate-500">
-        { result.disclaimer || NAVIGATOR_DISCLAIMER}
+        {NAVIGATOR_DISCLAIMER}
       </p>
     </div>
   );
@@ -1384,7 +1384,7 @@ function TreatmentCard({
       <p className="mt-2 flex-1 text-sm leading-6 text-slate-600">{treatment.whyItFits}</p>
       <Button asChild variant="outline" className="mt-4 h-10 w-full">
         <Link href={treatmentSearchHref(treatment.name, location)}>
-          {hasLocation ? `Find clinics in ${locationLabel}` : "Find clinics"}
+          {hasLocation ? `Find practices in ${locationLabel}` : "Find practices"}
           <ArrowRight className="size-4" />
         </Link>
       </Button>

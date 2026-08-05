@@ -5,9 +5,9 @@ import { Footer } from "@/components/footer";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Search Results | MedSpa Maps",
+  title: "Search Results | Med Spa Maps",
   description:
-    "Find the best medspas and aesthetic clinics near you. Compare ratings, treatments, and locations.",
+    "Find the best med spas and aesthetic practices near you. Compare ratings, treatments, and locations.",
 };
 
 export default function SearchPage() {
@@ -24,7 +24,7 @@ export default function SearchPage() {
           <div className="flex flex-1 items-center justify-center py-32">
             <div className="flex flex-col items-center gap-4">
               <div className="size-10 animate-spin rounded-full border-4 border-brand-magenta/20 border-t-brand-magenta" />
-              <p className="text-sm text-brand-muted">Searching clinics…</p>
+              <p className="text-sm text-brand-muted">Searching practices…</p>
             </div>
           </div>
         }

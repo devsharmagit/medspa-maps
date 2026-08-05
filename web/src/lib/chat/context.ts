@@ -83,7 +83,7 @@ function taxonomyBlock(): string {
 function siteFeaturesBlock(): string {
   return (
     `SITE_FEATURES (real pages on this site — offer them when relevant, link exactly as written):\n` +
-    `- Find My Treatment (/skin-navigator): a guided treatment finder. ` +
+    `- Find My Treatment (/ai-aesthetic-treatment-finder): a guided treatment finder. ` +
     `The user answers a few questions (age range required; skin goals/concerns; optional city or ZIP) ` +
     `and can OPTIONALLY upload up to 8 photos (JPEG/PNG/WebP, max 5 MB each). ` +
     `It returns suggested treatments for their profile plus nearby clinics. ` +

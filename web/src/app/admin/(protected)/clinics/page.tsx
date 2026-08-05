@@ -315,7 +315,7 @@ export default function ClinicsPage() {
                           className="h-7 px-2.5 text-xs gap-1 border-slate-200 text-slate-700 hover:bg-slate-50"
                         >
                           <Link
-                            href={`/clinics/${item.slug}`}
+                            href={`/practices/${item.slug}`}
                             target="_blank"
                             rel="noopener noreferrer"
                           >

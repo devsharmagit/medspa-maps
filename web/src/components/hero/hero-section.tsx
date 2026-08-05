@@ -2,13 +2,12 @@ import Image from "next/image";
 
 import { HeroHeader } from "@/components/hero/hero-header";
 import { HeroSearchBar } from "@/components/hero/hero-search-bar";
-import { TreatmentCarousel } from "@/components/hero/treatment-carousel";
 
 const trustItems = [
-  "600+ Medspa Listings",
-  "Editorially Curated Content",
-  "Top-Rated Providers",
-  "Unbiased Rankings",
+  "600+ med spa listings",
+  "Editorially curated content",
+  "Top-rated providers",
+  "Unbiased rankings",
 ] as const;
 
 
@@ -47,7 +46,7 @@ export function HeroSection() {
             <div className="inline-flex w-fit max-w-full items-center gap-2 rounded-full border border-white/40 bg-black/25 px-4 py-1.5 backdrop-blur-sm ">
               <Image src={"/images/hero/Group.png"} alt="shield icon" width={15} height={16} style={{ height: "auto" }} />
               <span className="text-sm font-semibold tracking-wide sm:text-[17px] bg-gradient-to-r from-[#FFFFFF] to-[#DF67D6] bg-clip-text text-transparent">
-                <span className="">TRUSTED MEDSPA DIRECTORY</span>
+                <span className="">TRUSTED MED SPA DIRECTORY</span>
                 <span className=""> + PATIENT EDUCATION</span>
               </span>
             </div>
@@ -55,16 +54,16 @@ export function HeroSection() {
             {/* Headline */}
             <div className="max-w-[982px] space-y-4">
               <p className="max-w-[753px] text-base font-medium leading-snug text-[#fcfcfc]">
-                Explore 600+ vetted medspas, read expert treatment guides, and
-                book with confidence. The most trusted resource for aesthetic
-                medicine patients.
+                Explore 600+ vetted med spas, learn about what treatments are
+                right for you, and book with confidence. The industry&apos;s
+                leading trusted resource for medical aesthetics patients.
               </p>
               <h1 className="text-4xl font-medium leading-[1.05] tracking-tight text-white sm:text-5xl lg:text-[64px] lg:tracking-[-0.02em]">
                 Find the{" "}
                 <em className="font-heading font-normal italic">
-                  Right Medspa
+                  right med spa
                 </em>{" "}
-                &amp; Treatment — Near You
+                &amp; treatment — near you
               </h1>
             </div>
 
@@ -89,8 +88,6 @@ export function HeroSection() {
     
         </div>
       </div>
-
-      <TreatmentCarousel />
     </section>
   );
 }

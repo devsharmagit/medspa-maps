@@ -290,6 +290,94 @@ export async function GET(request: NextRequest) {
       paramIdx++;
     }
 
+    // ── Opt-in "pins" mode (map view on /search) ────────────────────────────
+    // Returns EVERY matching clinic's coordinates (no pagination), reusing the
+    // exact same filters (conditions/params) as the list so the pin set always
+    // matches the results. One pin per clinic, at the same branch the card
+    // shows (nearest to origin when present, else primary). Minimal columns.
+    // Returns early, so the default response below is completely unchanged.
+    if (searchParams.get("pins")) {
+      const pinsQuery = `
+        SELECT DISTINCT ON (c.id)
+          c.id AS clinic_id,
+          c.slug AS clinic_slug,
+          c.name AS clinic_name,
+          ploc.lat AS lat,
+          ploc.lng AS lng,
+          ploc.city AS city,
+          ploc.state AS state,
+          COALESCE(c.phone, ploc.phone) AS phone,
+          c.website,
+          c.booking_url,
+          c.avg_rating,
+          c.ext_rating,
+          c.review_count,
+          (
+            SELECT COALESCE(cdn_url, source_url) FROM images
+            WHERE entity_type = 'clinic' AND entity_id = c.id
+              AND role = 'logo' AND scrape_status = 'ok'
+            ORDER BY sort_order LIMIT 1
+          ) AS logo_url,
+          (
+            SELECT COALESCE(cdn_url, source_url) FROM images
+            WHERE entity_type = 'clinic' AND entity_id = c.id
+              AND role IN ('cover', 'gallery') AND scrape_status = 'ok'
+            ORDER BY (role = 'cover') DESC, sort_order LIMIT 1
+          ) AS cover_image_url,
+          c.featured
+        FROM clinics c
+        LEFT JOIN LATERAL (
+          SELECT cl.city, cl.state, cl.phone, cl.lat, cl.lng
+          FROM clinic_locations cl
+          WHERE cl.clinic_id = c.id AND cl.is_active = TRUE
+          ORDER BY ${
+            originLatParam !== null
+              ? `(CASE WHEN cl.lat IS NULL OR cl.lng IS NULL THEN NULL ELSE
+                   3959 * acos(GREATEST(-1, LEAST(1,
+                     cos(radians($${originLatParam})) * cos(radians(cl.lat))
+                     * cos(radians(cl.lng) - radians($${originLngParam}))
+                     + sin(radians($${originLatParam})) * sin(radians(cl.lat))
+                   ))) END) ASC NULLS LAST,`
+              : ""
+          } cl.is_primary DESC, cl.sort_order NULLS LAST, cl.created_at
+          LIMIT 1
+        ) ploc ON TRUE
+        LEFT JOIN clinic_services cs ON cs.clinic_id = c.id AND cs.is_active = TRUE
+        LEFT JOIN services s ON s.id = cs.service_id
+          AND s.is_active = TRUE
+          AND s.name !~* '(dentistry|dental|orthodont|veneer)'
+        WHERE ${conditions.join(" AND ")}
+          AND ploc.lat IS NOT NULL AND ploc.lng IS NOT NULL
+        ORDER BY c.id
+        LIMIT 1500
+      `;
+      const pinsResult = await pool.query(pinsQuery, params);
+      const pins = pinsResult.rows.map((r) => ({
+        clinic_id: r.clinic_id,
+        clinic_slug: r.clinic_slug,
+        clinic_name: r.clinic_name,
+        lat: r.lat === null ? null : Number(r.lat),
+        lng: r.lng === null ? null : Number(r.lng),
+        city: r.city,
+        state: r.state,
+        phone: r.phone,
+        website: r.website,
+        booking_url: r.booking_url,
+        // pg returns numeric columns as strings — coerce to a real number.
+        rating:
+          r.avg_rating != null
+            ? Number(r.avg_rating)
+            : r.ext_rating != null
+              ? Number(r.ext_rating)
+              : null,
+        review_count: Number(r.review_count) || 0,
+        logo_url: r.logo_url ?? null,
+        cover_image_url: r.cover_image_url ?? null,
+        featured: r.featured,
+      }));
+      return NextResponse.json({ pins });
+    }
+
     // Sort order. Featured clinics are ALWAYS pinned on top; the chosen sort only orders
     // within the featured and non-featured groups. Two variants are needed: `orderBy`
     // (qualified with c.*) for use inside the CTE where the `clinics` alias is in scope,

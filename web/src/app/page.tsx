@@ -43,7 +43,7 @@ export default async function Home() {
       <HowItWorks />
       <TopCities />
       <ArticleSection />
-      <Footer />
+      <Footer showListingCta />
     </main>
   );
 }

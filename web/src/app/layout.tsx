@@ -31,9 +31,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Medspa Map — Find the Right Medspa Near You",
+  title: "Med Spa Maps — Find the Right Med Spa Near You",
   description:
-    "Explore 10,000+ vetted medspas, read expert treatment guides, and book with confidence.",
+    "Explore 600+ vetted med spas, read expert treatment guides, and book with confidence.",
 };
 
 export default function RootLayout({
@@ -44,7 +44,8 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${montserrat.variable} ${inter.variable} ${fraunces.variable} ${geistMono.variable} h-full antialiased`}
+      data-scroll-behavior="smooth"
+      className={`${montserrat.variable} ${inter.variable} ${fraunces.variable} ${geistMono.variable} h-full scroll-smooth antialiased`}
       suppressHydrationWarning
     >
       <body

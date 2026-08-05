@@ -17,6 +17,9 @@ import { ClinicConcernsSection } from "./concerns-section";
 import { ClinicReviewsSection } from "@/components/shared/clinic-reviews-section";
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
 import { ClinicSocialLinks } from "@/components/shared/clinic-social-links";
+import { AnchorScrollLink } from "@/components/shared/anchor-scroll-link";
+import { RevisionRequestCta } from "./revision-request-cta";
+import { withBookingUtm, formatLongDate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -27,11 +30,11 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const data = await getClinicData(slug);
-  if (!data) return { title: "Clinic not found" };
+  if (!data) return { title: "Practice not found" };
   const { clinic } = data;
   const loc = data.stats.city ?? "";
   return {
-    title: `${clinic.name} — Medspa Map`,
+    title: `${clinic.name} — Med Spa Maps`,
     description:
       clinic.about?.slice(0, 155) ??
       clinic.tagline ??
@@ -96,10 +99,19 @@ export default async function ClinicPage({
       primaryLoc?.state,
       primaryLoc?.zip,
     ]);
-  const bookUrl = clinic.booking_url || clinic.website;
+  // Booking link of record (booking URL first, else website), tagged with UTMs
+  // so we can attribute bookings driven from this profile.
+  const bookUrl = withBookingUtm(clinic.booking_url || clinic.website, clinic.slug);
   // Excerpt shows the admin-provided tagline ONLY — no about-snippet fallback.
   // (Never present derived text as if it were a curated tagline.)
   const excerpt = clinic.tagline ?? null;
+  // Where the displayed rating comes from — shown as context under the stars.
+  const ratingSourceLabel =
+    stats.rating_source === "google_places"
+      ? "via Google"
+      : stats.rating_source === "website"
+        ? "from their website"
+        : null;
 
   return (
     <main className="flex min-h-screen flex-col bg-[#FDFDFD] text-zinc-950 overflow-x-clip">
@@ -180,27 +192,32 @@ export default async function ClinicPage({
                       <span className="font-montserrat text-[12px] font-medium leading-[130%] tracking-[0.02em] text-[#616161]">
                         {stats.rating} ({stats.review_count} Reviews)
                       </span>
+                      {ratingSourceLabel && (
+                        <span className="font-montserrat text-[11px] font-normal leading-[130%] tracking-[0.02em] text-[#9a9a9a]">
+                          {ratingSourceLabel}
+                        </span>
+                      )}
                     </div>
                   ) : null,
                   stats.treatments_count > 0 ? (
-                    <div key="treat" className="flex flex-col justify-center items-start gap-[3px]">
+                    <AnchorScrollLink key="treat" targetId="treatments" className="flex flex-col justify-center items-start gap-[3px] transition-opacity hover:opacity-70">
                       <span className="font-montserrat text-[24px] font-semibold leading-none text-[#373634]">
                         {stats.treatments_count}
                       </span>
                       <span className="font-montserrat text-[12px] font-medium leading-[130%] tracking-[0.02em] text-[#616161]">
                         Treatments
                       </span>
-                    </div>
+                    </AnchorScrollLink>
                   ) : null,
                   concerns.length > 0 ? (
-                    <div key="concern" className="flex flex-col justify-center items-start gap-[3px]">
+                    <AnchorScrollLink key="concern" targetId="concerns" className="flex flex-col justify-center items-start gap-[3px] transition-opacity hover:opacity-70">
                       <span className="font-montserrat text-[24px] font-semibold leading-none text-[#373634]">
                         {concerns.length}
                       </span>
                       <span className="font-montserrat text-[12px] font-medium leading-[130%] tracking-[0.02em] text-[#616161]">
                         Concerns Treated
                       </span>
-                    </div>
+                    </AnchorScrollLink>
                   ) : null,
                 ].filter(Boolean);
 
@@ -314,7 +331,7 @@ export default async function ClinicPage({
           <OtherProvidersCarousel
             title="Meet the Experts"
             providers={data.providers}
-            bookUrl={bookUrl ?? "#"}
+            bookUrl={bookUrl}
             clinicPhone={clinic.phone}
             linkToProfile={false}
           />
@@ -322,6 +339,14 @@ export default async function ClinicPage({
 
         {/* ── Reviews ── */}
         <ClinicReviewsSection reviews={reviews} />
+
+        {/* ── "Last updated" + "Request a revision" CTA ── */}
+        <RevisionRequestCta
+          clinicId={clinic.id}
+          clinicName={clinic.name}
+          clinicSlug={clinic.slug}
+          lastUpdatedLabel={formatLongDate(clinic.last_updated)}
+        />
       </div>
       <Footer />
     </main>

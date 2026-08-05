@@ -31,6 +31,18 @@ function getOffset(idx: number, current: number, total: number): number {
   return d;
 }
 
+type SlotProps = { tx: number; tz: number; ry: number; s: number; op: number; zi: number; };
+
+function getSlotProps(offset: number): SlotProps {
+  const dir = offset > 0 ? 1 : offset < 0 ? -1 : 0;
+  const abs = Math.abs(offset);
+  
+  if (abs === 0) return { tx: 0, tz: 0, ry: 0, s: 1, op: 1, zi: 20 };
+  if (abs === 1) return { tx: dir * 240, tz: -140, ry: -dir * 26, s: 0.9, op: 0.9, zi: 14 };
+  if (abs === 2) return { tx: dir * 420, tz: -260, ry: -dir * 40, s: 0.78, op: 0.65, zi: 8 };
+  return { tx: dir * 560, tz: -380, ry: -dir * 54, s: 0.6, op: 0, zi: 2 };
+}
+
 // Card is 660px wide. Side cards peek from behind — no Y shift, no skew, no opacity reduction.
 // We just scale them down and push them behind the active card.
 function getSlotStyle(offset: number) {
@@ -38,45 +50,32 @@ function getSlotStyle(offset: number) {
   const baseX = -CARD_W / 2;
   const baseY = -250;
 
-  if (offset === 0) {
-    return {
-      transform: `translateX(${baseX}px) translateY(${baseY}px) translateZ(0px) rotateY(0deg) scale(1)`,
-      opacity: 1,
-      zIndex: 20,
-      pointerEvents: "auto" as const,
-      cursor: "default",
-    };
-  }
+  const floor = Math.floor(offset);
+  const ceil = Math.ceil(offset);
+  const fraction = offset - floor;
 
-  if (Math.abs(offset) === 1) {
-    const dir = offset > 0 ? 1 : -1;
-    return {
-      transform: `translateX(${baseX + dir * 240}px) translateY(${baseY}px) translateZ(-140px) rotateY(${-dir * 26}deg) scale(0.9)`,
-      opacity: 0.9,
-      zIndex: 14,
-      pointerEvents: "auto" as const,
-      cursor: "pointer",
-    };
-  }
+  const pFloor = getSlotProps(floor);
+  const pCeil = getSlotProps(ceil);
 
-  if (Math.abs(offset) === 2) {
-    const dir = offset > 0 ? 1 : -1;
-    return {
-      transform: `translateX(${baseX + dir * 420}px) translateY(${baseY}px) translateZ(-260px) rotateY(${-dir * 40}deg) scale(0.78)`,
-      opacity: 0.65,
-      zIndex: 8,
-      pointerEvents: "auto" as const,
-      cursor: "pointer",
-    };
-  }
+  const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 
-  const dir = offset > 0 ? 1 : -1;
+  const tx = lerp(pFloor.tx, pCeil.tx, fraction);
+  const tz = lerp(pFloor.tz, pCeil.tz, fraction);
+  const ry = lerp(pFloor.ry, pCeil.ry, fraction);
+  const s = lerp(pFloor.s, pCeil.s, fraction);
+  const op = lerp(pFloor.op, pCeil.op, fraction);
+  const zi = Math.round(lerp(pFloor.zi, pCeil.zi, fraction));
+
+  const roundedOffset = Math.round(offset);
+  const isCenter = roundedOffset === 0;
+  const isHidden = Math.abs(roundedOffset) > 2;
+
   return {
-    transform: `translateX(${baseX + dir * 560}px) translateY(${baseY}px) translateZ(-380px) rotateY(${-dir * 54}deg) scale(0.6)`,
-    opacity: 0,
-    zIndex: 2,
-    pointerEvents: "none" as const,
-    cursor: "default",
+    transform: `translateX(${baseX + tx}px) translateY(${baseY}px) translateZ(${tz}px) rotateY(${ry}deg) scale(${s})`,
+    opacity: Math.max(0, op),
+    zIndex: zi,
+    pointerEvents: isHidden ? ("none" as const) : ("auto" as const),
+    cursor: isCenter ? "default" : "pointer",
   };
 }
 
@@ -98,7 +97,7 @@ function ClinicCard({ clinic }: { clinic: FeaturedClinic }) {
   const totalGallery = clinic.gallery.filter((src) => src !== clinic.coverImage).length;
   const extra = Math.max(0, totalGallery - thumbs.length);
 
-  const profileUrl = `/clinics/${clinic.slug}`;
+  const profileUrl = `/practices/${clinic.slug}`;
   const bookUrl = clinic.bookingUrl || clinic.website || profileUrl;
   const bookExternal = Boolean(clinic.bookingUrl || clinic.website);
 
@@ -108,7 +107,7 @@ function ClinicCard({ clinic }: { clinic: FeaturedClinic }) {
       style={{ boxShadow: "0px 4px 21.3px #E2D8E6" }}
     >
       {/* ── Main Image ── */}
-      <div className="relative h-[200px] lg:h-[302px] w-full overflow-hidden">
+      <div className="relative h-[200px] xl:h-[302px] w-full overflow-hidden">
         {clinic.coverImage ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -116,6 +115,7 @@ function ClinicCard({ clinic }: { clinic: FeaturedClinic }) {
             alt={clinic.name}
             className="h-full w-full object-cover"
             loading="lazy"
+            draggable={false}
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#DE7F4C]/20 to-[#C341D7]/20 text-5xl font-semibold text-white/70">
@@ -134,7 +134,7 @@ function ClinicCard({ clinic }: { clinic: FeaturedClinic }) {
       </div>
 
       {/* ── Card Body ── */}
-      <div className="bg-white px-4 lg:px-[30px] pt-5 pb-5 lg:pt-[24px] lg:pb-[24px]">
+      <div className="bg-white px-4 xl:px-[30px] pt-5 pb-5 xl:pt-[24px] xl:pb-[24px]">
 
         {/* Row 1: Logo + Name/Location  |  Thumbnails */}
         <div className="flex items-start justify-between gap-4">
@@ -149,6 +149,7 @@ function ClinicCard({ clinic }: { clinic: FeaturedClinic }) {
                   alt={`${clinic.name} logo`}
                   className="h-full w-full object-contain"
                   loading="lazy"
+                  draggable={false}
                 />
               ) : (
                 <span className="font-montserrat text-[15px] font-semibold text-[#CF5D9A]">
@@ -187,7 +188,7 @@ function ClinicCard({ clinic }: { clinic: FeaturedClinic }) {
 
           {/* Right: thumbnails */}
           {thumbs.length > 0 && (
-            <div className="hidden lg:flex shrink-0 items-center gap-[9px]">
+            <div className="hidden xl:flex shrink-0 items-center gap-[9px]">
               {thumbs.map((img, idx) => (
                 <div
                   key={idx}
@@ -199,6 +200,7 @@ function ClinicCard({ clinic }: { clinic: FeaturedClinic }) {
                     alt={`${clinic.name} gallery ${idx + 1}`}
                     className="h-full w-full object-cover"
                     loading="lazy"
+                    draggable={false}
                   />
                   {idx === thumbs.length - 1 && extra > 0 && (
                     <div className="absolute inset-0 flex items-center justify-center rounded-[6px] bg-black/40">
@@ -230,9 +232,9 @@ function ClinicCard({ clinic }: { clinic: FeaturedClinic }) {
           </div>
         )}
 
-        <div className="flex flex-col gap-3 lg:flex-row lg:justify-between lg:gap-4">
+        <div className="flex flex-col gap-3 xl:flex-row xl:justify-between xl:gap-4">
 
-          {/* Row 3: Treatment tags */}
+          {/* Row 3: Treatment tags + "More +" link to the profile */}
           <div className="mt-[10px] flex flex-wrap items-center gap-[6px]">
             {clinic.services.slice(0, 5).map((t) => (
               <span
@@ -242,22 +244,29 @@ function ClinicCard({ clinic }: { clinic: FeaturedClinic }) {
                 {t.name}
               </span>
             ))}
+            <a
+              href={profileUrl}
+              draggable={false}
+              className="rounded border-[0.5px] border-[#CF5B9D]/50 bg-[#FCEFF6] px-[10px] py-1 font-montserrat text-[12px] font-semibold tracking-[0.02em] text-[#CF5B9D] transition-colors hover:bg-[#F8DEEC]"
+            >
+              + More
+            </a>
           </div>
 
           {/* Row 4: CTA buttons */}
-          <div className="mt-1 lg:mt-[20px] flex items-center gap-[9px] shrink-0">
+          <div className="mt-1 xl:mt-[20px] flex items-center gap-[9px] shrink-0">
             <a
               href={profileUrl}
-              className="flex h-[43px] flex-1 lg:w-[120px] lg:flex-none items-center justify-center rounded-lg border border-[#CF5B9D] font-montserrat text-[14px] font-semibold text-[#CF5B9D] transition-colors hover:bg-pink-50"
+              className="flex h-[43px] flex-1 xl:w-[120px] xl:flex-none items-center justify-center rounded-lg border border-[#CF5B9D] font-montserrat text-[14px] font-semibold text-[#CF5B9D] transition-colors hover:bg-pink-50"
             >
-              View Profile
+              View profile
             </a>
             <a
               href={bookUrl}
               {...(bookExternal ? { target: "_blank", rel: "noreferrer" } : {})}
-              className="flex h-[43px] flex-1 lg:w-[127px] lg:flex-none items-center justify-center rounded-lg bg-[linear-gradient(90deg,#DE7F4C_0%,#C341D7_100%)] font-montserrat text-[14px] font-semibold text-white transition-opacity hover:opacity-90"
+              className="flex h-[43px] flex-1 xl:w-[127px] xl:flex-none items-center justify-center rounded-lg bg-[linear-gradient(90deg,#DE7F4C_0%,#C341D7_100%)] font-montserrat text-[14px] font-semibold text-white transition-opacity hover:opacity-90"
             >
-              Book Now
+              Book now
             </a>
           </div>
         </div>
@@ -271,10 +280,10 @@ function ClinicCard({ clinic }: { clinic: FeaturedClinic }) {
 // Leading "All Ratings" entry lets the SearchableDropdown clear back to no
 // filter (the old native <select> had this as its default empty option).
 const RATING_OPTIONS: DropdownOption[] = [
-  { value: "", label: "All Ratings" },
-  { value: "4.0", label: "4.0+ and More Rating" },
-  { value: "4.5", label: "4.5+ and More Rating" },
-  { value: "5.0", label: "5.0 Only" },
+  { value: "", label: "All ratings" },
+  { value: "4.0", label: "4.0+ and more rating" },
+  { value: "4.5", label: "4.5+ and more rating" },
+  { value: "5.0", label: "5.0 only" },
 ];
 
 export function FindClinicSection({ clinics }: { clinics: FeaturedClinic[] }) {
@@ -289,6 +298,8 @@ export function FindClinicSection({ clinics }: { clinics: FeaturedClinic[] }) {
     [clinics],
   );
   const [current, setCurrent] = useState(0);
+  const [dragDX, setDragDX] = useState(0);
+  const [dragging, setDragging] = useState(false);
   const total = orderedClinics.length;
   const { status, location: userLoc, requested, requestLocation } = useLocation();
 
@@ -326,6 +337,13 @@ export function FindClinicSection({ clinics }: { clinics: FeaturedClinic[] }) {
   const dragStart = useRef<number | null>(null);
   const isDragging = useRef(false);
 
+  // Mobile drag state
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const isMobileDragging = useRef(false);
+  const mobileDragStartX = useRef(0);
+  const mobileDragScrollLeft = useRef(0);
+  const [mobileDragging, setMobileDragging] = useState(false);
+
   const goTo = useCallback(
     (idx: number) => {
       if (total === 0) return;
@@ -351,16 +369,69 @@ export function FindClinicSection({ clinics }: { clinics: FeaturedClinic[] }) {
     isDragging.current = false;
   };
   const onPointerMove = (e: React.PointerEvent) => {
-    if (dragStart.current !== null && Math.abs(e.clientX - dragStart.current) > 5) {
+    if (dragStart.current === null) return;
+    const dx = e.clientX - dragStart.current;
+    if (Math.abs(dx) > 6 && !isDragging.current) {
       isDragging.current = true;
+      setDragging(true);
+      try {
+        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+      } catch {}
     }
+    if (isDragging.current) {
+      setDragDX(dx);
+    }
+  };
+  const endDrag = (dx: number) => {
+    dragStart.current = null;
+    setDragging(false);
+    setDragDX(0);
+
+    const dragFraction = dx / 400;
+    let newCurrent = Math.round(current - dragFraction);
+
+    // If we didn't drag far enough to snap to the next via rounding,
+    // but we passed the 50px threshold, force a 1-card snap.
+    if (newCurrent === current) {
+      if (dx < -50) newCurrent = current + 1;
+      else if (dx > 50) newCurrent = current - 1;
+    }
+
+    goTo(newCurrent);
   };
   const onPointerUp = (e: React.PointerEvent) => {
     if (dragStart.current === null) return;
-    const dx = e.clientX - dragStart.current;
-    if (Math.abs(dx) > 40) goTo(current + (dx < 0 ? 1 : -1));
-    dragStart.current = null;
+    endDrag(e.clientX - dragStart.current);
   };
+  const onPointerCancel = () => {
+    if (dragStart.current === null) return;
+    endDrag(0);
+  };
+
+  // Mobile handlers
+  const onMobilePointerDown = (e: React.PointerEvent) => {
+    if (e.pointerType !== "mouse") return;
+    isMobileDragging.current = true;
+    mobileDragStartX.current = e.clientX;
+    mobileDragScrollLeft.current = scrollContainerRef.current?.scrollLeft || 0;
+    setMobileDragging(true);
+  };
+  const onMobilePointerMove = (e: React.PointerEvent) => {
+    if (!isMobileDragging.current || e.pointerType !== "mouse") return;
+    e.preventDefault();
+    const dx = e.clientX - mobileDragStartX.current;
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollLeft = mobileDragScrollLeft.current - dx;
+    }
+  };
+  const onMobilePointerUpOrLeave = (e: React.PointerEvent) => {
+    if (e.pointerType !== "mouse") return;
+    if (isMobileDragging.current) {
+      isMobileDragging.current = false;
+      setMobileDragging(false);
+    }
+  };
+
 
   const handleLocationChange = (sel: LocationSelection) => {
     setLocation(sel.value);
@@ -398,7 +469,7 @@ export function FindClinicSection({ clinics }: { clinics: FeaturedClinic[] }) {
     <section className="flex w-full flex-col items-center gap-[27px] overflow-hidden pb-16 pt-0">
       {/* ── Title ── */}
       <h2 className="w-full px-4 text-center font-montserrat text-[26px] sm:text-[30px] lg:text-[34px] font-normal leading-[116.02%] tracking-[-0.04em] text-[#373634]">
-        Find the <em className="font-normal font-heading" >Perfect Clinic</em>
+        Find the <em className="font-normal font-heading" >Perfect Practice</em>
       </h2> 
 
       {/* ── Search Bar — mirrors the hero search bar (treatment + location +
@@ -406,7 +477,7 @@ export function FindClinicSection({ clinics }: { clinics: FeaturedClinic[] }) {
       <div className="flex w-full flex-col items-center gap-3 px-4 lg:px-8">
         <div className="inline-flex items-center gap-2 rounded-full border border-[#eadcea] bg-white p-1 shadow-[0_8px_30px_rgba(203,151,206,0.16)]">
           <span className="pl-3 pr-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-brand-muted">
-            Search for
+            Search by
           </span>
           <button
             type="button"
@@ -482,7 +553,7 @@ export function FindClinicSection({ clinics }: { clinics: FeaturedClinic[] }) {
                 options={RATING_OPTIONS}
                 value={selectedRating}
                 onChange={setSelectedRating}
-                placeholder="All Ratings"
+                placeholder="All ratings"
                 icon={<Star className="size-5 text-brand-magenta" aria-hidden />}
                 label="Rating"
               />
@@ -503,12 +574,22 @@ export function FindClinicSection({ clinics }: { clinics: FeaturedClinic[] }) {
       </div>
 
       {/* ── Mobile / tablet carousel — swipeable scroll-snap row (up to xl) ── */}
-      <div className="w-full xl:hidden">
-        <div className="flex w-full snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth scrollbar-none px-4 pb-4">
+      <div className="w-full xl:hidden select-none">
+        <div
+          ref={scrollContainerRef}
+          onPointerDown={onMobilePointerDown}
+          onPointerMove={onMobilePointerMove}
+          onPointerUp={onMobilePointerUpOrLeave}
+          onPointerLeave={onMobilePointerUpOrLeave}
+          className={cn(
+            "flex w-full gap-4 overflow-x-auto scrollbar-none px-4 pb-4",
+            mobileDragging ? "cursor-grabbing" : "cursor-grab"
+          )}
+        >
           {orderedClinics.map((clinic) => (
             <div
               key={clinic.id}
-              className="w-[88vw] max-w-[440px] shrink-0 snap-center py-2"
+              className="w-[88vw] max-w-[440px] shrink-0 py-2"
             >
               <ClinicCard clinic={clinic} />
             </div>
@@ -518,14 +599,31 @@ export function FindClinicSection({ clinics }: { clinics: FeaturedClinic[] }) {
 
       {/* ── Desktop carousel — 3D coverflow (xl and up) ── */}
       <div
-        className="relative hidden w-full max-w-[1346px] xl:block"
-        style={{ height: 520, perspective: "1400px", perspectiveOrigin: "50% 50%" }}
+        className="relative hidden w-full max-w-[1346px] select-none xl:block"
+        style={{
+          height: 520,
+          perspective: "1400px",
+          perspectiveOrigin: "50% 50%",
+          touchAction: "pan-y",
+          cursor: dragging ? "grabbing" : "grab",
+        }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
+        onPointerCancel={onPointerCancel}
+        // A drag that moved the pointer must not also fire a click (card
+        // re-center or link navigation) when it ends.
+        onClickCapture={(e) => {
+          if (isDragging.current) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+        }}
       >
         {orderedClinics.map((clinic, idx) => {
-          const offset = getOffset(idx, current, total);
+          const dragFraction = dragDX / 400; // 400px drag = 1 full card transition
+          const fractionalCurrent = current - dragFraction;
+          const offset = getOffset(idx, fractionalCurrent, total);
           const slot = getSlotStyle(offset);
 
           return (
@@ -543,8 +641,10 @@ export function FindClinicSection({ clinics }: { clinics: FeaturedClinic[] }) {
                 opacity: slot.opacity,
                 zIndex: slot.zIndex,
                 pointerEvents: slot.pointerEvents,
-                cursor: slot.cursor,
-                transition: "all 0.55s cubic-bezier(0.4, 0, 0.2, 1)",
+                cursor: dragging ? "grabbing" : slot.cursor,
+                transition: dragging
+                  ? "none"
+                  : "all 0.55s cubic-bezier(0.4, 0, 0.2, 1)",
                 transformStyle: "preserve-3d",
                 willChange: "transform, opacity",
               }}
@@ -558,7 +658,7 @@ export function FindClinicSection({ clinics }: { clinics: FeaturedClinic[] }) {
         <button
           onClick={prev}
           className="absolute left-8 top-1/2 z-30 flex h-[56px] w-[56px] -translate-y-1/2 items-center justify-center rounded-full border-[3px] border-[#E1CCE3] bg-white shadow-sm transition-opacity hover:opacity-80"
-          aria-label="Previous clinic"
+          aria-label="Previous practice"
         >
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
             <path d="M19 12H5M5 12L12 5M5 12L12 19" stroke="#333" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -569,7 +669,7 @@ export function FindClinicSection({ clinics }: { clinics: FeaturedClinic[] }) {
         <button
           onClick={next}
           className="absolute right-8 top-1/2 z-30 flex h-[56px] w-[56px] -translate-y-1/2 items-center justify-center rounded-full border-[3px] border-[#E1CCE3] bg-white shadow-sm transition-opacity hover:opacity-80"
-          aria-label="Next clinic"
+          aria-label="Next practice"
         >
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
             <path d="M5 12H19M19 12L12 5M19 12L12 19" stroke="#333" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />

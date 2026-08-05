@@ -6,7 +6,7 @@ const steps = [
   {
     id: 1,
     title: "SEARCH",
-    description: "Find treatments & clinics near you!",
+    description: "Find treatments & practices near you!",
     number: "1",
     svg: "/images/landingpage/1.svg",
     leftOffset: -15,
@@ -57,8 +57,7 @@ export function HowItWorks() {
         className="flex shrink-0 items-start justify-center mb-10 min-[1400px]:mb-0 w-full min-[1400px]:w-[317px] px-4 min-[1400px]:px-0 min-[1400px]:pl-[62px] min-[1400px]:pr-[59px]"
       >
         <h2
-          className="font-montserrat font-medium leading-[116.02%] tracking-[-0.04em] text-[#99597A] text-center min-[1400px]:text-left text-4xl lg:text-[58px]"
-          style={{ lineHeight: "116.02%" }}
+          className="font-montserrat text-[26px] sm:text-[30px] lg:text-[34px] font-normal leading-[116.02%] tracking-[-0.04em] text-[#373634] text-center min-[1400px]:text-left"
         >
           How It{" "}
           <span className="font-heading italic">Works?</span>

@@ -177,7 +177,7 @@ export function templatedAnswer(g: GatheredContext): string {
       `[View ${g.clinic.name}](${g.clinic.url}).`
     );
   }
-  return "I can help you explore aesthetic treatments and find vetted medspas. Tell me a treatment and your city, and I'll pull up some options.";
+  return "I can help you explore aesthetic treatments and find vetted med spas. Tell me a treatment and your city, and I'll pull up some options.";
 }
 
 function capitalize(s: string): string {

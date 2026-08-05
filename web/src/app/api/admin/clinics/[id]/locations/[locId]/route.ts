@@ -137,14 +137,15 @@ export async function DELETE(_req: NextRequest, { params }: RouteContext) {
 }
 
 async function syncPrimaryToClinics(clinicId: string) {
+  // NOTE: after the schema simplification, `clinics` no longer stores
+  // city/state/zip/lat/lng/geo — those live ONLY on `clinic_locations`. Sync
+  // just the columns that still exist on `clinics`, or this throws 42703.
   const primary = await queryOne<{
-    address: string | null; city: string | null; state: string | null;
-    zip: string | null; country: string | null; lat: string | null; lng: string | null;
+    address: string | null; country: string | null;
     phone: string | null; email: string | null;
     booking_url: string | null; google_maps_url: string | null; hours: unknown;
   }>(
-    `SELECT address, city, state, zip, country, lat::text, lng::text, phone, email,
-            booking_url, google_maps_url, hours
+    `SELECT address, country, phone, email, booking_url, google_maps_url, hours
        FROM clinic_locations
       WHERE clinic_id = $1 AND is_primary = true AND is_active = true
       ORDER BY sort_order LIMIT 1`,
@@ -153,30 +154,15 @@ async function syncPrimaryToClinics(clinicId: string) {
   if (!primary) return;
 
   await query(
-    `UPDATE clinics SET address=$2, city=$3, state=$4, zip=$5, country=$6,
-        phone=COALESCE($7,phone), email=COALESCE($8,email),
-        booking_url=COALESCE($9,booking_url),
-        google_maps_url=COALESCE($10,google_maps_url),
-        hours=$11::jsonb, updated_at=NOW()
+    `UPDATE clinics SET address=$2, country=COALESCE($3,country),
+        phone=COALESCE($4,phone), email=COALESCE($5,email),
+        booking_url=COALESCE($6,booking_url),
+        google_maps_url=COALESCE($7,google_maps_url),
+        hours=$8::jsonb, updated_at=NOW()
       WHERE id=$1`,
-    [clinicId, primary.address, primary.city, primary.state, primary.zip,
-     primary.country ?? "US", primary.phone, primary.email,
+    [clinicId, primary.address, primary.country,
+     primary.phone, primary.email,
      primary.booking_url, primary.google_maps_url,
      primary.hours == null ? null : JSON.stringify(primary.hours)]
   );
-
-  if (primary.lat && primary.lng) {
-    const lat = parseFloat(primary.lat);
-    const lng = parseFloat(primary.lng);
-    try {
-      await query(
-        `UPDATE clinics SET lat=$2::numeric, lng=$3::numeric,
-            geo=ST_SetSRID(ST_MakePoint($3::float8,$2::float8),4326)::geography
-          WHERE id=$1`,
-        [clinicId, lat, lng]
-      );
-    } catch {
-      await query(`UPDATE clinics SET lat=$2::numeric, lng=$3::numeric WHERE id=$1`, [clinicId, lat, lng]);
-    }
-  }
 }

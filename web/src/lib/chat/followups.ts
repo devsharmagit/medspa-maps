@@ -17,7 +17,7 @@ import type { GatheredContext } from "@/lib/chat/context";
 const EVERGREEN = [
   "What treatments do you cover?",
   "What skin concerns can I search by?",
-  "Find medspas near me",
+  "Find med spas near me",
 ];
 
 /** Deterministic candidate follow-ups derived from what we just answered. */

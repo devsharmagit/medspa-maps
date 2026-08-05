@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useRef } from "react";
+import { useRef, useState, useEffect } from "react";
 
 import type { ConcernProvider } from "@/lib/providers/queries";
+import { useDragScroll } from "@/lib/hooks/use-drag-scroll";
 
 /** Fallback headshot when a provider has no image (matches ProvidersCarousel). */
 const DEFAULT_PHOTO =
@@ -46,7 +47,7 @@ function ChevronArrow({ color }: { color: string }) {
 // Right half: info column with name, specialty, divider, details, CTA button
 
 function ProviderCard({ provider }: { provider: ConcernProvider }) {
-  const specialty = provider.title || "Aesthetic Provider";
+  const specialty = provider.title || "Aesthetic provider";
   const description = provider.card_tagline?.trim() || null;
 
   return (
@@ -63,6 +64,7 @@ function ProviderCard({ provider }: { provider: ConcernProvider }) {
           src={provider.image_url || DEFAULT_PHOTO}
           alt={provider.name}
           className="absolute inset-0 h-full w-full object-cover object-top"
+          draggable={false}
         />
       </div>
 
@@ -96,12 +98,12 @@ function ProviderCard({ provider }: { provider: ConcernProvider }) {
           </div>
         </div>
 
-        {/* View Clinic button — full width gradient */}
+        {/* View Practice button — full width gradient */}
         <Link
-          href={`/clinics/${provider.clinic_slug}`}
+          href={`/practices/${provider.clinic_slug}`}
           className="flex h-10 w-full items-center justify-center rounded-lg bg-[linear-gradient(90deg,#DE7F4C_0%,#C341D7_100%)] font-montserrat text-[14px] font-semibold text-white transition-opacity hover:opacity-90"
         >
-          View Clinic
+          View practice
         </Link>
       </div>
     </div>
@@ -112,6 +114,22 @@ function ProviderCard({ provider }: { provider: ConcernProvider }) {
 
 export function ProvidersSpotlight({ providers = [] }: { providers?: ConcernProvider[] }) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const dragScroll = useDragScroll(scrollRef);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(true);
+
+  const checkScrollability = () => {
+    if (!scrollRef.current) return;
+    const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+    setCanScrollLeft(scrollLeft > 1);
+    setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 1);
+  };
+
+  useEffect(() => {
+    checkScrollability();
+    window.addEventListener("resize", checkScrollability);
+    return () => window.removeEventListener("resize", checkScrollability);
+  }, [providers]);
 
   const scroll = (dir: "left" | "right") => {
     if (!scrollRef.current) return;
@@ -146,16 +164,22 @@ export function ProvidersSpotlight({ providers = [] }: { providers?: ConcernProv
             <button
               onClick={() => scroll("left")}
               aria-label="Previous providers"
-              className="flex h-[31px] w-10 items-center justify-center border-[0.6px] border-[#D9D9D9] py-1 px-0.5 transition-opacity hover:opacity-70"
+              disabled={!canScrollLeft}
+              className={`flex h-[31px] w-10 items-center justify-center border-[0.6px] border-[#D9D9D9] py-1 px-0.5 transition-all ${
+                canScrollLeft ? "cursor-pointer hover:bg-gray-50 active:bg-gray-100" : "cursor-not-allowed opacity-50"
+              }`}
               style={{ borderRadius: "0px 99px 99px 0px", transform: "scaleX(-1)" }}
             >
-              <ChevronArrow color="rgba(187,55,167,0.4)" />
+              <ChevronArrow color="#CF5D9A" />
             </button>
             {/* Right arrow — vibrant pink, pill on right side */}
             <button
               onClick={() => scroll("right")}
               aria-label="Next providers"
-              className="flex h-[31px] w-10 items-center justify-center border-[0.6px] border-[#A5A5A5] py-1 px-0.5 transition-opacity hover:opacity-70"
+              disabled={!canScrollRight}
+              className={`flex h-[31px] w-10 items-center justify-center border-[0.6px] border-[#D9D9D9] py-1 px-0.5 transition-all ${
+                canScrollRight ? "cursor-pointer hover:bg-gray-50 active:bg-gray-100" : "cursor-not-allowed opacity-50"
+              }`}
               style={{ borderRadius: "0px 99px 99px 0px" }}
             >
               <ChevronArrow color="#CF5D9A" />
@@ -167,7 +191,9 @@ export function ProvidersSpotlight({ providers = [] }: { providers?: ConcernProv
       {/* ── Provider cards row ── */}
       <div
         ref={scrollRef}
-        className="flex w-full items-center gap-5 sm:gap-8 overflow-x-auto px-5 sm:px-[52px] pb-[38px] scrollbar-none"
+        onScroll={checkScrollability}
+        {...dragScroll}
+        className="flex w-full items-center gap-5 sm:gap-8 overflow-x-auto px-5 sm:px-[52px] pb-[38px] scrollbar-none cursor-grab active:cursor-grabbing select-none"
       >
         {providers.map((provider) => (
           <ProviderCard key={provider.id} provider={provider} />

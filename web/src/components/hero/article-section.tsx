@@ -6,10 +6,10 @@ import { useRef, useState, useEffect } from "react";
 
 const categories = [
   { name: "Treatments" },
-  { name: "Skin Care" },
+  { name: "Skin care" },
   { name: "Wellness" },
-  { name: "Business Tips" },
-  { name: "Patient Guide" },
+  { name: "Business tips" },
+  { name: "Patient guide" },
 ];
 
 const articles = [
@@ -30,7 +30,7 @@ const articles = [
   },
 ];
 
-const popularTopics = ["Botox", "Fillers", "Laser Treatments", "Acne", "Anti Aging"];
+const popularTopics = ["Botox", "Fillers", "Laser treatments", "Acne", "Anti aging"];
 
 export function ArticleSection() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -102,9 +102,9 @@ export function ArticleSection() {
         >
           {/* Header Text Stack */}
           <div className="flex flex-col items-start gap-[9px] w-full">
-            <h3 className="font-montserrat font-medium text-[#99597A] text-[24px] sm:text-[29px] leading-[116.02%] tracking-[-0.04em] w-full">
+            <h3 className="font-montserrat text-[26px] sm:text-[30px] lg:text-[34px] font-normal leading-[116.02%] tracking-[-0.04em] text-[#373634] w-full">
               Your Resource for Expert{" "}
-              <span className="font-heading italic block sm:inline">MedSpa knowledge!</span>
+              <span className="font-heading italic block sm:inline">Med Spa Knowledge!</span>
             </h3>
             <p className="font-montserrat font-normal text-[14px] leading-[140%] text-[#353535] max-w-[337px]">
               In-depth guide, expert tips and the latest insight to help you make informed decisions.
@@ -131,7 +131,7 @@ export function ArticleSection() {
           {/* Popular Topics Tags */}
           <div className="flex flex-col gap-[9px] w-full mt-[18px]">
             <span className="font-montserrat font-semibold text-[14px] leading-[140%] text-[#353535]">
-              Popular Topics
+              Popular topics
             </span>
             <div className="flex flex-wrap gap-1.5 w-full">
               {popularTopics.map((topic, index) => (
@@ -164,7 +164,7 @@ export function ArticleSection() {
                   <div className="flex h-[43px] w-[43px] items-center justify-center relative">
                     <Image
                       src="/images/landingpage/star-svg.svg"
-                      alt="Star Icon"
+                      alt="Star icon"
                       width={35}
                       height={31}
                       className="object-contain"
@@ -184,14 +184,14 @@ export function ArticleSection() {
           {/* Latest Articles Header (Middle Row) */}
           <div className="flex w-full items-center justify-between mt-2 px-1">
             <h4 className="font-montserrat font-medium text-[18px] leading-[116.02%] text-[#373634]">
-              Latest Articles
+              Latest articles
             </h4>
 
             {/* View All & navigation capsule */}
             <div className="flex items-center gap-[32px] h-[31px]">
               <button className="group flex items-center gap-[5px] h-[19px] cursor-pointer">
                 <span className="font-montserrat font-medium text-[16px] leading-[116.02%] text-[#CF5D9A]">
-                  View All Articles
+                  View all articles
                 </span>
                 <svg
                   width="16"

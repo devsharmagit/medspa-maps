@@ -7,9 +7,9 @@ import { TreatmentsGrid } from "./treatments-grid";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Treatments — Medspa Map",
+  title: "Treatments — Med Spa Maps",
   description:
-    "Browse all medspa treatments — Botox, dermal fillers, laser, microneedling and more. Find clinics offering each treatment near you.",
+    "Browse all med spa treatments — Botox, dermal fillers, laser, microneedling and more. Find practices offering each treatment near you.",
 };
 
 export default async function TreatmentsIndexPage() {
@@ -24,7 +24,7 @@ export default async function TreatmentsIndexPage() {
         crumbs={[{ label: "Home", href: "/" }, { label: "Treatments" }]}
         title="Aesthetic"
         accent="Treatments"
-        subtitle="From injectables and lasers to body contouring — explore every treatment on Medspa Map, then discover the top-rated clinics offering it near you."
+        subtitle="From injectables and lasers to body contouring — explore every treatment on Med Spa Maps, then discover the top-rated practices offering it near you."
       />
 
       <div className="mx-auto w-full max-w-[1400px] flex-1 px-4 pb-20 sm:px-6">

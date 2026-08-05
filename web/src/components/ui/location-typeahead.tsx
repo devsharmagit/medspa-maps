@@ -21,6 +21,12 @@ export interface LocationSelection {
   value: string;
   lat: number | null;
   lng: number | null;
+  /**
+   * How this value was produced: a committed suggestion pick ("zip" | "city" |
+   * "state") vs. raw typing ("text"). Lets callers auto-apply a picked STATE
+   * (which carries no coordinates) while still treating typing as free text.
+   */
+  kind: "zip" | "city" | "state" | "text";
 }
 
 interface Suggestion {
@@ -151,7 +157,7 @@ export function LocationTypeahead({
       // match (STATE_ABBR_TO_NAME) across every clinic in the state, instead
       // of a radius around one arbitrary point.
       const urlValue = s.kind === "state" ? (s.state_code ?? s.city) : `${s.city}${s.state_code ? `, ${s.state_code}` : ""}`;
-      onChange({ label: s.label, value: urlValue, lat: s.lat, lng: s.lng });
+      onChange({ label: s.label, value: urlValue, lat: s.lat, lng: s.lng, kind: s.kind });
       setQuery("");
       setOpen(false);
       setHighlightedIdx(-1);
@@ -165,7 +171,7 @@ export function LocationTypeahead({
     setHighlightedIdx(-1);
     if (!open) setOpen(true);
     // Free text rides along (server resolves zips / "City, ST" itself)
-    onChange({ label: val, value: val, lat: null, lng: null });
+    onChange({ label: val, value: val, lat: null, lng: null, kind: "text" });
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {

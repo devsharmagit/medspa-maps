@@ -382,7 +382,10 @@ CREATE TABLE public.providers (
     is_active boolean DEFAULT true NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    card_tagline text
+    card_tagline text,
+    source_url text,
+    expertise_summary text,
+    summary_updated_at timestamp with time zone
 );
 
 
@@ -1167,6 +1170,35 @@ CREATE TABLE IF NOT EXISTS public.clinic_leads (
 CREATE INDEX IF NOT EXISTS idx_clinic_leads_created_at ON public.clinic_leads USING btree (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_clinic_leads_status ON public.clinic_leads USING btree (status);
 CREATE INDEX IF NOT EXISTS idx_clinic_leads_email ON public.clinic_leads USING btree (business_email);
+
+
+--
+-- Name: clinic_revision_requests; Type: TABLE; Schema: public; Owner: -
+-- Practice-submitted "request a revision to this listing" messages, keyed by clinic.
+--
+
+CREATE TABLE IF NOT EXISTS public.clinic_revision_requests (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    clinic_id uuid NOT NULL,
+    requester_name text,
+    requester_email text NOT NULL,
+    message text NOT NULL,
+    status text DEFAULT 'new'::text NOT NULL,
+    notes text,
+    ip_address text,
+    user_agent text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT clinic_revision_requests_pkey PRIMARY KEY (id),
+    CONSTRAINT clinic_revision_requests_status_check CHECK ((status = ANY (ARRAY['new'::text, 'reviewing'::text, 'resolved'::text, 'rejected'::text]))),
+    CONSTRAINT clinic_revision_requests_clinic_fk FOREIGN KEY (clinic_id) REFERENCES public.clinics(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_crr_clinic ON public.clinic_revision_requests USING btree (clinic_id);
+CREATE INDEX IF NOT EXISTS idx_crr_created_at ON public.clinic_revision_requests USING btree (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_crr_status ON public.clinic_revision_requests USING btree (status);
+
+CREATE TRIGGER trg_clinic_revision_requests_updated_at BEFORE UPDATE ON public.clinic_revision_requests FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
 --

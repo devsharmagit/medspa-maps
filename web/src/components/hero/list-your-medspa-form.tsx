@@ -69,7 +69,7 @@ export function ListYourMedspaForm() {
           Coming soon!
         </p>
         <p className="font-montserrat text-[14px] leading-[140%] text-[#98889A]">
-          Medspa listings aren&apos;t open just yet. We&apos;ve saved your
+          Med spa listings aren&apos;t open just yet. We&apos;ve saved your
           details and will let you know the moment they are.
         </p>
         <button
@@ -77,7 +77,7 @@ export function ListYourMedspaForm() {
           onClick={() => setDone(false)}
           className="mt-2 font-montserrat text-[14px] font-medium text-[#CF5D9A] underline"
         >
-          Submit another medspa
+          Submit another med spa
         </button>
       </div>
     );
@@ -88,7 +88,7 @@ export function ListYourMedspaForm() {
       <input
         type="text"
         name="fullName"
-        placeholder="Full Name"
+        placeholder="Full name"
         autoComplete="name"
         required
         disabled={submitting}
@@ -98,7 +98,7 @@ export function ListYourMedspaForm() {
       <input
         type="email"
         name="businessEmail"
-        placeholder="Business Email"
+        placeholder="Business email"
         autoComplete="email"
         required
         disabled={submitting}
@@ -108,7 +108,7 @@ export function ListYourMedspaForm() {
       <input
         type="text"
         name="businessName"
-        placeholder="Business Name"
+        placeholder="Business name"
         autoComplete="organization"
         required
         disabled={submitting}
@@ -140,7 +140,7 @@ export function ListYourMedspaForm() {
         className="mt-1 flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#DE7F4C] to-[#C341D7] py-3 font-montserrat text-base font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-70"
       >
         {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-        {submitting ? "Submitting…" : "List My Medspa"}
+        {submitting ? "Submitting…" : "List my med spa"}
       </button>
     </form>
   );

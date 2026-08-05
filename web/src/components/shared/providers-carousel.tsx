@@ -37,7 +37,7 @@ function CardShell({
 }) {
   if (p.clinic_slug) {
     return (
-      <Link href={`/clinics/${p.clinic_slug}`} className={className} style={style}>
+      <Link href={`/practices/${p.clinic_slug}`} className={className} style={style}>
         {children}
       </Link>
     );
@@ -80,8 +80,8 @@ function DesktopProviderCard({ p }: { p: SharedProviderData }) {
         </div>
 
         {p.clinic_slug && (
-          <Link href={`/clinics/${p.clinic_slug}`} className="mt-4 flex items-center justify-center w-full py-2.5 bg-gradient-to-r from-[#DE7F4C] to-[#C341D7] rounded-[8px] text-[14px] font-semibold text-white transition hover:opacity-95">
-            View Clinic
+          <Link href={`/practices/${p.clinic_slug}`} className="mt-4 flex items-center justify-center w-full py-2.5 bg-gradient-to-r from-[#DE7F4C] to-[#C341D7] rounded-[8px] text-[14px] font-semibold text-white transition hover:opacity-95">
+            View Practice
           </Link>
         )}
       </div>
@@ -120,8 +120,8 @@ function MobileProviderCard({ p }: { p: SharedProviderData }) {
         </div>
 
         {p.clinic_slug && (
-          <Link href={`/clinics/${p.clinic_slug}`} className="flex h-10 w-full items-center justify-center rounded-lg bg-[linear-gradient(90deg,#DE7F4C_0%,#C341D7_100%)] text-[14px] font-semibold text-white transition-opacity hover:opacity-90">
-            View Clinic
+          <Link href={`/practices/${p.clinic_slug}`} className="flex h-10 w-full items-center justify-center rounded-lg bg-[linear-gradient(90deg,#DE7F4C_0%,#C341D7_100%)] text-[14px] font-semibold text-white transition-opacity hover:opacity-90">
+            View Practice
           </Link>
         )}
       </div>

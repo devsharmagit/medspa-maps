@@ -1,5 +1,6 @@
 import { Phone, MapPin, Globe, Navigation, Mail } from "lucide-react";
 import { ClinicSocialLinks, type ClinicSocials } from "@/components/shared/clinic-social-links";
+import { formatPhoneUs } from "@/lib/utils";
 
 /**
  * "Contact Information" card — a compact, premium contact panel shown next to
@@ -39,7 +40,7 @@ export function ClinicContactCard({
         >
           <Phone className="h-[17px] w-[17px] shrink-0 text-white" strokeWidth={1.8} />
           <span className="font-montserrat text-[15px] font-semibold leading-none text-white">
-            {phone}
+            {formatPhoneUs(phone)}
           </span>
         </a>
       )}

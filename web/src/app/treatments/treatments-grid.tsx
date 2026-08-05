@@ -26,7 +26,7 @@ function TreatmentCard({ t, index }: { t: TreatmentListItem; index: number }) {
         {t.clinic_count > 0 && (
           <span className="absolute bottom-3 left-3 inline-flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1 text-[12px] font-semibold text-[#7b2d6b] shadow-sm backdrop-blur-sm">
             <MapPin className="size-3.5 text-[#CF5D9A]" />
-            {t.clinic_count} {t.clinic_count === 1 ? "clinic" : "clinics"}
+            {t.clinic_count} {t.clinic_count === 1 ? "practice" : "practices"}
           </span>
         )}
       </div>
@@ -36,7 +36,7 @@ function TreatmentCard({ t, index }: { t: TreatmentListItem; index: number }) {
           {t.name}
         </h3>
         <div className="mt-auto inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#CF5B9D]">
-          Find Clinics
+          Find Practices
           <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" />
         </div>
       </div>

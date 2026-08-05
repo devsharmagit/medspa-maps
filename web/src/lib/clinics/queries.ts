@@ -44,6 +44,8 @@ export interface ClinicPageData {
     ext_review_count: number | null;
     featured: boolean;
     logo_url: string | null;
+    /** Latest change across basic details, treatments, and concerns. */
+    last_updated: string | null;
   };
   locations: ClinicLocation[];
   treatments: { name: string; slug: string | null; price_from: number | null; price_unit: string | null }[];
@@ -59,6 +61,7 @@ export interface ClinicPageData {
     treatments_count: number;
     review_count: number | null;
     rating: string | null;
+    rating_source: string | null;
     city: string | null;
   };
   providers: {
@@ -67,6 +70,7 @@ export interface ClinicPageData {
     title: string | null;
     image_url: string | null;
     is_verified: boolean;
+    expertise_summary: string | null;
   }[];
 }
 
@@ -78,11 +82,21 @@ export async function getClinicData(slug: string): Promise<ClinicPageData | null
        c.phone, c.email, c.website, c.booking_url, c.google_maps_url, c.hours, c.instagram_url,
        c.facebook_url, c.tiktok_url, c.youtube_url, c.x_url, c.linkedin_url, c.yelp_url,
        c.avg_rating,
-       c.review_count, c.ext_rating, c.ext_review_count, c.featured,
+       c.review_count, c.ext_rating, c.ext_review_count, c.ext_rating_source, c.featured,
        (SELECT source_url FROM images i
           WHERE i.entity_type = 'clinic' AND i.entity_id = c.id
             AND i.role = 'logo' AND i.scrape_status = 'ok'
-          ORDER BY i.sort_order LIMIT 1) AS logo_url
+          ORDER BY i.sort_order LIMIT 1) AS logo_url,
+       -- "Last updated": the freshest change across basic details AND
+       -- treatments/concerns, so a direct edit to either link table still
+       -- moves the date even if it didn't touch the clinics row.
+       GREATEST(
+         c.updated_at,
+         COALESCE((SELECT MAX(cs.updated_at) FROM clinic_services cs
+                    WHERE cs.clinic_id = c.id AND cs.is_active), 'epoch'::timestamptz),
+         COALESCE((SELECT MAX(cc.updated_at) FROM clinic_concerns cc
+                    WHERE cc.clinic_id = c.id AND cc.is_active), 'epoch'::timestamptz)
+       ) AS last_updated
      FROM clinics c
      WHERE c.slug = $1 AND c.is_active = true`,
     [slug]
@@ -176,10 +190,10 @@ export async function getClinicData(slug: string): Promise<ClinicPageData | null
       [c.id]
     ),
     pool.query(
-      // Only providers WITH a headshot — never surface a card that would fall
-      // back to the stock placeholder. (Some clinics' team photos are JS-rendered
-      // and can't be scraped statically, so those providers have no image_url.)
-      `SELECT id, name, title, image_url, is_verified
+      // Only providers with a real headshot — photo-less cards (initials
+      // avatars) look unfinished, so we skip them. The owner/founder is
+      // sorted first via card_tagline.
+      `SELECT id, name, title, image_url, is_verified, expertise_summary
        FROM providers
        WHERE clinic_id = $1 AND is_active = true
          AND image_url IS NOT NULL AND image_url <> ''
@@ -227,6 +241,7 @@ export async function getClinicData(slug: string): Promise<ClinicPageData | null
       ext_review_count: c.ext_review_count,
       featured: c.featured,
       logo_url: c.logo_url,
+      last_updated: c.last_updated,
     },
     treatments: treatments.rows,
     concerns: concerns.rows,
@@ -239,6 +254,8 @@ export async function getClinicData(slug: string): Promise<ClinicPageData | null
       treatments_count,
       review_count: c.ext_review_count ?? c.review_count,
       rating: c.ext_rating ?? c.avg_rating,
+      // Source of the rating shown (only meaningful for the external rating).
+      rating_source: c.ext_rating != null ? c.ext_rating_source : null,
       city: primaryCity,
     },
     providers: providersResult.rows,

@@ -175,7 +175,7 @@ export async function POST(req: NextRequest) {
             type: "followups",
             value: [
               "What treatments do you cover?",
-              "Find medspas near me",
+              "Find med spas near me",
               "How does a consultation work?",
             ],
           });
@@ -376,7 +376,7 @@ function statusLine(
   if (r.path === "search" || r.path === "combined") {
     const t = r.search?.treatment;
     const where = location ? ` near ${titleCase(location)}` : "";
-    return t ? `Finding ${t} clinics${where}…` : "Searching Medspa Map…";
+    return t ? `Finding ${t} practices${where}…` : "Searching Med Spa Maps…";
   }
   if (r.path === "catalog") return "Pulling up the details…";
   if (r.path === "page_context") return "Checking this page…";

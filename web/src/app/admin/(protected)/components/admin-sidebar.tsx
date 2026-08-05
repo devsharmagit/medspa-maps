@@ -16,6 +16,7 @@ import {
   Wand2,
   UserRoundPlus,
   Building2,
+  MessageSquareWarning,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -32,6 +33,7 @@ const navItems = [
   { href: "/admin/reviews", label: "Reviews", icon: Star },
   { href: "/admin/leads", label: "Patient Leads", icon: UserRoundPlus },
   { href: "/admin/clinic-leads", label: "Clinic Leads", icon: Building2 },
+  { href: "/admin/revision-requests", label: "Revision Requests", icon: MessageSquareWarning },
   { href: "/admin/catalog-changes", label: "Catalog Changes", icon: History },
 ];
 

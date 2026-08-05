@@ -1,0 +1,10 @@
+name,slug_or_domain,website,city,province,source,reason,date
+Casa Beauty,casa-beauty,https://casabeauty.ca/,Ajax,ON,db-removed,Canadian clinic mistakenly ingested into US-only directory (clinic_locations.country defaulted to US),2026-08-04
+Derma Bar,derma-bar,https://dermabar.ca/,East York,ON,db-removed,Canadian clinic mistakenly ingested into US-only directory (clinic_locations.country defaulted to US),2026-08-04
+Keraderm MedSpa,keraderm-medspa,https://keraderm.ca/,"Hawkesbury / St-Isidore",ON,db-removed,Canadian clinic mistakenly ingested into US-only directory (clinic_locations.country defaulted to US),2026-08-04
+NURSE. Aesthetic & Holistic Clinic,nurse-aesthetic-holistic-clinic,https://nurseniagara.com/,Niagara Falls,ON,db-removed,Canadian clinic mistakenly ingested into US-only directory (clinic_locations.country defaulted to US),2026-08-04
+Renovo Medi Spa,renovo-medi-spa,https://renovomedispa.com/,"Burlington / Etobicoke / Vaughan",ON,db-removed,Canadian clinic mistakenly ingested into US-only directory (clinic_locations.country defaulted to US),2026-08-04
+Skin Logic Ottawa,skin-logic-ottawa,https://skinlogicottawa.com/,Ottawa,ON,db-removed,Canadian clinic mistakenly ingested into US-only directory (clinic_locations.country defaulted to US),2026-08-04
+Sunshine Cosmetic Clinic & Medi Spa,sunshine-cosmetic-clinic-medi-spa,https://kitchenerwaterloomedispa.com/,Waterloo,ON,db-removed,Canadian clinic mistakenly ingested into US-only directory (clinic_locations.country defaulted to US),2026-08-04
+Vertex Aesthetics,vertex-aesthetics,https://vertexaesthetics.ca/,Toronto,ON,db-removed,Canadian clinic mistakenly ingested into US-only directory (clinic_locations.country defaulted to US),2026-08-04
+Niloura Wellness & Aesthetics,niloura.com,https://niloura.com/,Mississauga,ON,missed-report,"Caught during 2026-07-29 retriage; reason code OUT_OF_SCOPE_GEOGRAPHY, held back and never saved (payload preserved at web/reports/retriage-2026-07-29/payloads/_holdback/niloura.com.json)",2026-07-29

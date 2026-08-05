@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { Lightbox, type GalleryImage } from "./gallery";
+import { useDragScroll } from "@/lib/hooks/use-drag-scroll";
 
 /**
  * "Before & After" — horizontal carousel of the clinic's before/after treatment
@@ -19,16 +20,17 @@ export function ClinicBeforeAfterCarousel({
   name: string;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const dragScroll = useDragScroll(scrollRef);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(true);
   const [open, setOpen] = useState(false);
   const [index, setIndex] = useState(0);
 
   const checkScrollability = () => {
     if (!scrollRef.current) return;
     const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
-    setCanScrollLeft(scrollLeft > 0);
-    setCanScrollRight(Math.ceil(scrollLeft) < scrollWidth - clientWidth);
+    setCanScrollLeft(scrollLeft > 1);
+    setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 1);
   };
 
   useEffect(() => {
@@ -70,7 +72,7 @@ export function ClinicBeforeAfterCarousel({
             onClick={() => scroll("right")}
             aria-label="Next before & after"
             disabled={!canScrollRight}
-            className={`flex h-[31px] w-[40px] items-center justify-center rounded-r-full border-[0.6px] border-[#A5A5A5] bg-white transition-all ${
+            className={`flex h-[31px] w-[40px] items-center justify-center rounded-r-full border-[0.6px] border-[#D9D9D9] bg-white transition-all ${
               canScrollRight ? "cursor-pointer hover:bg-gray-50" : "cursor-not-allowed opacity-50"
             }`}
           >
@@ -84,7 +86,8 @@ export function ClinicBeforeAfterCarousel({
         <div
           ref={scrollRef}
           onScroll={checkScrollability}
-          className="flex w-full flex-row items-start gap-[24px] overflow-x-auto scrollbar-none snap-x snap-mandatory pb-[10px]"
+          {...dragScroll}
+          className="flex w-full flex-row items-start gap-[24px] overflow-x-auto scrollbar-none pb-[10px] cursor-grab active:cursor-grabbing select-none"
         >
           {images.map((img, i) => (
             <button
@@ -94,7 +97,7 @@ export function ClinicBeforeAfterCarousel({
                 setIndex(i);
                 setOpen(true);
               }}
-              className="group relative aspect-[4/3] w-[280px] sm:w-[300px] shrink-0 snap-start overflow-hidden rounded-[22px] border border-[#EFE3EC] bg-[#F5F0F5] shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)]"
+              className="group relative aspect-[4/3] w-[280px] sm:w-[300px] shrink-0 overflow-hidden rounded-[22px] border border-[#EFE3EC] bg-[#F5F0F5] shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)]"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -102,6 +105,7 @@ export function ClinicBeforeAfterCarousel({
                 alt={img.alt_text || `${name} before and after`}
                 className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.05]"
                 loading="lazy"
+                draggable={false}
               />
               {img.alt_text && (
                 <span className="absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/60 to-transparent px-3 pb-2 pt-6 text-left font-montserrat text-[12px] font-medium text-white">
