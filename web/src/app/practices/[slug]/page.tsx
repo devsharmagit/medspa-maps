@@ -106,12 +106,7 @@ export default async function ClinicPage({
   // (Never present derived text as if it were a curated tagline.)
   const excerpt = clinic.tagline ?? null;
   // Where the displayed rating comes from — shown as context under the stars.
-  const ratingSourceLabel =
-    stats.rating_source === "google_places"
-      ? "via Google"
-      : stats.rating_source === "website"
-        ? "from their website"
-        : null;
+  const ratingSourceLabel ="via Google";
 
   return (
     <main className="flex min-h-screen flex-col bg-[#FDFDFD] text-zinc-950 overflow-x-clip">

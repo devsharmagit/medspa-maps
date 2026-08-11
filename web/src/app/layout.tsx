@@ -31,7 +31,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Med Spa Maps — Find the Right Med Spa Near You",
+  title: "Med Spa Maps — Find the Right Local Med Spa",
   description:
     "Explore 600+ vetted med spas, read expert treatment guides, and book with confidence.",
 };

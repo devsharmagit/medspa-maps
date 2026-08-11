@@ -31,20 +31,26 @@ function mapsEmbedUrl(loc: ClinicLocation, clinicName: string): string {
   if (EMBED_KEY && loc.google_place_id)
     return `https://www.google.com/maps/embed/v1/place?key=${EMBED_KEY}&q=place_id:${encodeURIComponent(loc.google_place_id)}`;
 
-  if (loc.lat != null && loc.lng != null)
-    return `https://maps.google.com/maps?q=${loc.lat},${loc.lng}&z=16&output=embed`;
-
-  // No coordinates — geocode name + address. `loc.address` may already contain
-  // city/state/zip, so only append parts not already present (avoids
-  // "…Miami, FL 33134, Miami, FL, 33134"). Leading with the name + `iwloc=near`
-  // gives the marker the business name when the geocode matches.
+  // Prefer the name + address geocode with `iwloc=near`: this yields a labeled,
+  // clickable marker with the business info card — matching a clinic's own
+  // website embed. `loc.address` may already contain city/state/zip, so only
+  // append parts not already present (avoids "…Miami, FL 33134, Miami, FL,
+  // 33134"). Falls back to raw coordinates only when there's no usable address.
   const street = loc.address ?? "";
   const has = (v: string | null) => !!v && street.toLowerCase().includes(v.toLowerCase());
   const addr = [loc.address, has(loc.city) ? null : loc.city, has(loc.state) ? null : loc.state, has(loc.zip) ? null : loc.zip]
     .filter(Boolean).join(", ");
   const name = clinicName.trim();
   const q = addr ? (name ? `${name}. ${addr}` : addr) : (name || loc.label || "");
-  return `https://maps.google.com/maps?q=${encodeURIComponent(q)}&t=m&z=15&output=embed&iwloc=near`;
+  if (q)
+    return `https://maps.google.com/maps?q=${encodeURIComponent(q)}&t=m&z=15&output=embed&iwloc=near`;
+
+  // No address string at all — fall back to exact coordinates (generic,
+  // unlabeled pin, but correctly positioned).
+  if (loc.lat != null && loc.lng != null)
+    return `https://maps.google.com/maps?q=${loc.lat},${loc.lng}&z=16&output=embed`;
+
+  return "";
 }
 
 function mapsOpenUrl(loc: ClinicLocation, query: string): string {
@@ -119,12 +125,11 @@ export function ClinicLocationsSection({
           const query = addressQuery(loc, clinicName);
           const embedUrl = mapsEmbedUrl(loc, clinicName);
           const mapsUrl = mapsOpenUrl(loc, query);
-          // Show the embedded map whenever we can pin an exact spot: either the
-          // Embed API (key + place_id) or — the common case, no key needed — the
-          // location's own coordinates. Coordinates-only per requirement.
-          const hasMap =
-            (Boolean(EMBED_KEY) && Boolean(loc.google_place_id)) ||
-            (loc.lat != null && loc.lng != null);
+          // Show the embedded map whenever mapsEmbedUrl can produce a real embed:
+          // the Embed API (key + place_id), a name/address geocode, or — last
+          // resort — the location's own coordinates. Only falsy when there's
+          // nothing at all to locate.
+          const hasMap = embedUrl !== "";
 
           return (
             <div
@@ -151,11 +156,9 @@ export function ClinicLocationsSection({
                     title={`Map for ${title}`}
                     width="100%"
                     height="180"
-                    style={{ border: 0, display: "block", pointerEvents: "none" }}
+                    style={{ border: 0, display: "block" }}
                     loading="lazy"
                     referrerPolicy="no-referrer-when-downgrade"
-                    tabIndex={-1}
-                    aria-hidden="true"
                   />
                 </div>
               )}

@@ -455,7 +455,7 @@ export function SkinNavigatorClient() {
             AI Treatment Navigator
           </Badge>
           <h1 className="font-heading text-[2.45rem] font-medium leading-[1.12] sm:text-5xl">
-            Find the right aesthetic treatment with a calmer first step.
+            Find the best local aesthetic treatments that meet your needs.
           </h1>
           <p className="mt-4 max-w-2xl text-base leading-7 text-white/86">
             Share a few basics and goals, then get cosmetic treatment ideas and nearby practices.

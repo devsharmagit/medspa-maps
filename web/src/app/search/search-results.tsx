@@ -621,19 +621,11 @@ export function SearchResults() {
       {/* ── Top Search Card ─────────────────────────────────────────────── */}
       <div className="rounded-2xl border border-[#e8e0e8] bg-white p-6 shadow-[0_4px_24px_rgba(170,78,179,0.08)] sm:p-7">
         <h1 className="text-2xl font-semibold tracking-tight text-[#1a1a1a] sm:text-3xl">
-          {serviceName}{" "}
-          {location ? (
-            <>
-              in{" "}
-              <span className="font-fraunces font-normal italic text-brand-magenta">
-                {stateName}
-              </span>
-            </>
-          ) : (
-            <span className="font-fraunces font-normal italic text-brand-magenta">
-              Near Me
-            </span>
-          )}
+          Local{" "}
+          <span className="font-fraunces font-normal italic text-brand-magenta">
+            Med Spa Services
+          </span>{" "}
+          Just for You
         </h1>
 
         <div className="mt-5 mb-2 inline-flex items-center gap-2 rounded-full border border-[#e8e0e8] bg-[#fdfafb] p-1">

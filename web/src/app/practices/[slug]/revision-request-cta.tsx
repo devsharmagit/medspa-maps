@@ -70,9 +70,9 @@ export function RevisionRequestCta({
     <section className="mx-0 sm:mx-[24px] mt-2">
       <div className="flex flex-col items-start justify-between gap-4 rounded-[16px] border border-[#E5D6E5] bg-[#FAF5FA] px-5 py-5 sm:flex-row sm:items-center sm:px-7">
         <div className="flex flex-col gap-1">
-          <h3 className="font-montserrat text-[16px] font-semibold text-[#373634]">
+          <p className="font-montserrat text-[16px] font-semibold text-[#373634]">
             Are you this practice?
-          </h3>
+          </p>
           <p className="font-montserrat text-[13px] leading-[150%] text-[#6b6a68]">
             Spot something out of date or incorrect? Let us know and we&apos;ll review it.
           </p>

@@ -6,6 +6,7 @@ import { PopularTreatments } from "@/components/hero/popular-treatments";
 import { ProvidersSpotlight } from "@/components/hero/providers-spotlight";
 import { TopCities } from "@/components/hero/top-cities";
 import { ArticleSection } from "@/components/hero/article-section";
+import { FaqSection } from "@/components/hero/faq-section";
 import StatsSection from "@/components/hero/stat-section";
 import { getFeaturedClinics } from "@/lib/clinics/featured";
 import { SPOTLIGHT_PROVIDERS } from "@/lib/providers/spotlight-static";
@@ -43,6 +44,7 @@ export default async function Home() {
       <HowItWorks />
       <TopCities />
       <ArticleSection />
+      <FaqSection />
       <Footer showListingCta />
     </main>
   );

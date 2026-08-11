@@ -59,11 +59,11 @@ export function HeroSection() {
                 leading trusted resource for medical aesthetics patients.
               </p>
               <h1 className="text-4xl font-medium leading-[1.05] tracking-tight text-white sm:text-5xl lg:text-[64px] lg:tracking-[-0.02em]">
-                Find the{" "}
+                Find the right local
+                <br />
                 <em className="font-heading font-normal italic">
-                  right med spa
-                </em>{" "}
-                &amp; treatment — near you
+                  Med Spa
+                </em>
               </h1>
             </div>
 

@@ -29,9 +29,9 @@ export function ClinicContactCard({
 
   return (
     <div className="flex h-full w-full flex-col gap-[18px] rounded-[16px] border border-[#DEDEDE] bg-white p-6 shadow-[0px_9px_11.1px_rgba(240,223,241,0.6)]">
-      <h3 className="font-fraunces italic text-[22px] font-normal leading-[116.02%] tracking-[-0.02em] text-[#373634]">
+      <p className="font-fraunces italic text-[22px] font-normal leading-[116.02%] tracking-[-0.02em] text-[#373634]">
         Contact Information
-      </h3>
+      </p>
 
       {phone && (
         <a
