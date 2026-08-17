@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export interface ClinicTreatment {
   name: string;
   slug: string | null;
@@ -6,13 +8,17 @@ export interface ClinicTreatment {
 }
 
 function TreatmentChip({ treatment }: { treatment: ClinicTreatment }) {
+  // Clicking finds every clinic that offers this treatment (mirrors concern chips).
   return (
-    <span className="inline-flex items-center rounded-full border border-[#F0DDE8] bg-white px-4 py-2 font-montserrat text-[13px] font-medium leading-none text-[#575757] shadow-[0px_2px_6px_rgba(0,0,0,0.03)]">
+    <Link
+      href={`/search?q=${encodeURIComponent(treatment.name)}`}
+      className="inline-flex items-center rounded-full border border-[#F0DDE8] bg-white px-4 py-2 font-montserrat text-[13px] font-medium leading-none text-[#575757] shadow-[0px_2px_6px_rgba(0,0,0,0.03)] transition-colors hover:border-[#CF5B9D] hover:text-[#CF5B9D]"
+    >
       {treatment.name}
       {treatment.price_from != null && (
         <span className="ml-1.5 text-[#A8698B]">· from ${treatment.price_from}</span>
       )}
-    </span>
+    </Link>
   );
 }
 

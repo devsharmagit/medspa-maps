@@ -241,3 +241,26 @@
 .nav-arrow-btn:active {
   transform: translateY(-50%) scale(0.98);
 }
+
+/* Search map: our custom cluster bubble supplies its own background, so strip
+   the default leaflet.markercluster blue chrome behind it. */
+.msm-cluster {
+  background: transparent;
+}
+
+/* Slim branded scrollbar for the map-view results list, so users can tell
+   there are more clinics to scroll through. */
+.scrollbar-slim {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(170, 78, 179, 0.35) transparent;
+}
+.scrollbar-slim::-webkit-scrollbar {
+  width: 6px;
+}
+.scrollbar-slim::-webkit-scrollbar-thumb {
+  background: rgba(170, 78, 179, 0.35);
+  border-radius: 9999px;
+}
+.scrollbar-slim::-webkit-scrollbar-track {
+  background: transparent;
+}

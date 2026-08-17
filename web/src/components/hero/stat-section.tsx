@@ -103,8 +103,7 @@ export default function StatsSection() {
           <div
             key={stat.label}
             className={cn(
-              "flex flex-row items-center justify-center transition-all duration-1000 ease-out lg:flex-1 lg:min-w-0",
-              index === stats.length - 1 && "max-lg:col-span-2",
+              "flex flex-row items-start justify-center transition-all duration-1000 ease-out lg:flex-1 lg:min-w-0 lg:items-center",
               isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
             )}
             style={{ transitionDelay: `${index * 150}ms` }}

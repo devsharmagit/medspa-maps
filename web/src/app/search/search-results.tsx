@@ -338,7 +338,12 @@ export function SearchResults() {
   // (when that clinic is on the current results page).
   const handleMarkerActivate = useCallback((clinicId: string) => {
     setActiveClinicId(clinicId);
-    if (typeof document !== "undefined") {
+    // On mobile the card list sits BELOW the map, so scrolling a card into view
+    // yanks the page down off the map — tapping a pin should just show its
+    // popup. Only sync-scroll on desktop, where the list is a side column.
+    const isDesktop =
+      typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches;
+    if (isDesktop && typeof document !== "undefined") {
       const el = document.querySelector(`[data-clinic-id="${clinicId}"]`);
       if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
     }
@@ -978,14 +983,26 @@ export function SearchResults() {
                 {/* Card list — below the map on mobile, left column on desktop.
                     Block (not flex) so cards keep their natural height and the
                     column scrolls instead of squashing them. */}
-                <div className="order-2 space-y-5 lg:order-1 lg:max-h-[calc(100vh-150px)] lg:w-[42%] lg:overflow-y-auto lg:pr-1 scrollbar-none">
+                <div className="order-2 space-y-5 lg:order-1 lg:max-h-[calc(100vh-150px)] lg:w-[42%] lg:overflow-y-auto lg:pr-1 scrollbar-slim">
+                  {/* The map plots every match (clustered); this column is the
+                      paginated card list, so spell out the relationship. */}
+                  {pagination && (
+                    <p className="text-xs text-[#727272]">
+                      Showing {((pagination.page - 1) * pagination.limit) + 1}-
+                      {Math.min(pagination.page * pagination.limit, total)} of{" "}
+                      {total.toLocaleString()} — all shown on the map
+                    </p>
+                  )}
                   {results.map((clinic) => (
                     <ClinicCard key={clinic.clinic_id} clinic={clinic} compact />
                   ))}
                 </div>
-                {/* Map — above on mobile, sticky right column on desktop */}
-                <div className="order-1 lg:order-2 lg:flex-1 lg:sticky lg:top-24">
-                  <div className="h-[60vh] w-full overflow-hidden rounded-2xl border border-[#ece6ec] shadow-sm lg:h-[calc(100vh-150px)]">
+                {/* Map — above on mobile, sticky right column on desktop.
+                    `isolate` + `z-0` box in Leaflet's internal z-indexes (its
+                    controls/panes go up to 1000) so they can't paint over the
+                    fixed navbar (z-100) or chat widget (z-50) on mobile. */}
+                <div className="relative z-0 order-1 lg:order-2 lg:flex-1 lg:sticky lg:top-24">
+                  <div className="isolate h-[60vh] w-full overflow-hidden rounded-2xl border border-[#ece6ec] shadow-sm lg:h-[calc(100vh-150px)]">
                     <ResultsMap
                       pins={pins}
                       origin={hasOrigin ? { lat: Number(lat), lng: Number(lng) } : null}
@@ -1343,26 +1360,30 @@ function ClinicCard({
             Book Appointment
           </a>
         </Button>
-        <Button
-          variant="outline"
-          className="h-[42px] gap-2 rounded-xl text-sm font-semibold"
-          asChild
-        >
-          <a href={`tel:${clinic.phone}`}>
-            <Phone className="size-4" />
-            Call Practice
-          </a>
-        </Button>
-        <Button
-          variant="outline"
-          className="h-[42px] gap-2 rounded-xl text-sm font-semibold"
-          asChild
-        >
-          <a href={profileUrl}>
-            <Eye className="size-4" />
-            View Practice
-          </a>
-        </Button>
+        {/* Call + View sit side by side on mobile to cut clutter; the desktop
+            non-compact card stacks them again in its narrow right column. */}
+        <div className={cn("flex gap-2.5", compact ? "" : "sm:flex-col")}>
+          <Button
+            variant="outline"
+            className="h-[42px] flex-1 gap-2 rounded-xl text-sm font-semibold"
+            asChild
+          >
+            <a href={`tel:${clinic.phone}`}>
+              <Phone className="size-4" />
+              Call Practice
+            </a>
+          </Button>
+          <Button
+            variant="outline"
+            className="h-[42px] flex-1 gap-2 rounded-xl text-sm font-semibold"
+            asChild
+          >
+            <a href={profileUrl}>
+              <Eye className="size-4" />
+              View Practice
+            </a>
+          </Button>
+        </div>
       </div>
     </div>
   );

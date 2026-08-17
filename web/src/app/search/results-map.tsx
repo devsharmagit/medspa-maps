@@ -1,8 +1,35 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import "leaflet.markercluster/dist/MarkerCluster.css";
+import "leaflet.markercluster/dist/MarkerCluster.Default.css";
+
+// leaflet.markercluster is a classic plugin that patches a *global* `L` at load
+// time (it does `L.MarkerClusterGroup = L.FeatureGroup.extend(...)`) rather than
+// importing leaflet itself. The `import * as L` namespace is a sealed, non-
+// extensible module object, so the plugin can't attach to it. We grab leaflet's
+// real (extensible) runtime export, expose it as the global L, then load the
+// plugin — and use that same handle to create cluster groups.
+type LWithCluster = typeof L & {
+  markerClusterGroup: (options?: L.MarkerClusterGroupOptions) => L.MarkerClusterGroup;
+};
+let clusterPluginPromise: Promise<LWithCluster> | null = null;
+function ensureClusterPlugin(): Promise<LWithCluster> {
+  clusterPluginPromise ??= (async () => {
+    const mod = await import("leaflet");
+    const base = (mod as unknown as { default?: typeof L }).default ?? mod;
+    // The module namespace / default export is sealed under the bundler, so the
+    // plugin can't attach MarkerClusterGroup to it. Hand it an extensible copy
+    // (its classes still extend the real leaflet ones, so markers interoperate).
+    const runtimeL = Object.assign(Object.create(null), base) as LWithCluster;
+    (globalThis as unknown as { L: LWithCluster }).L = runtimeL;
+    await import("leaflet.markercluster");
+    return runtimeL;
+  })();
+  return clusterPluginPromise;
+}
 
 // One pin per matching clinic — mirrors the `pins` payload from
 // GET /api/search?...&pins=1 (see src/app/api/search/route.ts).
@@ -72,10 +99,30 @@ function makeIcon(featured: boolean): L.DivIcon {
   const h = Math.round(size * 1.3);
   return L.divIcon({
     html,
-    className: "msm-pin",
+    // The className also flags featured pins so cluster bubbles can tint
+    // themselves when they contain a featured clinic.
+    className: featured ? "msm-pin-featured" : "msm-pin",
     iconSize: [size, h],
     iconAnchor: [size / 2, h],
     popupAnchor: [0, -h + 4],
+  });
+}
+
+// Brand-coloured cluster bubble (Google-Maps style count badge). Orange when
+// the cluster holds any featured clinic, otherwise brand magenta; the bubble
+// grows with the number of clinics inside it.
+function makeClusterIcon(cluster: L.MarkerCluster): L.DivIcon {
+  const count = cluster.getChildCount();
+  const hasFeatured = cluster
+    .getAllChildMarkers()
+    .some((m) => (m.options.icon as L.DivIcon | undefined)?.options.className === "msm-pin-featured");
+  const bg = hasFeatured ? "#de7f4c" : "#aa4eb3";
+  const size = count < 10 ? 34 : count < 50 ? 40 : count < 200 ? 48 : 56;
+  const html = `<div style="width:${size}px;height:${size}px;background:${bg};color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:${count < 100 ? 13 : 12}px;border:3px solid rgba(255,255,255,0.9);box-shadow:0 2px 6px rgba(0,0,0,0.35)">${count}</div>`;
+  return L.divIcon({
+    html,
+    className: "msm-cluster",
+    iconSize: [size, size],
   });
 }
 
@@ -125,16 +172,22 @@ export default function ResultsMap({
 }: ResultsMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
-  const groupRef = useRef<L.LayerGroup | null>(null);
+  const groupRef = useRef<L.MarkerClusterGroup | null>(null);
   const markerByIdRef = useRef<Map<string, L.Marker>>(new Map());
   // Keep the activate callback in a ref so the markers effect doesn't depend on it.
   const activateRef = useRef(onMarkerActivate);
   activateRef.current = onMarkerActivate;
 
+  // Flips true once the cluster plugin has loaded and the cluster group exists,
+  // so the marker-build effect below re-runs against a ready group.
+  const [clusterReady, setClusterReady] = useState(false);
+
   // ── Init map once ──
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
-    const map = L.map(containerRef.current, {
+    const container = containerRef.current;
+    let cancelled = false;
+    const map = L.map(container, {
       center: US_CENTER,
       zoom: 4,
       scrollWheelZoom: true,
@@ -149,23 +202,39 @@ export default function ResultsMap({
         maxZoom: 19,
       },
     ).addTo(map);
-    const group = L.layerGroup().addTo(map);
     mapRef.current = map;
-    groupRef.current = group;
+
+    // The cluster plugin patches the global L, so it must finish loading before
+    // we can create the marker-cluster group.
+    ensureClusterPlugin().then((LC) => {
+      if (cancelled) return;
+      const group = LC.markerClusterGroup({
+        showCoverageOnHover: false,
+        spiderfyOnMaxZoom: true,
+        disableClusteringAtZoom: 16,
+        maxClusterRadius: 55,
+        chunkedLoading: true,
+        iconCreateFunction: makeClusterIcon,
+      }).addTo(map);
+      groupRef.current = group;
+      setClusterReady(true);
+    });
 
     // The map often mounts inside a container that just became visible (view
     // toggle) — recompute size so tiles fill it.
     const t = setTimeout(() => map.invalidateSize(), 0);
     const ro = new ResizeObserver(() => map.invalidateSize());
-    ro.observe(containerRef.current);
+    ro.observe(container);
 
     return () => {
+      cancelled = true;
       clearTimeout(t);
       ro.disconnect();
       map.remove();
       mapRef.current = null;
       groupRef.current = null;
       markerByIdRef.current.clear();
+      setClusterReady(false);
     };
   }, []);
 
@@ -178,7 +247,6 @@ export default function ResultsMap({
     group.clearLayers();
     markerByIdRef.current.clear();
 
-    const coords: [number, number][] = [];
     for (const p of pins) {
       if (!isFiniteCoord(p.lat) || !isFiniteCoord(p.lng)) continue;
       const marker = L.marker([p.lat, p.lng], { icon: makeIcon(p.featured) });
@@ -186,31 +254,32 @@ export default function ResultsMap({
       marker.on("click", () => activateRef.current?.(p.clinic_id));
       marker.addTo(group);
       markerByIdRef.current.set(p.clinic_id, marker);
-      coords.push([p.lat, p.lng]);
     }
 
     map.invalidateSize();
     if (origin && Number.isFinite(origin.lat) && Number.isFinite(origin.lng)) {
       map.setView([origin.lat, origin.lng], zoomForRadius(radius));
-    } else if (coords.length > 0) {
-      map.fitBounds(L.latLngBounds(coords), { padding: [40, 40], maxZoom: 13 });
+    } else if (group.getBounds().isValid()) {
+      map.fitBounds(group.getBounds(), { padding: [40, 40], maxZoom: 13 });
     } else {
       map.setView(US_CENTER, 4);
     }
     // Depend on primitive origin coords (not the object identity) so unrelated
-    // parent re-renders don't reset the map view.
+    // parent re-renders don't reset the map view. clusterReady re-runs this once
+    // the async-loaded cluster group is available.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pins, origin?.lat, origin?.lng, radius]);
+  }, [pins, origin?.lat, origin?.lng, radius, clusterReady]);
 
   // ── List → map sync: open the active clinic's popup ──
   useEffect(() => {
     if (!activeClinicId) return;
     const map = mapRef.current;
+    const group = groupRef.current;
     const marker = markerByIdRef.current.get(activeClinicId);
-    if (map && marker) {
-      map.panTo(marker.getLatLng());
-      marker.openPopup();
-    }
+    if (!map || !group || !marker) return;
+    // The marker may be hidden inside a collapsed cluster, where openPopup()
+    // no-ops. zoomToShowLayer zooms/spiderfies until it's on the map first.
+    group.zoomToShowLayer(marker, () => marker.openPopup());
   }, [activeClinicId]);
 
   return <div ref={containerRef} className="h-full w-full" style={{ minHeight: 320 }} />;

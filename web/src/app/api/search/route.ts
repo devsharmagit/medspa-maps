@@ -160,8 +160,6 @@ export async function GET(request: NextRequest) {
   const sort = searchParams.get("sort") || (hasOrigin ? "distance" : "rating"); // distance | rating | name | reviews
 
   try {
-    console.log('[DEBUG] Search params:', { q, condition, location, page, limit, latRaw, lngRaw, radiusRaw, ratingRaw, sort });
-    
     const conditions: string[] = ["c.is_active = TRUE"];
     const params: (string | number | string[])[] = [];
     let paramIdx = 1;
@@ -174,6 +172,12 @@ export async function GET(request: NextRequest) {
     let distanceExpr = "NULL::float";
     let originLatParam: number | null = null;
     let originLngParam: number | null = null;
+    // When a state/text location filter is active, the display-location LATERAL
+    // (ploc) should prefer the branch that actually matched the filter — so a
+    // multi-location clinic searched by state shows its in-state address, not
+    // its primary one. Filled in by the location-filter block below; injected
+    // into both ploc ORDER BYs ahead of `is_primary`.
+    let locMatchOrder = "";
     if (hasOrigin) {
       const latParam = paramIdx;
       const lngParam = paramIdx + 1;
@@ -257,6 +261,7 @@ export async function GET(request: NextRequest) {
             WHERE cl.clinic_id = c.id AND cl.is_active = true
               AND (cl.state = $${paramIdx} OR cl.state ILIKE $${paramIdx + 1})
           )`);
+        locMatchOrder = `(cl.state = $${paramIdx} OR cl.state ILIKE $${paramIdx + 1}) DESC,`;
         params.push(abbr, fullName);
         paramIdx += 2;
       } else {
@@ -266,6 +271,7 @@ export async function GET(request: NextRequest) {
             WHERE cl.clinic_id = c.id AND cl.is_active = true
               AND (cl.city ILIKE $${paramIdx} OR cl.state ILIKE $${paramIdx} OR cl.zip ILIKE $${paramIdx})
           )`);
+        locMatchOrder = `(cl.city ILIKE $${paramIdx} OR cl.state ILIKE $${paramIdx} OR cl.zip ILIKE $${paramIdx}) DESC,`;
         params.push(`%${location}%`);
         paramIdx++;
       }
@@ -339,7 +345,7 @@ export async function GET(request: NextRequest) {
                      + sin(radians($${originLatParam})) * sin(radians(cl.lat))
                    ))) END) ASC NULLS LAST,`
               : ""
-          } cl.is_primary DESC, cl.sort_order NULLS LAST, cl.created_at
+          } ${locMatchOrder} cl.is_primary DESC, cl.sort_order NULLS LAST, cl.created_at
           LIMIT 1
         ) ploc ON TRUE
         LEFT JOIN clinic_services cs ON cs.clinic_id = c.id AND cs.is_active = TRUE
@@ -411,9 +417,6 @@ export async function GET(request: NextRequest) {
         WHERE ${conditions.join(" AND ")}
       ) subq
     `;
-
-    console.log('[DEBUG] Count query:', simpleCountQuery);
-    console.log('[DEBUG] Count params:', params);
 
     const countResult = await pool.query(simpleCountQuery, params);
     const totalResults = Number(countResult.rows[0]?.total || 0);
@@ -515,7 +518,7 @@ export async function GET(request: NextRequest) {
                      + sin(radians($${originLatParam})) * sin(radians(cl.lat))
                    ))) END) ASC NULLS LAST,`
               : ""
-          } cl.is_primary DESC, cl.sort_order NULLS LAST, cl.created_at
+          } ${locMatchOrder} cl.is_primary DESC, cl.sort_order NULLS LAST, cl.created_at
           LIMIT 1
         ) ploc ON TRUE
         LEFT JOIN clinic_services cs ON cs.clinic_id = c.id AND cs.is_active = TRUE
@@ -532,10 +535,7 @@ export async function GET(request: NextRequest) {
     `;
 
     const queryParams = [...params, limit, offset];
-    
-    console.log('[DEBUG] Main query:', query);
-    console.log('[DEBUG] Main params:', queryParams);
-    
+
     const result = await pool.query(query, queryParams);
 
     // Re-sort since DISTINCT ON forces ordering by c.id first.
