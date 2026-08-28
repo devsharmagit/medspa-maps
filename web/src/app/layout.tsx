@@ -4,6 +4,7 @@ import NextAuthProvider from "@/app/_providers/session-provider";
 import ChatWidget from "@/components/chat/chat-widget";
 import { LocationProvider } from "@/lib/location/location-context";
 import { UsaOnlyNotice } from "@/components/location/usa-only-notice";
+import { SITE_URL } from "@/lib/site";
 import "./globals.css";
 
 
@@ -31,6 +32,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: "Med Spa Maps — Find the Right Local Med Spa",
   description:
     "Explore 600+ vetted med spas, read expert treatment guides, and book with confidence.",

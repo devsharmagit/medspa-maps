@@ -10,6 +10,8 @@ import { FaqSection } from "@/components/hero/faq-section";
 import StatsSection from "@/components/hero/stat-section";
 import { getFeaturedClinics } from "@/lib/clinics/featured";
 import { SPOTLIGHT_PROVIDERS } from "@/lib/providers/spotlight-static";
+import { getRecentPosts } from "@/lib/blog";
+import { formatBlogMeta } from "@/lib/blog/format";
 import Image from "next/image";
 
 // Queries the database, so it can't be prerendered at Docker build time —
@@ -21,6 +23,15 @@ export default async function Home() {
   // Static owner-of-each-featured-clinic list (no runtime query) — see
   // src/lib/providers/spotlight-static.ts.
   const spotlightProviders = SPOTLIGHT_PROVIDERS;
+  // Latest blog posts for the "From the blog" section (registry-only; no query).
+  const latestPosts = getRecentPosts(3).map((post) => ({
+    slug: post.slug,
+    category: post.category,
+    title: post.title,
+    meta: formatBlogMeta(post.datePublished, post.readingMinutes),
+    image: post.heroImage,
+    alt: post.heroAlt,
+  }));
 
   return (
     <main className="relative flex flex-1 flex-col items-center bg-[#FDFDFD] gap-10 isolate w-full overflow-x-clip">
@@ -43,7 +54,7 @@ export default async function Home() {
       <ProvidersSpotlight providers={spotlightProviders} />
       <HowItWorks />
       <TopCities />
-      <ArticleSection />
+      <ArticleSection posts={latestPosts} />
       <FaqSection />
       <Footer showListingCta />
     </main>

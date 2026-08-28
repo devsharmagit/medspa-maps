@@ -61,19 +61,19 @@ export function HeroHeader({ className }: { className?: string }) {
           />
         </Link>
 
-        <nav className="hidden items-center gap-7 xl:flex" aria-label="Main">
-          {navLinks.map((link) => (
-            <Link
-              key={link.label}
-              href={link.href}
-              className="flex items-center gap-1.5 text-base font-medium text-white transition-opacity hover:opacity-80"
-            >
-              {link.label}
-            </Link>
-          ))}
-        </nav>
-
         <div className="flex items-center gap-2 sm:gap-[9px]">
+          <nav className="hidden items-center gap-8 xl:flex" aria-label="Main">
+            {navLinks.map((link) => (
+              <Link
+                key={link.label}
+                href={link.href}
+                className="flex items-center gap-1.5 text-base font-medium text-white transition-opacity hover:opacity-80"
+              >
+                {link.label}
+              </Link>
+            ))}
+          </nav>
+
           {/* Mobile menu toggle — nav collapses below xl */}
           <button
             type="button"

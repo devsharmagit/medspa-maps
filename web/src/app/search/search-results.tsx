@@ -169,9 +169,27 @@ interface ClinicResult {
   distance_miles: number | null;
 }
 
+/**
+ * First-page results rendered on the server and handed to this client component
+ * so the initial HTML contains real listings (crawlable) instead of a spinner.
+ * The client hydrates with the same data, then takes over all further fetches.
+ */
+export interface InitialSearchData {
+  results: ClinicResult[];
+  total: number;
+  resolved: { kind: string; name: string } | null;
+  pagination: {
+    page: number;
+    limit: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrevious: boolean;
+  } | null;
+}
+
 // ─── Search Results Component ─────────────────────────────────────────────────
 
-export function SearchResults() {
+export function SearchResults({ initialData }: { initialData?: InitialSearchData }) {
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -186,22 +204,26 @@ export function SearchResults() {
   const hasOrigin = Boolean(lat && lng);
   const sort = searchParams.get("sort") || (hasOrigin ? "distance" : "rating");
 
-  const [results, setResults] = useState<ClinicResult[]>([]);
-  const [total, setTotal] = useState(0);
+  const [results, setResults] = useState<ClinicResult[]>(initialData?.results ?? []);
+  const [total, setTotal] = useState(initialData?.total ?? 0);
   /**
    * What the typed treatment resolved to in the catalog, or null when it named
    * nothing. Lets the empty state say "we don't recognise that" instead of
    * implying no clinic offers it.
    */
-  const [resolved, setResolved] = useState<{ kind: string; name: string } | null>(null);
+  const [resolved, setResolved] = useState<{ kind: string; name: string } | null>(
+    initialData?.resolved ?? null
+  );
   const [pagination, setPagination] = useState<{
     page: number;
     limit: number;
     totalPages: number;
     hasNext: boolean;
     hasPrevious: boolean;
-  } | null>(null);
-  const [loading, setLoading] = useState(true);
+  } | null>(initialData?.pagination ?? null);
+  // Server already fetched the first page when initialData is present — start
+  // ready (no spinner) so the SSR'd markup and the client's first render match.
+  const [loading, setLoading] = useState(!initialData);
   const [error, setError] = useState("");
   const [geoError, setGeoError] = useState("");
   // Mobile-only: filters live in a bottom-sheet modal to keep results above the fold.
@@ -298,7 +320,15 @@ export function SearchResults() {
     // inferred dependencies (it refuses to memoize otherwise).
   }, [q, condition, location, sort, radius, rating, lat, lng, page, setLoading, setError, setResults, setTotal, setResolved, setPagination]);
 
+  // When the server already delivered the first page (initialData), skip the
+  // one redundant fetch on mount for those exact params; every later param
+  // change flips fetchResults' identity and fetches normally.
+  const skipFirstFetchRef = useRef(Boolean(initialData));
   useEffect(() => {
+    if (skipFirstFetchRef.current) {
+      skipFirstFetchRef.current = false;
+      return;
+    }
     fetchResults();
   }, [fetchResults]);
 

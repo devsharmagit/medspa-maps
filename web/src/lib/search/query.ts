@@ -1,0 +1,634 @@
+import { resolveSearchQuery, type ResolvedQuery } from "@/lib/search/resolve-query";
+import pool from "@/lib/db";
+import { lookupZip, lookupCityState } from "@/lib/location/postal-index";
+
+// Shared clinic-search engine. Extracted verbatim from the /api/search route so
+// the search PAGE can render the first result page server-side (crawlable HTML)
+// by calling this in-process, while the API route stays a thin wrapper for the
+// client-side filter/pagination/map fetches. Accepts a URLSearchParams so both
+// callers pass the exact same inputs and get byte-identical output.
+
+// Maps 2-letter state abbreviations to full names as stored in the DB
+const STATE_ABBR_TO_NAME: Record<string, string> = {
+  AL: "Alabama", AK: "Alaska", AZ: "Arizona", AR: "Arkansas", CA: "California",
+  CO: "Colorado", CT: "Connecticut", DE: "Delaware", FL: "Florida", GA: "Georgia",
+  HI: "Hawaii", ID: "Idaho", IL: "Illinois", IN: "Indiana", IA: "Iowa",
+  KS: "Kansas", KY: "Kentucky", LA: "Louisiana", ME: "Maine", MD: "Maryland",
+  MA: "Massachusetts", MI: "Michigan", MN: "Minnesota", MS: "Mississippi",
+  MO: "Missouri", MT: "Montana", NE: "Nebraska", NV: "Nevada", NH: "New Hampshire",
+  NJ: "New Jersey", NM: "New Mexico", NY: "New York", NC: "North Carolina",
+  ND: "North Dakota", OH: "Ohio", OK: "Oklahoma", OR: "Oregon", PA: "Pennsylvania",
+  RI: "Rhode Island", SC: "South Carolina", SD: "South Dakota", TN: "Tennessee",
+  TX: "Texas", UT: "Utah", VT: "Vermont", VA: "Virginia", WA: "Washington",
+  WV: "West Virginia", WI: "Wisconsin", WY: "Wyoming", DC: "District of Columbia",
+};
+
+// Reverse: FULL STATE NAME (upper-cased) → 2-letter abbreviation. Lets the
+// location search resolve a typed full name ("California") the same as "CA".
+const STATE_NAME_TO_ABBR: Record<string, string> = Object.fromEntries(
+  Object.entries(STATE_ABBR_TO_NAME).map(([abbr, name]) => [name.toUpperCase(), abbr])
+);
+
+// Broad concern → specific child concern slugs. Searching a broad concern also
+// returns clinics tagged with the narrower children. Kept in sync with the
+// AI-grown concern catalog after the 2026-07-13 cleanup (see scripts/clean-catalog-junk.ts).
+const BROAD_CONCERN_CHILDREN: Record<string, string[]> = {
+  "fine-lines-wrinkles": [
+    "forehead-lines",
+    "frown-lines",
+    "crows-feet",
+    "bunny-lines",
+    "marionette-lines",
+    "nasolabial-folds",
+    "smile-lines",
+    "lip-flip",
+  ],
+  "skin-laxity-sagging": [
+    "brow-lift",
+    "jawline",
+    "masseter-tmj-face-slimming",
+    "platysma-vertical-neck-cords",
+  ],
+};
+
+function conditionSlugSet(slug: string): string[] {
+  const clean = slug.trim();
+  return [...new Set([clean, ...(BROAD_CONCERN_CHILDREN[clean] ?? [])])];
+}
+
+/**
+ * Resolve a typed location string to coordinates using the in-memory postal
+ * index (src/data/postal-codes-us.json — no DB round-trip). Handles "37203"
+ * (zip), "37203, TN" / "37203 TN" (zip + state — e.g. from a booking form
+ * autofill), and "Nashville, TN" (city, state). Plain city names stay on the
+ * text-match path — the typeahead UI sends lat/lng when a suggestion is picked.
+ */
+function resolveTypedLocation(
+  location: string,
+): { lat: number; lng: number } | null {
+  const trimmed = location.trim();
+
+  // "37203" — plain zip
+  const zipOnly = trimmed.match(/^(\d{5})$/);
+  if (zipOnly) {
+    const hit = lookupZip(zipOnly[1]);
+    return hit ? { lat: hit.lat, lng: hit.lng } : null;
+  }
+
+  // "37203, TN" / "37203 TN" / "37203, Tennessee" — zip with a state alongside.
+  // The state just confirms/disambiguates; the zip's own coordinates win.
+  const zipState = trimmed.match(/^(\d{5})\s*,?\s*([A-Za-z .]{2,})$/);
+  if (zipState) {
+    const hit = lookupZip(zipState[1]);
+    if (hit) return { lat: hit.lat, lng: hit.lng };
+    // Zip not in our index but well-formed — fall through to try it as a
+    // "City, ST" match below would be wrong (it's digits), so just miss.
+    return null;
+  }
+
+  // "City, ST" / "City, StateName" — specific enough to geocode locally.
+  const cityState = trimmed.match(/^(.+?)\s*,\s*([A-Za-z .]{2,})$/);
+  if (cityState) {
+    const hit = lookupCityState(cityState[1], cityState[2]);
+    if (hit) return { lat: hit.lat, lng: hit.lng };
+  }
+  return null;
+}
+
+// ─── Response types ───────────────────────────────────────────────────────────
+
+export interface SearchPagination {
+  page: number;
+  limit: number;
+  totalPages: number;
+  hasNext: boolean;
+  hasPrevious: boolean;
+}
+
+export interface SearchQueryEcho {
+  q: string;
+  condition: string;
+  /** What `q` resolved to — null when it named nothing in the catalog. */
+  resolved: { kind: string; slug: string; name: string } | null;
+  location: string;
+  sort: string;
+  tier: string;
+  lat: number | null;
+  lng: number | null;
+  radius: number | null;
+  rating: number | null;
+}
+
+export interface SearchListResponse {
+  results: Record<string, unknown>[];
+  total: number;
+  pagination: SearchPagination;
+  query: SearchQueryEcho;
+}
+
+export interface SearchPinsResponse {
+  pins: Record<string, unknown>[];
+}
+
+/**
+ * Runs the clinic search. Returns the list payload, or the `{ pins }` payload
+ * when the caller set `?pins`. Throws on DB error (callers handle it).
+ */
+export async function runSearch(
+  searchParams: URLSearchParams,
+): Promise<SearchListResponse | SearchPinsResponse> {
+  const qRaw = searchParams.get("q") || "";
+  let q = qRaw;
+  let condition = searchParams.get("condition") || "";
+  const location = searchParams.get("location") || "";
+  const tier = searchParams.get("tier") || "";
+
+  // Treatment+condition combos are NOT supported: when both arrive, the
+  // condition wins and q is dropped (the UI enforces this too — one grouped
+  // dropdown sets either q or condition, never both).
+  if (condition) q = "";
+
+  // A typed treatment must NAME something in the catalog. Anything else — "abc",
+  // a phone number, a page title — resolves to nothing and returns no results,
+  // rather than ILIKE-matching whatever scraped string happened to contain it.
+  // A query that turns out to be a CONDITION is handed to the concern branch, so
+  // typing "melasma" into the treatment box still does the right thing.
+  let resolvedQuery: ResolvedQuery = { kind: "unresolved" };
+  if (q) {
+    resolvedQuery = await resolveSearchQuery(q);
+    if (resolvedQuery.kind === "concern") {
+      condition = resolvedQuery.slug;
+      q = "";
+    }
+  }
+
+  // Pagination params
+  const pageRaw = searchParams.get("page");
+  const limitRaw = searchParams.get("limit");
+  const page = pageRaw && Number.isFinite(Number(pageRaw)) ? Math.max(1, Number(pageRaw)) : 1;
+  const limit = limitRaw && Number.isFinite(Number(limitRaw)) ? Math.min(Math.max(1, Number(limitRaw)), 50) : 50;
+  const offset = (page - 1) * limit;
+
+  // Geo / rating params
+  const latRaw = searchParams.get("lat");
+  const lngRaw = searchParams.get("lng");
+  const radiusRaw = searchParams.get("radius");
+  const ratingRaw = searchParams.get("rating");
+
+  let latNum = latRaw !== null ? Number(latRaw) : NaN;
+  let lngNum = lngRaw !== null ? Number(lngRaw) : NaN;
+  let hasOrigin = Number.isFinite(latNum) && Number.isFinite(lngNum);
+
+  // Ecommerce-style zip/area search: a location of the form "37201" or
+  // "Nashville, TN" is geo-resolvable, so distance handles it — the text
+  // filter must NOT also run ("Nashville, TN" never ILIKE-matches the city
+  // column "Nashville", and "37201" would exclude the clinic one zip over).
+  // When the client sent no coordinates (raw typed input), we also resolve
+  // the origin from the in-memory postal index here.
+  const typedGeo = location ? resolveTypedLocation(location) : null;
+  const originFromTypedLocation = Boolean(typedGeo);
+  if (!hasOrigin && typedGeo) {
+    latNum = typedGeo.lat;
+    lngNum = typedGeo.lng;
+    hasOrigin = true;
+  }
+
+  const radiusNum = radiusRaw !== null && Number.isFinite(Number(radiusRaw))
+    ? Number(radiusRaw)
+    : 25; // miles, default 25
+
+  const ratingNum = ratingRaw !== null && Number.isFinite(Number(ratingRaw))
+    ? Number(ratingRaw)
+    : null;
+
+  // Default sort is 'distance' when an origin is present, else 'rating'
+  const sort = searchParams.get("sort") || (hasOrigin ? "distance" : "rating"); // distance | rating | name | reviews
+
+  const conditions: string[] = ["c.is_active = TRUE"];
+  const params: (string | number | string[])[] = [];
+  let paramIdx = 1;
+
+  // Haversine distance in MILES from (lat,lng) origin, computed in SQL.
+  // Distance = NEAREST point among the clinic's own coords AND all of its
+  // active clinic_locations. This makes distance work for clinics whose
+  // primary coords live only in clinic_locations (the common case after
+  // import) and gives multi-location clinics the honest "closest branch".
+  let distanceExpr = "NULL::float";
+  let originLatParam: number | null = null;
+  let originLngParam: number | null = null;
+  // When a state/text location filter is active, the display-location LATERAL
+  // (ploc) should prefer the branch that actually matched the filter — so a
+  // multi-location clinic searched by state shows its in-state address, not
+  // its primary one. Filled in by the location-filter block below; injected
+  // into both ploc ORDER BYs ahead of `is_primary`.
+  let locMatchOrder = "";
+  if (hasOrigin) {
+    const latParam = paramIdx;
+    const lngParam = paramIdx + 1;
+    originLatParam = latParam;
+    originLngParam = lngParam;
+    // 3959 = Earth radius in miles. GREATEST/LEAST clamp acos domain errors.
+    distanceExpr = `(
+      SELECT MIN(
+        3959 * acos(
+          GREATEST(-1, LEAST(1,
+            cos(radians($${latParam})) * cos(radians(pt.lat))
+            * cos(radians(pt.lng) - radians($${lngParam}))
+            + sin(radians($${latParam})) * sin(radians(pt.lat))
+          ))
+        )
+      )
+      FROM (
+        SELECT cl2.lat::float AS lat, cl2.lng::float AS lng
+        FROM clinic_locations cl2
+        WHERE cl2.clinic_id = c.id AND cl2.is_active = TRUE
+          AND cl2.lat IS NOT NULL AND cl2.lng IS NOT NULL
+      ) pt
+    )`;
+    params.push(latNum, lngNum);
+    paramIdx += 2;
+    // NOTE: clinics with no coordinates anywhere get distance_miles = NULL
+    // (sorted last within their group) rather than disappearing the moment a
+    // user shares their location. The radius hard-filter below naturally
+    // excludes null-coordinate clinics.
+  }
+
+  // Treatment search — by the CANONICAL slug the query resolved to, never by
+  // raw scraped text. An unresolved query matches nothing at all.
+  if (q) {
+    if (resolvedQuery.kind !== "treatment") {
+      conditions.push("FALSE");
+    } else {
+      conditions.push(`(s.id IS NOT NULL AND s.slug = $${paramIdx})`);
+      params.push(resolvedQuery.slug);
+      paramIdx += 1;
+    }
+  }
+
+  // Condition/concern search — slug-based membership (scraped ∪ manual −
+  // removed). A clinic matches when it lists the concern; no evidence-quote
+  // gate (that table was removed). All active concerns qualify.
+  if (condition) {
+    const conditionSlugs = conditionSlugSet(condition);
+    conditions.push(`(
+      EXISTS (
+        SELECT 1 FROM clinic_concerns cc
+        JOIN concerns con ON con.id = cc.concern_id
+        WHERE cc.clinic_id = c.id AND cc.is_active = TRUE
+          AND cc.source IN ('scraped', 'manual')
+          AND con.is_active = TRUE AND con.slug = ANY($${paramIdx}::text[])
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM clinic_concerns cc2
+        JOIN concerns con2 ON con2.id = cc2.concern_id
+        WHERE cc2.clinic_id = c.id AND cc2.is_active = TRUE
+          AND cc2.source = 'removed' AND con2.slug = ANY($${paramIdx}::text[])
+      )
+    )`);
+    params.push(conditionSlugs);
+    paramIdx++;
+  }
+
+  // Location search — checks both clinics table AND clinic_locations for
+  // multi-location clinics. Skipped when the typed location was resolved to
+  // an origin (zip / "City, ST"): distance handles it, and a string match on
+  // "37201" would wrongly exclude the clinic one zip over.
+  if (location && !originFromTypedLocation) {
+    const upper = location.trim().toUpperCase();
+    // Resolve either a 2-letter abbr ("CA") or a full name ("California") → abbr.
+    const abbr = STATE_ABBR_TO_NAME[upper] ? upper : STATE_NAME_TO_ABBR[upper];
+    const fullName = abbr ? STATE_ABBR_TO_NAME[abbr] : undefined;
+    if (abbr && fullName) {
+      conditions.push(`
+        EXISTS (
+          SELECT 1 FROM clinic_locations cl
+          WHERE cl.clinic_id = c.id AND cl.is_active = true
+            AND (cl.state = $${paramIdx} OR cl.state ILIKE $${paramIdx + 1})
+        )`);
+      locMatchOrder = `(cl.state = $${paramIdx} OR cl.state ILIKE $${paramIdx + 1}) DESC,`;
+      params.push(abbr, fullName);
+      paramIdx += 2;
+    } else {
+      conditions.push(`
+        EXISTS (
+          SELECT 1 FROM clinic_locations cl
+          WHERE cl.clinic_id = c.id AND cl.is_active = true
+            AND (cl.city ILIKE $${paramIdx} OR cl.state ILIKE $${paramIdx} OR cl.zip ILIKE $${paramIdx})
+        )`);
+      locMatchOrder = `(cl.city ILIKE $${paramIdx} OR cl.state ILIKE $${paramIdx} OR cl.zip ILIKE $${paramIdx}) DESC,`;
+      params.push(`%${location}%`);
+      paramIdx++;
+    }
+  }
+
+  // Rating filter — minimum rating (internal avg, else external/Google).
+  if (ratingNum !== null) {
+    conditions.push(`COALESCE(c.avg_rating, c.ext_rating) >= $${paramIdx}`);
+    params.push(ratingNum);
+    paramIdx++;
+  }
+
+  // Radius hard-filter — when the user explicitly picks a distance band, OR
+  // when the origin came from a typed zip / "City, ST" (ecommerce behavior:
+  // "37201" means near 37201, not the whole country — default 50 miles).
+  // A browser-geolocation origin alone still only enables distance display /
+  // sorting and never silently hides clinics.
+  const explicitRadius = radiusRaw !== null && Number.isFinite(Number(radiusRaw));
+  if (hasOrigin && (explicitRadius || originFromTypedLocation)) {
+    conditions.push(`${distanceExpr} <= $${paramIdx}`);
+    params.push(explicitRadius ? radiusNum : 50);
+    paramIdx++;
+  }
+
+  // ── Opt-in "pins" mode (map view on /search) ────────────────────────────
+  // Returns EVERY matching clinic's coordinates (no pagination), reusing the
+  // exact same filters (conditions/params) as the list so the pin set always
+  // matches the results. One pin per clinic, at the same branch the card
+  // shows (nearest to origin when present, else primary). Minimal columns.
+  // Returns early, so the default response below is completely unchanged.
+  if (searchParams.get("pins")) {
+    const pinsQuery = `
+      SELECT DISTINCT ON (c.id)
+        c.id AS clinic_id,
+        c.slug AS clinic_slug,
+        c.name AS clinic_name,
+        ploc.lat AS lat,
+        ploc.lng AS lng,
+        ploc.city AS city,
+        ploc.state AS state,
+        COALESCE(c.phone, ploc.phone) AS phone,
+        c.website,
+        c.booking_url,
+        c.avg_rating,
+        c.ext_rating,
+        c.review_count,
+        (
+          SELECT COALESCE(cdn_url, source_url) FROM images
+          WHERE entity_type = 'clinic' AND entity_id = c.id
+            AND role = 'logo' AND scrape_status = 'ok'
+          ORDER BY sort_order LIMIT 1
+        ) AS logo_url,
+        (
+          SELECT COALESCE(cdn_url, source_url) FROM images
+          WHERE entity_type = 'clinic' AND entity_id = c.id
+            AND role IN ('cover', 'gallery') AND scrape_status = 'ok'
+          ORDER BY (role = 'cover') DESC, sort_order LIMIT 1
+        ) AS cover_image_url,
+        c.featured
+      FROM clinics c
+      LEFT JOIN LATERAL (
+        SELECT cl.city, cl.state, cl.phone, cl.lat, cl.lng
+        FROM clinic_locations cl
+        WHERE cl.clinic_id = c.id AND cl.is_active = TRUE
+        ORDER BY ${
+          originLatParam !== null
+            ? `(CASE WHEN cl.lat IS NULL OR cl.lng IS NULL THEN NULL ELSE
+                 3959 * acos(GREATEST(-1, LEAST(1,
+                   cos(radians($${originLatParam})) * cos(radians(cl.lat))
+                   * cos(radians(cl.lng) - radians($${originLngParam}))
+                   + sin(radians($${originLatParam})) * sin(radians(cl.lat))
+                 ))) END) ASC NULLS LAST,`
+            : ""
+        } ${locMatchOrder} cl.is_primary DESC, cl.sort_order NULLS LAST, cl.created_at
+        LIMIT 1
+      ) ploc ON TRUE
+      LEFT JOIN clinic_services cs ON cs.clinic_id = c.id AND cs.is_active = TRUE
+      LEFT JOIN services s ON s.id = cs.service_id
+        AND s.is_active = TRUE
+        AND s.name !~* '(dentistry|dental|orthodont|veneer)'
+      WHERE ${conditions.join(" AND ")}
+        AND ploc.lat IS NOT NULL AND ploc.lng IS NOT NULL
+      ORDER BY c.id
+      LIMIT 1500
+    `;
+    const pinsResult = await pool.query(pinsQuery, params);
+    const pins = pinsResult.rows.map((r) => ({
+      clinic_id: r.clinic_id,
+      clinic_slug: r.clinic_slug,
+      clinic_name: r.clinic_name,
+      lat: r.lat === null ? null : Number(r.lat),
+      lng: r.lng === null ? null : Number(r.lng),
+      city: r.city,
+      state: r.state,
+      phone: r.phone,
+      website: r.website,
+      booking_url: r.booking_url,
+      // pg returns numeric columns as strings — coerce to a real number.
+      rating:
+        r.avg_rating != null
+          ? Number(r.avg_rating)
+          : r.ext_rating != null
+            ? Number(r.ext_rating)
+            : null,
+      review_count: Number(r.review_count) || 0,
+      logo_url: r.logo_url ?? null,
+      cover_image_url: r.cover_image_url ?? null,
+      featured: r.featured,
+    }));
+    return { pins };
+  }
+
+  // Sort order. Featured clinics are ALWAYS pinned on top; the chosen sort only orders
+  // within the featured and non-featured groups. Two variants are needed: `orderBy`
+  // (qualified with c.*) for use inside the CTE where the `clinics` alias is in scope,
+  // and `outerOrderBy` (bare column names) for the outer SELECT over the CTE's output,
+  // where only the CTE's own output columns — not `c` — are visible.
+  let orderBy =
+    "c.featured DESC, COALESCE(c.avg_rating, c.ext_rating) DESC NULLS LAST, c.review_count DESC";
+  let outerOrderBy =
+    "featured DESC, COALESCE(avg_rating, ext_rating) DESC NULLS LAST, review_count DESC";
+  if (sort === "name") {
+    orderBy = "c.featured DESC, c.name ASC";
+    outerOrderBy = "featured DESC, clinic_name ASC";
+  } else if (sort === "reviews") {
+    orderBy = "c.featured DESC, c.review_count DESC NULLS LAST";
+    outerOrderBy = "featured DESC, review_count DESC NULLS LAST";
+  } else if (sort === "distance" && hasOrigin) {
+    orderBy = "c.featured DESC, distance_miles ASC NULLS LAST";
+    outerOrderBy = "featured DESC, distance_miles ASC NULLS LAST";
+  }
+
+  // First, get the total count with the same conditions
+  const simpleCountQuery = `
+    SELECT COUNT(*) as total
+    FROM (
+      SELECT DISTINCT c.id
+      FROM clinics c
+      LEFT JOIN clinic_services cs ON cs.clinic_id = c.id AND cs.is_active = TRUE
+      LEFT JOIN services s ON s.id = cs.service_id
+        AND s.is_active = TRUE
+        AND s.name !~* '(dentistry|dental|orthodont|veneer)'
+      WHERE ${conditions.join(" AND ")}
+    ) subq
+  `;
+
+  const countResult = await pool.query(simpleCountQuery, params);
+  const totalResults = Number(countResult.rows[0]?.total || 0);
+
+  // Now get the paginated results
+  const query = `
+    WITH ordered_results AS (
+      SELECT DISTINCT ON (c.id)
+        c.id AS clinic_id,
+        ${distanceExpr} AS distance_miles,
+        c.name AS clinic_name,
+        c.slug AS clinic_slug,
+        -- Address/city/state/zip/phone live in clinic_locations now; use the
+        -- primary active location (clinic-level address kept as street fallback).
+        COALESCE(c.address, ploc.address) AS address,
+        ploc.city  AS city,
+        ploc.state AS state,
+        ploc.zip   AS zip,
+        COALESCE(c.phone, ploc.phone) AS phone,
+        c.website,
+        ploc.lat,
+        ploc.lng,
+        c.avg_rating,
+        c.review_count,
+        c.ext_rating,
+        c.ext_review_count,
+        c.featured,
+        c.about,
+        c.hours,
+        c.booking_url,
+        c.google_place_id,
+        c.instagram_url,
+        (
+          SELECT COALESCE(cdn_url, source_url) FROM images
+          WHERE entity_type = 'clinic' AND entity_id = c.id
+          AND role = 'logo' AND scrape_status = 'ok'
+          ORDER BY sort_order LIMIT 1
+        ) AS logo_url,
+        (
+          -- Only canonical-mapped services (skip unmatched scraped nav junk).
+          SELECT COALESCE(json_agg(t), '[]'::json) FROM (
+          SELECT DISTINCT sv.name AS name, sv.slug AS slug
+            FROM clinic_services cs2
+            JOIN services sv ON sv.id = cs2.service_id
+              AND sv.is_active = TRUE
+              AND sv.name !~* '(dentistry|dental|orthodont|veneer)'
+            WHERE cs2.clinic_id = c.id AND cs2.is_active = TRUE
+            LIMIT 8
+          ) t
+        ) AS services,
+        (
+          SELECT COALESCE(cdn_url, source_url) FROM images
+          WHERE entity_type = 'clinic' AND entity_id = c.id
+          AND role IN ('cover', 'gallery') AND scrape_status = 'ok'
+          ORDER BY (role = 'cover') DESC, sort_order LIMIT 1
+        ) AS cover_image_url,
+        (
+          -- Photo strip for the card: cover first, then gallery.
+          SELECT COALESCE(json_agg(url ORDER BY ord, so), '[]'::json) FROM (
+            SELECT COALESCE(cdn_url, source_url) AS url,
+              CASE role WHEN 'cover' THEN 0 ELSE 1 END AS ord,
+              sort_order AS so
+            FROM images
+            WHERE entity_type = 'clinic' AND entity_id = c.id
+              AND role IN ('cover', 'gallery')
+              AND scrape_status = 'ok'
+            ORDER BY ord, so
+            LIMIT 12
+          ) g
+        ) AS gallery_images,
+        (
+          SELECT count(*)::int FROM clinic_locations cl
+          WHERE cl.clinic_id = c.id AND cl.is_active = true
+        ) AS location_count,
+        '[]'::json AS providers,
+        (
+          SELECT COALESCE(json_agg(loc ORDER BY loc.sort_order), '[]'::json) FROM (
+            SELECT cl.id, cl.label, cl.address, cl.city, cl.state, cl.zip,
+                   cl.lat, cl.lng, cl.phone, cl.booking_url, cl.google_maps_url,
+                   cl.is_primary, cl.sort_order
+            FROM clinic_locations cl
+            WHERE cl.clinic_id = c.id AND cl.is_active = true
+          ) loc
+        ) AS locations
+      FROM clinics c
+      LEFT JOIN LATERAL (
+        SELECT cl.address, cl.city, cl.state, cl.zip, cl.phone, cl.lat, cl.lng
+        FROM clinic_locations cl
+        WHERE cl.clinic_id = c.id AND cl.is_active = TRUE
+        ORDER BY ${
+          originLatParam !== null
+            ? // With a search origin, show the NEAREST branch's address —
+              // "0.3 mi away" next to the primary branch's city reads wrong
+              // for multi-location clinics.
+              `(CASE WHEN cl.lat IS NULL OR cl.lng IS NULL THEN NULL ELSE
+                 3959 * acos(GREATEST(-1, LEAST(1,
+                   cos(radians($${originLatParam})) * cos(radians(cl.lat))
+                   * cos(radians(cl.lng) - radians($${originLngParam}))
+                   + sin(radians($${originLatParam})) * sin(radians(cl.lat))
+                 ))) END) ASC NULLS LAST,`
+            : ""
+        } ${locMatchOrder} cl.is_primary DESC, cl.sort_order NULLS LAST, cl.created_at
+        LIMIT 1
+      ) ploc ON TRUE
+      LEFT JOIN clinic_services cs ON cs.clinic_id = c.id AND cs.is_active = TRUE
+      LEFT JOIN services s ON s.id = cs.service_id
+        AND s.is_active = TRUE
+        AND s.name !~* '(dentistry|dental|orthodont|veneer)'
+      WHERE ${conditions.join(" AND ")}
+      ORDER BY c.id, ${orderBy}
+    )
+    SELECT *
+    FROM ordered_results
+    ORDER BY ${outerOrderBy}
+    LIMIT $${paramIdx} OFFSET $${paramIdx + 1}
+  `;
+
+  const queryParams = [...params, limit, offset];
+
+  const result = await pool.query(query, queryParams);
+
+  // Re-sort since DISTINCT ON forces ordering by c.id first.
+  // Also round distance_miles to 1 decimal (null when no origin).
+  const rows = result.rows;
+  for (const row of rows) {
+    row.distance_miles =
+      row.distance_miles === null || row.distance_miles === undefined
+        ? null
+        : Math.round(Number(row.distance_miles) * 10) / 10;
+  }
+
+  // The results are already sorted by the database query, so we don't need to re-sort in JavaScript
+
+  return {
+    results: rows,
+    total: totalResults,
+    pagination: {
+      page,
+      limit,
+      totalPages: Math.ceil(totalResults / limit),
+      hasNext: page < Math.ceil(totalResults / limit),
+      hasPrevious: page > 1,
+    },
+    query: {
+      q: qRaw,
+      condition,
+      /** What `q` resolved to — null when it named nothing in the catalog. */
+      resolved:
+        resolvedQuery.kind === "unresolved"
+          ? null
+          : { kind: resolvedQuery.kind, slug: resolvedQuery.slug, name: resolvedQuery.name },
+      location,
+      sort,
+      tier,
+      lat: hasOrigin ? latNum : null,
+      lng: hasOrigin ? lngNum : null,
+      radius: hasOrigin ? radiusNum : null,
+      rating: ratingNum,
+    },
+  };
+}
+
+/**
+ * List-mode wrapper for server components that render the first result page.
+ * Never requests `?pins`, so the payload is always the list shape.
+ */
+export async function searchClinics(
+  searchParams: URLSearchParams,
+): Promise<SearchListResponse> {
+  return (await runSearch(searchParams)) as SearchListResponse;
+}

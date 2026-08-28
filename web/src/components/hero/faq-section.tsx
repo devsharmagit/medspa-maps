@@ -1,4 +1,6 @@
 import { FaqItem } from "./faq-item";
+import { JsonLd } from "@/components/shared/json-ld";
+import { faqPageJsonLd } from "@/lib/seo/json-ld";
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 // FAQs focus on the benefits of our vetted listings and how the directory works.
@@ -38,24 +40,13 @@ const faqs = [
 export function FaqSection() {
   const jsonLd = {
     "@context": "https://schema.org",
-    "@type": "FAQPage",
-    mainEntity: faqs.map((faq) => ({
-      "@type": "Question",
-      name: faq.question,
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: faq.answer,
-      },
-    })),
+    ...faqPageJsonLd(faqs.map((faq) => ({ q: faq.question, a: faq.answer }))),
   };
 
   return (
     <section className="flex w-[calc(100%-2rem)] max-w-[1372px] flex-col items-center gap-8 py-6 min-[1400px]:py-10">
       {/* FAQPage structured data for SEO */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
+      <JsonLd data={jsonLd} />
 
       <h2 className="font-montserrat text-[26px] sm:text-[30px] lg:text-[34px] font-normal leading-[116.02%] tracking-[-0.04em] text-[#373634] text-center">
         Frequently asked{" "}

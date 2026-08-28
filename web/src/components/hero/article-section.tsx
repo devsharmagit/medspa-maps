@@ -1,7 +1,8 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 import { useRef, useState, useEffect } from "react";
 
 const categories = [
@@ -12,28 +13,20 @@ const categories = [
   { name: "Patient guide" },
 ];
 
-const articles = [
-  {
-    category: "Treatments",
-    title: "Benefits of Laser Hair Treatments",
-    meta: "May 12, 2026 - 5 min read",
-  },
-  {
-    category: "Treatments",
-    title: "Ultimate Guide to Botox & Fillers",
-    meta: "Jun 04, 2026 - 8 min read",
-  },
-  {
-    category: "Treatments",
-    title: "Laser Hair Removal: What to Expect",
-    meta: "May 18, 2026 - 4 min read",
-  },
-];
-
 const popularTopics = ["Botox", "Fillers", "Laser treatments", "Acne", "Anti aging"];
 
-export function ArticleSection() {
-  const [searchQuery, setSearchQuery] = useState("");
+/** Light, serializable shape passed from the server homepage. */
+export interface ArticleCard {
+  slug: string;
+  category: string;
+  title: string;
+  /** Pre-formatted "August 21, 2026 · 7 min read". */
+  meta: string;
+  image: string;
+  alt: string;
+}
+
+export function ArticleSection({ posts }: { posts: ArticleCard[] }) {
   const articlesScrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
@@ -78,11 +71,6 @@ export function ArticleSection() {
     }
   };
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log("Searching articles for:", searchQuery);
-  };
-
   return (
     <section className="mx-auto flex w-full max-w-[1372px] pb-16 min-[1400px]:pb-[120px] flex-col items-center justify-center py-6 px-4 min-[1400px]:px-0">
       {/* Outer Card Container */}
@@ -111,23 +99,6 @@ export function ArticleSection() {
             </p>
           </div>
 
-          {/* Search Box */}
-          {/* <form
-            onSubmit={handleSearchSubmit}
-            className="flex items-center justify-between w-full sm:max-w-[369px] h-[50px] bg-white border border-[#D2C3D3] rounded-[8px] px-[15px] mt-5"
-          >
-            <input
-              type="text"
-              placeholder="Search articles, topics, treatments..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full font-montserrat text-[14px] text-[#353535] placeholder-[#886A7B] bg-transparent border-none outline-none focus:ring-0"
-            />
-            <button type="submit" className="text-[#99597A] p-1 cursor-pointer hover:opacity-85">
-              <Search className="h-5 w-5" strokeWidth={2} />
-            </button>
-          </form> */}
-
           {/* Popular Topics Tags */}
           <div className="flex flex-col gap-[9px] w-full mt-[18px]">
             <span className="font-montserrat font-semibold text-[14px] leading-[140%] text-[#353535]">
@@ -135,12 +106,12 @@ export function ArticleSection() {
             </span>
             <div className="flex flex-wrap gap-1.5 w-full">
               {popularTopics.map((topic, index) => (
-                <button
+                <span
                   key={index}
-                  className="flex justify-center items-center h-[26px] bg-[#E2CCE2] rounded-[6px] px-2.5 py-[4px] font-montserrat font-medium text-[12px] text-[#353535] transition-colors hover:bg-[#d5b5d5] cursor-pointer"
+                  className="flex justify-center items-center h-[26px] bg-[#E2CCE2] rounded-[6px] px-2.5 py-[4px] font-montserrat font-medium text-[12px] text-[#353535]"
                 >
                   {topic}
-                </button>
+                </span>
               ))}
             </div>
           </div>
@@ -148,7 +119,7 @@ export function ArticleSection() {
 
         {/* Right Column Content Stack (Visible and formatted correctly for desktops/mobiles) */}
         <div className="flex flex-col w-full min-[1400px]:w-[839px] gap-4 mt-8 min-[1400px]:mt-0 min-[1400px]:absolute min-[1400px]:left-[490px] min-[1400px]:top-[26px] z-10">
-          
+
           {/* Categories Grid (Top Row) */}
           <div className="flex w-full gap-[11px] overflow-x-auto pb-2 scrollbar-none snap-x snap-mandatory">
             {categories.map((cat, idx) => (
@@ -189,7 +160,7 @@ export function ArticleSection() {
 
             {/* View All & navigation capsule */}
             <div className="flex items-center gap-[32px] h-[31px]">
-              <button className="group flex items-center gap-[5px] h-[19px] cursor-pointer">
+              <Link href="/blog" className="group flex items-center gap-[5px] h-[19px] cursor-pointer">
                 <span className="font-montserrat font-medium text-[16px] leading-[116.02%] text-[#CF5D9A]">
                   View all articles
                 </span>
@@ -209,7 +180,7 @@ export function ArticleSection() {
                     strokeLinejoin="round"
                   />
                 </svg>
-              </button>
+              </Link>
 
               {/* Slider Arrow Capsule */}
               <div className="flex items-center gap-[3px] h-[31px]">
@@ -248,9 +219,10 @@ export function ArticleSection() {
             className="flex w-full gap-[16px] overflow-x-auto pb-4 scroll-smooth scrollbar-none snap-x snap-mandatory px-1"
             onScroll={checkScrollLimits}
           >
-            {articles.map((art, index) => (
-              <div
-                key={index}
+            {posts.map((art) => (
+              <Link
+                key={art.slug}
+                href={`/blog/${art.slug}`}
                 className="relative flex h-[100px] w-[228px] sm:h-[108px] sm:w-[267px] shrink-0 items-center justify-start rounded-[12px] border border-[#ECDDED] overflow-hidden shadow-[0px_8px_14px_rgba(0,0,0,0.02)] snap-start hover:border-[#CB97CE] hover:shadow-[0px_8px_16px_rgba(203,151,206,0.08)] transition-all cursor-pointer"
                 style={{
                   background: "linear-gradient(126.81deg, #FCD1FF -96.14%, #FFFFFF 49.94%)",
@@ -259,8 +231,8 @@ export function ArticleSection() {
                 {/* Article Image Cover */}
                 <div className="relative w-[64px] sm:w-[74px] h-full shrink-0 rounded-l-[10px] overflow-hidden bg-[#F3E5F5]">
                   <Image
-                    src="/images/landingpage/artical-img.png"
-                    alt={art.title}
+                    src={art.image}
+                    alt={art.alt}
                     fill
                     className="object-cover"
                     sizes="74px"
@@ -281,7 +253,7 @@ export function ArticleSection() {
                     {art.meta}
                   </span>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
 

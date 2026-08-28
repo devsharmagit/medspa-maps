@@ -15,10 +15,13 @@ import { OtherProvidersCarousel } from "@/components/shared/other-providers-caro
 import { ClinicTreatmentsCarousel } from "@/components/shared/clinic-treatments-carousel";
 import { ClinicConcernsSection } from "./concerns-section";
 import { ClinicReviewsSection } from "@/components/shared/clinic-reviews-section";
-import { Breadcrumbs } from "@/components/shared/breadcrumbs";
+import { Breadcrumbs, type BreadcrumbItem } from "@/components/shared/breadcrumbs";
 import { ClinicSocialLinks } from "@/components/shared/clinic-social-links";
 import { AnchorScrollLink } from "@/components/shared/anchor-scroll-link";
 import { RevisionRequestCta } from "./revision-request-cta";
+import { JsonLd } from "@/components/shared/json-ld";
+import { medicalBusinessJsonLd, breadcrumbListJsonLd } from "@/lib/seo/json-ld";
+import { absoluteUrl, SITE_NAME } from "@/lib/site";
 import { withBookingUtm, formatLongDate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -33,12 +36,25 @@ export async function generateMetadata({
   if (!data) return { title: "Practice not found" };
   const { clinic } = data;
   const loc = data.stats.city ?? "";
+  const path = `/practices/${slug}`;
+  const title = `${clinic.name} — Med Spa Maps`;
+  const description =
+    clinic.about?.slice(0, 155) ??
+    clinic.tagline ??
+    (loc ? `Book at ${clinic.name} in ${loc}` : undefined);
+  const ogImage = data.gallery[0]?.source_url ?? clinic.logo_url ?? null;
   return {
-    title: `${clinic.name} — Med Spa Maps`,
-    description:
-      clinic.about?.slice(0, 155) ??
-      clinic.tagline ??
-      (loc ? `Book at ${clinic.name} in ${loc}` : undefined),
+    title,
+    description,
+    alternates: { canonical: path },
+    openGraph: {
+      type: "website",
+      title,
+      description,
+      url: path,
+      siteName: SITE_NAME,
+      ...(ogImage ? { images: [ogImage] } : {}),
+    },
   };
 }
 
@@ -108,8 +124,31 @@ export default async function ClinicPage({
   // Where the displayed rating comes from — shown as context under the stars.
   const ratingSourceLabel ="via Google";
 
+  // Breadcrumbs — one source of truth for both the visual trail and the
+  // BreadcrumbList schema. ("Clinics" points at /search; there is no /clinics.)
+  const crumbs: BreadcrumbItem[] = [
+    { label: "Home", href: "/" },
+    { label: "Clinics", href: "/search" },
+    { label: clinic.name },
+  ];
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@graph": [
+      medicalBusinessJsonLd({
+        clinic,
+        primaryLocation: primaryLoc,
+        stats,
+        reviews,
+        gallery,
+        url: absoluteUrl(`/practices/${clinic.slug}`),
+      }),
+      breadcrumbListJsonLd(crumbs),
+    ],
+  };
+
   return (
     <main className="flex min-h-screen flex-col bg-[#FDFDFD] text-zinc-950 overflow-x-clip">
+      <JsonLd data={jsonLd} />
       <div className="bg-gradient-to-r from-[#7b2d6b] via-[#9b3a6e] to-[#b6663f]">
         <HeroHeader />
       </div>
@@ -117,13 +156,7 @@ export default async function ClinicPage({
       <div className="mx-auto w-full max-w-[1440px] flex-1 px-[16px] sm:px-[34px] pt-[35px] pb-[60px] flex flex-col gap-[35px]">
         {/* Breadcrumb */}
         <div className="-mb-[10px]">
-          <Breadcrumbs
-            items={[
-              { label: "Home", href: "/" },
-              { label: "Clinics", href: "/clinics" },
-              { label: clinic.name },
-            ]}
-          />
+          <Breadcrumbs items={crumbs} />
         </div>
 
         {/* ── Hero Card ── */}

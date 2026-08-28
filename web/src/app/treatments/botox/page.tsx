@@ -14,6 +14,8 @@ import {
 
 import { Footer } from "@/components/footer";
 import { ListingHero } from "@/components/shared/listing-hero";
+import { JsonLd } from "@/components/shared/json-ld";
+import { faqPageJsonLd } from "@/lib/seo/json-ld";
 import { Button } from "@/components/ui/button";
 import { BotoxLocationSearch } from "./botox-location-search";
 
@@ -177,22 +179,8 @@ const jsonLd = {
       howPerformed:
         "A licensed medical provider injects small doses of botulinum toxin type A into targeted facial muscles using a fine needle to temporarily relax them and soften dynamic wrinkles.",
     },
-    {
-      "@type": "BreadcrumbList",
-      itemListElement: [
-        { "@type": "ListItem", position: 1, name: "Home", item: "/" },
-        { "@type": "ListItem", position: 2, name: "Treatments", item: "/treatments" },
-        { "@type": "ListItem", position: 3, name: "Botox", item: "/treatments/botox" },
-      ],
-    },
-    {
-      "@type": "FAQPage",
-      mainEntity: FAQS.map((f) => ({
-        "@type": "Question",
-        name: f.question,
-        acceptedAnswer: { "@type": "Answer", text: f.answer },
-      })),
-    },
+    // BreadcrumbList is emitted by <ListingHero> — don't duplicate it here.
+    faqPageJsonLd(FAQS.map((f) => ({ q: f.question, a: f.answer }))),
   ],
 };
 
@@ -373,10 +361,7 @@ export default function BotoxPage() {
       className="flex min-h-screen flex-col bg-[#faf7fb] text-zinc-950 relative overflow-x-hidden"
       style={{ fontFamily: "var(--font-montserrat), sans-serif" }}
     >
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
+      <JsonLd data={jsonLd} />
 
       <ListingHero
         crumbs={[
