@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { TOP_STATES } from "@/data/top-states";
+import { stateSlug } from "@/lib/locations/state-content";
 import { formatCountPlus } from "@/lib/utils";
 
 export function TopCities() {
@@ -24,7 +25,7 @@ export function TopCities() {
         {TOP_STATES.map((state) => (
           <Link
             key={state.abbr}
-            href={`/search?location=${state.abbr}`}
+            href={`/locations/${stateSlug(state.state)}`}
             className="group relative block aspect-[4/3.4] overflow-hidden rounded-2xl shadow-sm transition-shadow hover:shadow-[0_10px_28px_rgba(170,78,179,0.18)] sm:aspect-[4/3]"
           >
             <Image

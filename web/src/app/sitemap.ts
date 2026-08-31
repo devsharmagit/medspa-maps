@@ -2,6 +2,7 @@ import type { MetadataRoute } from "next";
 
 import { getAllPosts } from "@/lib/blog";
 import { query } from "@/lib/db";
+import { allStateSlugs } from "@/lib/locations/state-content";
 import { absoluteUrl } from "@/lib/site";
 
 // Re-query active practices hourly so newly-added clinics enter the sitemap
@@ -10,9 +11,9 @@ export const revalidate = 3600;
 
 /**
  * Site sitemap. Enumerates the core indexable routes, every blog post (from the
- * registry, so new articles register automatically), and every active practice
- * page (from the DB). Location pages are intentionally excluded — they're
- * query-param facets of /search, not standalone routes.
+ * registry, so new articles register automatically), the 12 state landing
+ * pages, and every active practice page (from the DB). City-level location
+ * pages are not built yet, so they're not listed.
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const core: MetadataRoute.Sitemap = [
@@ -37,6 +38,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.7,
   }));
 
+  const states: MetadataRoute.Sitemap = allStateSlugs().map((slug) => ({
+    url: absoluteUrl(`/locations/${slug}`),
+    changeFrequency: "weekly",
+    priority: 0.8,
+  }));
+
   // Every active practice page. A DB hiccup degrades to core + posts rather
   // than failing the sitemap entirely.
   let practices: MetadataRoute.Sitemap = [];
@@ -54,5 +61,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     console.error("sitemap: failed to load practice slugs:", err);
   }
 
-  return [...core, ...posts, ...practices];
+  return [...core, ...posts, ...states, ...practices];
 }
