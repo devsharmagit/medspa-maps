@@ -3,6 +3,8 @@ import type { ComponentPropsWithoutRef, ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+import { slugifyText } from "@/lib/blog/toc";
+
 /** Flatten React children to a plain string (headings are plain text here). */
 function toText(children: ReactNode): string {
   if (children == null || children === false) return "";
@@ -14,13 +16,13 @@ function toText(children: ReactNode): string {
   return "";
 }
 
-/** Stable anchor id from a heading's text (enables deep-linking to sections). */
+/**
+ * Stable anchor id from a heading's text (enables deep-linking to sections and
+ * matching the sidebar TOC). Shares slugifyText with lib/blog/toc.ts so the
+ * ids are identical to what the TOC generates from the raw markdown.
+ */
 function slugify(children: ReactNode): string {
-  return toText(children)
-    .toLowerCase()
-    .replace(/[^\w\s-]/g, "")
-    .trim()
-    .replace(/\s+/g, "-");
+  return slugifyText(toText(children));
 }
 
 /**

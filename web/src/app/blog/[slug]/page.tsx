@@ -58,7 +58,7 @@ export default async function BlogPostPage({
   if (!post) notFound();
 
   const body = getPostBody(slug);
-  const related = getRelatedPosts(slug, 2);
+  const recentPosts = getRelatedPosts(slug, 3);
 
-  return <BlogArticle post={post} body={body} related={related} />;
+  return <BlogArticle post={post} body={body} recentPosts={recentPosts} />;
 }

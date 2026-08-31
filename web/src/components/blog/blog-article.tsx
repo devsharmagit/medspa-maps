@@ -1,31 +1,37 @@
 import Image from "next/image";
-import Link from "next/link";
-import { ArrowRight, MapPin } from "lucide-react";
 
 import { Footer } from "@/components/footer";
-import { BlogCard } from "@/components/blog/blog-card";
 import { BlogFaqSection } from "@/components/blog/blog-faq";
 import { KeyTakeaways } from "@/components/blog/key-takeaways";
 import { Markdown } from "@/components/blog/markdown";
+import { RecentPosts } from "@/components/blog/recent-posts";
+import { TableOfContents } from "@/components/blog/table-of-contents";
+import { TreatmentPractices } from "@/components/blog/treatment-practices";
 import { JsonLd } from "@/components/shared/json-ld";
 import { faqPageJsonLd } from "@/lib/seo/json-ld";
 import { ListingHero } from "@/components/shared/listing-hero";
 import { MedicalDisclaimer } from "@/components/shared/medical-disclaimer";
-import { Button } from "@/components/ui/button";
 import { formatBlogDate } from "@/lib/blog/format";
 import type { BlogPostMeta } from "@/lib/blog/posts";
+import { extractToc } from "@/lib/blog/toc";
 import { SITE_NAME, SITE_URL, absoluteUrl } from "@/lib/site";
 
 export function BlogArticle({
   post,
   body,
-  related,
+  recentPosts,
 }: {
   post: BlogPostMeta;
   body: string;
-  related: BlogPostMeta[];
+  recentPosts: BlogPostMeta[];
 }) {
   const url = absoluteUrl(`/blog/${post.slug}`);
+
+  // The practices sidebar reuses the post's CTA target (e.g. "q=laser-skin-resurfacing"
+  // or "condition=hyperpigmentation") to query the same search engine.
+  const apiQuery = post.cta.href.includes("?") ? post.cta.href.split("?")[1] : "";
+
+  const toc = extractToc(body);
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -66,7 +72,7 @@ export function BlogArticle({
           { label: post.title },
         ]}
         title={post.title}
-        contentClassName="max-w-[820px]"
+        contentClassName="max-w-[1200px]"
       >
         <p className="font-montserrat text-[13px] text-zinc-500 sm:text-[14px]">
           By <span className="font-medium text-zinc-700">{post.author}</span>
@@ -77,86 +83,67 @@ export function BlogArticle({
         </p>
       </ListingHero>
 
-      {/* Hero + article share the exact same centered reading column as the header */}
-      <div className="mx-auto w-full max-w-[820px] px-4 sm:px-6">
-        {/* Hero image */}
-        <figure className="relative">
-          <div className="relative aspect-[16/9] w-full overflow-hidden rounded-[18px] border border-[#F0E2EC] bg-[#F3E5F5] sm:aspect-[16/8]">
-            <Image
-              src={post.heroImage}
-              alt={post.heroAlt}
-              fill
-              priority
-              sizes="(min-width: 1400px) 1360px, 100vw"
-              className="object-cover"
-            />
-          </div>
-          {post.heroCredit && (
-            <figcaption className="mt-2 text-right text-[12px] text-zinc-400">
-              Photo:{" "}
-              <a
-                href={post.heroCredit.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline hover:text-[#CF5B9D]"
-              >
-                {post.heroCredit.name}
-              </a>
-            </figcaption>
-          )}
-        </figure>
+      <div className="mx-auto w-full max-w-[1200px] px-4 pb-16 sm:px-6">
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-10">
+          {/* Left: the article */}
+          <article
+            className="min-w-0"
+            style={{ fontFamily: "var(--font-montserrat), sans-serif" }}
+          >
+            {/* Hero image */}
+            <figure className="relative">
+              <div className="relative aspect-[16/9] w-full overflow-hidden rounded-[18px] border border-[#F0E2EC] bg-[#F3E5F5] sm:aspect-[16/8]">
+                <Image
+                  src={post.heroImage}
+                  alt={post.heroAlt}
+                  fill
+                  priority
+                  sizes="(min-width: 1024px) 800px, 100vw"
+                  className="object-cover"
+                />
+              </div>
+              {post.heroCredit && (
+                <figcaption className="mt-2 text-right text-[12px] text-zinc-400">
+                  Photo:{" "}
+                  <a
+                    href={post.heroCredit.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline hover:text-[#CF5B9D]"
+                  >
+                    {post.heroCredit.name}
+                  </a>
+                </figcaption>
+              )}
+            </figure>
 
-        <article
-          className="pb-8 pt-8"
-          style={{ fontFamily: "var(--font-montserrat), sans-serif" }}
-        >
-          <KeyTakeaways items={post.keyTakeaways} />
+            <div className="pt-8">
+              <KeyTakeaways items={post.keyTakeaways} />
 
-          <div className="mt-2">
-            <Markdown>{body}</Markdown>
-          </div>
+              <div className="mt-2">
+                <Markdown>{body}</Markdown>
+              </div>
 
-          <MedicalDisclaimer />
+              <MedicalDisclaimer />
 
-          <BlogFaqSection faqs={post.faqs} />
-
-          {/* Closing CTA into the directory */}
-          <section className="mt-14 rounded-[18px] border border-[#DEC6DF] bg-white px-6 py-8 text-center shadow-[0px_8px_14px_rgba(0,0,0,0.02)] sm:px-10">
-            <h2 className="font-montserrat text-[22px] font-semibold text-[#373634] sm:text-[26px]">
-              Find the right provider for you
-            </h2>
-            <p className="mx-auto mt-2 max-w-xl font-montserrat text-[15px] leading-[1.6] text-zinc-600">
-              Compare qualified med spas near you, read reviews, and book a consultation
-              with confidence.
-            </p>
-            <div className="mt-6 flex justify-center">
-              <Button asChild variant="gradient" size="search">
-                <Link href={post.cta.href}>
-                  <MapPin className="size-[18px]" aria-hidden />
-                  {post.cta.label}
-                  <ArrowRight className="size-[18px]" aria-hidden />
-                </Link>
-              </Button>
+              <BlogFaqSection faqs={post.faqs} />
             </div>
-          </section>
-        </article>
-      </div>
+          </article>
 
-      {/* Related articles — wider grid, centered on the same axis */}
-      {related.length > 0 && (
-        <div className="mx-auto w-full max-w-[1100px] px-4 sm:px-6">
-          <section className="border-t border-[#F0E2EC] pb-16 pt-10">
-            <h2 className="font-montserrat text-[22px] font-semibold text-[#373634] sm:text-[26px]">
-              Related articles
-            </h2>
-            <div className="mt-6 grid gap-5 sm:grid-cols-2">
-              {related.map((r) => (
-                <BlogCard key={r.slug} post={r} />
-              ))}
+          {/* Right: sidebar — recent articles + practices for this treatment */}
+          <aside className="lg:sticky lg:top-[110px] lg:self-start">
+            <div className="flex flex-col gap-6">
+              <TableOfContents items={toc} />
+              <RecentPosts posts={recentPosts} />
+              <TreatmentPractices
+                apiQuery={apiQuery}
+                searchHref={post.cta.href}
+                ctaLabel={post.cta.label}
+              />
             </div>
-          </section>
+          </aside>
         </div>
-      )}
+      </div>
 
       <Footer />
     </main>
