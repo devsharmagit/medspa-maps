@@ -45,10 +45,10 @@ export async function GET() {
 
   const guideLines = [
     ...Object.values(TREATMENT_PAGES).map(
-      (c) => `- [${c.h1.lead} guide](${absoluteUrl(`/treatment/${c.slug}`)}): ${c.metaDescription}`,
+      (c) => `- [${c.shortName} guide](${absoluteUrl(`/treatment/${c.slug}`)}): ${c.metaDescription}`,
     ),
     ...Object.values(CONDITION_PAGES).map(
-      (c) => `- [${c.h1.lead} guide](${absoluteUrl(`/condition/${c.slug}`)}): ${c.metaDescription}`,
+      (c) => `- [${c.shortName} guide](${absoluteUrl(`/condition/${c.slug}`)}): ${c.metaDescription}`,
     ),
   ];
   if (guideLines.length) {
