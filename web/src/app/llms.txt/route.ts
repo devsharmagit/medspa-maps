@@ -36,7 +36,7 @@ export async function GET() {
     "",
     "## Key pages",
     `- [Search med spas](${absoluteUrl("/search")}): Find and compare med spas by treatment, concern, or location (e.g. ${absoluteUrl("/search?location=TX")}).`,
-    `- [Treatments](${absoluteUrl("/treatments")}): Browse the aesthetic treatments offered across the directory.`,
+    `- [Patients' Favourites](${absoluteUrl("/patients-fav")}): Popular treatment and condition guides patients research most.`,
     `- [Conditions](${absoluteUrl("/conditions")}): Skin and aesthetic concerns, and the med spas that treat them.`,
     `- [Providers](${absoluteUrl("/providers")}): Aesthetic providers featured across listed practices.`,
     `- [Blog](${absoluteUrl("/blog")}): Expert, plain-English treatment guides.`,

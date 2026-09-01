@@ -19,7 +19,9 @@ const CONTENT_WIDTH = "max-w-[1240px]";
 
 /** Shared template for every /treatment/[slug] and /condition/[slug] page. */
 export function LandingPage({ content }: { content: LandingContent }) {
-  const sectionBase = content.kind === "treatment" ? "/treatments" : "/conditions";
+  // Breadcrumb reads "Treatments"/"Conditions" but still points to the
+  // Patients' Favourites page, so clicking it lands there.
+  const sectionBase = "/patients-fav";
   const sectionLabel = content.kind === "treatment" ? "Treatments" : "Conditions";
   const guideLabel = content.kind === "treatment" ? "treatment guide" : "condition guide";
   const pagePath = `/${content.kind}/${content.slug}`;
