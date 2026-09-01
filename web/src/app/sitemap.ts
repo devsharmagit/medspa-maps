@@ -2,6 +2,8 @@ import type { MetadataRoute } from "next";
 
 import { getAllPosts } from "@/lib/blog";
 import { query } from "@/lib/db";
+import { allConditionSlugs } from "@/lib/landing/conditions";
+import { allTreatmentSlugs } from "@/lib/landing/treatments";
 import { allStateSlugs } from "@/lib/locations/state-content";
 import { absoluteUrl } from "@/lib/site";
 
@@ -29,6 +31,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.7,
     },
   ];
+
+  // Treatment & condition landing pages, enumerated from their content registries
+  // so a new page enters the sitemap just by adding a registry entry.
+  const treatmentPages: MetadataRoute.Sitemap = allTreatmentSlugs().map((slug) => ({
+    url: absoluteUrl(`/treatment/${slug}`),
+    changeFrequency: "monthly",
+    priority: 0.8,
+  }));
+  const conditionPages: MetadataRoute.Sitemap = allConditionSlugs().map((slug) => ({
+    url: absoluteUrl(`/condition/${slug}`),
+    changeFrequency: "monthly",
+    priority: 0.8,
+  }));
 
   const posts: MetadataRoute.Sitemap = getAllPosts().map((post) => ({
     url: absoluteUrl(`/blog/${post.slug}`),
@@ -60,5 +75,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     console.error("sitemap: failed to load practice slugs:", err);
   }
 
-  return [...core, ...posts, ...states, ...practices];
+  return [...core, ...treatmentPages, ...conditionPages, ...posts, ...states, ...practices];
 }

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 
 import { getFeaturedClinics } from "@/lib/clinics/featured";
+import { CONDITION_PAGES } from "@/lib/landing/conditions";
+import { TREATMENT_PAGES } from "@/lib/landing/treatments";
 import { toStateCode } from "@/lib/location/states";
 import { SITE_NAME, absoluteUrl } from "@/lib/site";
 
@@ -40,6 +42,18 @@ export async function GET() {
     `- [Blog](${absoluteUrl("/blog")}): Expert, plain-English treatment guides.`,
     "",
   ];
+
+  const guideLines = [
+    ...Object.values(TREATMENT_PAGES).map(
+      (c) => `- [${c.h1.lead} guide](${absoluteUrl(`/treatment/${c.slug}`)}): ${c.metaDescription}`,
+    ),
+    ...Object.values(CONDITION_PAGES).map(
+      (c) => `- [${c.h1.lead} guide](${absoluteUrl(`/condition/${c.slug}`)}): ${c.metaDescription}`,
+    ),
+  ];
+  if (guideLines.length) {
+    lines.push("## Treatment & condition guides", ...guideLines, "");
+  }
 
   if (featuredLines.length) {
     lines.push("## Featured practices", ...featuredLines, "");
