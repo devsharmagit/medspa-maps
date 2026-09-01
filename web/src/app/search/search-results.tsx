@@ -745,9 +745,9 @@ export function SearchResults({ initialData }: { initialData?: InitialSearchData
             {/* Distance / Radius — always visible */}
             <div>
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-[#1a1a1a]">
+                <div className="text-sm font-semibold text-[#1a1a1a]">
                   Distance / Radius
-                </h3>
+                </div>
                 {hasOrigin && activeBandRadius && (
                   <button
                     type="button"
@@ -816,7 +816,7 @@ export function SearchResults({ initialData }: { initialData?: InitialSearchData
 
             {/* Rating */}
             <div>
-              <h3 className="text-sm font-semibold text-[#1a1a1a]">Rating</h3>
+              <div className="text-sm font-semibold text-[#1a1a1a]">Rating</div>
               <div className="mt-3 flex flex-col gap-2.5">
                 {RATING_BANDS.map((band) => {
                   const checked = rating === band.value;
@@ -1074,7 +1074,7 @@ export function SearchResults({ initialData }: { initialData?: InitialSearchData
               {/* Distance */}
               <div>
                 <div className="flex items-center justify-between">
-                  <h4 className="text-sm font-semibold text-[#1a1a1a]">Distance / Radius</h4>
+                  <div className="text-sm font-semibold text-[#1a1a1a]">Distance / Radius</div>
                   {hasOrigin && activeBandRadius && (
                     <button type="button" onClick={() => updateParam("radius", "")} className="text-xs font-medium text-brand-magenta">
                       Reset
@@ -1122,7 +1122,7 @@ export function SearchResults({ initialData }: { initialData?: InitialSearchData
 
               {/* Rating */}
               <div>
-                <h4 className="text-sm font-semibold text-[#1a1a1a]">Rating</h4>
+                <div className="text-sm font-semibold text-[#1a1a1a]">Rating</div>
                 <div className="mt-3 flex flex-col gap-2.5">
                   {RATING_BANDS.map((band) => (
                     <label key={band.value} className="flex cursor-pointer items-center gap-2.5 text-sm text-[#4a4a4a]">
