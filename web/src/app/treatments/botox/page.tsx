@@ -42,6 +42,10 @@ export const metadata: Metadata = {
   title: "Botox Guide: Cost, Areas, Safety & Providers Near You",
   description:
     "What Botox is, how it works, what it costs, areas treated, safety and side effects, plus find licensed Botox providers near you on Med Spa Maps.",
+  // Experimental page — kept live but intentionally unlisted: not in the
+  // sitemap/llms.txt and not linked from anywhere. noindex keeps it out of
+  // search too, so it's reachable only by directly visiting the URL.
+  robots: { index: false, follow: false },
   alternates: { canonical: "/treatments/botox" },
   openGraph: {
     type: "article",

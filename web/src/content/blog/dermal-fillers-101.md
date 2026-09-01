@@ -2,7 +2,7 @@
 
 **Dermal fillers are injectable gels placed just beneath the skin to restore lost volume, soften lines and folds, and subtly enhance facial contours. The most common type is made from hyaluronic acid, a sugar molecule your body produces naturally to keep skin hydrated and plump.**
 
-As we age, we gradually lose collagen, fat, and even bone in the face. That loss is what makes cheeks look flatter, under-eye hollows deeper, and folds around the mouth more pronounced. Rather than freezing the muscles that cause expression lines, which is what [Botox and other neuromodulators](/treatments/botox) do, fillers physically replace the volume that time has taken away, or add volume where you want more definition.
+As we age, we gradually lose collagen, fat, and even bone in the face. That loss is what makes cheeks look flatter, under-eye hollows deeper, and folds around the mouth more pronounced. Rather than freezing the muscles that cause expression lines, which is what Botox and other neuromodulators do, fillers physically replace the volume that time has taken away, or add volume where you want more definition.
 
 Because different formulations have different textures and properties, providers choose specific products for specific jobs: a thin, soft filler for delicate under-eye skin, a firmer, more structured one to rebuild a jawline or cheekbone.
 
@@ -60,7 +60,7 @@ Results and candidacy vary from person to person, and no reputable provider can 
 
 **Fillers add volume to fill in lines and restore fullness, while Botox and other neuromodulators relax the muscles that create expression wrinkles. They solve different problems, and many people use them together.**
 
-A simple way to remember it: fillers are for volume and shape (hollow cheeks, thin lips, deep folds), while neuromodulators are for movement-related lines (frown lines, forehead creases, crow’s feet). A provider can help you decide which, or both, fits your goals. (New to injectables? Start with our [guide to Botox](/treatments/botox).)
+A simple way to remember it: fillers are for volume and shape (hollow cheeks, thin lips, deep folds), while neuromodulators are for movement-related lines (frown lines, forehead creases, crow’s feet). A provider can help you decide which, or both, fits your goals.
 
 ## What to expect: before, during, and aftercare
 
