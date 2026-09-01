@@ -1,11 +1,17 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { SearchResults, type InitialSearchData } from "./search-results";
+import { SearchSeoContent } from "./search-seo-content";
 import { HeroHeader } from "@/components/hero/hero-header";
 import { Footer } from "@/components/footer";
 import { searchClinics } from "@/lib/search/query";
 import { resolveSearchQuery } from "@/lib/search/resolve-query";
 import { toStateName } from "@/lib/location/states";
+import {
+  CANONICAL_CONCERNS,
+  CANONICAL_SERVICES,
+  normalize,
+} from "@/lib/taxonomy/canonical";
 import { SITE_NAME } from "@/lib/site";
 
 // Reads request search params, so this route renders dynamically per request —
@@ -55,6 +61,59 @@ function buildSearchParams(
 
 function prettifySlug(slug: string): string {
   return slug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/**
+ * Most-offered treatments across the first result page, busiest first, for the
+ * SEO copy. Aggregated from the already-fetched rows (no extra DB query) and
+ * consistent with the clinics actually shown. Excludes the searched treatment
+ * (by display name) so a treatment search lists the *other* things clinics offer.
+ */
+function topResultTreatments(
+  results: InitialSearchData["results"] | undefined,
+  excludeName: string | null,
+  limit = 3,
+): string[] {
+  if (!results?.length) return [];
+  const exclude = excludeName?.toLowerCase();
+  const counts = new Map<string, { name: string; count: number }>();
+  for (const r of results) {
+    for (const s of r.services ?? []) {
+      if (!s?.name || !s?.slug) continue;
+      if (exclude && s.name.toLowerCase() === exclude) continue;
+      const cur = counts.get(s.slug);
+      if (cur) cur.count += 1;
+      else counts.set(s.slug, { name: s.name, count: 1 });
+    }
+  }
+  return [...counts.values()]
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+    .slice(0, limit)
+    .map((v) => v.name);
+}
+
+// For a concern search, frequency across the results just surfaces whatever the
+// clinics offer most (usually Botox) — not what actually treats the concern. Use
+// the curated concern→service map instead, so the copy names relevant treatments.
+const SERVICE_NAME_BY_SLUG = new Map(
+  CANONICAL_SERVICES.map((s) => [s.slug, s.name] as const),
+);
+const CONCERN_BY_NORM_NAME = new Map(
+  CANONICAL_CONCERNS.map((c) => [normalize(c.name), c] as const),
+);
+
+/**
+ * Curated, clinically-relevant treatments for a priority concern (matched by
+ * display name). Returns [] for non-priority (AI-grown) concerns, so the copy
+ * simply omits the "commonly offer" sentence rather than listing odd treatments.
+ */
+function curatedTreatmentsForConcern(conditionName: string, limit = 3): string[] {
+  const concern = CONCERN_BY_NORM_NAME.get(normalize(conditionName));
+  if (!concern) return [];
+  return concern.serviceSlugs
+    .map((slug) => SERVICE_NAME_BY_SLUG.get(slug))
+    .filter((n): n is string => Boolean(n))
+    .slice(0, limit);
 }
 
 export async function generateMetadata({
@@ -148,12 +207,45 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     initialData = undefined;
   }
 
+  // ── SEO copy facts ────────────────────────────────────────────────────────
+  // Server-rendered, crawlable prose above the (client-rendered) results.
+  const conditionRaw = firstParam(sp, "condition");
+  const locationRaw = firstParam(sp, "location");
+
+  // `searchClinics` only echoes `resolved` for a treatment/concern typed into
+  // `q`; a direct `?condition=` slug leaves it null, so resolve that name too.
+  const resolved = initialData?.resolved ?? null;
+  const treatmentName: string | null =
+    resolved?.kind === "treatment" ? resolved.name : null;
+  let conditionName: string | null =
+    resolved?.kind === "concern" ? resolved.name : null;
+  if (!treatmentName && !conditionName && conditionRaw) {
+    const r = await resolveSearchQuery(conditionRaw);
+    if (r.kind !== "unresolved") conditionName = r.name;
+  }
+
+  const locationLabel = toStateName(locationRaw) ?? (locationRaw || null);
+  // Conditions → curated relevant treatments; everything else → most-offered
+  // treatments across the actual results (no extra query).
+  const popularTreatments = conditionName
+    ? curatedTreatmentsForConcern(conditionName)
+    : topResultTreatments(initialData?.results, treatmentName);
+
   return (
     <main className="relative flex min-h-screen flex-col bg-[#FDFDFD]">
       {/* Hero header band */}
       <div className="bg-hero-gradient">
         <HeroHeader />
       </div>
+
+      {/* SEO lead copy — server-rendered, above the interactive results */}
+      <SearchSeoContent
+        treatmentName={treatmentName}
+        conditionName={conditionName}
+        locationLabel={locationLabel}
+        total={initialData?.total ?? 0}
+        popularTreatments={popularTreatments}
+      />
 
       {/* Search results content */}
       <Suspense
