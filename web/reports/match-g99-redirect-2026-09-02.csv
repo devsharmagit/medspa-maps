@@ -1,0 +1,13 @@
+our_clinic_id,name,domain,method,g99_clinic_id,g99_business_id,g99_business_name
+a25c20a2-6cda-44a1-9c95-d1a69c2c28d0,Cienega Medical,cienegaspa.com,none,,,
+470f92fa-277d-44f8-bd9b-ca8d4777ad4c,The Derm Collective North Shore,dermcollectivenorthshore.com,redirect:thedermcollectivenorthshore.com->dermcollectivenorthshore.com,4851,4608,Derm Collective North Shore
+8af16be8-319a-4f0f-8971-30c36730a2e6,Lush Lifestyle Medicine,lushwellnessco.com,redirect:lushaestheticswellness.com->lushwellnessco.com,4978,4716,Lush Aesthetics & Wellness
+a8f15871-f9b6-459b-bf09-0f666f3a1f0c,VIBE Aesthetics and Wellness,vibe-aesthetics.com,none,,,
+836d65c5-0373-4688-97a2-3cec436d6bdd,EMME Skin Studio,emmeskinstudio.com,redirect:emmeskinclinic.com->emmeskinstudio.com,1400,1351,EMME SKIN STUDIO
+31c448e5-b76d-446c-a13f-853b718476cf,Balanced Wellness Medical Spa,balancedmedicalspa.com,none,,,
+66a73c95-b674-4a4b-ba70-17e6cb100aa6,Aère Aesthetics,aereaesthetics.com,none,,,
+ea4115f5-f4fb-440b-9e7b-2599afa3ccdd,The District,thedistrictclinics.com,redirect:aesthetic-district.com->thedistrictclinics.com,4456,4264,The District
+1dc165da-0171-409b-8bb6-df490501db28,Essence Skin Clinic,essenceskinclinic.com,none,,,
+85028310-9bef-4ea0-87fb-20875f10599e,OC Cosmetic and Vein Center,occosmeticandvein.com,redirect:ocveins.com->occosmeticandvein.com,546,499,OC Cosmetic and Vein Center
+22f93a43-d111-44d6-aea3-b88bdc1e4f40,Rava Medical,ravamedical.com,redirect:ravaaesthetics.com->ravamedical.com,4301,4123,RAVA Medical
+a47c4be7-d35f-4c50-9d30-8c0039195e7a,Reclaim Med Spa,reclaimmedspastl.com,redirect:reclaimmensclinic.com->reclaimmedspastl.com,1762,1749,Reclaim Med Spa and Wellness

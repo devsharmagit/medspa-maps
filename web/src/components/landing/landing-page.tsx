@@ -156,7 +156,12 @@ export function LandingPage({ content }: { content: LandingContent }) {
                   ? `Looking for a ${content.shortName} provider?`
                   : `Looking for a provider who treats ${content.shortName.toLowerCase()}?`}
               </p>
-              <Button asChild variant="gradient" size="search" className="shrink-0">
+              <Button
+                asChild
+                variant="gradient"
+                size="search"
+                className="h-auto min-h-[47px] w-full whitespace-normal py-2.5 text-center leading-tight sm:w-auto"
+              >
                 <Link href={content.searchCta.href}>
                   <MapPin className="size-[18px]" aria-hidden />
                   {content.searchCta.label}
