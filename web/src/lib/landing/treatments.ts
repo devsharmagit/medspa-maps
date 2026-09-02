@@ -57,8 +57,8 @@ const botox: LandingContent = {
         "Medical uses: excessive sweating (hyperhidrosis), chronic migraine, and certain muscle conditions.",
       ],
       image: {
-        src: "/images/landing/AdobeStock_1966544880.jpeg",
-        alt: "An older woman examining fine lines around her eyes in a mirror",
+        src: "/images/landing/AdobeStock_222371752.jpeg",
+        alt: "A provider injecting Botox near a patient's brow",
       },
     },
     {
@@ -103,8 +103,8 @@ const botox: LandingContent = {
       pullQuote:
         "Botox should only be injected by a licensed medical professional; the difference between a natural result and a frozen or uneven one usually comes down to the injector's skill.",
       image: {
-        src: "/images/landing/AdobeStock_2168186937.jpeg",
-        alt: "A patient talking with a provider at the clinic front desk",
+        src: "/images/landing/AdobeStock_436199878.jpeg",
+        alt: "A provider assessing a patient's face before an injectable treatment",
       },
     },
     {
@@ -248,8 +248,8 @@ const dermalFillers: LandingContent = {
         "Because filler is a medical treatment where skill matters, the lowest-priced option is not always the safest or the most natural-looking.",
       ],
       image: {
-        src: "/images/landing/AdobeStock_2168186937.jpeg",
-        alt: "A client discussing filler options with a provider at the clinic front desk",
+        src: "/images/landing/AdobeStock_256216372.jpeg",
+        alt: "A patient receiving a dermal filler injection in the lower face",
       },
     },
     {
@@ -488,8 +488,8 @@ const laserTreatments: LandingContent = {
         "Acne scars: fractional and ablative resurfacing.",
       ],
       image: {
-        src: "/images/landing/AdobeStock_2067210186.jpeg",
-        alt: "A woman with dark spots on her cheek, a pigmentation concern lasers can target",
+        src: "/images/landing/AdobeStock_1869574957.jpeg",
+        alt: "A light-based device treating pigmentation on a woman's cheek",
       },
     },
     {
@@ -501,8 +501,8 @@ const laserTreatments: LandingContent = {
         "This is why provider expertise is so important. An experienced provider who treats your skin type and chooses appropriate devices and settings is the single best safeguard.",
       ],
       image: {
-        src: "/images/landing/AdobeStock_1497677194.jpeg",
-        alt: "A woman with a deeper skin tone, for whom device and setting choice is essential",
+        src: "/images/landing/AdobeStock_2100631947.jpeg",
+        alt: "Fractional laser skin resurfacing performed with protective eye shields",
       },
     },
   ],
@@ -598,8 +598,8 @@ const microneedling: LandingContent = {
         "Uneven tone: often paired with brightening serums or PRP.",
       ],
       image: {
-        src: "/images/landing/AdobeStock_2100610800.jpeg",
-        alt: "Close-up of acne and textured skin on a patient's cheek",
+        src: "/images/landing/AdobeStock_1819566272.jpeg",
+        alt: "A microneedling pen being used along a patient's jawline",
       },
     },
     {
@@ -611,8 +611,8 @@ const microneedling: LandingContent = {
         "RF microneedling tends to cost more than traditional microneedling and may involve slightly more downtime, but it can do more for sagging skin. A provider can help you decide which fits your goals.",
       ],
       image: {
-        src: "/images/landing/AdobeStock_1485043206.jpeg",
-        alt: "Close-up of a microneedling device's needle cartridge being applied to skin",
+        src: "/images/landing/AdobeStock_1949785677.jpeg",
+        alt: "A provider performing microneedling on a patient's forehead",
       },
     },
     {

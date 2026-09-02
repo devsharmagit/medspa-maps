@@ -148,6 +148,22 @@ export function LandingPage({ content }: { content: LandingContent }) {
                 );
               })}
             </ul>
+
+            {/* Quick jump to the directory search (same target as the final CTA) */}
+            <div className="mt-6 flex flex-col gap-3 rounded-[16px] border border-[#F0E2EC] bg-[#fdf4fb] p-5 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-[15.5px] font-medium text-[#373634]">
+                {content.kind === "treatment"
+                  ? `Looking for a ${content.shortName} provider?`
+                  : `Looking for a provider who treats ${content.shortName.toLowerCase()}?`}
+              </p>
+              <Button asChild variant="gradient" size="search" className="shrink-0">
+                <Link href={content.searchCta.href}>
+                  <MapPin className="size-[18px]" aria-hidden />
+                  {content.searchCta.label}
+                  <ArrowRight className="size-[18px]" aria-hidden />
+                </Link>
+              </Button>
+            </div>
           </div>
         </section>
 

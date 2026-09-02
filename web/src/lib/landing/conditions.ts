@@ -78,8 +78,8 @@ const wrinkles: LandingContent = {
         "Skin tightening (RF and others): address mild laxity that can accompany wrinkles.",
       ],
       image: {
-        src: "/images/landing/AdobeStock_499147015.jpeg",
-        alt: "A provider injecting a wrinkle-relaxing treatment into a patient's forehead",
+        src: "/images/landing/AdobeStock_602684343.jpeg",
+        alt: "A mature woman examining wrinkles in a hand mirror",
       },
     },
     {
@@ -105,8 +105,8 @@ const wrinkles: LandingContent = {
         "Keep skin hydrated and maintain a consistent routine.",
       ],
       image: {
-        src: "/images/landing/AdobeStock_2003352575.jpeg",
-        alt: "Sunscreen, sunglasses, and a sun hat, daily habits that help prevent wrinkles",
+        src: "/images/landing/AdobeStock_239516588.jpeg",
+        alt: "A man examining fine lines around his eyes in a mirror",
       },
     },
   ],
@@ -237,8 +237,8 @@ const pigmentation: LandingContent = {
         "Prescription topicals: ingredients like hydroquinone, tretinoin, and vitamin C, often a first step.",
       ],
       image: {
-        src: "/images/landing/AdobeStock_1022983802.jpeg",
-        alt: "An esthetician applying a chemical peel to treat pigmentation",
+        src: "/images/landing/AdobeStock_2069022975.jpeg",
+        alt: "A close-up of a dark spot on a woman's cheek",
       },
     },
     {
