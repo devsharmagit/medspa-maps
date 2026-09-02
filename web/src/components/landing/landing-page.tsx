@@ -21,7 +21,7 @@ const CONTENT_WIDTH = "max-w-[1240px]";
 export function LandingPage({ content }: { content: LandingContent }) {
   // Breadcrumb reads "Treatments"/"Conditions" but still points to the
   // Patients' Favourites page, so clicking it lands there.
-  const sectionBase = "/patients-fav";
+  const sectionBase = "/patients-favourites";
   const sectionLabel = content.kind === "treatment" ? "Treatments" : "Conditions";
   const guideLabel = content.kind === "treatment" ? "treatment guide" : "condition guide";
   const pagePath = `/${content.kind}/${content.slug}`;

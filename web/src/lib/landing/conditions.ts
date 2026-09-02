@@ -415,7 +415,11 @@ const veins: LandingContent = {
       a: "You cannot always prevent them, but staying active, maintaining a healthy weight, elevating your legs, avoiding long periods of standing or sitting, and wearing compression stockings can help reduce risk and ease symptoms.",
     },
   ],
-  searchCta: { label: "Find vein-treatment providers near you", href: "/search?q=vein" },
+  searchCta: {
+    label: "Find vein-treatment providers near you",
+    href: "/search?condition=spider-veins",
+  },
+  searchAliases: { conditions: ["spider-veins", "varicose-veins"] },
   schemaAbout: { type: "MedicalCondition", name: "Varicose veins and spider veins" },
 };
 

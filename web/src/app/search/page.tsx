@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { SearchResults, type InitialSearchData } from "./search-results";
 import { SearchSeoContent } from "./search-seo-content";
+import { SearchFaqs } from "@/components/search/search-faqs";
 import { HeroHeader } from "@/components/hero/hero-header";
 import { Footer } from "@/components/footer";
 import { searchClinics } from "@/lib/search/query";
@@ -260,6 +261,9 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
       >
         <SearchResults initialData={initialData} />
       </Suspense>
+
+      {/* FAQs for our 8 guide treatments/conditions, when the search matches one */}
+      <SearchFaqs q={firstParam(sp, "q") ?? ""} condition={conditionRaw ?? ""} />
 
       <Footer />
     </main>

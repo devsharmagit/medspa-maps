@@ -416,7 +416,8 @@ const facials: LandingContent = {
       a: "Most basic facials have no downtime. More intensive medical facials, such as those with peels or microdermabrasion, may cause temporary redness or flaking for a day or two.",
     },
   ],
-  searchCta: { label: "Find facial providers near you", href: "/search?q=hydrafacial" },
+  searchCta: { label: "Find facial providers near you", href: "/search?q=facials" },
+  searchAliases: { queries: ["hydrafacial"] },
   schemaAbout: { type: "MedicalProcedure", name: "Facial (professional skincare treatment)" },
 };
 
@@ -543,7 +544,8 @@ const laserTreatments: LandingContent = {
       a: "Downtime scales with intensity, from essentially none for IPL and Laser Genesis to a week or more for fully ablative CO2 resurfacing.",
     },
   ],
-  searchCta: { label: "Find laser providers near you", href: "/search?q=laser" },
+  searchCta: { label: "Find laser providers near you", href: "/search?q=laser-skin-resurfacing" },
+  searchAliases: { queries: ["laser-skin-treatments", "laser-treatments"] },
   schemaAbout: { type: "MedicalProcedure", name: "Laser skin treatment" },
 };
 

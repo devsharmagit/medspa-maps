@@ -15,13 +15,13 @@ export const metadata: Metadata = {
   title: "Patients' Favourites: Popular Treatments & Conditions | Med Spa Maps",
   description:
     "The treatments and conditions our patients research most, with plain-English guides to each — Botox, dermal fillers, facials, laser, microneedling, wrinkles, pigmentation and veins.",
-  alternates: { canonical: "/patients-fav" },
+  alternates: { canonical: "/patients-favourites" },
   openGraph: {
     type: "website",
     title: "Patients' Favourites: Popular Treatments & Conditions | Med Spa Maps",
     description:
       "The treatments and conditions our patients research most, with plain-English guides to each.",
-    url: "/patients-fav",
+    url: "/patients-favourites",
     siteName: "Med Spa Maps",
   },
 };

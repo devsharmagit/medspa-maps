@@ -7,12 +7,13 @@ import type { LandingFaq } from "@/lib/landing/types";
  * array feeds `faqPageJsonLd` in the page, so the visible accordion and the
  * FAQPage schema never drift.
  */
-export function LandingFaq({ faqs }: { faqs: LandingFaq[] }) {
+export function LandingFaq({ faqs, subject }: { faqs: LandingFaq[]; subject?: string }) {
   if (!faqs.length) return null;
   return (
     <section id="faq" className="mt-20 scroll-mt-28">
       <h2 className="text-center font-montserrat text-[26px] font-medium leading-[116%] tracking-[-0.03em] text-[#373634] sm:text-[32px]">
         Frequently asked <span className="font-fraunces font-normal italic">questions</span>
+        {subject ? ` about ${subject}` : null}
       </h2>
       <div className="mx-auto mt-8 flex max-w-[760px] flex-col gap-3">
         {faqs.map((faq) => (

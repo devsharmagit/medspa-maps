@@ -10,7 +10,7 @@ export interface NavItem {
 }
 
 /** The Patients' Favourites landing page. `/condition` redirects here too. */
-export const PATIENTS_FAV_HREF = "/patients-fav";
+export const PATIENTS_FAV_HREF = "/patients-favourites";
 
 export const FAV_TREATMENTS: NavItem[] = [
   { label: "Botox", href: "/treatment/botox" },

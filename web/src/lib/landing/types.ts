@@ -69,6 +69,12 @@ export interface LandingContent {
   faqs: LandingFaq[];
   /** Primary CTA deep-link into search. */
   searchCta: { label: string; href: string };
+  /**
+   * Extra search values (beyond searchCta/slug/shortName) that should also
+   * surface this page's FAQs on /search — e.g. veins covers both the
+   * `spider-veins` and `varicose-veins` concern slugs.
+   */
+  searchAliases?: { conditions?: string[]; queries?: string[] };
   /** Drives the JSON-LD `about` node. */
   schemaAbout: { type: "MedicalProcedure" | "MedicalCondition"; name: string };
 }

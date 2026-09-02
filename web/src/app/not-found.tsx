@@ -9,7 +9,7 @@ export const metadata = {
 
 const quickLinks = [
   { label: "Find a Practice", href: "/search", icon: MapPin },
-  { label: "Patients' Favourites", href: "/patients-fav", icon: Sparkles },
+  { label: "Patients' Favourites", href: "/patients-favourites", icon: Sparkles },
   { label: "Back to Home", href: "/", icon: Home },
 ];
 
