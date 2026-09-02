@@ -100,7 +100,7 @@ export default function PatientsFavouritesPage() {
         crumbs={[{ label: "Home", href: "/" }, { label: "Patients' Favourites" }]}
         title="Patients'"
         accent="Favourites"
-        subtitle="The treatments and conditions our patients research most — clear, plain-English guides to each, then find and compare licensed providers near you."
+        subtitle="Learn about the treatments and conditions people care about most, in simple, easy to understand language. When you’re ready, find and compare licensed providers near you."
         contentClassName="max-w-[1240px]"
       />
 
