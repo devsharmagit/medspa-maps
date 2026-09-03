@@ -72,7 +72,11 @@ export function buildSearchSeoContent(
 ): SearchSeoContent | null {
   const { treatmentName, conditionName, locationLabel, total } = input;
   const hasCount = total > 0;
-  const inLoc = locationLabel ? ` in ${locationLabel}` : "";
+  // A bare ZIP is a radius search, so results are "in and near" it, not strictly
+  // "in" it. A state/city name stays a plain "in".
+  const isZip = !!locationLabel && /^\d{5}$/.test(locationLabel.trim());
+  const locPrep = isZip ? "in and near" : "in";
+  const inLoc = locationLabel ? ` ${locPrep} ${locationLabel}` : "";
   const popular = input.popularTreatments.filter(Boolean).slice(0, 3);
 
   // ── Treatment search (with or without a location) ─────────────────────────
@@ -115,11 +119,11 @@ export function buildSearchSeoContent(
   // ── Location-only search ──────────────────────────────────────────────────
   if (locationLabel) {
     const heading = hasCount
-      ? `${countPhrase(total)} in ${locationLabel}`
-      : `Med spas in ${locationLabel}`;
+      ? `${countPhrase(total)} ${locPrep} ${locationLabel}`
+      : `Med spas ${locPrep} ${locationLabel}`;
     const lead = hasCount
-      ? `${BRAND} lists ${countPhrase(total)} in ${locationLabel}. ${COMPARE}`
-      : `Explore vetted med spas in ${locationLabel} on ${BRAND}. ${COMPARE}`;
+      ? `${BRAND} lists ${countPhrase(total)} ${locPrep} ${locationLabel}. ${COMPARE}`
+      : `Explore vetted med spas ${locPrep} ${locationLabel} on ${BRAND}. ${COMPARE}`;
     const popularSentence = popular.length
       ? ` Popular treatments include ${listPhrase(popular)}.`
       : "";
