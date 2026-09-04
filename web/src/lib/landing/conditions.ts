@@ -169,6 +169,7 @@ const pigmentation: LandingContent = {
   hero: {
     src: "/images/landing/AdobeStock_2067210186.jpeg",
     alt: "A woman examining areas of pigmentation on her cheek",
+    position: "top",
   },
   atGlance: [
     "Hyperpigmentation is darkened patches of skin caused by excess melanin, usually from sun, inflammation, or hormones.",

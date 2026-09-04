@@ -30,6 +30,7 @@ export function LandingImage({
           fill
           priority={priority}
           className="object-cover"
+          style={slot.position ? { objectPosition: slot.position } : undefined}
           sizes={sizes ?? "(max-width: 768px) 100vw, 50vw"}
         />
       </div>

@@ -16,6 +16,8 @@ export interface ImageSlot {
   src?: string;
   /** Alt text (also used as the placeholder's caption). Always author this. */
   alt: string;
+  /** CSS object-position for the crop, e.g. "top" to keep a face in frame. Default center. */
+  position?: string;
 }
 
 export interface LandingTable {
