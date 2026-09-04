@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 env:
   AWS_REGION: us-east-2
@@ -25,7 +26,7 @@ jobs:
       - name: Configure AWS credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          role-to-assume: arn:aws:iam::584537429324:role/Bitbucket
           role-session-name: github-ecr-push-${{ github.run_id }}
           aws-region: ${{ env.AWS_REGION }}
 
@@ -62,4 +63,3 @@ jobs:
           service: medspa-maps
           cluster: Infra
           wait-for-service-stability: false
-
