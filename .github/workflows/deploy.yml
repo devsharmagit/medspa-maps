@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 env:
   AWS_REGION: us-east-2
@@ -62,4 +63,3 @@ jobs:
           service: medspa-maps
           cluster: Infra
           wait-for-service-stability: false
-
