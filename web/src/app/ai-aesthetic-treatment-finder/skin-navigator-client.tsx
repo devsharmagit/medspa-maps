@@ -1289,7 +1289,7 @@ function ResultsStep({
           <div>
             <h3 className="text-base font-bold text-slate-950">Your photo</h3>
             <p className="mt-1 text-xs leading-5 text-slate-500">
-              Used only for this analysis request and not stored by Med Spa Maps.
+              Used only for this analysis request and not stored by Medspa Maps.
             </p>
           </div>
         </section>

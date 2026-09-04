@@ -5,7 +5,7 @@ import { ProvidersCarousel } from "@/components/shared/providers-carousel";
 import { getAllProviders } from "@/lib/providers/queries";
 
 export const metadata: Metadata = {
-  title: "Expert Providers — Med Spa Maps",
+  title: "Expert Providers — Medspa Maps",
   description:
     "Discover verified and expert medical spa providers tailored to your needs.",
 };

@@ -37,7 +37,7 @@ export async function generateMetadata({
   const { clinic } = data;
   const loc = data.stats.city ?? "";
   const path = `/practices/${slug}`;
-  const title = `${clinic.name} — Med Spa Maps`;
+  const title = `${clinic.name} — Medspa Maps`;
   const description =
     clinic.about?.slice(0, 155) ??
     clinic.tagline ??

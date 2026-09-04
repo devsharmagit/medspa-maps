@@ -12,7 +12,7 @@ const botox: LandingContent = {
   slug: "botox",
   title: "Botox: What It Is, What It Treats, and How to Find a Provider",
   shortName: "Botox",
-  metaTitle: "Botox: What It Is, What It Treats & How to Find a Provider | Med Spa Maps",
+  metaTitle: "Botox: What It Is, What It Treats & How to Find a Provider | Medspa Maps",
   metaDescription:
     "What Botox is, what it treats, how long it lasts, safety, and how to find and compare licensed Botox providers near you.",
   updated: "August 2026",
@@ -28,7 +28,7 @@ const botox: LandingContent = {
     "Results typically appear within 3 to 7 days and last around 3 to 4 months.",
     "Botox, Dysport, Xeomin, and Jeuveau are all neuromodulators in the same family, used for similar concerns.",
     "It should only be administered by a licensed medical provider (a physician, PA, NP, or a supervised RN).",
-    "Use Med Spa Maps to find and compare licensed Botox providers near you.",
+    "Use Medspa Maps to find and compare licensed Botox providers near you.",
   ],
   sections: [
     {
@@ -172,7 +172,7 @@ const dermalFillers: LandingContent = {
   slug: "dermal-fillers",
   title: "Dermal Fillers: Types, Uses, and How to Find a Provider",
   shortName: "Dermal Fillers",
-  metaTitle: "Dermal Fillers: Types, Uses & How to Find a Provider | Med Spa Maps",
+  metaTitle: "Dermal Fillers: Types, Uses & How to Find a Provider | Medspa Maps",
   metaDescription:
     "What dermal fillers are, the main types, what they treat, longevity, safety, and how to find and compare qualified filler providers near you.",
   updated: "August 2026",
@@ -188,7 +188,7 @@ const dermalFillers: LandingContent = {
     "Most hyaluronic acid fillers last about 6 to 18 months; collagen-stimulating fillers can last longer.",
     "Hyaluronic acid fillers are reversible and can be dissolved if needed; most other types are not.",
     "Fillers should only be injected by a licensed medical provider trained in injectables.",
-    "Use Med Spa Maps to find and compare qualified filler providers near you.",
+    "Use Medspa Maps to find and compare qualified filler providers near you.",
   ],
   sections: [
     {
@@ -309,7 +309,7 @@ const facials: LandingContent = {
   slug: "facials",
   title: "Facials: Types, Benefits, and How to Find a Provider",
   shortName: "Facials",
-  metaTitle: "Facials: Types, Benefits & How to Find a Provider | Med Spa Maps",
+  metaTitle: "Facials: Types, Benefits & How to Find a Provider | Medspa Maps",
   metaDescription:
     "What a facial is, the main types, the benefits, spa vs. medical facials, and how to find and compare skincare providers near you.",
   updated: "August 2026",
@@ -325,7 +325,7 @@ const facials: LandingContent = {
     "Popular types include HydraFacial, chemical peels, microdermabrasion, dermaplaning, and microneedling facials.",
     "Most basic facials have no downtime; more intensive treatments may cause brief redness or flaking.",
     "Getting facials regularly, often about monthly, supports healthier skin over time.",
-    "Use Med Spa Maps to find and compare facial and skincare providers near you.",
+    "Use Medspa Maps to find and compare facial and skincare providers near you.",
   ],
   sections: [
     {
@@ -426,7 +426,7 @@ const laserTreatments: LandingContent = {
   slug: "laser-treatments",
   title: "Laser Skin Treatments: Types, Uses, and How to Find a Provider",
   shortName: "Laser Treatments",
-  metaTitle: "Laser Skin Treatments: Types, Uses & How to Find a Provider | Med Spa Maps",
+  metaTitle: "Laser Skin Treatments: Types, Uses & How to Find a Provider | Medspa Maps",
   metaDescription:
     "What laser skin treatments are, the main device types, which laser fits which concern, safety for darker skin, and how to find providers near you.",
   updated: "August 2026",
@@ -442,7 +442,7 @@ const laserTreatments: LandingContent = {
     "Resurfacing lasers (ablative and fractional) remodel the skin's surface for wrinkles, texture, and scars.",
     "Non-ablative options like Laser Genesis are gentle with little to no downtime.",
     "Device choice and settings matter greatly for darker skin tones, so provider expertise is essential.",
-    "Use Med Spa Maps to find and compare laser providers near you.",
+    "Use Medspa Maps to find and compare laser providers near you.",
   ],
   sections: [
     {
@@ -554,7 +554,7 @@ const microneedling: LandingContent = {
   slug: "microneedling",
   title: "Microneedling: Benefits, What to Expect, and How to Find a Provider",
   shortName: "Microneedling",
-  metaTitle: "Microneedling: Benefits, What to Expect & How to Find a Provider | Med Spa Maps",
+  metaTitle: "Microneedling: Benefits, What to Expect & How to Find a Provider | Medspa Maps",
   metaDescription:
     "What microneedling is, what it treats, how it compares to RF microneedling, what to expect, and how to find and compare providers near you.",
   updated: "August 2026",
@@ -570,7 +570,7 @@ const microneedling: LandingContent = {
     "Most people need a series of about 3 to 6 sessions for the best results, which build gradually.",
     "Downtime is minimal, usually a day or two of redness like a mild sunburn.",
     "RF microneedling adds radiofrequency heat for extra skin tightening.",
-    "Use Med Spa Maps to find and compare microneedling providers near you.",
+    "Use Medspa Maps to find and compare microneedling providers near you.",
   ],
   sections: [
     {

@@ -59,7 +59,7 @@ export function HeroHeader({ className }: { className?: string }) {
         <Link href="/" className="block shrink-0">
           <Image
             src="/images/hero/logo.svg"
-            alt="Med Spa Maps"
+            alt="Medspa Maps"
             width={380}
             height={120}
             className="h-[52px] w-auto object-contain"

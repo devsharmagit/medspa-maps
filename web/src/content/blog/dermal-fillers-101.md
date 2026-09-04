@@ -88,4 +88,4 @@ Your provider cleanses the area and usually applies a numbing cream; many filler
 
 Ask who will actually perform the injections, what product they recommend and why, and how they handle complications. A provider who takes time to understand your goals and sets realistic expectations is worth more than a bargain price. A consultation can confirm whether you’re a good candidate and which approach fits your face.
 
-If you’re comparing options in your area, [Med Spa Maps lets you find and compare qualified filler providers](/search?q=dermal-fillers) near you, read reviews, and shortlist a few clinics before you book a consultation.
+If you’re comparing options in your area, [Medspa Maps lets you find and compare qualified filler providers](/search?q=dermal-fillers) near you, read reviews, and shortlist a few clinics before you book a consultation.

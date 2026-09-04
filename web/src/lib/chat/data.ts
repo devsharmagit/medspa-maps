@@ -2,7 +2,7 @@
  * data.ts — server-side data retrieval for the AI assistant.
  *
  * These are plain functions the backend calls directly (NOT model-invoked
- * tools). Each is grounded in real Medspa Map data: clinic search reuses the
+ * tools). Each is grounded in real Medspa Maps data: clinic search reuses the
  * same tables/filters as /api/search, treatment/concern lookups reuse the
  * canonical taxonomy + editorial catalogs, and page-context lookups read the
  * clinic/provider a page is showing. Everything the assistant ever states as

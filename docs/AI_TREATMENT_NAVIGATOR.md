@@ -10,7 +10,7 @@ It helps users move from a broad goal like "I want to look younger" or "I do not
 
 - Possible cosmetic concerns (with where each was deduced from)
 - Personalized aesthetic treatment suggestions
-- Nearby clinic recommendations from the MedSpaMaps database (when a location is given)
+- Nearby clinic recommendations from the Medspa Maps database (when a location is given)
 
 The experience is intentionally light. It avoids long medical intake forms, avoids money or budget questions, and keeps the user focused on one simple decision at a time.
 
@@ -26,7 +26,7 @@ Users can enter the AI Treatment Navigator from:
 
 ## Page Structure
 
-The page uses the existing MedSpaMaps visual system and shared components where possible.
+The page uses the existing Medspa Maps visual system and shared components where possible.
 
 Main page areas:
 
@@ -412,7 +412,7 @@ The panel includes:
 
 - Image preview
 - Reminder that the photo was used only for the current analysis request
-- Reminder that MedSpaMaps does not store the photo
+- Reminder that Medspa Maps does not store the photo
 
 The photo preview is not persisted to local storage and is not saved in the database.
 
@@ -520,7 +520,7 @@ This lets users move from AI recommendations into full directory search even if 
 
 ### Nearby Clinics
 
-The clinic recommendation section shows nearby clinics from the MedSpaMaps database that match recommended treatments.
+The clinic recommendation section shows nearby clinics from the Medspa Maps database that match recommended treatments.
 
 Section title:
 
@@ -831,7 +831,7 @@ The AI must:
 - Encourage consultation with qualified providers.
 - Avoid protected-attribute inference from photos.
 - Avoid asking or reasoning about budget.
-- Prefer canonical service slugs from the MedSpaMaps treatment catalog.
+- Prefer canonical service slugs from the Medspa Maps treatment catalog.
 - Give practical cautions without sounding alarming.
 
 The AI should direct users to qualified clinicians for:
@@ -1330,7 +1330,7 @@ buildNavigatorSystemPrompt(): string
 ```
 
 Contains:
-- Role definition: "MedSpaMaps AI Treatment Navigator"
+- Role definition: "Medspa Maps AI Treatment Navigator"
 - Purpose: informational cosmetic treatment education
 - Safety rules:
   - Never diagnose medical conditions

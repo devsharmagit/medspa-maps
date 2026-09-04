@@ -287,7 +287,7 @@ export default function ChatWidget() {
         <button
           type="button"
           onClick={() => setOpen(true)}
-          aria-label="Open the Med Spa Maps assistant"
+          aria-label="Open the Medspa Maps assistant"
           className="fixed bottom-5 right-5 z-50 flex h-12 items-center gap-2 rounded-full bg-[linear-gradient(90deg,#DE7F4C_0%,#C341D7_100%)] px-4 text-white shadow-[0_8px_24px_rgba(195,65,215,0.35)] transition hover:brightness-105 active:translate-y-px"
         >
           <MessageCircle className="size-5" />
@@ -300,7 +300,7 @@ export default function ChatWidget() {
         <div
           role="dialog"
           aria-modal="false"
-          aria-label="Med Spa Maps assistant"
+          aria-label="Medspa Maps assistant"
           className={cn(
             "fixed z-50 flex flex-col overflow-hidden border border-border bg-background shadow-2xl",
             // mobile: bottom sheet
@@ -314,7 +314,7 @@ export default function ChatWidget() {
             <div className="flex items-center gap-2">
               <Sparkles className="size-5" />
               <div className="leading-tight">
-                <p className="text-sm font-semibold">Med Spa Maps Assistant</p>
+                <p className="text-sm font-semibold">Medspa Maps Assistant</p>
                 <p className="text-[11px] text-white/80">
                   Find practices &amp; treatments
                 </p>

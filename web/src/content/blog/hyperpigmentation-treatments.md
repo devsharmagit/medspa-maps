@@ -85,4 +85,4 @@ A series of treatments is usually needed rather than a single session, and resul
 
 **If over-the-counter products haven’t worked, your pigmentation is widespread or worsening, or you’re not sure what type you have, it’s worth seeing a licensed provider. Correctly identifying the pigmentation is the difference between a treatment that helps and one that makes things worse.**
 
-A professional can diagnose the type, rule out anything concerning, and build a plan matched to your skin. If you’re comparing options nearby, [Med Spa Maps helps you find and compare qualified providers](/search?condition=hyperpigmentation) experienced in treating hyperpigmentation, including for deeper skin tones, before you book a consultation.
+A professional can diagnose the type, rule out anything concerning, and build a plan matched to your skin. If you’re comparing options nearby, [Medspa Maps helps you find and compare qualified providers](/search?condition=hyperpigmentation) experienced in treating hyperpigmentation, including for deeper skin tones, before you book a consultation.

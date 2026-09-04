@@ -1,4 +1,4 @@
-# G99 prod DB ↔ MedSpa Maps DB — Schema Mapping & Gap Analysis
+# G99 prod DB ↔ Medspa Maps DB — Schema Mapping & Gap Analysis
 
 **Date:** 2026-07-07 · Analyzed live G99 prod (Aurora PG 17.7, read-only via SSH tunnel) against our Neon DB.
 **Population analyzed:** 1,241 live clinics belonging to 1,062 live, non-training businesses.

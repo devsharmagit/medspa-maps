@@ -81,4 +81,4 @@ Providers usually advise avoiding sun exposure and self-tanner beforehand, and p
 
 **Because clinics carry different devices and outcomes depend heavily on skill, choose a provider based on their equipment, experience, and expertise with your skin type, not just price. Ask what device they’ll use, why, and how much experience they have with it.**
 
-A good provider will assess your skin, explain which treatment fits your goals, and set realistic expectations about downtime and results. If you’re comparing clinics nearby, [Med Spa Maps lets you find and compare laser providers](/search?q=laser-skin-resurfacing), see which devices they offer, and read reviews before booking a consultation.
+A good provider will assess your skin, explain which treatment fits your goals, and set realistic expectations about downtime and results. If you’re comparing clinics nearby, [Medspa Maps lets you find and compare laser providers](/search?q=laser-skin-resurfacing), see which devices they offer, and read reviews before booking a consultation.

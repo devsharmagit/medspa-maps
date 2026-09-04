@@ -13,7 +13,7 @@ const wrinkles: LandingContent = {
   slug: "wrinkles",
   title: "Wrinkles: Causes, Treatments, and How to Find a Provider",
   shortName: "Wrinkles",
-  metaTitle: "Wrinkles: Causes, Treatments & How to Find a Provider | Med Spa Maps",
+  metaTitle: "Wrinkles: Causes, Treatments & How to Find a Provider | Medspa Maps",
   metaDescription:
     "What causes wrinkles, the types, which medspa treatments help, how to prevent them, and how to find and compare providers who treat wrinkles near you.",
   updated: "August 2026",
@@ -29,7 +29,7 @@ const wrinkles: LandingContent = {
     "Botox is best for dynamic lines; dermal fillers restore volume for static lines; resurfacing (laser, microneedling, peels) improves texture.",
     "Daily sun protection and a good skincare routine are the foundation of prevention.",
     "The best treatment depends on the type and depth of your wrinkles, so a consultation matters.",
-    "Use Med Spa Maps to find and compare providers who treat wrinkles near you.",
+    "Use Medspa Maps to find and compare providers who treat wrinkles near you.",
   ],
   sections: [
     {
@@ -160,7 +160,7 @@ const pigmentation: LandingContent = {
   slug: "pigmentation",
   title: "Pigmentation and Dark Spots: Causes, Treatments, and How to Find a Provider",
   shortName: "Pigmentation",
-  metaTitle: "Pigmentation & Dark Spots: Causes, Treatments & How to Find a Provider | Med Spa Maps",
+  metaTitle: "Pigmentation & Dark Spots: Causes, Treatments & How to Find a Provider | Medspa Maps",
   metaDescription:
     "What causes hyperpigmentation, the types, which medspa treatments fade dark spots, safety for darker skin tones, and how to find providers near you.",
   updated: "August 2026",
@@ -176,7 +176,7 @@ const pigmentation: LandingContent = {
     "Professional treatments include chemical peels, laser and IPL, microneedling, and prescription topicals.",
     "Melasma and deeper skin tones need extra caution, since aggressive treatments can worsen pigment.",
     "Daily sun protection is essential to fade spots and keep them from returning.",
-    "Use Med Spa Maps to find and compare providers who treat pigmentation near you.",
+    "Use Medspa Maps to find and compare providers who treat pigmentation near you.",
   ],
   sections: [
     {
@@ -305,7 +305,7 @@ const veins: LandingContent = {
   slug: "veins",
   title: "Varicose and Spider Veins: Causes, Treatments, and How to Find a Provider",
   shortName: "Veins",
-  metaTitle: "Varicose & Spider Veins: Causes, Treatments & How to Find a Provider | Med Spa Maps",
+  metaTitle: "Varicose & Spider Veins: Causes, Treatments & How to Find a Provider | Medspa Maps",
   metaDescription:
     "What causes varicose and spider veins, how they differ, available treatments, when veins are a medical issue, and how to find providers near you.",
   updated: "August 2026",
@@ -321,7 +321,7 @@ const veins: LandingContent = {
     "Common treatments include sclerotherapy and laser for spider veins; larger varicose veins may need a vein specialist.",
     "Persistent pain, swelling, or skin changes should be evaluated by a medical provider, as varicose veins can signal an underlying vein condition.",
     "Compression stockings and lifestyle measures can help manage symptoms.",
-    "Use Med Spa Maps to find and compare vein treatment providers near you.",
+    "Use Medspa Maps to find and compare vein treatment providers near you.",
   ],
   sections: [
     {

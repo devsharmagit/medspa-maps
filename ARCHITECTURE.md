@@ -1,4 +1,4 @@
-# MedSpa Maps — Architecture & Design
+# Medspa Maps — Architecture & Design
 
 > A searchable directory of medical-spa clinics (search by treatment + location), where clinic/provider/service content is populated automatically by scraping clinic websites — with an AI extraction pipeline, an AI concierge chatbot, and a nightly re-scrape cron. This document explains the high-level system, the technologies used, and how the moving parts fit together.
 >

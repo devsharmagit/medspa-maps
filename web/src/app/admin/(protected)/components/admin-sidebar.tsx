@@ -48,7 +48,7 @@ export default function AdminSidebar() {
           M
         </div>
         <span className="text-sm font-semibold text-slate-800 tracking-tight">
-          MedSpa Admin
+          Medspa Admin
         </span>
       </Link>
 

@@ -83,7 +83,7 @@ export default async function AdminDashboardPage() {
           Dashboard
         </h2>
         <p className="text-sm text-slate-500 mt-0.5">
-          Overview of your MedSpa Map catalog.
+          Overview of your Medspa Maps catalog.
         </p>
       </div>
 

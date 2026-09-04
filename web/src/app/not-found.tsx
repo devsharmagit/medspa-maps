@@ -4,7 +4,7 @@ import { HeroHeader } from "@/components/hero/hero-header";
 import { Footer } from "@/components/footer";
 
 export const metadata = {
-  title: "Page Not Found — Med Spa Maps",
+  title: "Page Not Found — Medspa Maps",
 };
 
 const quickLinks = [

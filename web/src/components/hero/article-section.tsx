@@ -92,7 +92,7 @@ export function ArticleSection({ posts }: { posts: ArticleCard[] }) {
           <div className="flex flex-col items-start gap-[9px] w-full">
             <h3 className="font-montserrat text-[26px] sm:text-[30px] lg:text-[34px] font-normal leading-[116.02%] tracking-[-0.04em] text-[#373634] w-full">
               Your Resource for Expert{" "}
-              <span className="font-heading italic block sm:inline">Med Spa Knowledge!</span>
+              <span className="font-heading italic block sm:inline">Medspa Knowledge!</span>
             </h3>
             <p className="font-montserrat font-normal text-[14px] leading-[140%] text-[#353535] max-w-[337px]">
               In-depth guide, expert tips and the latest insight to help you make informed decisions.

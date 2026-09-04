@@ -620,7 +620,7 @@ export function SearchResults({ initialData }: { initialData?: InitialSearchData
         <h1 className="text-2xl font-semibold tracking-tight text-[#1a1a1a] sm:text-3xl">
           Local{" "}
           <span className="font-fraunces font-normal italic text-brand-magenta">
-            Med Spa Services
+            Medspa Services
           </span>{" "}
           Just for You
         </h1>

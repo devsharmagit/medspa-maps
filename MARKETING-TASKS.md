@@ -104,7 +104,7 @@ surface facts, but the call is the senior's.
 ### Home — below the fold
 - [ ] **U5 — Replace "100% personalized care" with a standards/trust statement.** The current line
   feels single-provider and consumer-fluffy. Proposed direction: something like *"100% of practices
-  listed meet MedSpa Maps standards."* → **Need:** *Do we have real listing standards/metrics? Is
+  listed meet Medspa Maps standards."* → **Need:** *Do we have real listing standards/metrics? Is
   this a pure maps listing or is there a vetting bar?* Answer "why should a consumer trust this
   site?" so we can write an honest, defensible claim.
 - [ ] **U6 — Popular-treatments redundancy + missing terms.** ✏️ *Partly addressed:* the above-fold
@@ -155,10 +155,10 @@ S2, S3, S4, S5, S6, S8, S9, S10, S11, S12.
 
 **Decisions made (flag if you disagree):**
 1. **Brand vs. generic term.** The generic word is **"med spa"** (lowercase in prose). The
-   **product name** is now **"Med Spa Maps"** (per your follow-up) — unified to the plural form
+   **product name** is now **"Medspa Maps"** (per your follow-up) — unified to the plural form
    everywhere in text, which also fixed the old "Map" vs "Maps" inconsistency. ⚠️ **The logo graphic
    still renders "MEDSPA MAPS"** as vector artwork (no editable text in the SVG) — updating the logo
-   image to "Med Spa Maps" is a design task, not a text edit. Same for the favicon mark.
+   image to "Medspa Maps" is a design task, not a text edit. Same for the favicon mark.
 2. **SEO description number.** The site `<meta>` description said *"10,000+ vetted medspas"* while the
    hero says *600+*. Aligned it to **600+** to avoid an inflated/contradictory claim.
 3. **Scope of the term sweeps.** Applied to **patient-facing copy only**. Left untouched: `/admin`
@@ -170,7 +170,7 @@ S2, S3, S4, S5, S6, S8, S9, S10, S11, S12.
 5. **Capitalization = sentence case (follow-up pass).** Per your note ("no capitalization unless the
    start of a sentence"), all home-page headings/buttons/labels were converted from Title Case to
    sentence case (e.g. "Popular Treatments" → "Popular treatments", "View Profile" → "View profile",
-   "How It Works?" → "How it works?"). **Kept capitalized:** the brand (Med Spa Maps), treatment/
+   "How It Works?" → "How it works?"). **Kept capitalized:** the brand (Medspa Maps), treatment/
    procedure names (Botox, Dermal Fillers, HydraFacial…), acronyms/credentials (MD, RN, CEO…), place
    & people names, and legal/article-title text. **Left as-is:** intentional ALL-CAPS styling
    (eyebrows like "TRUSTED MED SPA DIRECTORY", "SEARCH BY", the stat labels — these are CSS-uppercased

@@ -39,7 +39,7 @@
 | **URL** | `/treatments/botox` |
 | **H1** | Botox: What It Is, How It Works, Cost & How to Find a Provider Near You |
 | **Title tag** (~58) | `Botox Guide: Cost, Areas, Safety & Providers Near You` |
-| **Meta description** (~150) | `What Botox is, how it works, what it costs, areas treated, safety and side effects — plus find licensed Botox providers near you on Med Spa Maps.` |
+| **Meta description** (~150) | `What Botox is, how it works, what it costs, areas treated, safety and side effects — plus find licensed Botox providers near you on Medspa Maps.` |
 | **Canonical** | `https://<domain>/treatments/botox` (set manually — no `metadataBase` in the app yet) |
 | **OG** | title/description as above + a share image |
 
@@ -230,14 +230,14 @@ Mirrors the on-page `FAQPage` schema (§4).
     Always consult a licensed provider.
 
 ### 12. Find Botox providers near you
-Ready to take the next step? Search Med Spa Maps to find and compare licensed med spas offering
+Ready to take the next step? Search Medspa Maps to find and compare licensed med spas offering
 Botox near you — see the treatments they offer, read real patient reviews, and book directly
 with the practice.
 → **[Find Botox providers near you]** (`/search?q=Botox`) — optional location field / "use my
 location".
 
 ### Persistent disclaimer (footer of content)
-*Med Spa Maps is a directory that helps you find and compare med spas — we are not a medical
+*Medspa Maps is a directory that helps you find and compare med spas — we are not a medical
 provider and do not provide medical advice. This page is for general education only. Botox is a
 prescription treatment that must be administered by a licensed medical professional. Individual
 results, pricing, and suitability vary; consult a qualified provider to determine what's right

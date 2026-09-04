@@ -23,7 +23,7 @@ type SearchPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-const GENERIC_TITLE = "Search Results | Med Spa Maps";
+const GENERIC_TITLE = "Search Results | Medspa Maps";
 const GENERIC_DESCRIPTION =
   "Find the best med spas and aesthetic practices near you. Compare ratings, treatments, and locations.";
 
@@ -154,14 +154,14 @@ export async function generateMetadata({
     base = `${treatmentName} Providers`;
     description = `Find and compare ${treatmentName} providers${inLocation || " near you"}. See ratings, treatments offered, and book with confidence on ${SITE_NAME}.`;
   } else if (conditionName) {
-    base = `Med Spas Treating ${conditionName}`;
+    base = `Medspas Treating ${conditionName}`;
     description = `Find med spas that treat ${conditionName}${inLocation || " near you"}. Compare ratings, treatments, and locations on ${SITE_NAME}.`;
   } else {
-    base = "Best Med Spas";
+    base = "Best Medspas";
     description = `Find the best med spas${inLocation || " near you"}. Compare ratings, treatments, and locations on ${SITE_NAME}.`;
   }
 
-  const title = `${base}${inLocation} | Med Spa Maps`;
+  const title = `${base}${inLocation} | Medspa Maps`;
 
   // Canonical: the indexable facets only (q / condition / location), stable
   // order — drops session noise like lat/lng/sort/page/rating.

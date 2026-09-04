@@ -32,7 +32,14 @@ export function Footer({
           </Link>
         </nav>
         <p className="text-center font-montserrat text-[14px] font-medium uppercase leading-[180%] tracking-[0.02em] text-[#C4C4C4]">
-          Med Spa Maps © 2026. All rights reserved. Privacy Policy | Terms &amp; Condition
+          Medspa Maps © 2026. All rights reserved.{" "}
+          <Link href="/privacy-policy" className="transition-colors hover:text-white">
+            Privacy Policy
+          </Link>
+          {" | "}
+          <Link href="/terms" className="transition-colors hover:text-white">
+            Terms &amp; Conditions
+          </Link>
         </p>
       </footer>
     </>

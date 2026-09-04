@@ -78,7 +78,7 @@ const stats: Array<{ value: number; suffix: string; label: string; isDecimal?: b
   { value: 600, suffix: "+", label: "Verified practices" },
   { value: 500, suffix: "+", label: "Cities covered" },
   { value: 50, suffix: "", label: "States represented" },
-  { value: 100, suffix: "%", label: "Practices Meet Med Spa Maps Standards" },
+  { value: 100, suffix: "%", label: "Practices Meet Medspa Maps Standards" },
 ];
 
 export default function StatsSection() {

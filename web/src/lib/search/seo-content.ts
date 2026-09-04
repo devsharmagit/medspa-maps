@@ -8,7 +8,7 @@
  * reads like real editorial copy, never auto-generated spam.
  *
  * Rules (mirrors the /locations/[state] pattern): NO pricing, sentence case,
- * the brand is exactly "Med Spa Maps", and the generic term "med spas" stays
+ * the brand is exactly "Medspa Maps", and the generic term "med spas" stays
  * lowercase. Treatment/condition names are kept in their catalog casing (proper
  * names), matching how the state pages render them.
  *
@@ -40,7 +40,7 @@ export interface SearchSeoContent {
   paragraphs: string[];
 }
 
-const BRAND = "Med Spa Maps";
+const BRAND = "Medspa Maps";
 
 /** Oxford-comma join: ["a","b","c"] → "a, b, and c". (Mirrors the state page.) */
 function listPhrase(items: string[]): string {

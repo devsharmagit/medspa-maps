@@ -52,7 +52,7 @@ export interface LandingContent {
   title: string;
   /** Short noun for the breadcrumb and CTA labels, e.g. "Botox". */
   shortName: string;
-  /** <title> — include the " | Med Spa Maps" suffix. */
+  /** <title> — include the " | Medspa Maps" suffix. */
   metaTitle: string;
   metaDescription: string;
   /** Human display, e.g. "August 2026". */

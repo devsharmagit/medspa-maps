@@ -1,4 +1,4 @@
-# MedSpa Maps — Relational Database Schema (PostgreSQL)
+# Medspa Maps — Relational Database Schema (PostgreSQL)
 
 > Derived from [`UI-DATA-MAP.md`](UI-DATA-MAP.md). This is an **entity-first** view: it lists every table and the fields required to populate each entity — independent of which page renders them.
 >
@@ -85,7 +85,7 @@ Top Cities directory + location facet.
 
 ## 2. `clinic`
 
-The MedSpa listing — core entity of Search, Clinic Detail, and every clinic card.
+The Medspa listing — core entity of Search, Clinic Detail, and every clinic card.
 
 | Column | Type | Constraints | Notes |
 |--------|------|-------------|-------|

@@ -1,4 +1,4 @@
-# MedSpa Maps — Task List
+# Medspa Maps — Task List
 
 **Created:** 2026-07-27 · **Owner:** Mehul Kothari
 Items are in **priority order** and executed **one at a time** — each is reviewed before the

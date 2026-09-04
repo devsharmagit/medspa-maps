@@ -62,7 +62,7 @@ export function HeroSection() {
                 Find the right local
                 <br />
                 <em className="font-heading font-normal italic">
-                  Med Spa
+                  Medspa
                 </em>
               </h1>
             </div>

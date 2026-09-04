@@ -1,4 +1,4 @@
-# MedSpa Maps — Master Task List & Gap Analysis
+# Medspa Maps — Master Task List & Gap Analysis
 
 **Date:** 2026-07-07 · **Owner:** Mehul Kothari
 **Goal:** End-to-end system matching the [Figma design](https://www.figma.com/proto/oBTUqk4OCHK22zKRoIf8iy/Med-Spa-maps?node-id=1-10444&p=f&page-id=1%3A9703) — search medspa clinics by treatment + location, with all clinic/provider/service content populated automatically by scraping clinic websites with AI.

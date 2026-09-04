@@ -1,4 +1,4 @@
-# MedSpa Maps — UI Data Map
+# Medspa Maps — UI Data Map
 
 > Data-point mapping derived from the Figma mockups in `/ui`.
 > Every screen, section, and field visible in the mockups is catalogued below, mapped to the underlying data entity that must supply it.
@@ -32,7 +32,7 @@ The same handful of entities are reused across every page. (Pricing, before/afte
 
 | Entity | Key fields (union of everything shown across screens) |
 |--------|-------------------------------------------------------|
-| **Clinic / MedSpa** | id, name, logo, verified_badge (bool), tier (Featured / Featured Premium / Customer Favorite / Standard), city, state, address (street, suite, city, state, zip), latitude/longitude (for distance), distance_from_user (mi, computed), avg_rating, review_count, hero_image, video_url, gallery_images[] (+N "View All"), treatment_tags[] (derived from offered treatments), highlight_bullets[] (Natural Looking Results / 15+ Years Of Experience / Award Winning Team / Highly Rated On Google), about_description, tagline/short_description, open_status (Open Today) + hours, vanity_stats[] (Certified Expert / Cities Covered / Advanced Treatment / Patient Transformed), favorite (bool, per-user), booking_url, phone |
+| **Clinic / Medspa** | id, name, logo, verified_badge (bool), tier (Featured / Featured Premium / Customer Favorite / Standard), city, state, address (street, suite, city, state, zip), latitude/longitude (for distance), distance_from_user (mi, computed), avg_rating, review_count, hero_image, video_url, gallery_images[] (+N "View All"), treatment_tags[] (derived from offered treatments), highlight_bullets[] (Natural Looking Results / 15+ Years Of Experience / Award Winning Team / Highly Rated On Google), about_description, tagline/short_description, open_status (Open Today) + hours, vanity_stats[] (Certified Expert / Cities Covered / Advanced Treatment / Patient Transformed), favorite (bool, per-user), booking_url, phone |
 | **Provider / Doctor** | id, name, verified_badge, headshot, title/role ("Injectable Specialist"), specialty_tagline, provider_type (Nurse Practitioner / MD / Plastic Surgeon / Dermatologist), years_experience ("10+"), clinic (name + link), city/state, avg_rating (display only), bio, credentials[] (degree + institution), specialties[] (name + description + icon), highlight_chips[] (Board Certified Nurse Practitioner / Expert in Facial Aesthetics / Natural Looking Results / Patient-Centered Care), treatments_offered[], booking_url, phone |
 | **Treatment / Service** | id, name, icon, hero_image, short_description, treatment_time, results_onset, duration/longevity, clinic_count ("48 Clinics Found", derived) |
 | **Concern / Condition** | id, name ("Fine Lines & Wrinkles"), overview blocks (Signs of Aging, Causes, Who Is a Candidate, Expected Results), info cards (Common Treatment Areas, Injectable Treatments, Benefits, Preventative Aging Care), related treatments[], related clinics[] (derived), related providers[] (derived) |
@@ -214,7 +214,7 @@ Each card = **Treatment** entity → `{ icon, name, clinic_count }` *(clinic_cou
 | Section link | link | "View All →" |
 | City chips | list | Los Angeles · Miami · New York · Dallas · Chicago · Illinois · Georgia |
 
-### 1.10 Resources — "Your Resource for Expert MedSpa knowledge!"
+### 1.10 Resources — "Your Resource for Expert Medspa knowledge!"
 
 | Section | Data Point | Type | Example |
 |---------|-----------|------|---------|
@@ -509,7 +509,7 @@ Which entity feeds which screen (✅ = primary source, ○ = referenced/embedded
 
 | Entity | Home | Search | Clinic | Treatment | Provider | Concern |
 |--------|:----:|:------:|:------:|:---------:|:--------:|:-------:|
-| Clinic / MedSpa | ○ | ✅ | ✅ | ○ | ○ | ○ |
+| Clinic / Medspa | ○ | ✅ | ✅ | ○ | ○ | ○ |
 | Provider / Doctor | ○ | — | ○ | ○ | ✅ | ○ |
 | Treatment / Service | ○ | ○ (filter) | ○ | ✅ | ○ | ○ |
 | Concern / Condition | ○ (search) | — | — | — | — | ✅ |

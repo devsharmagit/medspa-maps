@@ -48,7 +48,7 @@ export default function AdminLoginPage() {
           <div className="w-9 h-9 rounded-lg bg-slate-900 flex items-center justify-center text-white font-bold text-base shrink-0">
             M
           </div>
-          <span className="text-base font-semibold text-slate-800 tracking-tight">MedSpa Map</span>
+          <span className="text-base font-semibold text-slate-800 tracking-tight">Medspa Maps</span>
         </div>
 
         <Card className="shadow-sm border-slate-200">

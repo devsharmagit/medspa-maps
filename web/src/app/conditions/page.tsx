@@ -8,7 +8,7 @@ import { CONCERN_CATALOG } from "@/lib/concerns/catalog";
 import { conditionImage } from "@/lib/images/catalog-images";
 
 export const metadata: Metadata = {
-  title: "Skin & Body Conditions — Med Spa Maps",
+  title: "Skin & Body Conditions — Medspa Maps",
   description:
     "Explore treatment guides and expert information for various skin and body conditions.",
 };

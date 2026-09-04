@@ -4,7 +4,7 @@
  * instead of the hardcoded strings that were previously scattered around.
  */
 export const SITE_URL = "https://medspamaps.com";
-export const SITE_NAME = "Med Spa Maps";
+export const SITE_NAME = "Medspa Maps";
 
 /** Build an absolute URL for a site-relative path (e.g. "/blog/foo"). */
 export function absoluteUrl(path: string): string {

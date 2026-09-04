@@ -45,7 +45,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const st = stateFromSlug(state);
   if (!st) return { title: "State not found" };
   const content = stateContent(st.abbr, st.state);
-  const title = `Best Med Spas in ${st.state} | Med Spa Maps`;
+  const title = `Best Medspas in ${st.state} | Medspa Maps`;
   const path = `/locations/${stateSlug(st.state)}`;
   return {
     title,
@@ -100,7 +100,7 @@ export default async function StateLocationPage({ params }: Props) {
   // Intro data sentence (live) — sits under the evergreen editorial intro.
   const introData =
     total > 0
-      ? `Med Spa Maps lists ${total} vetted med spa${total === 1 ? "" : "s"} across ${st.state}${
+      ? `Medspa Maps lists ${total} vetted med spa${total === 1 ? "" : "s"} across ${st.state}${
           topCities.length
             ? `, including ${listPhrase(cityNames.slice(0, 3))}`
             : ""
@@ -111,8 +111,8 @@ export default async function StateLocationPage({ params }: Props) {
   const faqs: StateFaq[] = [];
   if (total > 0) {
     faqs.push({
-      q: `How many med spas are in ${st.state} on Med Spa Maps?`,
-      a: `Med Spa Maps lists ${total} vetted med spa${total === 1 ? "" : "s"} in ${st.state}${
+      q: `How many med spas are in ${st.state} on Medspa Maps?`,
+      a: `Medspa Maps lists ${total} vetted med spa${total === 1 ? "" : "s"} in ${st.state}${
         topCities.length ? `, across cities like ${listPhrase(cityNames.slice(0, 4))}` : ""
       }.`,
     });
@@ -120,7 +120,7 @@ export default async function StateLocationPage({ params }: Props) {
   if (cities.length) {
     faqs.push({
       q: `Which cities in ${st.state} have med spas listed?`,
-      a: `${st.state} med spas on Med Spa Maps are located in ${listPhrase(topCities)}${
+      a: `${st.state} med spas on Medspa Maps are located in ${listPhrase(topCities)}${
         cities.length > topCities.length ? ", and more" : ""
       }.`,
     });
@@ -142,12 +142,12 @@ export default async function StateLocationPage({ params }: Props) {
     });
   }
   faqs.push({
-    q: `Are the med spas in ${st.state} on Med Spa Maps vetted?`,
+    q: `Are the med spas in ${st.state} on Medspa Maps vetted?`,
     a: `Yes. Every practice is editorially reviewed against our quality standards before it's listed, and each profile shows real patient reviews and the treatments the practice actually offers.`,
   });
   faqs.push({
     q: `How do I book a med spa in ${st.state}?`,
-    a: `Open any ${st.state} practice on Med Spa Maps and book directly with them through their own booking link or phone number — Med Spa Maps never sits between you and your provider.`,
+    a: `Open any ${st.state} practice on Medspa Maps and book directly with them through their own booking link or phone number — Medspa Maps never sits between you and your provider.`,
   });
   if (content.extraFaqs) faqs.push(...content.extraFaqs);
 
@@ -157,7 +157,7 @@ export default async function StateLocationPage({ params }: Props) {
       {
         "@type": "CollectionPage",
         "@id": `${pageUrl}#page`,
-        name: `Best Med Spas in ${st.state}`,
+        name: `Best Medspas in ${st.state}`,
         description: content.metaDescription,
         url: pageUrl,
         about: {
@@ -205,7 +205,7 @@ export default async function StateLocationPage({ params }: Props) {
           { label: "Find med spas", href: "/search" },
           { label: st.state },
         ]}
-        title="Best Med Spas in"
+        title="Best Medspas in"
         accent={st.state}
         subtitle={content.intro}
       />

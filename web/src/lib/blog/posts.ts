@@ -60,7 +60,7 @@ export const BLOG_POSTS: BlogPostMeta[] = [
     description:
       "What IPL, BBL, fractional resurfacing, and Laser Genesis each do, what they treat, their downtime and cost, and how to pick the right one.",
     category: "Treatments",
-    author: "Med Spa Maps Editorial Team",
+    author: "Medspa Maps Editorial Team",
     datePublished: "2026-08-21",
     dateModified: "2026-08-21",
     readingMinutes: 7,
@@ -119,7 +119,7 @@ export const BLOG_POSTS: BlogPostMeta[] = [
     description:
       "What causes hyperpigmentation and which professional treatments — lasers, peels, microneedling — fade dark spots, plus what’s safest for deeper skin tones.",
     category: "Skin care",
-    author: "Med Spa Maps Editorial Team",
+    author: "Medspa Maps Editorial Team",
     datePublished: "2026-08-21",
     dateModified: "2026-08-21",
     readingMinutes: 7,
@@ -174,7 +174,7 @@ export const BLOG_POSTS: BlogPostMeta[] = [
     description:
       "A plain-English guide to dermal fillers, the types, what each treats, how long results last, typical costs, and how to choose a provider.",
     category: "Treatments",
-    author: "Med Spa Maps Editorial Team",
+    author: "Medspa Maps Editorial Team",
     datePublished: "2026-08-21",
     dateModified: "2026-08-21",
     readingMinutes: 8,
