@@ -1,4 +1,3 @@
-import { Suspense } from "react";
 import type { Metadata } from "next";
 import { SearchResults, type InitialSearchData } from "./search-results";
 import { SearchSeoContent } from "./search-seo-content";
@@ -202,6 +201,13 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
       total: data.total,
       resolved: data.query.resolved,
       pagination: data.pagination,
+      nearby: data.nearby as unknown as InitialSearchData["nearby"],
+      // So the distance filters paint in their correct state on first render
+      // instead of flicking from disabled to enabled after hydration.
+      origin:
+        data.query.lat != null && data.query.lng != null
+          ? { lat: data.query.lat, lng: data.query.lng }
+          : null,
     };
   } catch (err) {
     console.error("Search page SSR failed; falling back to client fetch:", err);
@@ -248,19 +254,14 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
         popularTreatments={popularTreatments}
       />
 
-      {/* Search results content */}
-      <Suspense
-        fallback={
-          <div className="flex flex-1 items-center justify-center py-32">
-            <div className="flex flex-col items-center gap-4">
-              <div className="size-10 animate-spin rounded-full border-4 border-brand-magenta/20 border-t-brand-magenta" />
-              <p className="text-sm text-brand-muted">Searching practices…</p>
-            </div>
-          </div>
-        }
-      >
-        <SearchResults initialData={initialData} />
-      </Suspense>
+      {/* Search results content.
+          NOT wrapped in <Suspense>: this route is force-dynamic and
+          SearchResults receives its first page as a resolved prop, so it never
+          suspends. The boundary only made React stream the markup into a hidden
+          `<div id="S:0">` that was never cleaned up — leaving a second, hidden
+          copy of the whole search card whose radio inputs shared `name="distance"`
+          with the live ones ("Mixing React and non-React radio inputs"). */}
+      <SearchResults initialData={initialData} />
 
       {/* FAQs for our 8 guide treatments/conditions, when the search matches one */}
       <SearchFaqs q={firstParam(sp, "q") ?? ""} condition={conditionRaw ?? ""} />

@@ -13,10 +13,12 @@
 import { CANONICAL_SERVICES, CANONICAL_CONCERNS } from "@/lib/taxonomy/canonical";
 import type {
   ClinicContext,
-  SearchResult,
   TreatmentInfo,
   ConcernInfo,
 } from "@/lib/chat/data";
+import type { ChatSearchResult } from "@/lib/chat/search-adapter";
+import type { LiveCatalog } from "@/lib/chat/catalog";
+import { DEFAULT_ORIGIN_RADIUS_MILES } from "@/lib/search/location-scope";
 import type { PageContext, Slots } from "@/lib/chat/intent";
 
 export interface TurnMsg {
@@ -27,7 +29,7 @@ export interface TurnMsg {
 export interface GatheredContext {
   page: PageContext;
   clinic?: ClinicContext | null;
-  search?: SearchResult | null;
+  search?: ChatSearchResult | null;
   treatments?: TreatmentInfo[];
   concerns?: ConcernInfo[];
 }
@@ -37,13 +39,15 @@ export interface MemoryInput {
   slots: Slots;
   /** recent raw turns EXCLUDING the current question (already trimmed) */
   recentTurns: TurnMsg[];
+  /** live catalog, for the taxonomy sample + true totals */
+  catalog?: LiveCatalog | null;
 }
 
 // Per-block character caps (~4 chars/token).
 const CAP = {
   pageContext: 600,
-  clinic: 800,
-  searchResults: 1400,
+  clinic: 1600,
+  searchResults: 1800,
   catalog: 1100,
   slots: 300,
   summary: 900,
@@ -64,14 +68,84 @@ function ratingText(rating: number | null, reviews: number): string {
 // ──────────────────────────────────────────────────────────────────────────
 // Individual blocks
 // ──────────────────────────────────────────────────────────────────────────
-function taxonomyBlock(): string {
-  const t = CANONICAL_SERVICES.map((s) => `${s.name} (/search?q=${s.slug})`).join(
-    "; "
+/**
+ * A SAMPLE of the catalog, not the catalog.
+ *
+ * This used to list the 15 curated treatments and 17 curated concerns, which
+ * the model quite reasonably read as a whitelist — so it told people that real,
+ * offered treatments "aren't covered". The live catalog has ~966 services and
+ * ~191 concerns; dumping all of them would be tens of KB and would still read
+ * as a whitelist. So we give the most-offered ones (with counts that match the
+ * search dropdown exactly) and state plainly that the list is not the boundary.
+ */
+function taxonomyBlock(catalog: LiveCatalog | null | undefined): string {
+  if (!catalog || (!catalog.topTreatments.length && !catalog.topConcerns.length)) {
+    const t = CANONICAL_SERVICES.map((s) => `${s.name} (/search?q=${s.slug})`).join("; ");
+    const c = CANONICAL_CONCERNS.map((x) => `${x.name} (/search?condition=${x.slug})`).join("; ");
+    return `SITE_TAXONOMY (a sample — the full catalog is larger):\nTreatments — ${t}\nConcerns — ${c}`;
+  }
+
+  const t = catalog.topTreatments
+    .map((s) => `${s.name} — ${s.count} practices (/search?q=${s.slug})`)
+    .join("; ");
+  const c = catalog.topConcerns
+    .map((x) => `${x.name} — ${x.count} practices (/search?condition=${x.slug})`)
+    .join("; ");
+
+  return (
+    `SITE_TAXONOMY:\n` +
+    `This site covers ${catalog.serviceCount} treatments and ${catalog.concernCount} conditions — ` +
+    `far more than can be listed here. The ones below are simply the most widely offered. ` +
+    `NEVER tell someone a treatment or condition isn't covered just because it is absent from this list; ` +
+    `anything the user named has already been resolved for you and appears in RESOLVED_ENTITIES.\n` +
+    `Most-offered treatments — ${t}\n` +
+    `Most-common conditions — ${c}\n` +
+    `Browse everything: /search`
   );
-  const c = CANONICAL_CONCERNS.map((x) => `${x.name} (/search?condition=${x.slug})`).join(
-    "; "
-  );
-  return `SITE_TAXONOMY:\nTreatments — ${t}\nConcerns — ${c}`;
+}
+
+/**
+ * What the backend actually resolved this turn. This is the block that stops
+ * the "we don't offer Botox in Salt Lake City" failure: the model is told the
+ * treatment and the place both resolved BEFORE it ever sees a result count, so
+ * an empty result set reads as "none nearby", never as "we don't do that".
+ */
+function resolvedEntitiesBlock(search: ChatSearchResult | null | undefined): string | null {
+  if (!search) return null;
+  const lines: string[] = [];
+
+  if (search.resolved) {
+    const path =
+      search.resolved.kind === "treatment"
+        ? `/search?q=${search.resolved.slug}`
+        : `/search?condition=${search.resolved.slug}`;
+    lines.push(`${search.resolved.kind} = ${search.resolved.name} (${path}) — this IS offered on this site`);
+    // Curated aliases deliberately widen a search (Dysport → Botox,
+    // Morpheus8 → Microneedling) to surface more practices. Say so plainly;
+    // otherwise the model sees the mismatch and tells the user we can't find
+    // the thing they asked for, while listing clinics right underneath.
+    const asked = (search.queryText ?? "").trim();
+    if (asked && asked.toLowerCase() !== search.resolved.name.toLowerCase()) {
+      lines.push(
+        `The user asked for "${asked}". On this site that is grouped under ${search.resolved.name}, ` +
+          `so the practices below are the right answer. Acknowledge "${asked}" in your reply and ` +
+          `mention it is listed under ${search.resolved.name} — do NOT say you couldn't find it.`,
+      );
+    }
+  } else if (search.filters.treatment) {
+    lines.push(`UNRESOLVED: "${search.filters.treatment}" — we could not match this to the catalog`);
+  }
+
+  const loc = search.location;
+  if (loc?.label) {
+    lines.push(
+      loc.lat != null
+        ? `location = ${loc.label} (searched within ${DEFAULT_ORIGIN_RADIUS_MILES} miles)`
+        : `location = ${loc.label}`,
+    );
+  }
+
+  return lines.length ? `RESOLVED_ENTITIES:\n${lines.join("\n")}` : null;
 }
 
 /**
@@ -135,40 +209,123 @@ function clinicBlock(clinic: ClinicContext | null | undefined): string | null {
     ? clinic.services.join(", ")
     : "no services listed";
   const rt = ratingText(clinic.rating, clinic.reviews);
-  const body =
-    `CLINIC_IN_FOCUS:\n` +
-    `Name: ${clinic.name} (${clinic.url})\n` +
-    `Location: ${[clinic.city, clinic.state].filter(Boolean).join(", ") || "unknown"}\n` +
-    (rt ? `Rating: ${rt}\n` : "") +
-    `Services offered (the ONLY services this clinic offers — if a treatment is not in this list, this clinic does not offer it): ${services}\n` +
-    `Booking: ${clinic.hasBooking ? "available on their page" : "not listed"}`;
-  return clip(body, CAP.clinic);
+  const where =
+    [clinic.address, clinic.city, clinic.state].filter(Boolean).join(", ") ||
+    "location not listed";
+
+  const lines = [
+    `CLINIC_IN_FOCUS — everything below is from our database; state it freely.`,
+    `Name: ${clinic.name} (${clinic.url})`,
+    clinic.tagline ? `Tagline: ${clinic.tagline}` : "",
+    `Address: ${where}`,
+    clinic.locationCount > 1 ? `Locations: ${clinic.locationCount} in total` : "",
+    rt ? `Rating: ${rt}` : "",
+    clinic.phone ? `Phone: ${clinic.phone}` : "",
+    clinic.website ? `Website: ${clinic.website}` : "",
+    clinic.hours ? `Hours: ${clinic.hours}` : "Hours: not listed — suggest calling or checking their page",
+    `Booking: ${clinic.hasBooking ? "online booking is available on their page" : "no online booking listed"}`,
+    `Services offered (the ONLY services this practice offers — if a treatment is not in this list, it does not list it): ${services}`,
+    clinic.about ? `About: ${clinic.about}` : "",
+  ].filter(Boolean);
+
+  return clip(lines.join("\n"), CAP.clinic);
 }
 
-function searchBlock(search: SearchResult | null | undefined): string | null {
+function searchBlock(search: ChatSearchResult | null | undefined): string | null {
   if (!search) return null;
+
   if (search.unavailable) {
-    return `SEARCH_RESULTS: SEARCH_UNAVAILABLE\nClinic search could not run this time. Tell the user search is briefly unavailable and point them to ${search.search_page}.`;
+    return `SEARCH_RESULTS: SEARCH_UNAVAILABLE\nPractice search could not run this time. Tell the user search is briefly unavailable and point them to ${search.search_page}.`;
   }
+
+  const what = search.resolved?.name ?? null;
+  const where = search.location?.label ?? null;
+  const scope = [what ? `for ${what}` : null, where ? `near ${where}` : null]
+    .filter(Boolean)
+    .join(" ");
+
+  // Nothing in the area, but the engine found some farther out.
+  if (search.count === 0 && search.nearby && search.nearby.total > 0) {
+    const dist =
+      search.nearby.nearestMiles != null
+        ? ` The nearest is about ${Math.round(search.nearby.nearestMiles)} miles away.`
+        : "";
+    return clip(
+      `SEARCH_RESULTS: NONE_IN_AREA — ${search.nearby.clinics.length} practice(s) shown as cards below your answer.\n` +
+        `None were inside the searched radius ${scope || "there"}, but ${search.nearby.total} offer this elsewhere.${dist}\n` +
+        `Say this is a distance problem, NOT that the treatment is unavailable.\n` +
+        `${NAMELESS_RULE}\nFull results: ${search.nearby.search_page}`,
+      CAP.searchResults,
+    );
+  }
+
   if (search.count === 0) {
-    return `SEARCH_RESULTS: NONE_FOUND\nNo clinics matched. Do NOT name any clinic. Suggest broadening the location or trying a related treatment, and offer the browse page ${search.search_page}.`;
+    return `SEARCH_RESULTS: NONE_FOUND\nNo practices matched these filters. Do NOT name any practice, and do NOT say the treatment isn't offered — say none matched this location and suggest widening the area. Browse page: ${search.search_page}.`;
   }
-  const lines = search.clinics.map((c) => {
-    const loc = [c.city, c.state].filter(Boolean).join(", ") || "location n/a";
-    const svc = c.treatments.slice(0, 3).join(", ") || "services n/a";
-    const rt = ratingText(c.rating, c.reviews);
-    // Omit rating entirely when the clinic has none (don't say "no rating").
-    const segs = [
-      `${c.name} — ${loc}`,
-      rt,
-      `offers ${svc}`,
-      c.booking_url ? "booking available" : "",
-      `link: ${c.url}`,
-    ].filter(Boolean);
-    return `- ${segs.join("; ")}`;
-  });
-  const header = `SEARCH_RESULTS: ${search.count} clinic(s). Use ONLY these; use each link exactly as written. Full results: ${search.search_page}`;
-  return clip([header, ...lines].join("\n"), CAP.searchResults);
+
+  const more = search.total > search.count ? ` out of ${search.total} that match` : "";
+  return clip(
+    `SEARCH_RESULTS: ${search.count} practice(s)${more} are shown as cards directly below your answer${scope ? `, ${scope}` : ""}.\n` +
+      `${NAMELESS_RULE}\nFull results: ${search.search_page}`,
+    CAP.searchResults,
+  );
+}
+
+/** The one rule that makes the cards, not the model, the source of truth. */
+const NAMELESS_RULE =
+  "You have NOT been given the practices' names, ratings, locations or services, and you must never guess them — the cards already show all of that. " +
+  "Write one or two sentences of orientation plus one suggestion. Do NOT write a list, a table, or a heading: the cards are the list.";
+
+/**
+ * Superlatives computed by US from the retrieved rows, for follow-ups like
+ * "which of those has the best reviews?". The model quotes a fact we worked
+ * out; it never ranks anything or recalls a name on its own. This is the only
+ * place a practice name reaches the prompt on a search turn.
+ */
+function resultFactsBlock(search: ChatSearchResult | null | undefined): string | null {
+  if (!search || search.unavailable) return null;
+  const clinics = search.clinics.length ? search.clinics : (search.nearby?.clinics ?? []);
+  if (clinics.length < 1) return null;
+
+  const facts: string[] = [];
+
+  const rated = clinics.filter((c) => c.rating != null);
+  if (rated.length) {
+    const best = rated.reduce((a, b) =>
+      (b.rating ?? 0) !== (a.rating ?? 0)
+        ? (b.rating ?? 0) > (a.rating ?? 0)
+          ? b
+          : a
+        : b.reviews > a.reviews
+          ? b
+          : a,
+    );
+    facts.push(
+      `highest rated: ${best.name} — ${best.rating?.toFixed(1)}★${best.reviews ? ` from ${best.reviews} reviews` : ""}`,
+    );
+
+    const mostReviewed = rated.reduce((a, b) => (b.reviews > a.reviews ? b : a));
+    if (mostReviewed.slug !== best.slug) {
+      facts.push(`most reviewed: ${mostReviewed.name} — ${mostReviewed.reviews} reviews`);
+    }
+  }
+
+  const measured = clinics.filter((c) => c.distance_miles != null);
+  if (measured.length) {
+    const nearest = measured.reduce((a, b) =>
+      (b.distance_miles ?? 0) < (a.distance_miles ?? 0) ? b : a,
+    );
+    facts.push(
+      `closest: ${nearest.name} — about ${Math.round(nearest.distance_miles ?? 0)} miles away`,
+    );
+  }
+
+  if (!facts.length) return null;
+  return clip(
+    `RESULT_FACTS (computed from the cards; quote these verbatim if asked to compare, and name no other practice):\n` +
+      facts.map((f) => `- ${f}`).join("\n"),
+    CAP.slots,
+  );
 }
 
 function catalogBlock(
@@ -178,15 +335,13 @@ function catalogBlock(
   const parts: string[] = [];
   for (const t of treatments ?? []) {
     if (!t.found) continue;
-    const price =
-      t.price_from != null ? `from $${t.price_from}/${t.price_unit ?? "unit"}` : "varies";
     const treats = (t.treats_concerns ?? [])
       .map((c) => c.name)
       .slice(0, 4)
       .join(", ");
     parts.push(
       `TREATMENT ${t.name} (${t.url}): ${t.summary} ` +
-        `Category: ${t.category}. Typical cost: ${price}. Time: ${t.treatment_time}. ` +
+        `Category: ${t.category}. Time: ${t.treatment_time}. ` +
         `Results show: ${t.results_timeline}, last ${t.results_duration}. Recovery: ${t.recovery_time ?? "minimal"}. ` +
         (treats ? `Helps with: ${treats}.` : "")
     );
@@ -238,11 +393,13 @@ export function buildUserMessage(
   memory: MemoryInput
 ): string {
   const blocks: (string | null)[] = [
-    taxonomyBlock(),
+    taxonomyBlock(memory.catalog),
     siteFeaturesBlock(),
+    resolvedEntitiesBlock(g.search),
     pageContextBlock(g),
     clinicBlock(g.clinic),
     searchBlock(g.search),
+    resultFactsBlock(g.search),
     catalogBlock(g.treatments, g.concerns),
     slotsBlock(memory.slots),
     summaryBlock(memory.summary),

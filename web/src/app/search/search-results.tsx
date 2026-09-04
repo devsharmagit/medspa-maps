@@ -113,9 +113,16 @@ const STATE_OPTIONS: DropdownOption[] = STATES.map((s) => ({
 const DISTANCE_BANDS: { label: string; radius: number }[] = [
   { label: "10 - 20 miles", radius: 20 },
   { label: "20 - 40 miles", radius: 40 },
+  // A city/ZIP search with no explicit radius runs at 50 miles server-side
+  // (DEFAULT_ORIGIN_RADIUS_MILES), so it needs a band of its own — otherwise the
+  // filter shows nothing selected during a search that IS radius-limited.
+  { label: "Within 50 miles", radius: 50 },
   { label: "40 - 80 miles", radius: 80 },
   { label: "80 - 120 miles", radius: 120 },
 ];
+
+/** Radius the engine applies when an origin came from a typed location. */
+const DEFAULT_ORIGIN_RADIUS = 50;
 
 const RATING_BANDS: { label: string; value: string }[] = [
   { label: "4.5 & up", value: "4.5" },
@@ -133,9 +140,20 @@ const RATING_BANDS: { label: string; value: string }[] = [
  * so the initial HTML contains real listings (crawlable) instead of a spinner.
  * The client hydrates with the same data, then takes over all further fetches.
  */
+/** The nearest practices offering the search term, found outside the location. */
+export interface NearbyFallback {
+  results: ClinicResult[];
+  total: number;
+  nearestMiles: number | null;
+  relaxedFrom: { kind: "radius" | "state" | "text"; radiusMiles: number | null; location: string };
+}
+
 export interface InitialSearchData {
   results: ClinicResult[];
   total: number;
+  nearby?: NearbyFallback;
+  /** Origin the engine actually used — may come from a typed location, not the URL. */
+  origin?: { lat: number; lng: number } | null;
   resolved: { kind: string; name: string } | null;
   pagination: {
     page: number;
@@ -160,11 +178,22 @@ export function SearchResults({ initialData }: { initialData?: InitialSearchData
   const lat = searchParams.get("lat") || "";
   const lng = searchParams.get("lng") || "";
   const page = searchParams.get("page") || "1";
-  const hasOrigin = Boolean(lat && lng);
+  const urlHasOrigin = Boolean(lat && lng);
+  /**
+   * The engine geocodes a typed "Nashville, TN" / "37203" in-memory and runs a
+   * real radius search even when the URL carries no lat/lng — it just echoes the
+   * origin back. Reading only the URL made the distance filters look dead during
+   * a search that WAS distance-based, so trust the echo too.
+   */
+  const [echoOrigin, setEchoOrigin] = useState<{ lat: number; lng: number } | null>(
+    initialData?.origin ?? null
+  );
+  const hasOrigin = urlHasOrigin || echoOrigin !== null;
   const sort = searchParams.get("sort") || (hasOrigin ? "distance" : "rating");
 
   const [results, setResults] = useState<ClinicResult[]>(initialData?.results ?? []);
   const [total, setTotal] = useState(initialData?.total ?? 0);
+  const [nearby, setNearby] = useState<NearbyFallback | null>(initialData?.nearby ?? null);
   /**
    * What the typed treatment resolved to in the catalog, or null when it named
    * nothing. Lets the empty state say "we don't recognise that" instead of
@@ -206,7 +235,16 @@ export function SearchResults({ initialData }: { initialData?: InitialSearchData
     condition ? conditionValue(condition) : q
   );
   const [searchState, setSearchState] = useState(location);
-  const serviceOptions = useTreatmentConditionOptions();
+  const {
+    options: serviceOptions,
+    countsStale,
+    loading: optionsLoading,
+  } = useTreatmentConditionOptions({
+    location,
+    lat: lat ? Number(lat) : null,
+    lng: lng ? Number(lng) : null,
+    radius,
+  });
   const treatmentOptions = serviceOptions.filter((option) => option.group === "Treatments");
   const conditionOptions = serviceOptions.filter((option) => option.group === "Conditions");
   const activeOptions = searchMode === "treatment" ? treatmentOptions : conditionOptions;
@@ -267,17 +305,27 @@ export function SearchResults({ initialData }: { initialData?: InitialSearchData
       if (myId !== fetchIdRef.current) return; // a newer fetch superseded this one
       setResults(data.results);
       setTotal(data.total);
+      setNearby(data.nearby ?? null);
+      const echoLat = data.query?.lat;
+      const echoLng = data.query?.lng;
+      setEchoOrigin(
+        typeof echoLat === "number" && typeof echoLng === "number"
+          ? { lat: echoLat, lng: echoLng }
+          : null
+      );
       setResolved(data.query?.resolved ?? null);
       setPagination(data.pagination);
     } catch {
       if (myId !== fetchIdRef.current) return;
+      setNearby(null);
+      setEchoOrigin(null);
       setError("Something went wrong. Please try again.");
     } finally {
       if (myId === fetchIdRef.current) setLoading(false);
     }
     // setState functions are stable; listed to satisfy the React Compiler's
     // inferred dependencies (it refuses to memoize otherwise).
-  }, [q, condition, location, sort, radius, rating, lat, lng, page, setLoading, setError, setResults, setTotal, setResolved, setPagination]);
+  }, [q, condition, location, sort, radius, rating, lat, lng, page, setLoading, setError, setResults, setTotal, setNearby, setEchoOrigin, setResolved, setPagination]);
 
   // Stable signature of the params that determine the result set. Lets us tell
   // whether the data we already have (from server-rendered `initialData`, or a
@@ -411,10 +459,10 @@ export function SearchResults({ initialData }: { initialData?: InitialSearchData
   // or a prior in-US session — so we never query or sort by distance for them.
   useEffect(() => {
     if (!outsideUS) return;
-    if (hasOrigin || radius) {
+    if (urlHasOrigin || radius) {
       pushParams({ lat: null, lng: null, radius: null });
     }
-  }, [outsideUS, hasOrigin, radius, pushParams]);
+  }, [outsideUS, urlHasOrigin, radius, pushParams]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -595,6 +643,13 @@ export function SearchResults({ initialData }: { initialData?: InitialSearchData
   const stateName =
     STATES.find((s) => s.abbr.toLowerCase() === location.toLowerCase())?.name ||
     location;
+  // A whole-state search has no point to measure a radius from, and the state's
+  // geographic centre is not a usable stand-in (a 20-mile circle around the
+  // middle of Texas contains none of its 68 practices). So the distance bands
+  // stay inert here and the hint explains that instead of blaming the user.
+  const isStateLocation =
+    Boolean(location) &&
+    STATES.some((s) => s.abbr.toLowerCase() === location.toLowerCase());
   const serviceName = condition
     ? serviceOptions.find((s) => s.value === conditionValue(condition))?.label ||
       condition
@@ -603,7 +658,13 @@ export function SearchResults({ initialData }: { initialData?: InitialSearchData
   // Which distance band (if any) is selected. Snap any radius to a band (exact,
   // else the smallest band that covers it) so a URL value like radius=10 — which
   // isn't itself a band value — still shows the right radio as checked.
-  const radiusNum = radius ? Number(radius) : null;
+  // With no explicit radius, a search that HAS an origin is still limited to the
+  // server default, so show that band as the active one rather than nothing.
+  const radiusNum = radius
+    ? Number(radius)
+    : hasOrigin && !urlHasOrigin
+      ? DEFAULT_ORIGIN_RADIUS
+      : null;
   const activeBandRadius =
     radiusNum == null || Number.isNaN(radiusNum)
       ? null
@@ -672,6 +733,8 @@ export function SearchResults({ initialData }: { initialData?: InitialSearchData
             </span>
             <SearchableDropdown
               options={activeOptions}
+                countsStale={countsStale}
+                loading={optionsLoading}
               value={searchService}
               onChange={setSearchService}
               onSelect={(opt) => {
@@ -795,6 +858,19 @@ export function SearchResults({ initialData }: { initialData?: InitialSearchData
               {outsideUS ? (
                 <p className="mt-2 text-[11px] text-brand-muted">
                   Distance filtering is available for USA locations only.
+                </p>
+              ) : !hasOrigin && isStateLocation ? (
+                <p className="mt-2 text-[11px] leading-relaxed text-brand-muted">
+                  Showing all of {stateName}. Pick a city or ZIP code to filter by
+                  distance — or{" "}
+                  <button
+                    type="button"
+                    onClick={handleNearMe}
+                    className="font-semibold text-brand-magenta underline underline-offset-2"
+                  >
+                    search near me
+                  </button>
+                  .
                 </p>
               ) : showShareHint && !hasOrigin ? (
                 <button
@@ -965,10 +1041,16 @@ export function SearchResults({ initialData }: { initialData?: InitialSearchData
               </div>
             ) : results.length === 0 ? (
               <EmptyState
-                q={condition ? serviceName : q}
+                /* Display name, not the raw slug — serviceName falls back to
+                   the typed text when it matched nothing in the catalog. */
+                q={q || condition ? serviceName : ""}
                 location={stateName}
                 unrecognized={Boolean(q) && !condition && resolved === null}
+                nearby={nearby}
                 onClear={clearFilters}
+                onSearchNationwide={() =>
+                  pushParams({ location: null, lat: null, lng: null, radius: null })
+                }
               />
             ) : viewMode === "map" ? (
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
@@ -1106,6 +1188,19 @@ export function SearchResults({ initialData }: { initialData?: InitialSearchData
                   <p className="mt-2 text-[11px] text-brand-muted">
                     Distance filtering is available for USA locations only.
                   </p>
+              ) : !hasOrigin && isStateLocation ? (
+                  <p className="mt-2 text-[11px] leading-relaxed text-brand-muted">
+                    Showing all of {stateName}. Pick a city or ZIP code to filter by
+                    distance — or{" "}
+                    <button
+                      type="button"
+                      onClick={handleNearMe}
+                      className="font-semibold text-brand-magenta underline underline-offset-2"
+                    >
+                      search near me
+                    </button>
+                    .
+                  </p>
                 ) : showShareHint && !hasOrigin ? (
                   <button
                     type="button"
@@ -1115,6 +1210,10 @@ export function SearchResults({ initialData }: { initialData?: InitialSearchData
                     <LocateFixed className="size-4 shrink-0 text-brand-magenta" />
                     Please share your location to use distance filters
                   </button>
+                ) : !hasOrigin ? (
+                  <p className="mt-2 text-[11px] text-brand-muted">
+                    Use my location (in the location box) or select a distance to enable
+                  </p>
                 ) : null}
               </div>
 
@@ -1324,14 +1423,21 @@ function EmptyState({
   q,
   location,
   unrecognized,
+  nearby,
   onClear,
+  onSearchNationwide,
 }: {
   q: string;
   location: string;
   /** The typed term matched no treatment or condition in the catalog. */
   unrecognized?: boolean;
+  /** Practices offering the same thing outside the searched area, if any. */
+  nearby?: NearbyFallback | null;
   onClear: () => void;
+  onSearchNationwide: () => void;
 }) {
+  // An unrecognised term has nothing to look for farther away.
+  const showNearby = !unrecognized && nearby && nearby.results.length > 0;
   return (
     <div className="flex flex-col items-center justify-center gap-6 py-20">
       <div className="relative">
@@ -1358,6 +1464,40 @@ function EmptyState({
                 : "Try searching for a treatment or location to find practices near you."}
         </p>
       </div>
+      {showNearby && (
+        <div className="w-full border-t border-brand-muted/15 pt-8 text-left">
+          <div className="mb-5 text-center">
+            <h3 className="text-lg font-semibold text-[#1a1a1a]">
+              {nearby.nearestMiles != null
+                ? `Available ${Math.round(nearby.nearestMiles)} miles away`
+                : "Available elsewhere in the US"}
+            </h3>
+            <p className="mt-1 text-sm text-brand-muted">
+              {nearby.total} {nearby.total === 1 ? "practice offers" : "practices offer"}{" "}
+              {q ? `"${q}"` : "this"}{" "}
+              {nearby.relaxedFrom.kind === "radius" && nearby.relaxedFrom.radiusMiles
+                ? `outside your ${nearby.relaxedFrom.radiusMiles}-mile radius`
+                : `outside ${nearby.relaxedFrom.location || "your area"}`}
+              .
+            </p>
+          </div>
+          <div className="flex flex-col gap-5">
+            {/* Same wrapper + props as the main results list (see the list
+                view below) so a farther-away practice reads as a normal
+                result row, not a narrow map-column card. */}
+            {nearby.results.map((clinic) => (
+              <ClinicCard key={clinic.clinic_id} clinic={clinic} />
+            ))}
+          </div>
+          {nearby.total > nearby.results.length && (
+            <div className="mt-6 text-center">
+              <Button variant="outline" onClick={onSearchNationwide} className="rounded-xl">
+                See all {nearby.total} nationwide
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
       <div className="flex gap-3">
         <Button variant="outline" onClick={onClear} className="rounded-xl">
           Clear Filters

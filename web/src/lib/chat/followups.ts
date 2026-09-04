@@ -34,7 +34,7 @@ export function candidatePool(route: Route, g: GatheredContext): string[] {
 
   if (treatmentName) {
     pool.push(
-      `What does ${treatmentName} typically cost?`,
+      `What does a ${treatmentName} consultation involve?`,
       `How long do ${treatmentName} results last?`,
       `What concerns does ${treatmentName} treat?`,
       `Find clinics offering ${treatmentName} near me`
@@ -73,6 +73,8 @@ export function candidatePool(route: Route, g: GatheredContext): string[] {
  * mergeFollowups — take the model's proposed follow-ups if they look grounded,
  * then pad from the deterministic pool to 3–5. Never returns fewer than 3.
  */
+const PRICE_QUESTION_RE = /\b(cost|costs|price|pricing|pricey|expensive|afford|\$|how much)\b/i;
+
 export function mergeFollowups(
   modelProposed: string[],
   route: Route,
@@ -88,6 +90,9 @@ export function mergeFollowups(
     // Reject a follow-up that references a clinic/treatment not in this turn's
     // context (guards against hallucinated proper nouns).
     if (mentionsUnknownProperNoun(q, validNames)) continue;
+    // Never invite a pricing question — we have no pricing data and the
+    // assistant is required to deflect, so suggesting it wastes a turn.
+    if (PRICE_QUESTION_RE.test(q)) continue;
     accepted.push(q);
   }
 

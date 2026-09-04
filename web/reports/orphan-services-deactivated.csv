@@ -1,0 +1,117 @@
+id,name,slug,origin
+1781a1b5-1cc5-4583-bed5-6ce7877c6862,"Aerolase",aerolase,ai
+55cba905-495f-408a-8fc6-f4b0d2f1d4c3,"Aerolase Laser",aerolase-laser,ai
+92603cec-275e-43b8-a540-82aa569be130,"Age Spot Removal",age-spot-removal,ai
+ed8b6058-5857-4992-ba10-a65d3fdd2d60,"Alma Laser",alma-laser,ai
+56ec3a1b-ef30-476b-8920-4b374e317dc1,"Aqualyx",aqualyx,ai
+cde055b4-6a3f-4e0e-8639-9f580331a8cb,"Ariessence Facial Treatment",ariessence-facial-treatment,ai
+264bfdc6-42ab-4e44-94b3-7f5ea8d8e877,"Attiva Skin Tightening",attiva-skin-tightening,ai
+7b8f7a79-3ae1-4bff-86b8-3f53b5c1d3ad,"Aveli Cellulite Correction",aveli-cellulite-correction,ai
+b13c5ad4-155e-40c1-a4c4-618f30a03151,"BBL Photofacial",bbl-photofacial,ai
+3151a399-207a-474b-af08-08f883432ce2,"Bioidentical Filler",bioidentical-filler,ai
+7df1ade5-1a2b-443e-8b18-fa31e149160c,"Biologique Recherche Facials",biologique-recherche-facials,ai
+2845eb4d-0e0e-4c70-b428-1fbd2454e3cf,"Body Scrub",body-scrub,manual
+db619d4c-6f75-41e8-88fa-0fbc05c56914,"Botox for Pain Relief",botox-for-pain-relief,ai
+c0619a5f-b8d6-485d-a871-0090796f71eb,"Butt Facial",butt-facial,ai
+0f9020db-c618-431c-ae29-b0403a8a4967,"CJC-1295 with Ipamorelin",cjc-1295-with-ipamorelin,ai
+327bae4c-d67a-4cab-bef1-2c93828fbf6c,"Classic Facials",classic-facials,ai
+70fce66b-ed2e-418c-a2ec-f5371ed6b38a,"Climax Shot",climax-shot,ai
+658cc4a7-f454-4301-9d55-de28a285ddcc,"Cold Plasma Facial",cold-plasma-facial,ai
+7c4b828f-b19a-403d-bd9f-86015c383188,"CoolLifting Facial",coollifting-facial,ai
+ba7a2688-4491-4636-b22a-94c7ea92abb4,"Cortisone Injections",cortisone-injections,ai
+15d49f91-a101-48d7-bb54-c505b699f149,"Cosmelan MD",cosmelan-md,ai
+eecc3ebe-aadc-465b-89cf-049806ee0952,"Crow's Feet",crows-feet,ai
+a1503420-72fb-4811-aeb1-de652d54bc25,"Cupid Blend",cupid-blend,ai
+a3b72de5-2c01-405f-b5b2-836dc86eb4eb,"DMK Facial",dmk-facial,ai
+e37b73bf-4a0c-4998-9be1-8b662ea46180,"DSIP",dsip,ai
+da85ed0e-c7b8-4e5d-a382-e03abfbd8d0f,"Dermaplane Facial",dermaplane-facial,ai
+37c0d8a4-c2bb-4da1-ad2d-a75e62b4d88a,"Dissolving Filler",dissolving-filler,ai
+e96d9388-e0db-4643-97db-491363c5f5cb,"EZ Gel Plasma Filler",ez-gel-plasma-filler,ai
+9684b79e-7871-4f9b-8835-d064ef61241a,"Emfemme 360",emfemme-360,ai
+d3ae7148-a48f-47b8-8a29-9485ebc0f4ed,"Energy Boost Hydration",energy-boost-hydration,ai
+bfabe963-64f9-4ca8-b182-55a161ef03f4,"Environ Cool Peel Facial",environ-cool-peel-facial,ai
+67f9f0a0-8d30-4023-ae53-baf44d7173aa,"Environ Skincare Facials",environ-skincare-facials,ai
+a446dd5b-cfed-41c7-ae8c-8c78962b1bab,"Epithalon",epithalon,ai
+8aa64c63-cc5f-4761-ad71-1621bf57e4ac,"Evoke Facial",evoke-facial,ai
+51ce368c-0929-4ea0-a08a-86cc1fea560d,"Evolve Body Contouring",evolve-body-contouring,ai
+ed7a9ce5-02ad-4014-8dcc-3a16d0d1df99,"Exion Body Applicator",exion-body-applicator,ai
+0ba45ca8-065e-43b8-8cd5-b88633b05670,"Exion Face",exion-face,ai
+a402882e-527b-4195-81c4-8ba9b0e3f237,"Exion Fractional RF",exion-fractional-rf,ai
+de5d490a-b12f-4e42-976f-18f4f4574351,"Facial Injections",facial-injections,ai
+15e2ab42-cbd3-4d69-8594-69be0783749d,"Female Hormone Replacement Therapy",female-hormone-replacement-therapy,ai
+a8364c3e-b0e6-4d2b-90a2-407c6b2ba63f,"Forma Facial",forma-facial,ai
+9646c4ff-8f1e-484c-bd82-f01ece95def8,"Fusion Facial",fusion-facial,ai
+20d77a47-0f5b-4218-a12a-7f40afaa5713,"GHK-Cu Peptide Therapy",ghk-cu-peptide-therapy,ai
+614ec28d-bc78-4d1c-8401-98054122ca64,"Gentlemen's Elixir",gentlemens-elixir,ai
+7ba89d2c-9e08-41f7-8a95-662dabae1b70,"Glutathione Detox",glutathione-detox,ai
+fdac9fc8-aa4a-42ef-8953-144441c9f8e7,"Gonadorelin",gonadorelin,ai
+2e60a8c2-0d2c-4c22-a019-5a2c1849d412,"Hyperbaric Oxygen Chamber Therapy",hyperbaric-oxygen-chamber-therapy,ai
+d7e13d2a-2a1e-4e9c-a920-62330df80e09,"IGF-1 LR3",igf-1-lr3,ai
+c590668c-a30c-4c0f-915b-112c747352fc,"IPL Photo Rejuvenation",ipl-photo-rejuvenation,ai
+50ed9a0a-bbe7-4973-b99d-5fd302a4676f,"IVs & Vitamins",ivs-vitamins,ai
+f252b8b1-e5c3-48f6-9d0d-76ada2618b82,"Infrared Red Light Therapy",infrared-red-light-therapy,ai
+1d6a1c26-b066-4441-a7e4-f7bca9d39242,"Iron IV Therapy",iron-iv-therapy,ai
+adf1f96f-230d-4243-ab84-74956948d09f,"Jett Plasma",jett-plasma,ai
+fed39100-7d1c-4c89-b5ae-9641531b64e4,"KLOW Blend",klow-blend,ai
+4483b9c9-1052-435b-9bc3-a8e0a2e697fa,"Ketamine",ketamine,ai
+9145e71b-3aab-4ee4-b29d-ee65ad6469c7,"LED Facial",led-facial,ai
+976f84b8-6c16-48a5-a878-529c99e0b136,"Laser & Light",laser-light,ai
+7b5c7522-acba-48ac-a46f-8f2793fa0eca,"Lipo-MIC B Shot",lipo-mic-b-shot,ai
+a3ac1375-50d9-47f5-a802-9743ae5e8022,"Liquid Micro-needling",liquid-micro-needling,ai
+7747f9ea-9a71-46b4-927f-7243d74061c6,"Lymphatic Drainage Massage",lymphatic-drainage-massage,ai
+47f3de08-26ca-429f-8ead-40e1277b94ba,"MOTS-c",mots-c,ai
+42fbec02-86ed-4e00-bd55-9bfadab3713e,"Male Hormone Replacement Therapy",male-hormone-replacement-therapy,ai
+a4d0da40-b787-4ed5-ae3f-71555202a8e1,"Medical Director",medical-director,ai
+8ee3e62e-4349-456f-88c4-14376d080a1f,"Medical-Grade Injections",medical-grade-injections,ai
+ee98822a-5eb8-43ec-b248-adde5e83fc87,"Micro-current Facial",micro-current-facial,ai
+666c64af-8775-4f99-b618-ee2113bff104,"Migraine Hydration",migraine-hydration,ai
+3a440ddc-a5da-4ee0-a881-26c4a817906c,"Moxi Laser",moxi-laser,ai
+4f3ecf01-39ad-4259-a20a-6b101cd59b99,"Nano Infusion Facial",nano-infusion-facial,ai
+37fa926a-2511-4049-915c-93f22918f5b7,"Neck Bands",neck-bands,ai
+6dbdb6d7-2cdd-43cd-b4ae-e94fd897af45,"Neuropathy Care",neuropathy-care,ai
+914b3109-6d25-44d0-b320-d04e56e8420c,"Nose Filler",nose-filler,ai
+685abb64-dec8-40fb-bb56-1c29d2bf9775,"NovoTHOR Red Light",novothor-red-light,ai
+16b71c9f-1b8e-4725-9682-76209642273f,"NovoTHOR Red Light Therapy",novothor-red-light-therapy,ai
+70ce7226-4782-4cbf-88d2-a9dbf05d992b,"Oxygeneo Facial",oxygeneo-facial,ai
+623c93b8-df33-4bd0-b18a-89e9d11e76d8,"PRP for Hair Restoration",prp-for-hair-restoration,ai
+d5442e5f-7472-4dc4-8a4e-64f103585530,"PT-141 Peptide Therapy",pt-141-peptide-therapy,ai
+2c9951a8-6a01-45d2-912e-32ea5f659511,"Pain Relief",pain-relief,ai
+2c4873bb-42c5-4488-8597-502f59cf055a,"Pain Relief Treatments",pain-relief-treatments,ai
+33e463d2-188d-4659-a2fe-c6d3506f6c6f,"Performance Hydration",performance-hydration,ai
+0f2e8692-e5d3-40ad-a129-a647e2f22a10,"PhotoFractional",photofractional,ai
+fd659f10-927e-40fb-8ab9-7bd20126497c,"Pixel Laser",pixel-laser,ai
+fce0b78c-08a7-4947-86b4-a30cbba0b09b,"Prescription Skin Care Treatments",prescription-skin-care-treatments,ai
+eb3dcdb3-da3e-4650-8468-c69e617efaa8,"Profhilo",profhilo,ai
+5dbb52bb-9b6b-4651-819b-38e88100827c,"RF Fractional Resurfacing",rf-fractional-resurfacing,ai
+95502f41-7b2d-45ab-b1ee-57f056aa692e,"Red Light Detox",red-light-detox,ai
+b3cf176b-180f-4bb0-8650-1179c185ec6d,"Sculptra Biostimulator",sculptra-biostimulator,ai
+d2800898-3542-441b-98c5-fcb18180dd01,"Semaglutide Injections",semaglutide-injections,ai
+8f5229c1-d2c6-45f4-9c68-ddf836134dc0,"Semax and Selank",semax-and-selank,ai
+7b77e759-e554-4f11-a904-ce9fcff34e59,"Sermorelin",sermorelin,ai
+92169435-553f-475f-bb1d-5a9e462c0521,"Skin Treatments",skin-treatments,ai
+fa77ba8c-db84-4b9e-8595-ec21a00141cb,"Steroid Injections",steroid-injections,ai
+530b9d16-3a6e-4438-9ad2-78f8f3efa103,"Subcision",subcision,ai
+fa843e8d-625a-48cd-9781-ddb32185330d,"Sweating Treatments",sweating-treatments,ai
+6d155124-03db-4127-b4f5-cb728dc1e9fc,"Tesamorelin",tesamorelin,ai
+bfe8b4b1-ae20-46b6-a531-96becd96344d,"Tetra CO2 Laser",tetra-co2-laser,ai
+02eef827-9ad9-497a-b86a-ae1118bc1298,"Tetra CO2 Laser Skin Resurfacing",tetra-co2-laser-skin-resurfacing,ai
+7e17ca40-14c9-4ce2-b9d5-2199fd6ccf40,"Thymosin Alpha-1",thymosin-alpha-1,ai
+04208b6c-1fb8-4bf3-86c3-f50a099ec08f,"Thymosin Beta 4 Peptide Therapy",thymosin-beta-4-peptide-therapy,ai
+211f9e82-7ede-4991-8cb9-850f934df819,"Tighty Brighty Facial",tighty-brighty-facial,ai
+b2bc75ff-fd55-4bdf-85bb-3228e2c59456,"Tirzepatide Injections",tirzepatide-injections,ai
+d21c0451-8998-4efc-a7e7-6d9e84a3e8fd,"Toenail Fungus Laser Treatment",toenail-fungus-laser-treatment,ai
+ae188022-d4f4-48fd-9f9c-e5a9ea101516,"TriaWave Lifting Facial",triawave-lifting-facial,ai
+1629db62-43d9-4f67-8074-b4c2f76ef9f5,"Ultimate Duo Laser",ultimate-duo-laser,ai
+afff5ad1-315d-4f2a-8613-6260f7a3e217,"Ultra Slim Red Light Therapy",ultra-slim-red-light-therapy,ai
+29f3eacf-814a-46b5-b445-1f27792257f0,"Ultra Smooth Green Light Therapy",ultra-smooth-green-light-therapy,ai
+27b65afb-e295-4507-acc9-cd24ada8553e,"Under-Eye Filler",under-eye-filler,ai
+5b74f19c-13f9-4805-ab66-b367a9262741,"VAMP Facial Treatment",vamp-facial-treatment,ai
+2dac1f0a-9021-42ca-982c-481766dc1977,"Virtue RF Body",virtue-rf-body,ai
+30c2abb5-be51-4c21-86c2-9368a7dab973,"Virtue RF Face",virtue-rf-face,ai
+a82d5e9e-3e10-4627-8b48-b5de9ba2a127,"Vitamin IM Shots",vitamin-im-shots,ai
+81391bd2-de47-4d41-9824-2370c5022e89,"Vitamin IV Drips",vitamin-iv-drips,ai
+ec86dc13-1e1f-40f8-a888-3d27d9456955,"Vitamin IV Push",vitamin-iv-push,ai
+d73b42a8-fdc8-4f4d-8fab-0bd5d974dc2c,"Vitamin Therapy for Athletic Recovery",vitamin-therapy-for-athletic-recovery,ai
+654d1b4e-4de5-40d7-a273-46722aa13da1,"Volbella",volbella,ai
+34116354-81c9-4dbf-a114-1a59f0c53527,"Xerf Skin Tightening",xerf-skin-tightening,ai
+fcbcb6f2-2116-4ad4-ae75-6baf44859835,"ZO Skincare",zo-skincare,ai

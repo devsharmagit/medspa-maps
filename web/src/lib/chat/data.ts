@@ -2,11 +2,14 @@
  * data.ts — server-side data retrieval for the AI assistant.
  *
  * These are plain functions the backend calls directly (NOT model-invoked
- * tools). Each is grounded in real Medspa Maps data: clinic search reuses the
- * same tables/filters as /api/search, treatment/concern lookups reuse the
- * canonical taxonomy + editorial catalogs, and page-context lookups read the
- * clinic/provider a page is showing. Everything the assistant ever states as
+ * tools). Each is grounded in real Medspa Maps data: treatment/concern lookups
+ * reuse the canonical taxonomy + editorial catalogs, and page-context lookups
+ * read the clinic a page is showing. Everything the assistant ever states as
  * fact originates here — the model only paraphrases these results.
+ *
+ * Clinic SEARCH deliberately does NOT live here: it goes through
+ * `search-adapter.ts`, which calls the site's own search engine so the bot and
+ * the /search page can never disagree. See that file for why.
  *
  * SERVER-SIDE ONLY (imports the pg pool).
  */
@@ -21,30 +24,6 @@ import {
 import { TREATMENT_CATALOG } from "@/lib/treatments/catalog";
 import { CONCERN_CATALOG } from "@/lib/concerns/catalog";
 
-// 2-letter state abbreviations → full names as stored in the DB (mirrors /api/search).
-export const STATE_ABBR_TO_NAME: Record<string, string> = {
-  AL: "Alabama", AK: "Alaska", AZ: "Arizona", AR: "Arkansas", CA: "California",
-  CO: "Colorado", CT: "Connecticut", DE: "Delaware", FL: "Florida", GA: "Georgia",
-  HI: "Hawaii", ID: "Idaho", IL: "Illinois", IN: "Indiana", IA: "Iowa",
-  KS: "Kansas", KY: "Kentucky", LA: "Louisiana", ME: "Maine", MD: "Maryland",
-  MA: "Massachusetts", MI: "Michigan", MN: "Minnesota", MS: "Mississippi",
-  MO: "Missouri", MT: "Montana", NE: "Nebraska", NV: "Nevada", NH: "New Hampshire",
-  NJ: "New Jersey", NM: "New Mexico", NY: "New York", NC: "North Carolina",
-  ND: "North Dakota", OH: "Ohio", OK: "Oklahoma", OR: "Oregon", PA: "Pennsylvania",
-  RI: "Rhode Island", SC: "South Carolina", SD: "South Dakota", TN: "Tennessee",
-  TX: "Texas", UT: "Utah", VT: "Vermont", VA: "Virginia", WA: "Washington",
-  WV: "West Virginia", WI: "Wisconsin", WY: "Wyoming",
-};
-
-// Reverse map (lowercased full name → abbreviation) so "Utah" also matches
-// clinics stored as "UT", and vice-versa. State data is a mix of both forms.
-export const NAME_TO_ABBR: Record<string, string> = Object.fromEntries(
-  Object.entries(STATE_ABBR_TO_NAME).map(([abbr, name]) => [
-    name.toLowerCase(),
-    abbr,
-  ])
-);
-
 // ──────────────────────────────────────────────────────────────────────────
 // Types (shared with intent/context/route)
 // ──────────────────────────────────────────────────────────────────────────
@@ -58,6 +37,10 @@ export interface ClinicResult {
   reviews: number;
   treatments: string[];
   booking_url: string | null;
+  /** Card fields — populated by the search adapter, absent on page-context lookups. */
+  logo_url?: string | null;
+  cover_image_url?: string | null;
+  distance_miles?: number | null;
 }
 
 export interface SearchResult {
@@ -101,196 +84,92 @@ export interface ClinicContext {
   url: string;
   city: string | null;
   state: string | null;
+  address: string | null;
+  phone: string | null;
+  website: string | null;
   rating: number | null;
   reviews: number;
   services: string[];
   hasBooking: boolean;
-}
-
-// ──────────────────────────────────────────────────────────────────────────
-// searchClinics — real clinic search (mirrors /api/search filters)
-// ──────────────────────────────────────────────────────────────────────────
-export interface SearchArgs {
-  treatment?: string;
-  location?: string;
-  minRating?: number | null;
-  limit?: number;
-}
-
-export async function searchClinics(args: SearchArgs): Promise<SearchResult> {
-  const treatment = (args.treatment ?? "").trim();
-  const location = (args.location ?? "").trim();
-  const minRating =
-    typeof args.minRating === "number" && Number.isFinite(args.minRating)
-      ? args.minRating
-      : null;
-  const limit = Math.min(Math.max(Number(args.limit) || 5, 1), 8);
-
-  const conditions: string[] = ["c.is_active = TRUE"];
-  const params: (string | number)[] = [];
-  let i = 1;
-
-  if (treatment) {
-    // Match the canonical service slug AND fuzzy raw/scraped names, so we catch
-    // clinics whose treatment is only in the raw scraped name (maximizes recall).
-    const m = matchService(treatment);
-    const like = `%${treatment}%`;
-    if (m.slug) {
-      conditions.push(`(
-        EXISTS (
-          SELECT 1 FROM clinic_services cse
-          JOIN services se ON se.id = cse.service_id AND se.is_active = TRUE
-          WHERE cse.clinic_id = c.id AND cse.is_active = TRUE AND se.slug = $${i}
-        )
-        OR s.name ILIKE $${i + 1} OR cs.raw_name ILIKE $${i + 1} OR c.name ILIKE $${i + 1}
-      )`);
-      params.push(m.slug, like);
-      i += 2;
-    } else {
-      conditions.push(`(
-        s.name ILIKE $${i} OR cs.raw_name ILIKE $${i} OR c.name ILIKE $${i}
-      )`);
-      params.push(like);
-      i++;
-    }
-  }
-
-  if (location) {
-    const upper = location.toUpperCase();
-    let abbr: string | null = null;
-    let fullName: string | null = null;
-    if (STATE_ABBR_TO_NAME[upper]) {
-      abbr = upper;
-      fullName = STATE_ABBR_TO_NAME[upper];
-    } else if (NAME_TO_ABBR[location.toLowerCase()]) {
-      abbr = NAME_TO_ABBR[location.toLowerCase()];
-      fullName = STATE_ABBR_TO_NAME[abbr];
-    }
-
-    if (abbr && fullName) {
-      conditions.push(`(
-        EXISTS (
-          SELECT 1 FROM clinic_locations cl
-          WHERE cl.clinic_id = c.id AND cl.is_active = true
-            AND (cl.state = $${i} OR cl.state ILIKE $${i + 1})
-        )
-      )`);
-      params.push(abbr, fullName);
-      i += 2;
-    } else {
-      conditions.push(`(
-        EXISTS (
-          SELECT 1 FROM clinic_locations cl
-          WHERE cl.clinic_id = c.id AND cl.is_active = true
-            AND (cl.city ILIKE $${i} OR cl.state ILIKE $${i} OR cl.zip ILIKE $${i})
-        )
-      )`);
-      params.push(`%${location}%`);
-      i++;
-    }
-  }
-
-  if (minRating !== null) {
-    conditions.push(`c.avg_rating >= $${i}`);
-    params.push(minRating);
-    i++;
-  }
-
-  const sql = `
-    SELECT q.* FROM (
-      SELECT DISTINCT ON (c.id)
-        c.id, c.slug, c.name, ploc.city, ploc.state, c.avg_rating, c.review_count,
-        c.featured, c.booking_url,
-        (
-          SELECT COALESCE(json_agg(t.name), '[]'::json) FROM (
-            SELECT DISTINCT sv.name
-            FROM clinic_services cs2
-            JOIN services sv ON sv.id = cs2.service_id AND sv.is_active = TRUE
-            WHERE cs2.clinic_id = c.id AND cs2.is_active = TRUE
-            LIMIT 6
-          ) t
-        ) AS treatments
-      FROM clinics c
-      LEFT JOIN clinic_services cs ON cs.clinic_id = c.id AND cs.is_active = TRUE
-      LEFT JOIN services s ON s.id = cs.service_id AND s.is_active = TRUE
-      LEFT JOIN LATERAL (
-        SELECT cl.city, cl.state
-        FROM clinic_locations cl
-        WHERE cl.clinic_id = c.id AND cl.is_active = true
-        ORDER BY cl.is_primary DESC, cl.sort_order NULLS LAST, cl.created_at
-        LIMIT 1
-      ) ploc ON true
-      WHERE ${conditions.join(" AND ")}
-      ORDER BY c.id
-    ) q
-    ORDER BY q.featured DESC, q.avg_rating DESC NULLS LAST, q.review_count DESC
-    LIMIT ${limit}
-  `;
-
-  // Canonical display name of the searched treatment, if it resolves. Every row
-  // in a treatment-filtered result set matched that treatment (via canonical
-  // service, raw scraped name, or clinic name), but the top-6 canonical service
-  // list we show may not surface it (e.g. Botox offered only under a raw name).
-  // Surface it so a "Find Botox clinics" search doesn't read as "none offer Botox".
-  const matchedName = treatment
-    ? CANONICAL_SERVICES.find((s) => s.slug === matchService(treatment).slug)?.name
-    : undefined;
-
-  try {
-    const { rows } = await pool.query(sql, params);
-    const clinics: ClinicResult[] = rows.map((r) => {
-      const svc: string[] = Array.isArray(r.treatments) ? r.treatments : [];
-      // Surface the searched treatment FIRST so the trimmed 3-item display never
-      // hides it. The clinic matched this treatment, but the top-6 canonical
-      // service list is unordered, so the match can otherwise fall outside the
-      // visible slice (or be present only under a raw scraped name).
-      if (matchedName) {
-        const idx = svc.indexOf(matchedName);
-        if (idx > -1) svc.splice(idx, 1);
-        svc.unshift(matchedName);
-      }
-      return {
-        name: r.name,
-        slug: r.slug,
-        url: `/practices/${r.slug}`,
-        city: r.city,
-        state: r.state,
-        rating: r.avg_rating != null ? Number(r.avg_rating) : null,
-        reviews: r.review_count ?? 0,
-        treatments: svc.slice(0, 6),
-        booking_url: r.booking_url ?? null,
-      };
-    });
-
-    return {
-      count: clinics.length,
-      clinics,
-      filters: { treatment: treatment || null, location: location || null },
-      search_page: buildSearchUrl(treatment, location),
-    };
-  } catch (err) {
-    console.error("[chat] searchClinics error:", err);
-    return {
-      count: 0,
-      clinics: [],
-      filters: { treatment: treatment || null, location: location || null },
-      search_page: buildSearchUrl(treatment, location),
-      unavailable: true,
-    };
-  }
-}
-
-export function buildSearchUrl(treatment: string, location: string): string {
-  const p = new URLSearchParams();
-  if (treatment) p.set("q", treatment);
-  if (location) p.set("location", location);
-  const qs = p.toString();
-  return qs ? `/search?${qs}` : "/search";
+  /** "Mon–Fri 9:00 AM–5:00 PM; Sat closed" — already formatted for reading. */
+  hours: string | null;
+  tagline: string | null;
+  about: string | null;
+  /** How many active locations this practice has, so we can say "3 locations". */
+  locationCount: number;
 }
 
 // ──────────────────────────────────────────────────────────────────────────
 // getClinicBySlug — page context for /practices/[slug] and /providers/[id]/[slug]
 // ──────────────────────────────────────────────────────────────────────────
+const DAY_ORDER = [
+  "MONDAY",
+  "TUESDAY",
+  "WEDNESDAY",
+  "THURSDAY",
+  "FRIDAY",
+  "SATURDAY",
+  "SUNDAY",
+] as const;
+
+const DAY_LABEL: Record<string, string> = {
+  MONDAY: "Mon",
+  TUESDAY: "Tue",
+  WEDNESDAY: "Wed",
+  THURSDAY: "Thu",
+  FRIDAY: "Fri",
+  SATURDAY: "Sat",
+  SUNDAY: "Sun",
+};
+
+/** "09:00" → "9:00 AM". Returns the input unchanged if it isn't HH:MM. */
+function to12h(t: string): string {
+  const m = /^(\d{1,2}):(\d{2})/.exec(t);
+  if (!m) return t;
+  const h = Number(m[1]);
+  const suffix = h < 12 ? "AM" : "PM";
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${m[2]} ${suffix}`;
+}
+
+/**
+ * Format the stored `hours` jsonb into one readable line.
+ *
+ * Consecutive days with identical hours are collapsed ("Mon–Fri 9:00 AM–5:00 PM")
+ * so the assistant can read them out without listing seven lines.
+ */
+export function formatHours(raw: unknown): string | null {
+  if (!raw || typeof raw !== "object") return null;
+  const hours = raw as Record<
+    string,
+    { open?: string | null; close?: string | null; is_open?: boolean } | undefined
+  >;
+
+  const parts: { label: string; value: string }[] = [];
+  for (const day of DAY_ORDER) {
+    const d = hours[day];
+    if (!d) continue;
+    const value =
+      d.is_open && d.open && d.close
+        ? `${to12h(d.open)}–${to12h(d.close)}`
+        : "closed";
+    parts.push({ label: DAY_LABEL[day], value });
+  }
+  if (!parts.length) return null;
+
+  // Collapse runs of identical values.
+  const runs: { from: string; to: string; value: string }[] = [];
+  for (const p of parts) {
+    const last = runs[runs.length - 1];
+    if (last && last.value === p.value) last.to = p.label;
+    else runs.push({ from: p.label, to: p.label, value: p.value });
+  }
+
+  return runs
+    .map((r) => `${r.from === r.to ? r.from : `${r.from}–${r.to}`} ${r.value}`)
+    .join("; ");
+}
+
 export async function getClinicBySlug(
   slug: string
 ): Promise<ClinicContext | null> {
@@ -298,20 +177,28 @@ export async function getClinicBySlug(
   if (!clean) return null;
   const sql = `
     SELECT
-      c.id, c.slug, c.name, ploc.city, ploc.state, c.avg_rating, c.review_count,
-      c.booking_url,
+      c.id, c.slug, c.name, c.avg_rating, c.review_count,
+      c.ext_rating, c.ext_review_count,
+      c.booking_url, c.phone, c.website, c.hours, c.tagline, c.about,
+      c.address AS clinic_address,
+      ploc.city, ploc.state, ploc.address AS loc_address,
+      ploc.phone AS loc_phone, ploc.hours AS loc_hours,
+      (
+        SELECT count(*) FROM clinic_locations cl2
+        WHERE cl2.clinic_id = c.id AND cl2.is_active = true
+      ) AS location_count,
       (
         SELECT COALESCE(json_agg(t.name), '[]'::json) FROM (
           SELECT DISTINCT sv.name
           FROM clinic_services cs2
           JOIN services sv ON sv.id = cs2.service_id AND sv.is_active = TRUE
           WHERE cs2.clinic_id = c.id AND cs2.is_active = TRUE
-          LIMIT 12
+          LIMIT 24
         ) t
       ) AS services
     FROM clinics c
     LEFT JOIN LATERAL (
-      SELECT cl.city, cl.state
+      SELECT cl.city, cl.state, cl.address, cl.phone, cl.hours
       FROM clinic_locations cl
       WHERE cl.clinic_id = c.id AND cl.is_active = true
       ORDER BY cl.is_primary DESC, cl.sort_order NULLS LAST, cl.created_at
@@ -324,16 +211,31 @@ export async function getClinicBySlug(
     const { rows } = await pool.query(sql, [clean]);
     if (!rows.length) return null;
     const r = rows[0];
+
+    // Rating and count must come from the SAME source. Most practices have
+    // avg_rating NULL and review_count 0 with the real figures in ext_* —
+    // mixing them yields "5.0 (0 reviews)", which the UI then suppresses.
+    const useOwn = r.avg_rating != null;
+    const rawRating = useOwn ? r.avg_rating : r.ext_rating;
+    const rawReviews = useOwn ? r.review_count : r.ext_review_count;
+
     return {
       name: r.name,
       slug: r.slug,
       url: `/practices/${r.slug}`,
-      city: r.city,
-      state: r.state,
-      rating: r.avg_rating != null ? Number(r.avg_rating) : null,
-      reviews: r.review_count ?? 0,
+      city: r.city ?? null,
+      state: r.state ?? null,
+      address: r.loc_address ?? r.clinic_address ?? null,
+      phone: r.loc_phone ?? r.phone ?? null,
+      website: r.website ?? null,
+      rating: rawRating != null ? Number(rawRating) : null,
+      reviews: rawReviews != null ? Number(rawReviews) : 0,
       services: Array.isArray(r.services) ? r.services : [],
       hasBooking: Boolean(r.booking_url),
+      hours: formatHours(r.loc_hours) ?? formatHours(r.hours),
+      tagline: r.tagline ?? null,
+      about: typeof r.about === "string" ? r.about.slice(0, 600) : null,
+      locationCount: Number(r.location_count ?? 1),
     };
   } catch (err) {
     console.error("[chat] getClinicBySlug error:", err);

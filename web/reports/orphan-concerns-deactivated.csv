@@ -1,0 +1,20 @@
+id,name,slug,origin
+90bd126b-7b96-496a-a0f2-c2be62f84da9,"Acute Nausea",acute-nausea,ai
+d936c76e-fb6a-482f-a438-bf69c60ebfa8,"Allergic Reactions",allergic-reactions,ai
+4dfa54b6-f469-4258-9949-53bafafd57bd,"Clogged Pores",clogged-pores,ai
+1162294a-9248-4d22-97af-7c718795af58,"Cystic Acne",cystic-acne,ai
+1a310c94-33c3-4c5e-b59a-499b89e74fa1,"Diastasis Recti",diastasis-recti,manual
+b3b9c827-5432-4151-91e8-5b16727b83e9,"Excess Skin",excess-skin,manual
+6c869d08-e47a-4d54-b1df-2c5132730d4c,"Inflammation",inflammation,ai
+a73e9f70-6302-4645-8e2d-5a6e697ed161,"Ingrown Hairs",ingrown-hairs,ai
+ac7c743c-492b-4b19-850b-1e648030812b,"Iron Deficiency",iron-deficiency,ai
+1a34810d-f1cc-4761-9830-52f253c3bce9,"Muscle Tension",muscle-tension,manual
+15bbe2c1-c4cf-4e65-8de7-0c7aee9f0024,"Nasal Obstruction",nasal-obstruction,manual
+05db7be8-38b7-4681-8cea-9a9701779c73,"Neck And Shoulder Pain",neck-and-shoulder-pain,ai
+6a42422c-8b99-4c70-8d3e-4d8f2dac4324,"Protruding Ears",protruding-ears,manual
+d5a2f2c1-3f9c-4ff5-8e8b-a8360844a2c9,"Reflux",reflux,ai
+61173366-88ca-4a14-b562-b27ce83b4552,"Shoulder Tension",shoulder-tension,ai
+20875a36-bbb8-4f2c-83e9-1b03f1c6bb9c,"Skin Quality",skin-quality,ai
+ffb6cea3-27d7-4ac5-9e1f-ef616aba230c,"Stress",stress,ai
+22705b49-5d28-4520-93a8-24faf8a87652,"Under-Eye Bags",under-eye-bags,manual
+c696da56-4da2-460b-890d-69f41fecd773,"Upper Back Tension",upper-back-tension,ai

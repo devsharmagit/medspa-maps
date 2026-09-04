@@ -16,7 +16,8 @@ import {
   CANONICAL_CONCERNS,
   normalize,
 } from "@/lib/taxonomy/canonical";
-import { STATE_ABBR_TO_NAME, NAME_TO_ABBR } from "@/lib/chat/data";
+import { STATE_CODE_TO_NAME, toStateCode } from "@/lib/location/states";
+import { matchCatalogEntities, type LiveCatalog, type CatalogEntry } from "@/lib/chat/catalog";
 
 // ──────────────────────────────────────────────────────────────────────────
 // Shared types (client sends PageContext + Slots; server maintains Slots)
@@ -41,8 +42,17 @@ export interface Slots {
   clinicInFocus?: string;
   /** last location the user gave (raw string) */
   lastLocation?: string;
+  /** canonical label for that location ("Salt Lake City, UT"), for copy + reuse */
+  lastLocationLabel?: string;
   /** canonical treatment slugs discussed, most-recent last, capped */
   treatmentsDiscussed: string[];
+  /** the practices the assistant showed last turn — slug AND name, so a
+   *  follow-up naming one ("tell me about RUMA Medical") can be resolved back
+   *  to a real record instead of the model guessing. */
+  lastResults?: { slug: string; name: string }[];
+  /** the exact URLSearchParams string behind lastResultSlugs, so a follow-up
+   *  can re-run the identical search instead of guessing new filters. */
+  lastSearchParams?: string;
 }
 
 export const EMPTY_SLOTS: Slots = { treatmentsDiscussed: [] };
@@ -57,6 +67,9 @@ export interface Extraction {
   nearMe: boolean;
   isComparison: boolean;
   isDeictic: boolean;
+  /** Full catalog entries behind `treatments`/`concerns`, so display names are
+   *  available for the ~951 live services that have no curated entry. */
+  entities: CatalogEntry[];
   safetyKind: "emergency" | "personal" | null;
 }
 
@@ -79,6 +92,10 @@ export interface Route {
   clinicSlug?: string;
   /** search arguments when path is search/combined */
   search?: { treatment: string; location: string };
+  /** the user explicitly widened the search — drop the remembered location */
+  clearLocation?: boolean;
+  /** the turn refers back to the clinics named last turn ("which of those…") */
+  refersToPrevious?: boolean;
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -134,11 +151,26 @@ export function extractLocation(message: string): {
   const cs = message.match(CITY_STATE_RE);
   if (cs) return { location: `${cs[1].trim()}, ${cs[2]}`, nearMe };
 
+  // "in/near <place>" BEFORE the bare state-name scan. "near provo utah" must
+  // yield "provo utah" (a city) — scanning for state names first swallowed the
+  // city and silently widened the search to all of Utah.
+  const inPlaceEarly = message.match(IN_PLACE_RE);
+  if (inPlaceEarly) {
+    const candidate = inPlaceEarly[1].trim();
+    if (
+      candidate.length > 2 &&
+      extractTreatments(candidate).length === 0 &&
+      extractConcerns(candidate).length === 0
+    ) {
+      return { location: candidate, nearMe };
+    }
+  }
+
   // Full state name (longest match wins)
   const lower = ` ${normalize(message)} `;
-  const stateNames = Object.keys(NAME_TO_ABBR).sort(
-    (a, b) => b.length - a.length
-  );
+  const stateNames = Object.values(STATE_CODE_TO_NAME)
+    .map((n) => n.toLowerCase())
+    .sort((a, b) => b.length - a.length);
   for (const name of stateNames) {
     if (lower.includes(` ${name} `)) return { location: name, nearMe };
   }
@@ -147,7 +179,7 @@ export function extractLocation(message: string): {
   // like "in"/"or"/"me" — those are lowercase in natural writing).
   const upperTokens = message.match(/\b[A-Z]{2}\b/g) || [];
   for (const tok of upperTokens) {
-    if (STATE_ABBR_TO_NAME[tok]) return { location: tok, nearMe };
+    if (toStateCode(tok)) return { location: tok, nearMe };
   }
 
   // ZIP
@@ -178,7 +210,7 @@ const DEICTIC_RE =
 const EMERGENCY_RE =
   /\b(emergency|911|allergic reaction|anaphyla|can'?t breathe|difficulty breathing|trouble breathing|severe (pain|swelling|reaction)|passing out|fainted|excessive bleeding|infection spreading)\b/i;
 const PERSONAL_MED_RE =
-  /\b(\d+\s*units|how many units|what dose|dosage|how much (botox|filler|tox|product)|am i a candidate|right for me|safe for me|safe for my|for my (condition|health|medication|skin condition)|my medication|drug interaction|interact with|i'?m pregnant|i am pregnant|pregnan|breastfeed|nursing|i'?m allergic|i am allergic|contraindicat)\b/i;
+  /\b(\d+\s*units|how many units|what dose|dosage|how much (botox|filler|tox|product) (do i|should i|would i|is safe|can i)|am i a candidate|right for me|safe for me|safe for my|for my (condition|health|medication|skin condition)|my medication|drug interaction|interact with|i'?m pregnant|i am pregnant|pregnan|breastfeed|nursing|i'?m allergic|i am allergic|contraindicat)\b/i;
 
 export function detectSafety(
   message: string
@@ -188,9 +220,37 @@ export function detectSafety(
   return null;
 }
 
-export function extract(message: string): Extraction {
-  const treatments = extractTreatments(message);
-  const concerns = extractConcerns(message);
+export function extract(message: string, catalog?: LiveCatalog): Extraction {
+  // Curated aliases first — the live `services`/`concerns` tables have no alias
+  // column, so this pass is the only thing that knows "tox" or "wrinkle
+  // relaxers". The catalog pass then adds everything else the site offers.
+  const curatedTreatments = extractTreatments(message);
+  const curatedConcerns = extractConcerns(message);
+  const entities: CatalogEntry[] = [];
+
+  // Catalog hits come FIRST. They are literal matches on what the user typed,
+  // whereas a curated hit may be an alias expansion — "morpheus8" is an alias
+  // of the canonical "microneedling", so putting curated first made the primary
+  // term "Microneedling" and threw away the word the user actually used. The
+  // search still resolves through the site's alias table either way (parity is
+  // the point), but the assistant can now say "Morpheus8, listed here under
+  // Microneedling" instead of "I can't find Morpheus8".
+  const treatments: string[] = [];
+  const concerns: string[] = [];
+  if (catalog) {
+    const hits = matchCatalogEntities(message, catalog);
+    for (const t of hits.treatments) {
+      entities.push(t);
+      treatments.push(t.slug);
+    }
+    for (const c of hits.concerns) {
+      entities.push(c);
+      concerns.push(c.slug);
+    }
+  }
+  for (const t of curatedTreatments) if (!treatments.includes(t)) treatments.push(t);
+  for (const c of curatedConcerns) if (!concerns.includes(c)) concerns.push(c);
+
   const { location, nearMe } = extractLocation(message);
   const isComparison =
     treatments.length >= 2 && COMPARISON_RE.test(message);
@@ -202,6 +262,7 @@ export function extract(message: string): Extraction {
     isComparison,
     isDeictic: DEICTIC_RE.test(message),
     safetyKind: detectSafety(message),
+    entities,
   };
 }
 
@@ -213,12 +274,61 @@ export function extract(message: string): Extraction {
 const OTHER_CLINICS_RE =
   /\b(other|another|similar|more|different|else|elsewhere|nearby|near me|around|compare clinics|somewhere else)\b/i;
 
-/** Resolve the effective location string from the message + memory. */
-function resolveLocation(ex: Extraction, slots: Slots): string {
+/**
+ * The turn is about the clinics we just listed, not a new search. Without this,
+ * "which of those has the best reviews?" re-ran the router from scratch, got a
+ * different (often empty) result set, and the assistant contradicted the answer
+ * it had given one turn earlier.
+ */
+export const PREVIOUS_RESULTS_RE =
+  /\b(those|these|them|they|the (first|second|third|last|top) one|any of (them|those)|which one|which of|that clinic|that one|the ones you)\b/i;
+
+/**
+ * Which of the practices we just showed is the user asking about?
+ *
+ * Only the ones actually surfaced this session are candidates, so this can
+ * never conjure a practice — it just maps "tell me about RUMA Medical" back to
+ * the record behind the card. Without it there was NO way to bring a practice
+ * into focus from the conversation: `clinicSlug` was only ever set from the URL
+ * of a /practices/[slug] page, so every detail question on the homepage was
+ * answered with "I don't have that information".
+ */
+export function resolveMentionedClinic(message: string, slots: Slots): string | null {
+  const norm = ` ${normalize(message)} `;
+  let best: { slug: string; len: number } | null = null;
+  for (const c of slots.lastResults ?? []) {
+    const name = normalize(c.name);
+    // Very short names would match incidental words; require a real handle.
+    if (name.length < 4) continue;
+    if (!norm.includes(` ${name} `) && !norm.includes(` ${name},`)) {
+      // Also accept the distinctive leading word ("RUMA" for "RUMA Medical"),
+      // which is how people usually refer to a practice in conversation.
+      const head = name.split(" ")[0];
+      if (head.length < 4 || !norm.includes(` ${head} `)) continue;
+    }
+    // Longest match wins, so "Nouvelle Aesthetics" beats a shared first word.
+    if (!best || name.length > best.len) best = { slug: c.slug, len: name.length };
+  }
+  return best?.slug ?? null;
+}
+
+/** The user asking to drop the geographic filter entirely. */
+export const CLEAR_LOCATION_RE =
+  /\b(anywhere|any city|any state|nationwide|all over|across the (country|us)|everywhere|no location|any location|whole country)\b/i;
+
+/**
+ * Resolve the effective location from the message + memory.
+ *
+ * Carrying `lastLocation` forward is what makes "what about fillers there?"
+ * work. It used to be carried UNCONDITIONALLY and could never be cleared, so
+ * one mention of Austin pinned every later search to Austin for the rest of the
+ * session with no way out. An explicit widen ("anywhere", "nationwide") now
+ * drops it.
+ */
+function resolveLocation(ex: Extraction, slots: Slots, clearLocation: boolean): string {
+  if (clearLocation) return "";
   if (ex.location) return ex.location;
-  if (ex.nearMe && slots.lastLocation) return slots.lastLocation;
-  if (slots.lastLocation) return slots.lastLocation;
-  return "";
+  return slots.lastLocation ?? "";
 }
 
 /**
@@ -228,14 +338,28 @@ function resolveLocation(ex: Extraction, slots: Slots): string {
 export function route(
   message: string,
   page: PageContext,
-  slots: Slots
+  slots: Slots,
+  catalog?: LiveCatalog
 ): { route: Route; extraction: Extraction } {
-  const ex = extract(message);
+  const ex = extract(message, catalog);
+  const clearLocation = CLEAR_LOCATION_RE.test(message);
+  const refersToPrevious =
+    PREVIOUS_RESULTS_RE.test(message) && (slots.lastResults?.length ?? 0) > 0;
   const onClinicPage = page.type === "clinic" || page.type === "provider";
+  // If we just showed clinics somewhere and the user now names another
+  // treatment ("what about fillers there?"), they still want clinics. Without
+  // this the turn fell to the catalog path, no search ran, and the model —
+  // handed no SEARCH_RESULTS — invented clinic names.
+  const continuingClinicSearch =
+    !clearLocation &&
+    Boolean(slots.lastLocation) &&
+    (slots.lastResults?.length ?? 0) > 0 &&
+    (ex.treatments.length > 0 || ex.concerns.length > 0);
   const wantsClinics =
     ex.location !== null ||
     ex.nearMe ||
-    /\b(clinic|clinics|medspa|medspas|med spa|provider|providers|place|places|find|show me|near|who offers|where can)\b/i.test(
+    continuingClinicSearch ||
+    /\b(clinic|clinics|medspa|medspas|med spa|practice|practices|provider|providers|place|places|find|show me|near|who offers|who does|where can)\b/i.test(
       message
     );
 
@@ -248,6 +372,51 @@ export function route(
         safetyKind: ex.safetyKind,
         treatmentSlugs: ex.treatments,
         concernSlugs: ex.concerns,
+      },
+    };
+  }
+
+  // Priority 0.4 — the user is asking about ONE practice we already showed,
+  // either by name ("tell me about RUMA Medical") or by pronoun once one is in
+  // focus ("what are their hours?"). Load that record so the answer comes from
+  // the database rather than "I don't have that information".
+  const mentioned = resolveMentionedClinic(message, slots);
+  const focusSlug =
+    mentioned ??
+    (slots.clinicInFocus && (ex.isDeictic || !wantsClinics)
+      ? slots.clinicInFocus
+      : null);
+  if (focusSlug && !onClinicPage) {
+    // "other practices like this one" is still a search, not a detail question.
+    const wantsOthers = OTHER_CLINICS_RE.test(message);
+    if (!wantsOthers) {
+      return {
+        extraction: ex,
+        route: {
+          path: "page_context",
+          treatmentSlugs: ex.treatments,
+          concernSlugs: ex.concerns,
+          clinicSlug: focusSlug,
+        },
+      };
+    }
+  }
+
+  // Priority 0.5 — the turn is purely about the practices we just listed
+  // ("which of those has the best reviews?"). It names no treatment and no
+  // place, so every other rule falls through to smalltalk and the assistant
+  // answers "I don't have that" about clinics it showed one turn ago. Replay
+  // the previous query instead.
+  if (refersToPrevious) {
+    return {
+      extraction: ex,
+      route: {
+        path: "search",
+        treatmentSlugs: ex.treatments,
+        concernSlugs: ex.concerns,
+        search: { treatment: "", location: slots.lastLocation ?? "" },
+        clearLocation: false,
+        refersToPrevious: true,
       },
     };
   }
@@ -335,10 +504,17 @@ export function route(
 
   // Priority 5 — treatment and/or location (clinic-finding) → search.
   if (wantsClinics || ex.treatments.length > 0 || ex.concerns.length > 0) {
+    // Pass the concern through AS a concern. It used to be rewritten into the
+    // concern's first treatment, which threw away the `condition=` filter and
+    // silently narrowed "clinics for acne scars" to one arbitrary treatment.
+    // resolveSearchQuery resolves concern names too, so the adapter builds
+    // `?condition=<slug>` from this.
+    const named = (slug: string) =>
+      ex.entities.find((e) => e.slug === slug)?.name ?? null;
     const treatmentArg = ex.treatments[0]
-      ? slugToName(ex.treatments[0])
+      ? named(ex.treatments[0]) ?? slugToName(ex.treatments[0])
       : ex.concerns[0]
-        ? firstTreatmentForConcern(ex.concerns[0])
+        ? named(ex.concerns[0]) ?? concernSlugToName(ex.concerns[0])
         : "";
     return {
       extraction: ex,
@@ -346,7 +522,9 @@ export function route(
         path: "search",
         treatmentSlugs: ex.treatments,
         concernSlugs: ex.concerns,
-        search: { treatment: treatmentArg, location: resolveLocation(ex, slots) },
+        search: { treatment: treatmentArg, location: resolveLocation(ex, slots, clearLocation) },
+        clearLocation,
+        refersToPrevious,
       },
     };
   }
@@ -373,18 +551,16 @@ export function concernSlugToName(slug: string): string {
   return CANONICAL_CONCERNS.find((c) => c.slug === slug)?.name ?? slug;
 }
 
-function firstTreatmentForConcern(concernSlug: string): string {
-  const c = CANONICAL_CONCERNS.find((x) => x.slug === concernSlug);
-  const first = c?.serviceSlugs[0];
-  return first ? slugToName(first) : "";
-}
-
 /** Update slot memory from a turn's extraction (deterministic, never model-set). */
 export function updateSlots(
   prev: Slots,
   ex: Extraction,
   page: PageContext,
-  effectiveLocation: string
+  /** the raw user message, for resolving a practice named in conversation */
+  message: string,
+  effectiveLocation: string,
+  /** Set when the user explicitly widened the search ("anywhere", "any city"). */
+  clearLocation = false
 ): Slots {
   const treatmentsDiscussed = [...prev.treatmentsDiscussed];
   for (const t of ex.treatments) {
@@ -398,10 +574,15 @@ export function updateSlots(
   if ((page.type === "clinic" || page.type === "provider") && page.slug) {
     clinicInFocus = page.slug;
   }
+  // A practice named in conversation stays in focus for follow-ups.
+  const mentioned = resolveMentionedClinic(message, prev);
+  if (mentioned) clinicInFocus = mentioned;
 
   return {
+    ...prev,
     clinicInFocus,
-    lastLocation: effectiveLocation || prev.lastLocation,
+    lastLocation: clearLocation ? undefined : effectiveLocation || prev.lastLocation,
+    lastLocationLabel: clearLocation ? undefined : prev.lastLocationLabel,
     treatmentsDiscussed,
   };
 }

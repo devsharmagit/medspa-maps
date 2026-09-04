@@ -95,21 +95,20 @@ function ratingText(rating: number | null, reviews: number): string {
   return `${rating.toFixed(1)}★ (${reviews} review${reviews === 1 ? "" : "s"})`;
 }
 
-/** Render a markdown clinic list from real search rows. */
-export function renderClinicList(search: SearchResult): string {
-  return search.clinics
-    .map((c) => {
-      const loc = [c.city, c.state].filter(Boolean).join(", ") || "";
-      const svc = c.treatments.slice(0, 3).join(", ");
-      const parts = [
-        `[${c.name}](${c.url})`,
-        loc,
-        ratingText(c.rating, c.reviews),
-        svc ? `offers ${svc}` : "",
-      ].filter(Boolean);
-      return `- ${parts.join(" — ")}`;
-    })
-    .join("\n");
+/**
+ * One-line summary of a result set, with NO practice names.
+ *
+ * This replaced a markdown list of every clinic. The cards below the answer are
+ * the list; a prose copy duplicated them and made the model's typing, rather
+ * than the search rows, look like the source of truth.
+ */
+export function describeResults(search: SearchResult & { total?: number }): string {
+  const shown = search.clinics.length;
+  const total = search.total ?? shown;
+  const what = search.filters.treatment ? ` offering ${search.filters.treatment}` : "";
+  const where = search.filters.location ? ` near ${search.filters.location}` : "";
+  const more = total > shown ? ` of ${total} that match` : "";
+  return `Showing ${shown} practice${shown === 1 ? "" : "s"}${more}${what}${where}.`;
 }
 
 /**
@@ -119,13 +118,8 @@ export function renderClinicList(search: SearchResult): string {
 export function templatedAnswer(g: GatheredContext): string {
   const search = g.search;
   if (search && !search.unavailable && search.count > 0) {
-    const where = search.filters.location ? ` near ${search.filters.location}` : "";
-    const what = search.filters.treatment
-      ? `${search.filters.treatment} clinics`
-      : "clinics";
     return (
-      `## ${capitalize(what)}${where}\n` +
-      `${renderClinicList(search)}\n\n` +
+      `${describeResults(search)} Their details are on the cards below.\n\n` +
       `General information only — a licensed provider can confirm what's right for you. ` +
       `You can also [browse all results](${search.search_page}).`
     );
@@ -139,15 +133,10 @@ export function templatedAnswer(g: GatheredContext): string {
   // Catalog fallback
   const t = (g.treatments ?? []).find((x) => x.found);
   if (t) {
-    const price =
-      t.price_from != null
-        ? `- Typical cost: from $${t.price_from}/${t.price_unit ?? "unit"}\n`
-        : "";
     const recovery = t.recovery_time ? `- Recovery: ${t.recovery_time}\n` : "";
     return (
       `## ${t.name}\n${t.summary}\n\n` +
       `- Typical time: ${t.treatment_time}\n` +
-      price +
       `- Results: ${t.results_timeline}, lasting ${t.results_duration}\n` +
       recovery +
       `\n[Read the full ${t.name} guide](${t.url}). General information only — a licensed provider can confirm what's right for you.`
@@ -180,6 +169,126 @@ export function templatedAnswer(g: GatheredContext): string {
   return "I can help you explore aesthetic treatments and find vetted medspas. Tell me a treatment and your city, and I'll pull up some options.";
 }
 
-function capitalize(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1);
+
+// ──────────────────────────────────────────────────────────────────────────
+// Pricing guard
+// ──────────────────────────────────────────────────────────────────────────
+
+/**
+ * Any explicit money figure. Deliberately requires a currency marker ($, US$,
+ * USD) or the words "dollars"/"bucks", so it can never eat the numbers the
+ * assistant legitimately says — "4.8★ (120 reviews)", "20 practices",
+ * "6.2 miles away", a ZIP, or a slug.
+ */
+const CURRENCY_RE =
+  /(?:\$|US\$|USD\s?)\s?\d[\d,]*(?:\.\d{1,2})?|\b\d[\d,]*\s?(?:dollars|bucks)\b/i;
+
+const PRICE_DEFLECTION =
+  "Pricing varies quite a bit by provider, product and treatment plan, so I can't quote a figure — the practice can give you an exact price at a consultation. Want me to find some near you?";
+
+/**
+ * Strip any money figure the model produced, as a last line of defence behind
+ * the prompt rule. We remove the WHOLE sentence, not just the number: deleting
+ * the token alone leaves "Botox is typically  per unit," which reads as a bug
+ * and still implies a price was known.
+ */
+export function stripPricing(answer: string): { text: string; stripped: number } {
+  if (!CURRENCY_RE.test(answer)) return { text: answer, stripped: 0 };
+
+  let stripped = 0;
+  const kept = answer
+    .split(/\n/)
+    .map((line) => {
+      const sentences = line.split(/(?<=[.!?])\s+/);
+      const survivors = sentences.filter((s) => {
+        if (CURRENCY_RE.test(s)) {
+          stripped++;
+          return false;
+        }
+        return true;
+      });
+      return survivors.join(" ");
+    })
+    .filter((line, i, all) => line.trim() !== "" || (i > 0 && all[i - 1].trim() !== ""))
+    .join("\n")
+    .trim();
+
+  // If gutting the prices left nothing coherent, answer the question properly
+  // instead of shipping a hollowed-out reply.
+  if (!kept || stripped >= 2) return { text: PRICE_DEFLECTION, stripped };
+  return { text: kept, stripped };
 }
+
+// ──────────────────────────────────────────────────────────────────────────
+// Clinic grounding guard
+// ──────────────────────────────────────────────────────────────────────────
+
+const PRACTICE_LINK_RE = /\]\(\/practices\/([a-z0-9-]+)\)/gi;
+
+/**
+ * Every practice the answer links to must be one we actually retrieved.
+ *
+ * The prompt already forbids inventing clinics, but a small model handed no
+ * SEARCH_RESULTS block will happily reproduce the names from its own few-shot
+ * example. A fabricated practice — with a link that 404s — is worse than the
+ * wrong-search bug this rewrite set out to fix, so it gets a deterministic
+ * check rather than a prompt rule alone.
+ *
+ * Returns the ungrounded slugs; empty means the answer is safe to send.
+ */
+export function ungroundedPractices(answer: string, g: GatheredContext): string[] {
+  const allowed = new Set<string>();
+  for (const c of g.search?.clinics ?? []) allowed.add(c.slug);
+  for (const c of g.search?.nearby?.clinics ?? []) allowed.add(c.slug);
+  if (g.clinic?.slug) allowed.add(g.clinic.slug);
+
+  const bad: string[] = [];
+  for (const m of answer.matchAll(PRACTICE_LINK_RE)) {
+    const slug = m[1].toLowerCase();
+    if (!allowed.has(slug)) bad.push(slug);
+  }
+  return [...new Set(bad)];
+}
+
+/**
+ * Force every site link back to a site-relative path.
+ *
+ * The prompt already demands relative links, but models reliably "helpfully"
+ * prepend a domain they half-remember. That breaks two things: the widget
+ * renders a non-"/" href as an external `_blank` anchor instead of a client-side
+ * <Link>, and the grounding check below can no longer see the practice slug.
+ */
+export function normalizeSiteLinks(answer: string): string {
+  return answer.replace(
+    /\]\(\s*(?:https?:\/\/)(?:www\.)?(?:medspamaps?\.com|localhost(?::\d+)?|127\.0\.0\.1(?::\d+)?)(\/[^)\s]*)\)/gi,
+    "]($1)",
+  );
+}
+
+/**
+ * On a turn that renders practice cards, delete every list item and heading
+ * from the model's answer.
+ *
+ * The previous version only removed bullets containing a `](/practices/…)`
+ * link, so when the model wrote the same list WITHOUT links it sailed through —
+ * and when it did match, the "## Top matches" heading above the deleted list
+ * was left dangling (the user saw a bare "##"). Since the model is no longer
+ * given any practice data, it has nothing legitimate to list or head on these
+ * turns, so removing both outright is both safe and total.
+ */
+export function stripLists(answer: string): string {
+  const isListItem = (l: string) => /^\s*(?:[-*•]\s+|\d+[.)]\s+)/.test(l);
+  const isHeading = (l: string) => /^\s*#{1,6}\s+/.test(l);
+
+  const kept = answer
+    .split("\n")
+    .filter((l) => !isListItem(l) && !isHeading(l));
+
+  return kept
+    .join("\n")
+    .replace(/[ \t]+$/gm, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+

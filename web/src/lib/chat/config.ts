@@ -45,8 +45,10 @@ export const CHAT_LIMITS = {
    *  12s is generous for gpt-4o-mini at this prompt size (typically 2–4s); the old
    *  18s was sized for slow free-tier models and only delayed the fallback. */
   llmTimeoutMs: 12_000,
-  /** Independent timeout on backend data fetches (search); expiry → SEARCH_UNAVAILABLE. */
-  fetchTimeoutMs: 6_000,
+  /** Independent timeout on backend data fetches (search); expiry → SEARCH_UNAVAILABLE.
+   *  A zero-result geo search runs findNearbyFallback — a second full search —
+   *  so this has to cover two round-trips, not one. */
+  fetchTimeoutMs: 9_000,
   /** Per-IP rate limit: max requests per window. */
   rateLimitMax: 20,
   /** Per-IP rate limit window, in milliseconds. */

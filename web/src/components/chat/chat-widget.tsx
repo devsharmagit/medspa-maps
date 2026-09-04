@@ -11,13 +11,18 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { MessageCircle, X, ArrowUp, Sparkles, Loader2 } from "lucide-react";
+import { MessageCircle, X, ArrowUp, Sparkles, Loader2, Mic, Square } from "lucide-react";
 import { cn } from "@/lib/utils";
+import ChatClinicCards, { type ChatClinicPayload } from "./chat-clinic-cards";
+import { useSpeechInput } from "@/lib/chat/use-speech-input";
+import { useLocation } from "@/lib/location/location-context";
 
 type ChatRole = "user" | "assistant";
 interface ChatMsg {
   role: ChatRole;
   content: string;
+  /** Practice cards attached to an assistant turn (not persisted — see persist()). */
+  clinics?: ChatClinicPayload;
 }
 
 // Session memory that round-trips through the client (server is stateless).
@@ -36,7 +41,10 @@ interface PageContext {
 interface Slots {
   clinicInFocus?: string;
   lastLocation?: string;
+  lastLocationLabel?: string;
   treatmentsDiscussed: string[];
+  lastResults?: { slug: string; name: string }[];
+  lastSearchParams?: string;
 }
 
 const STORAGE_KEY = "medspa-chat-session";
@@ -64,16 +72,20 @@ const EMPTY_SLOTS: Slots = { treatmentsDiscussed: [] };
 function derivePage(pathname: string | null): PageContext {
   if (!pathname || pathname === "/") return { type: "home" };
   const seg = pathname.split("/").filter(Boolean);
+  // These MUST match the real App Router segments. They previously read
+  // "treatments"/"conditions"/"clinics" — all renamed long ago — so page.type
+  // was always "other", CLINIC_IN_FOCUS never reached the prompt, and two of
+  // the assistant's routing paths were unreachable dead code.
   if (seg[0] === "search") return { type: "search" };
-  if (seg[0] === "treatments" && seg[1]) return { type: "treatment", slug: seg[1] };
-  if (seg[0] === "conditions" && seg[1]) return { type: "concern", slug: seg[1] };
-  if (seg[0] === "clinics" && seg[1]) return { type: "clinic", slug: seg[1] };
-  if (seg[0] === "providers" && seg[2]) return { type: "provider", slug: seg[2] };
+  if (seg[0] === "treatment" && seg[1]) return { type: "treatment", slug: seg[1] };
+  if (seg[0] === "condition" && seg[1]) return { type: "concern", slug: seg[1] };
+  if (seg[0] === "practices" && seg[1]) return { type: "clinic", slug: seg[1] };
   return { type: "other" };
 }
 
 export default function ChatWidget() {
   const pathname = usePathname();
+  const { location: userLocation } = useLocation();
   const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMsg[]>([]);
@@ -112,7 +124,9 @@ export default function ChatWidget() {
       sessionStorage.setItem(
         STORAGE_KEY,
         JSON.stringify({
-          messages: nextMessages,
+          // Strip card payloads: they are large (image URLs ×5 per turn) and a
+          // quota overflow here fails silently, taking session memory with it.
+          messages: nextMessages.map(({ role, content }) => ({ role, content })),
           summary: summaryRef.current,
           slots: slotsRef.current,
           followups: nextFollowups,
@@ -155,6 +169,34 @@ export default function ChatWidget() {
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
+  // ── Voice input ──────────────────────────────────────────────────────────
+  // Declared above the early return below, or rules-of-hooks breaks.
+  // Whatever was already typed when dictation starts is preserved, and the
+  // live interim text is rewritten in place on top of it rather than appended
+  // repeatedly.
+  const dictationBaseRef = useRef("");
+  const speech = useSpeechInput({
+    enabled: open,
+    onTranscript: (text, isFinal) => {
+      const base = dictationBaseRef.current;
+      const joined = base ? `${base.trimEnd()} ${text}` : text;
+      // setInput bypasses BOTH the textarea's maxLength and the onChange
+      // slice, so the cap has to be applied here too.
+      setInput(joined.slice(0, MAX_INPUT_CHARS));
+      if (isFinal) dictationBaseRef.current = joined.slice(0, MAX_INPUT_CHARS);
+    },
+  });
+
+  function toggleDictation() {
+    if (speech.listening) {
+      speech.stop();
+      return;
+    }
+    dictationBaseRef.current = input;
+    speech.start();
+    inputRef.current?.focus();
+  }
+
   // Never render on admin pages or before mount.
   if (!mounted || pathname?.startsWith("/admin")) return null;
 
@@ -174,6 +216,7 @@ export default function ChatWidget() {
   async function sendMessage(text: string) {
     const trimmed = text.trim();
     if (!trimmed || streaming) return;
+    speech.stop();
 
     const history: ChatMsg[] = [...messages, { role: "user", content: trimmed }];
     setMessages([...history, { role: "assistant", content: "" }]);
@@ -194,6 +237,9 @@ export default function ChatWidget() {
         body: JSON.stringify({
           messages: payload,
           page: derivePage(pathname),
+          coords: userLocation
+            ? { lat: userLocation.lat, lng: userLocation.lng }
+            : null,
           memory: { summary: summaryRef.current, slots: slotsRef.current },
         }),
       });
@@ -244,6 +290,20 @@ export default function ChatWidget() {
             setStatus(evt.value);
           } else if (evt.type === "followups" && Array.isArray(evt.value)) {
             setFollowups(evt.value.filter((v): v is string => typeof v === "string"));
+          } else if (evt.type === "clinics" && evt.value && typeof evt.value === "object") {
+            const payload = evt.value as ChatClinicPayload;
+            if (Array.isArray(payload.clinics) && payload.clinics.length) {
+              setMessages((prev) => {
+                const next = [...prev];
+                for (let i = next.length - 1; i >= 0; i--) {
+                  if (next[i].role === "assistant") {
+                    next[i] = { ...next[i], clinics: payload };
+                    break;
+                  }
+                }
+                return next;
+              });
+            }
           } else if (evt.type === "memory" && evt.value && typeof evt.value === "object") {
             const m = evt.value as { summary?: string; slots?: Slots };
             if (typeof m.summary === "string") summaryRef.current = m.summary;
@@ -378,8 +438,8 @@ export default function ChatWidget() {
                 <div
                   key={idx}
                   className={cn(
-                    "flex",
-                    m.role === "user" ? "justify-end" : "justify-start"
+                    "flex flex-col",
+                    m.role === "user" ? "items-end" : "items-start"
                   )}
                 >
                   <div
@@ -407,6 +467,13 @@ export default function ChatWidget() {
                       </span>
                     )}
                   </div>
+                  {/* Practice cards sit OUTSIDE the bubble so they get the full
+                      panel width — inside the 88% bubble they were unreadable. */}
+                  {m.role === "assistant" && m.clinics && (
+                    <div className="w-full">
+                      <ChatClinicCards payload={m.clinics} />
+                    </div>
+                  )}
                 </div>
               ))
             )}
@@ -476,6 +543,31 @@ export default function ChatWidget() {
                   {input + " "}
                 </span>
               </div>
+              {/* Mic sits beside send. type="button" is essential — any other
+                  type submits this form. Hidden entirely where the browser has
+                  no Web Speech API, rather than showing a dead control. */}
+              {speech.supported && (
+                <button
+                  type="button"
+                  onClick={toggleDictation}
+                  disabled={streaming}
+                  aria-pressed={speech.listening}
+                  aria-label={speech.listening ? "Stop voice input" : "Ask by voice"}
+                  title={speech.listening ? "Stop voice input" : "Ask by voice"}
+                  className={cn(
+                    "flex size-8 shrink-0 items-center justify-center rounded-full transition disabled:opacity-40",
+                    speech.listening
+                      ? "animate-pulse bg-[linear-gradient(90deg,#DE7F4C_0%,#C341D7_100%)] text-white"
+                      : "border border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
+                  )}
+                >
+                  {speech.listening ? (
+                    <Square className="size-3.5 fill-current" />
+                  ) : (
+                    <Mic className="size-4" />
+                  )}
+                </button>
+              )}
               <button
                 type="submit"
                 disabled={!input.trim() || streaming}
@@ -489,6 +581,16 @@ export default function ChatWidget() {
                 )}
               </button>
             </div>
+            {speech.listening && (
+              <p className="mt-2 px-1 text-center text-[10px] text-brand-purple">
+                Listening… speak now, then press send.
+              </p>
+            )}
+            {speech.error && !speech.listening && (
+              <p role="alert" className="mt-2 px-1 text-center text-[10px] text-red-600">
+                {speech.error}
+              </p>
+            )}
             <div className="mt-2 flex items-center justify-center gap-2 px-1 text-[10px] text-muted-foreground">
               <p className="text-center">
                 AI assistant · general info, not medical advice
@@ -536,30 +638,95 @@ function MarkdownLite({ text }: { text: string }) {
   );
 }
 
-function RenderBlock({ block }: { block: string }) {
-  const lines = block.split("\n");
-  const isList =
-    lines.length > 0 && lines.every((l) => /^\s*[-*•]\s+/.test(l));
+/**
+ * Render one blank-line-delimited block.
+ *
+ * This used to be all-or-nothing: either EVERY line was a bullet (render a
+ * <ul>) or the whole block became a paragraph. So a heading printed as a
+ * literal "## Top matches", and a heading followed by bullets printed the
+ * hashes AND the raw "- " markers. It now walks the lines and groups
+ * consecutive ones of the same kind, so mixed blocks render correctly.
+ */
+type Segment =
+  | { kind: "heading"; level: number; lines: string[] }
+  | { kind: "ul" | "ol" | "p"; lines: string[] };
 
-  if (isList) {
-    return (
-      <ul className="list-disc space-y-1 pl-5">
-        {lines.map((l, i) => (
-          <li key={i}>{renderInline(l.replace(/^\s*[-*•]\s+/, ""))}</li>
-        ))}
-      </ul>
-    );
+const HEADING_RE = /^\s*(#{1,6})\s+(.*)$/;
+const UL_RE = /^\s*[-*•]\s+(.*)$/;
+const OL_RE = /^\s*\d+[.)]\s+(.*)$/;
+
+function segment(lines: string[]): Segment[] {
+  const out: Segment[] = [];
+  for (const line of lines) {
+    const h = line.match(HEADING_RE);
+    if (h) {
+      out.push({ kind: "heading", level: h[1].length, lines: [h[2]] });
+      continue;
+    }
+    const ul = line.match(UL_RE);
+    const ol = !ul ? line.match(OL_RE) : null;
+    const kind: Segment["kind"] = ul ? "ul" : ol ? "ol" : "p";
+    const content = ul ? ul[1] : ol ? ol[1] : line;
+
+    const prev = out[out.length - 1];
+    if (prev && prev.kind === kind) prev.lines.push(content);
+    else out.push({ kind, lines: [content] });
   }
+  return out;
+}
+
+function RenderBlock({ block }: { block: string }) {
+  const segments = segment(block.split("\n"));
 
   return (
-    <p>
-      {lines.map((l, i) => (
-        <Fragment key={i}>
-          {i > 0 && <br />}
-          {renderInline(l)}
-        </Fragment>
-      ))}
-    </p>
+    <>
+      {segments.map((seg, i) => {
+        if (seg.kind === "heading") {
+          // One size for every level: this is a 390px panel, not an article,
+          // so an h1/h3 scale would just look broken.
+          return (
+            <p
+              key={i}
+              className={cn(
+                "font-semibold text-foreground",
+                i > 0 && "mt-3"
+              )}
+            >
+              {renderInline(seg.lines[0])}
+            </p>
+          );
+        }
+
+        if (seg.kind === "ul" || seg.kind === "ol") {
+          const List = seg.kind === "ul" ? "ul" : "ol";
+          return (
+            <List
+              key={i}
+              className={cn(
+                "space-y-1 pl-5",
+                seg.kind === "ul" ? "list-disc" : "list-decimal"
+              )}
+            >
+              {seg.lines.map((l, j) => (
+                <li key={j}>{renderInline(l)}</li>
+              ))}
+            </List>
+          );
+        }
+
+        return (
+          <p key={i}>
+            {seg.lines.map((l, j) => (
+              <Fragment key={j}>
+                {j > 0 && <br />}
+                {/* Belt and braces: a stray hash must never reach the reader. */}
+                {renderInline(l.replace(/^\s*#{1,6}\s*/, ""))}
+              </Fragment>
+            ))}
+          </p>
+        );
+      })}
+    </>
   );
 }
 

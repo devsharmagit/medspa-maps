@@ -42,16 +42,6 @@ export const SPOTLIGHT_PROVIDERS: ConcernProvider[] = [
     clinic_name: "Conqr Aesthetics & Wellness",
   },
   {
-    id: "548f1bb2-4ca0-4c82-aad9-e6f47cae5f1e",
-    name: "Gretchen Frieling",
-    title: "MD, Founder",
-    card_tagline: "Harvard-trained, triple board-certified Dermatopathologist",
-    image_url: "https://gfacemd.com/storage/2026/03/IMG_9394-scaled.webp",
-    is_verified: false,
-    clinic_slug: "gfacemd",
-    clinic_name: "GFaceMD",
-  },
-  {
     id: "85ec89b1-0ec7-4154-9ea3-ae8676428e1d",
     name: "Amy Lynn",
     title: "RN, CANS",

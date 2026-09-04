@@ -16,6 +16,7 @@
  *   { "type": "status",    "value": "..." }        transient status line
  *   { "type": "token",     "value": "..." }        incremental answer text
  *   { "type": "followups", "value": ["...", ...] } suggested next questions
+ *   { "type": "clinics",   "value": { clinics, total, searchUrl, ... } } cards
  *   { "type": "memory",    "value": { summary, slots } } updated session memory
  *   { "type": "error",     "value": "..." }         user-facing error
  *   { "type": "done" }                               end of stream
@@ -39,17 +40,28 @@ import {
   type Slots,
 } from "@/lib/chat/intent";
 import {
-  searchClinics,
   getClinicBySlug,
   getTreatmentInfo,
   getConcernInfo,
   type ClinicContext,
-  type SearchResult,
   type TreatmentInfo,
   type ConcernInfo,
 } from "@/lib/chat/data";
+import {
+  chatSearch,
+  CHAT_RESULT_LIMIT,
+  type ChatSearchResult,
+} from "@/lib/chat/search-adapter";
+import { getLiveCatalog } from "@/lib/chat/catalog";
 import { buildUserMessage, type GatheredContext } from "@/lib/chat/context";
-import { parseReply, templatedAnswer, renderClinicList } from "@/lib/chat/format";
+import {
+  parseReply,
+  templatedAnswer,
+  stripPricing,
+  ungroundedPractices,
+  normalizeSiteLinks,
+  stripLists,
+} from "@/lib/chat/format";
 import { mergeFollowups } from "@/lib/chat/followups";
 
 export const runtime = "nodejs";
@@ -81,6 +93,10 @@ const BodySchema = z.object({
       slug: z.string().max(200).optional(),
     })
     .optional(),
+  /** Visitor's browser coordinates, so "near me" resolves to a real radius. */
+  coords: z
+    .object({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180) })
+    .nullish(),
   memory: z
     .object({
       summary: z.string().max(2000).optional(),
@@ -88,7 +104,13 @@ const BodySchema = z.object({
         .object({
           clinicInFocus: z.string().max(200).optional(),
           lastLocation: z.string().max(120).optional(),
+          lastLocationLabel: z.string().max(120).optional(),
           treatmentsDiscussed: z.array(z.string().max(80)).max(10).optional(),
+          lastResults: z
+            .array(z.object({ slug: z.string().max(200), name: z.string().max(200) }))
+            .max(8)
+            .optional(),
+          lastSearchParams: z.string().max(500).optional(),
         })
         .optional(),
     })
@@ -156,9 +178,13 @@ export async function POST(req: NextRequest) {
     treatmentsDiscussed: parsed.data.memory?.slots?.treatmentsDiscussed ?? [],
   };
   const priorSummary = parsed.data.memory?.summary ?? "";
+  const coords = parsed.data.coords ?? null;
 
   // ── Deterministic intent + routing ───────────────────────────────────────
-  const { route: r, extraction } = routeIntent(lastUser.content, page, priorSlots);
+  // The live catalog (966 services / 191 concerns) is cached per process, so
+  // this is a map lookup on all but the first turn after a cold start.
+  const catalog = await getLiveCatalog();
+  const { route: r, extraction } = routeIntent(lastUser.content, page, priorSlots, catalog);
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
@@ -194,7 +220,7 @@ export async function POST(req: NextRequest) {
         send({ type: "status", value: statusLine(r, extraction.location) });
 
         const effectiveLocation = r.search?.location ?? "";
-        const gathered = await gatherContext(r, page);
+        const gathered = await gatherContext(r, page, coords, priorSlots);
 
         // combined path: scope the search to the focused clinic's city/state.
         // (handled inside gatherContext)
@@ -203,10 +229,54 @@ export async function POST(req: NextRequest) {
           priorSlots,
           extraction,
           page,
-          gathered.search?.filters.location ?? effectiveLocation
+          lastUser.content,
+          gathered.search?.filters.location ?? effectiveLocation,
+          r.clearLocation ?? false
         );
+        // Remember exactly what we showed, so the next turn can refer back to it.
+        if (gathered.search && !gathered.search.unavailable) {
+          newSlots.lastLocationLabel = gathered.search.location?.label ?? undefined;
+          if (gathered.search.clinics.length) {
+            newSlots.lastResults = gathered.search.clinics.map((c) => ({
+              slug: c.slug,
+              name: c.name,
+            }));
+            newSlots.lastSearchParams = gathered.search.search_page.split("?")[1] ?? "";
+          }
+        }
         if (!newSlots.clinicInFocus && gathered.clinic) {
           newSlots.clinicInFocus = gathered.clinic.slug;
+        }
+
+        // ── Clinic cards ─────────────────────────────────────────────────────
+        // Sent BEFORE the token stream so the cards paint while the text types.
+        // The assistant is told (in SEARCH_RESULTS) not to re-list these in
+        // prose, so the two don't duplicate each other.
+        let sentClinicCards = false;
+        if (gathered.search && !gathered.search.unavailable) {
+          const shown = gathered.search.clinics.length
+            ? gathered.search.clinics
+            : (gathered.search.nearby?.clinics ?? []);
+          if (shown.length) {
+            send({
+              type: "clinics",
+              value: {
+                // Capped again here so no future caller can widen it.
+                clinics: shown.slice(0, CHAT_RESULT_LIMIT),
+                total: gathered.search.clinics.length
+                  ? gathered.search.total
+                  : (gathered.search.nearby?.total ?? shown.length),
+                // On the fallback path the scoped query returned nothing, so
+                // link the relaxed one that actually found these.
+                searchUrl: gathered.search.clinics.length
+                  ? gathered.search.search_page
+                  : (gathered.search.nearby?.search_page ?? gathered.search.search_page),
+                locationLabel: gathered.search.location?.label ?? null,
+                farAway: gathered.search.clinics.length === 0,
+              },
+            });
+            sentClinicCards = true;
+          }
         }
 
         // ── Build the single prompt ──────────────────────────────────────────
@@ -218,6 +288,7 @@ export async function POST(req: NextRequest) {
           summary: priorSummary,
           slots: newSlots,
           recentTurns,
+          catalog,
         });
         const llmMessages = [
           { role: "system", content: buildSystemPrompt() },
@@ -238,23 +309,39 @@ export async function POST(req: NextRequest) {
           modelFollowups = parsedReply.followups;
           memoryLine = parsedReply.memory;
         } else if (parsedReply && parsedReply.answer) {
-          // Markers missing but we got prose. If we have real data, append a
-          // backend-rendered clinic list so the facts are never model-typed.
+          // Markers missing but we got prose — keep it. Nothing is appended:
+          // the practices are already rendered as cards, so a prose list here
+          // would duplicate them (and would be model-typed, not data-driven).
           answer = parsedReply.answer;
-          if (
-            gathered.search &&
-            !gathered.search.unavailable &&
-            gathered.search.count > 0 &&
-            !/\]\(\/clinics\//.test(answer)
-          ) {
-            answer += `\n\n${renderClinicList(gathered.search)}`;
-          }
         } else {
           // Total model failure → fully templated, real-data answer.
           answer = templatedAnswer(gathered);
         }
 
-        answer = ensureDisclaimer(answer, r, gathered);
+        // Pull any absolute site URLs back to relative BEFORE validating, so a
+        // domain-prefixed link is fixed rather than mistaken for a fabrication.
+        answer = normalizeSiteLinks(answer);
+
+        // A practice the model made up would hand the user a 404 and destroy
+        // trust in every other answer. If any link isn't in what we retrieved,
+        // throw the whole answer away and use the backend-rendered one.
+        const invented = ungroundedPractices(answer, gathered);
+        if (invented.length) {
+          console.warn(`[chat] discarded answer naming ungrounded practices: ${invented.join(", ")}`);
+          answer = templatedAnswer(gathered);
+        }
+
+        // Cards were sent for this turn, so the model has nothing to list or
+        // head — strip both outright rather than trusting it not to.
+        if (sentClinicCards) answer = stripLists(answer);
+
+        // Last line of defence: the model must never emit a money figure.
+        // Logged, not silent — a silent filter would hide a prompt regression.
+        const priced = stripPricing(answer);
+        if (priced.stripped) {
+          console.warn(`[chat] stripped ${priced.stripped} pricing sentence(s) from model answer`);
+        }
+        answer = ensureDisclaimer(priced.text, r, gathered);
 
         // ── Stream the answer ────────────────────────────────────────────────
         await streamText(answer, send);
@@ -302,7 +389,9 @@ export async function POST(req: NextRequest) {
 // ──────────────────────────────────────────────────────────────────────────
 async function gatherContext(
   r: ReturnType<typeof routeIntent>["route"],
-  page: PageContext
+  page: PageContext,
+  coords: { lat: number; lng: number } | null,
+  priorSlots: Slots
 ): Promise<GatheredContext> {
   const g: GatheredContext = { page };
 
@@ -330,23 +419,35 @@ async function gatherContext(
     if (infos.length) g.concerns = infos;
   }
 
-  // Search (search + combined paths).
+  // Search (search + combined paths) — always through the site's own engine.
   if (r.path === "search" || r.path === "combined") {
     const treatment = r.search?.treatment ?? "";
     let location = r.search?.location ?? "";
     // combined: scope to the focused clinic's city/state.
     if (r.path === "combined" && clinic) {
-      if (!location) location = clinic.state ?? clinic.city ?? "";
+      if (!location) location = clinic.city ?? clinic.state ?? "";
     }
-    const search: SearchResult = await withTimeout(
-      searchClinics({ treatment, location, limit: 5 }),
+    const search: ChatSearchResult = await withTimeout(
+      chatSearch({
+        text: treatment,
+        location,
+        coords,
+        limit: CHAT_RESULT_LIMIT,
+        // A follow-up about the clinics we just listed replays that exact query
+        // rather than resolving new filters from a pronoun-heavy sentence.
+        rawParams: r.refersToPrevious ? priorSlots.lastSearchParams : null,
+      }),
       {
         count: 0,
+        total: 0,
         clinics: [],
         filters: { treatment: treatment || null, location: location || null },
         search_page: "/search",
+        resolved: null,
+        queryText: treatment || null,
+        location: { param: null, label: null, lat: null, lng: null, kind: "none" },
         unavailable: true,
-      } as SearchResult
+      } as ChatSearchResult
     );
     g.search = search;
   }

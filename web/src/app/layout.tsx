@@ -59,10 +59,11 @@ export default function RootLayout({
             {children}
             {/* Single global "USA-only" notice — never doubles up across pages. */}
             <UsaOnlyNotice />
+            {/* AI assistant — self-hides on /admin routes. Inside LocationProvider
+                so "near me" can search a real radius around the visitor. */}
+            <ChatWidget />
           </LocationProvider>
         </NextAuthProvider>
-        {/* AI assistant — self-hides on /admin routes */}
-        <ChatWidget />
       </body>
 
     </html>

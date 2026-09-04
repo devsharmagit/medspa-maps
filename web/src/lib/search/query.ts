@@ -1,99 +1,16 @@
 import { resolveSearchQuery, type ResolvedQuery } from "@/lib/search/resolve-query";
 import pool from "@/lib/db";
-import { lookupZip, lookupCityState } from "@/lib/location/postal-index";
+import {
+  conditionSlugSet,
+  haversineMilesSql,
+  resolveLocationScope,
+} from "@/lib/search/location-scope";
 
 // Shared clinic-search engine. Extracted verbatim from the /api/search route so
 // the search PAGE can render the first result page server-side (crawlable HTML)
 // by calling this in-process, while the API route stays a thin wrapper for the
 // client-side filter/pagination/map fetches. Accepts a URLSearchParams so both
 // callers pass the exact same inputs and get byte-identical output.
-
-// Maps 2-letter state abbreviations to full names as stored in the DB
-const STATE_ABBR_TO_NAME: Record<string, string> = {
-  AL: "Alabama", AK: "Alaska", AZ: "Arizona", AR: "Arkansas", CA: "California",
-  CO: "Colorado", CT: "Connecticut", DE: "Delaware", FL: "Florida", GA: "Georgia",
-  HI: "Hawaii", ID: "Idaho", IL: "Illinois", IN: "Indiana", IA: "Iowa",
-  KS: "Kansas", KY: "Kentucky", LA: "Louisiana", ME: "Maine", MD: "Maryland",
-  MA: "Massachusetts", MI: "Michigan", MN: "Minnesota", MS: "Mississippi",
-  MO: "Missouri", MT: "Montana", NE: "Nebraska", NV: "Nevada", NH: "New Hampshire",
-  NJ: "New Jersey", NM: "New Mexico", NY: "New York", NC: "North Carolina",
-  ND: "North Dakota", OH: "Ohio", OK: "Oklahoma", OR: "Oregon", PA: "Pennsylvania",
-  RI: "Rhode Island", SC: "South Carolina", SD: "South Dakota", TN: "Tennessee",
-  TX: "Texas", UT: "Utah", VT: "Vermont", VA: "Virginia", WA: "Washington",
-  WV: "West Virginia", WI: "Wisconsin", WY: "Wyoming", DC: "District of Columbia",
-};
-
-// Reverse: FULL STATE NAME (upper-cased) → 2-letter abbreviation. Lets the
-// location search resolve a typed full name ("California") the same as "CA".
-const STATE_NAME_TO_ABBR: Record<string, string> = Object.fromEntries(
-  Object.entries(STATE_ABBR_TO_NAME).map(([abbr, name]) => [name.toUpperCase(), abbr])
-);
-
-// Broad concern → specific child concern slugs. Searching a broad concern also
-// returns clinics tagged with the narrower children. Kept in sync with the
-// AI-grown concern catalog after the 2026-07-13 cleanup (see scripts/clean-catalog-junk.ts).
-const BROAD_CONCERN_CHILDREN: Record<string, string[]> = {
-  "fine-lines-wrinkles": [
-    "forehead-lines",
-    "frown-lines",
-    "crows-feet",
-    "bunny-lines",
-    "marionette-lines",
-    "nasolabial-folds",
-    "smile-lines",
-    "lip-flip",
-  ],
-  "skin-laxity-sagging": [
-    "brow-lift",
-    "jawline",
-    "masseter-tmj-face-slimming",
-    "platysma-vertical-neck-cords",
-  ],
-};
-
-function conditionSlugSet(slug: string): string[] {
-  const clean = slug.trim();
-  return [...new Set([clean, ...(BROAD_CONCERN_CHILDREN[clean] ?? [])])];
-}
-
-/**
- * Resolve a typed location string to coordinates using the in-memory postal
- * index (src/data/postal-codes-us.json — no DB round-trip). Handles "37203"
- * (zip), "37203, TN" / "37203 TN" (zip + state — e.g. from a booking form
- * autofill), and "Nashville, TN" (city, state). Plain city names stay on the
- * text-match path — the typeahead UI sends lat/lng when a suggestion is picked.
- */
-function resolveTypedLocation(
-  location: string,
-): { lat: number; lng: number } | null {
-  const trimmed = location.trim();
-
-  // "37203" — plain zip
-  const zipOnly = trimmed.match(/^(\d{5})$/);
-  if (zipOnly) {
-    const hit = lookupZip(zipOnly[1]);
-    return hit ? { lat: hit.lat, lng: hit.lng } : null;
-  }
-
-  // "37203, TN" / "37203 TN" / "37203, Tennessee" — zip with a state alongside.
-  // The state just confirms/disambiguates; the zip's own coordinates win.
-  const zipState = trimmed.match(/^(\d{5})\s*,?\s*([A-Za-z .]{2,})$/);
-  if (zipState) {
-    const hit = lookupZip(zipState[1]);
-    if (hit) return { lat: hit.lat, lng: hit.lng };
-    // Zip not in our index but well-formed — fall through to try it as a
-    // "City, ST" match below would be wrong (it's digits), so just miss.
-    return null;
-  }
-
-  // "City, ST" / "City, StateName" — specific enough to geocode locally.
-  const cityState = trimmed.match(/^(.+?)\s*,\s*([A-Za-z .]{2,})$/);
-  if (cityState) {
-    const hit = lookupCityState(cityState[1], cityState[2]);
-    if (hit) return { lat: hit.lat, lng: hit.lng };
-  }
-  return null;
-}
 
 // ─── Response types ───────────────────────────────────────────────────────────
 
@@ -119,11 +36,27 @@ export interface SearchQueryEcho {
   rating: number | null;
 }
 
+/**
+ * The nearest practices that DO offer the searched treatment/condition, found
+ * by dropping the geographic filters after a search returned nothing. Present
+ * only on that path, so every existing consumer of the payload is unaffected.
+ */
+export interface NearbyFallback {
+  results: Record<string, unknown>[];
+  /** How many exist nationwide, of which `results` holds the closest few. */
+  total: number;
+  /** Distance to the closest one, or null when there was no origin to measure from. */
+  nearestMiles: number | null;
+  /** What was given up to find them. */
+  relaxedFrom: { kind: "radius" | "state" | "text"; radiusMiles: number | null; location: string };
+}
+
 export interface SearchListResponse {
   results: Record<string, unknown>[];
   total: number;
   pagination: SearchPagination;
   query: SearchQueryEcho;
+  nearby?: NearbyFallback;
 }
 
 export interface SearchPinsResponse {
@@ -136,6 +69,8 @@ export interface SearchPinsResponse {
  */
 export async function runSearch(
   searchParams: URLSearchParams,
+  /** Internal: false on the relaxed retry, so the fallback can't recurse. */
+  allowRelax = true,
 ): Promise<SearchListResponse | SearchPinsResponse> {
   const qRaw = searchParams.get("q") || "";
   let q = qRaw;
@@ -170,32 +105,19 @@ export async function runSearch(
   const offset = (page - 1) * limit;
 
   // Geo / rating params
-  const latRaw = searchParams.get("lat");
-  const lngRaw = searchParams.get("lng");
-  const radiusRaw = searchParams.get("radius");
   const ratingRaw = searchParams.get("rating");
-
-  let latNum = latRaw !== null ? Number(latRaw) : NaN;
-  let lngNum = lngRaw !== null ? Number(lngRaw) : NaN;
-  let hasOrigin = Number.isFinite(latNum) && Number.isFinite(lngNum);
 
   // Ecommerce-style zip/area search: a location of the form "37201" or
   // "Nashville, TN" is geo-resolvable, so distance handles it — the text
   // filter must NOT also run ("Nashville, TN" never ILIKE-matches the city
   // column "Nashville", and "37201" would exclude the clinic one zip over).
-  // When the client sent no coordinates (raw typed input), we also resolve
-  // the origin from the in-memory postal index here.
-  const typedGeo = location ? resolveTypedLocation(location) : null;
-  const originFromTypedLocation = Boolean(typedGeo);
-  if (!hasOrigin && typedGeo) {
-    latNum = typedGeo.lat;
-    lngNum = typedGeo.lng;
-    hasOrigin = true;
-  }
-
-  const radiusNum = radiusRaw !== null && Number.isFinite(Number(radiusRaw))
-    ? Number(radiusRaw)
-    : 25; // miles, default 25
+  // Shared with /api/search-options so the count shown next to a dropdown
+  // option is scoped exactly like the search it triggers.
+  const resolvedLocation = resolveLocationScope(searchParams);
+  const latNum = resolvedLocation.origin?.lat ?? NaN;
+  const lngNum = resolvedLocation.origin?.lng ?? NaN;
+  const hasOrigin = resolvedLocation.origin !== null;
+  const radiusNum = resolvedLocation.echoRadius; // echoed; the applied one lives in `scope`
 
   const ratingNum = ratingRaw !== null && Number.isFinite(Number(ratingRaw))
     ? Number(ratingRaw)
@@ -227,17 +149,8 @@ export async function runSearch(
     const lngParam = paramIdx + 1;
     originLatParam = latParam;
     originLngParam = lngParam;
-    // 3959 = Earth radius in miles. GREATEST/LEAST clamp acos domain errors.
     distanceExpr = `(
-      SELECT MIN(
-        3959 * acos(
-          GREATEST(-1, LEAST(1,
-            cos(radians($${latParam})) * cos(radians(pt.lat))
-            * cos(radians(pt.lng) - radians($${lngParam}))
-            + sin(radians($${latParam})) * sin(radians(pt.lat))
-          ))
-        )
-      )
+      SELECT MIN(${haversineMilesSql(latParam, lngParam, "pt.lat", "pt.lng")})
       FROM (
         SELECT cl2.lat::float AS lat, cl2.lng::float AS lng
         FROM clinic_locations cl2
@@ -293,11 +206,9 @@ export async function runSearch(
   // multi-location clinics. Skipped when the typed location was resolved to
   // an origin (zip / "City, ST"): distance handles it, and a string match on
   // "37201" would wrongly exclude the clinic one zip over.
-  if (location && !originFromTypedLocation) {
-    const upper = location.trim().toUpperCase();
-    // Resolve either a 2-letter abbr ("CA") or a full name ("California") → abbr.
-    const abbr = STATE_ABBR_TO_NAME[upper] ? upper : STATE_NAME_TO_ABBR[upper];
-    const fullName = abbr ? STATE_ABBR_TO_NAME[abbr] : undefined;
+  if (resolvedLocation.scope.kind === "state" || resolvedLocation.scope.kind === "text") {
+    const abbr = resolvedLocation.scope.kind === "state" ? resolvedLocation.scope.abbr : undefined;
+    const fullName = resolvedLocation.scope.kind === "state" ? resolvedLocation.scope.fullName : undefined;
     if (abbr && fullName) {
       conditions.push(`
         EXISTS (
@@ -333,11 +244,18 @@ export async function runSearch(
   // "37201" means near 37201, not the whole country — default 50 miles).
   // A browser-geolocation origin alone still only enables distance display /
   // sorting and never silently hides clinics.
-  const explicitRadius = radiusRaw !== null && Number.isFinite(Number(radiusRaw));
-  if (hasOrigin && (explicitRadius || originFromTypedLocation)) {
+  if (resolvedLocation.scope.kind === "origin") {
     conditions.push(`${distanceExpr} <= $${paramIdx}`);
-    params.push(explicitRadius ? radiusNum : 50);
+    params.push(resolvedLocation.scope.radiusMiles);
     paramIdx++;
+  } else if (hasOrigin) {
+    // An origin with no radius filter (bare browser geolocation) is used only
+    // for distance display/sort, so the count query — which selects no columns —
+    // would never mention $lat/$lng while still being handed them, and Postgres
+    // rejects the statement with "could not determine data type of parameter $1".
+    // This always-true clause keeps the placeholders present so both queries can
+    // share one param list.
+    conditions.push(`(${distanceExpr} IS NOT NULL OR TRUE)`);
   }
 
   // ── Opt-in "pins" mode (map view on /search) ────────────────────────────
@@ -594,7 +512,16 @@ export async function runSearch(
 
   // The results are already sorted by the database query, so we don't need to re-sort in JavaScript
 
+  // Nothing matched here, but the treatment may well exist farther away. Re-run
+  // without ANY geographic filter and keep the closest few, so the empty state
+  // can say "offered at 6 practices, nearest 87 miles" instead of a dead end.
+  // The rating filter is deliberately kept: a user who asked for 4.5+ meant it.
+  const nearby = allowRelax
+    ? await findNearbyFallback(searchParams, totalResults, q, condition, resolvedLocation)
+    : undefined;
+
   return {
+    ...(nearby ? { nearby } : {}),
     results: rows,
     total: totalResults,
     pagination: {
@@ -622,6 +549,57 @@ export async function runSearch(
     },
   };
 }
+
+/**
+ * After a zero-result search, look for the same treatment/condition with the
+ * geography dropped. Returns undefined when there was no geographic filter to
+ * relax, nothing was searched for, or the relaxed search is also empty.
+ */
+async function findNearbyFallback(
+  searchParams: URLSearchParams,
+  totalResults: number,
+  q: string,
+  condition: string,
+  resolvedLocation: ReturnType<typeof resolveLocationScope>,
+): Promise<NearbyFallback | undefined> {
+  if (totalResults > 0 || (!q && !condition)) return undefined;
+
+  const { scope } = resolvedLocation;
+  if (scope.kind === "national") return undefined; // nothing to relax
+
+  const relaxed = new URLSearchParams(searchParams);
+  relaxed.delete("location");
+  relaxed.delete("radius");
+  relaxed.delete("pins");
+  relaxed.set("page", "1");
+  relaxed.set("limit", String(NEARBY_LIMIT));
+  // With `location` gone, an origin survives only as explicit lat/lng — which
+  // no longer triggers the radius filter, so it just sorts by distance.
+  relaxed.set("sort", resolvedLocation.origin ? "distance" : "rating");
+  if (resolvedLocation.origin) {
+    relaxed.set("lat", String(resolvedLocation.origin.lat));
+    relaxed.set("lng", String(resolvedLocation.origin.lng));
+  }
+
+  const retry = (await runSearch(relaxed, false)) as SearchListResponse;
+  if (retry.total === 0) return undefined;
+
+  const nearest = retry.results[0]?.distance_miles;
+  return {
+    results: retry.results,
+    total: retry.total,
+    nearestMiles: typeof nearest === "number" ? nearest : null,
+    relaxedFrom: {
+      kind: scope.kind === "origin" ? "radius" : scope.kind,
+      radiusMiles: scope.kind === "origin" ? scope.radiusMiles : null,
+      // Full state name reads better than the abbreviation the URL carries.
+      location: scope.kind === "state" ? scope.fullName : searchParams.get("location") || "",
+    },
+  };
+}
+
+/** How many farther-away practices to surface under an empty result set. */
+const NEARBY_LIMIT = 6;
 
 /**
  * List-mode wrapper for server components that render the first result page.

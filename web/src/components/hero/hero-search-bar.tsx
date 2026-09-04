@@ -26,7 +26,17 @@ export function HeroSearchBar({ className }: { className?: string }) {
   // Coordinates of the picked suggestion (null for free text — the search API
   // resolves bare zips / "City, ST" server-side as a fallback).
   const [locationGeo, setLocationGeo] = useState<{ lat: number; lng: number } | null>(null);
-  const serviceOptions = useTreatmentConditionOptions();
+  // Counts next to each option are scoped to whatever location is in the box —
+  // nationwide until one is picked, so either interaction order works.
+  const {
+    options: serviceOptions,
+    countsStale,
+    loading: optionsLoading,
+  } = useTreatmentConditionOptions({
+    location,
+    lat: locationGeo?.lat ?? null,
+    lng: locationGeo?.lng ?? null,
+  });
   const treatmentOptions = serviceOptions.filter((option) => option.group === "Treatments");
   const conditionOptions = serviceOptions.filter((option) => option.group === "Conditions");
   const activeOptions = searchMode === "treatment" ? treatmentOptions : conditionOptions;
@@ -119,6 +129,8 @@ export function HeroSearchBar({ className }: { className?: string }) {
         <div className="flex flex-1 flex-col justify-center gap-2 px-5 py-4 sm:py-0 sm:pl-6">
         <SearchableDropdown
           options={activeOptions}
+                countsStale={countsStale}
+                loading={optionsLoading}
           value={service}
           onChange={setService}
           placeholder={searchMode === "treatment" ? "Search treatments…" : "Search conditions…"}

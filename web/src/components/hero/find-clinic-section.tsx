@@ -313,7 +313,17 @@ export function FindClinicSection({ clinics }: { clinics: FeaturedClinic[] }) {
   const [selectedRating, setSelectedRating] = useState("");
   // Grouped Treatments + Conditions options (same source as the hero bar and
   // /search, so AI-grown treatments and concerns appear here too).
-  const serviceOptions = useTreatmentConditionOptions();
+  // Rating is deliberately NOT part of the scope: it filters results, not the
+  // clinic set the counts describe.
+  const {
+    options: serviceOptions,
+    countsStale,
+    loading: optionsLoading,
+  } = useTreatmentConditionOptions({
+    location,
+    lat: locationGeo?.lat ?? null,
+    lng: locationGeo?.lng ?? null,
+  });
   const treatmentOptions = serviceOptions.filter((option) => option.group === "Treatments");
   const conditionOptions = serviceOptions.filter((option) => option.group === "Conditions");
   const activeOptions = searchMode === "treatment" ? treatmentOptions : conditionOptions;
@@ -514,6 +524,8 @@ export function FindClinicSection({ clinics }: { clinics: FeaturedClinic[] }) {
           <div className="flex flex-1 flex-col justify-center gap-2 px-5 py-4 sm:py-0 sm:pl-6">
             <SearchableDropdown
               options={activeOptions}
+                countsStale={countsStale}
+                loading={optionsLoading}
               value={selectedTreatment}
               onChange={setSelectedTreatment}
               placeholder={searchMode === "treatment" ? "Search treatments…" : "Search conditions…"}

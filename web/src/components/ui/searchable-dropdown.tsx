@@ -11,6 +11,9 @@ export interface DropdownOption {
   /** Optional group heading; consecutive options sharing a group render under
    *  one non-interactive header row (e.g. "Treatments" / "Conditions"). */
   group?: string;
+  /** Clinics matching this option in the caller's current location scope.
+   *  Rendered right-aligned; `0` options sink below an "unavailable" divider. */
+  count?: number;
 }
 
 interface SearchableDropdownProps {
@@ -24,6 +27,10 @@ interface SearchableDropdownProps {
   inputClassName?: string;
   /** If true, user can also type a freeform value not in the list */
   allowFreeText?: boolean;
+  /** Counts are being refetched for a new location — dim them, keep the list. */
+  countsStale?: boolean;
+  /** The option list has not arrived yet — show a loading row, not "no results". */
+  loading?: boolean;
   /**
    * Fires ONLY when the user actually picks an option (click, or Enter on a
    * match) — never on every keystroke, even with allowFreeText. Callers that
@@ -43,6 +50,8 @@ export function SearchableDropdown({
   className,
   inputClassName,
   allowFreeText = false,
+  countsStale = false,
+  loading = false,
   onSelect,
 }: SearchableDropdownProps) {
   const [open, setOpen] = useState(false);
@@ -70,6 +79,8 @@ export function SearchableDropdown({
   // "bo" surfaces "Botox" before something like "Sculptra Body".
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
+    // Options arrive already sorted by count desc, so the idle list needs no
+    // work — zero-count options are last by construction.
     if (!q) return options;
     return options
       .map((o, originalIdx) => {
@@ -79,6 +90,12 @@ export function SearchableDropdown({
       })
       .filter((entry) => entry.matchIdx !== -1)
       .sort((a, b) => {
+        // Unavailable options stay below available ones even while typing —
+        // otherwise a "0" result would jump above a real one on match position
+        // and interleave with the divider below.
+        const aEmpty = a.option.count === 0 ? 1 : 0;
+        const bEmpty = b.option.count === 0 ? 1 : 0;
+        if (aEmpty !== bEmpty) return aEmpty - bEmpty;
         if (a.matchIdx !== b.matchIdx) return a.matchIdx - b.matchIdx;
         return a.originalIdx - b.originalIdx;
       })
@@ -268,6 +285,7 @@ export function SearchableDropdown({
           ref={listRef}
           id={listboxId}
           role="listbox"
+          aria-busy={loading || countsStale}
           className="fixed z-50 max-h-[288px] min-w-[220px] overflow-y-auto overscroll-contain rounded-xl border border-[#e8e0e8] bg-white py-1.5 shadow-[0_12px_40px_rgba(170,78,179,0.12)] backdrop-blur-sm"
           style={{
             scrollbarWidth: "thin",
@@ -278,7 +296,19 @@ export function SearchableDropdown({
         >
           {filtered.length === 0 ? (
             <li className="px-4 py-3 text-center text-xs text-brand-muted/60">
-              No results found for &ldquo;{query}&rdquo;
+              {/* An empty list while the options are still being fetched is not
+                  "no results" — and with no query typed it used to read as
+                  No results found for "". */}
+              {loading ? (
+                <span className="inline-flex items-center gap-2">
+                  <span className="size-3 animate-spin rounded-full border-2 border-brand-magenta/25 border-t-brand-magenta" />
+                  Loading&hellip;
+                </span>
+              ) : query ? (
+                <>No results found for &ldquo;{query}&rdquo;</>
+              ) : (
+                <>No options available</>
+              )}
             </li>
           ) : (
             filtered.map((option, idx) => {
@@ -292,6 +322,12 @@ export function SearchableDropdown({
                 !!option.group &&
                 option.group !== filtered[idx - 1]?.group;
 
+              // First zero-count option, when something available came before
+              // it — everything below this line has no clinics in the current
+              // location scope.
+              const showUnavailableDivider =
+                option.count === 0 && (filtered[idx - 1]?.count ?? 0) > 0;
+
               const q = query.trim();
               const matchStart = q
                 ? option.label.toLowerCase().indexOf(q.toLowerCase())
@@ -299,6 +335,14 @@ export function SearchableDropdown({
 
               return (
                 <li key={`${option.group ?? ""}${option.value}`} role="presentation">
+                  {showUnavailableDivider && (
+                    <div
+                      aria-hidden="true"
+                      className="mt-1 border-t border-brand-muted/15 px-4 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-widest text-brand-muted/50 select-none"
+                    >
+                      Not available near you
+                    </div>
+                  )}
                   {showGroupHeader && (
                     <div
                       aria-hidden="true"
@@ -336,9 +380,20 @@ export function SearchableDropdown({
                         </>
                       )}
                     </span>
-                    {isSelected && (
-                      <Check className="size-3.5 shrink-0 text-brand-magenta" />
+                    {typeof option.count === "number" && (
+                      <span
+                        className={cn(
+                          "shrink-0 tabular-nums text-xs transition-opacity",
+                          option.count === 0 ? "text-brand-muted/40" : "text-brand-muted/70",
+                          countsStale && "opacity-40"
+                        )}
+                      >
+                        {option.count.toLocaleString()}
+                      </span>
                     )}
+                    <span className="flex w-3.5 shrink-0 justify-end">
+                      {isSelected && <Check className="size-3.5 text-brand-magenta" />}
+                    </span>
                   </div>
                 </li>
               );
