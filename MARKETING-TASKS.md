@@ -15,9 +15,9 @@ Every task keeps a stable ID (`S#` / `U#`) so we can reference it as we go.
 These are unambiguous. No senior sign-off needed to *start*; a couple have an asset/verify note.
 
 ### General / terminology
-- [x] **S3 — "medspa" → "med spa" everywhere, proper capitalization.** ✅ Done (public copy). Replace all `medspa`/`medspas`
-  with `med spa`/`med spas`; ensure no mid-sentence capitalization unless it's a proper noun or
-  sentence start. *(Covers the "Above the fold: medspas → med spas" note too.)*
+- [x] **S3 — "medspa" → "medspa" everywhere, proper capitalization.** ✅ Done (public copy). Replace all `medspa`/`medspas`
+  with `medspa`/`medspas`; ensure no mid-sentence capitalization unless it's a proper noun or
+  sentence start. *(Covers the "Above the fold: medspas → medspas" note too.)*
 - [x] **S4 — "clinics" → "practices" in all user-facing copy.** ✅ Done. Rename the term throughout the UI
   (keep DB table/column names as-is; copy layer only).
 - [x] **S2 — Favicon → logomark.** ✅ Already the logomark (`web/src/app/icon.svg` is the brand head-glyph extracted from `logo.svg`; no competing `favicon.ico`). Verified in browser tab. Swap the favicon for the brand logomark. *(Needs the logomark
@@ -29,7 +29,7 @@ These are unambiguous. No senior sign-off needed to *start*; a couple have an as
 
 ### Home — above the fold
 - [x] **S8 — Replace hero copy** ✅ Done. Now reads exactly:
-  > "Explore 600+ vetted med spas, learn about what treatments are right for you, and book with
+  > "Explore 600+ vetted medspas, learn about what treatments are right for you, and book with
   > confidence. The industry's leading trusted resource for medical aesthetics patients."
 - [x] **S9 — "SEARCH FOR" → "SEARCH BY."** ✅ Done (hero, home search, /search).
 - [ ] **S1 — Add a map view for "treatments near me."** ⏸️ **PARKED (2026-07-31) — do NOT build yet.**
@@ -65,7 +65,7 @@ These are unambiguous. No senior sign-off needed to *start*; a couple have an as
 - [x] **S18 — Format phone numbers with dashes** (e.g. `555-123-4567`). ✅ Done — `formatPhoneUs()` on the contact card. *(The call-vs-text capability piece is U8 — still blocked, no data field.)*
 - [x] **S19 — Reduce what's nested under "show more"** ✅ Done — treatments & concerns now show in full (removed the 10-item cap + toggle). so treatments are visible by default rather
   than hidden.
-- [ ] **S21 — Remove the "get your med spa listed" banner above the footer** on provider pages.
+- [ ] **S21 — Remove the "get your medspa listed" banner above the footer** on provider pages.
   *(The replacement "practices, request a correction" CTA is U9 — needs a destination decision.)*
 
 ### Find My Treatment (finder)
@@ -85,7 +85,7 @@ Each lists the **specific question** to resolve before we build. I can investiga
 surface facts, but the call is the senior's.
 
 ### Home
-- [ ] **U1 — Assistant name / brand neutrality.** *Is the med spa map assistant named "Gia"?* We
+- [ ] **U1 — Assistant name / brand neutrality.** *Is the medspa map assistant named "Gia"?* We
   want zero trace of the Growth99 name (incl. "Gia" if that's ours) to keep the site neutral.
   → **Need:** confirm the current assistant name and decide the neutral name; then strip any brand
   references. *(I can audit the code for the current name.)*
@@ -154,7 +154,7 @@ batch (S13–S23).
 S2, S3, S4, S5, S6, S8, S9, S10, S11, S12.
 
 **Decisions made (flag if you disagree):**
-1. **Brand vs. generic term.** The generic word is **"med spa"** (lowercase in prose). The
+1. **Brand vs. generic term.** The generic word is **"medspa"** (lowercase in prose). The
    **product name** is now **"Medspa Maps"** (per your follow-up) — unified to the plural form
    everywhere in text, which also fixed the old "Map" vs "Maps" inconsistency. ⚠️ **The logo graphic
    still renders "MEDSPA MAPS"** as vector artwork (no editable text in the SVG) — updating the logo
@@ -178,7 +178,7 @@ S2, S3, S4, S5, S6, S8, S9, S10, S11, S12.
    touched. Edits were run on a smaller model (Sonnet) to save cost, then verified in the browser.
 
 **Also noticed (not acted on — your call):**
-- The **home page still has its own "Get your med spa listed" section + lead form** (separate from the
+- The **home page still has its own "Get your medspa listed" section + lead form** (separate from the
   nav CTA you removed in S5 and the provider banner in S21). Left in place. Want it removed too?
 - `web/src/lib/scroll-to-list-your-medspa.ts` and the resources lead form are now unreferenced by the
   nav but still render on the home page.

@@ -83,7 +83,7 @@ The same handful of entities are reused across every page. (Pricing, before/afte
 
 | Data Point | Type | Example |
 |------------|------|---------|
-| Heading | text | "Get exclusive offer & med spa tips" |
+| Heading | text | "Get exclusive offer & medspa tips" |
 | Sub-copy | text | "Join with thousand of subscribers!" |
 | Field: Email | email input | placeholder "Enter your email address" |
 | Submit | button | "Subscibe" *(sic — typo in mockup)* |

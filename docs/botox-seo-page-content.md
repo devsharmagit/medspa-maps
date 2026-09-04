@@ -230,14 +230,14 @@ Mirrors the on-page `FAQPage` schema (§4).
     Always consult a licensed provider.
 
 ### 12. Find Botox providers near you
-Ready to take the next step? Search Medspa Maps to find and compare licensed med spas offering
+Ready to take the next step? Search Medspa Maps to find and compare licensed medspas offering
 Botox near you — see the treatments they offer, read real patient reviews, and book directly
 with the practice.
 → **[Find Botox providers near you]** (`/search?q=Botox`) — optional location field / "use my
 location".
 
 ### Persistent disclaimer (footer of content)
-*Medspa Maps is a directory that helps you find and compare med spas — we are not a medical
+*Medspa Maps is a directory that helps you find and compare medspas — we are not a medical
 provider and do not provide medical advice. This page is for general education only. Botox is a
 prescription treatment that must be administered by a licensed medical professional. Individual
 results, pricing, and suitability vary; consult a qualified provider to determine what's right
