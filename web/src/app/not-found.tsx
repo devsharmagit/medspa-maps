@@ -45,7 +45,7 @@ export default function NotFound() {
 
         <p className="mt-4 max-w-[520px] font-montserrat text-[15px] leading-[160%] text-[#727272] sm:text-[16px]">
           The page you&apos;re looking for doesn&apos;t exist or may have moved.
-          Let&apos;s get you back to finding the right med spa &amp; treatment near you.
+          Let&apos;s get you back to finding the right medspa &amp; treatment near you.
         </p>
 
         {/* Primary CTAs */}

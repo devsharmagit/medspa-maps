@@ -100,7 +100,7 @@ export default async function StateLocationPage({ params }: Props) {
   // Intro data sentence (live) — sits under the evergreen editorial intro.
   const introData =
     total > 0
-      ? `Medspa Maps lists ${total} vetted med spa${total === 1 ? "" : "s"} across ${st.state}${
+      ? `Medspa Maps lists ${total} vetted medspa${total === 1 ? "" : "s"} across ${st.state}${
           topCities.length
             ? `, including ${listPhrase(cityNames.slice(0, 3))}`
             : ""
@@ -111,42 +111,42 @@ export default async function StateLocationPage({ params }: Props) {
   const faqs: StateFaq[] = [];
   if (total > 0) {
     faqs.push({
-      q: `How many med spas are in ${st.state} on Medspa Maps?`,
-      a: `Medspa Maps lists ${total} vetted med spa${total === 1 ? "" : "s"} in ${st.state}${
+      q: `How many medspas are in ${st.state} on Medspa Maps?`,
+      a: `Medspa Maps lists ${total} vetted medspa${total === 1 ? "" : "s"} in ${st.state}${
         topCities.length ? `, across cities like ${listPhrase(cityNames.slice(0, 4))}` : ""
       }.`,
     });
   }
   if (cities.length) {
     faqs.push({
-      q: `Which cities in ${st.state} have med spas listed?`,
-      a: `${st.state} med spas on Medspa Maps are located in ${listPhrase(topCities)}${
+      q: `Which cities in ${st.state} have medspas listed?`,
+      a: `${st.state} medspas on Medspa Maps are located in ${listPhrase(topCities)}${
         cities.length > topCities.length ? ", and more" : ""
       }.`,
     });
   }
   if (treatments.length) {
     faqs.push({
-      q: `What treatments do med spas in ${st.state} offer?`,
-      a: `Popular treatments at ${st.state} med spas include ${listPhrase(
+      q: `What treatments do medspas in ${st.state} offer?`,
+      a: `Popular treatments at ${st.state} medspas include ${listPhrase(
         treatments.slice(0, 6).map((t) => t.name),
       )}.`,
     });
   }
   if (concerns.length) {
     faqs.push({
-      q: `What skin concerns do ${st.state} med spas treat?`,
-      a: `${st.state} med spas commonly treat concerns such as ${listPhrase(
+      q: `What skin concerns do ${st.state} medspas treat?`,
+      a: `${st.state} medspas commonly treat concerns such as ${listPhrase(
         concerns.slice(0, 6).map((c) => c.name),
       )}.`,
     });
   }
   faqs.push({
-    q: `Are the med spas in ${st.state} on Medspa Maps vetted?`,
+    q: `Are the medspas in ${st.state} on Medspa Maps vetted?`,
     a: `Yes. Every practice is editorially reviewed against our quality standards before it's listed, and each profile shows real patient reviews and the treatments the practice actually offers.`,
   });
   faqs.push({
-    q: `How do I book a med spa in ${st.state}?`,
+    q: `How do I book a medspa in ${st.state}?`,
     a: `Open any ${st.state} practice on Medspa Maps and book directly with them through their own booking link or phone number — Medspa Maps never sits between you and your provider.`,
   });
   if (content.extraFaqs) faqs.push(...content.extraFaqs);
@@ -175,7 +175,7 @@ export default async function StateLocationPage({ params }: Props) {
             {
               "@type": "ItemList",
               "@id": `${pageUrl}#clinics`,
-              name: `Med spas in ${st.state}`,
+              name: `Medspas in ${st.state}`,
               numberOfItems: clinics.length,
               itemListElement: clinics.map((c, i) => ({
                 "@type": "ListItem",
@@ -202,7 +202,7 @@ export default async function StateLocationPage({ params }: Props) {
       <ListingHero
         crumbs={[
           { label: "Home", href: "/" },
-          { label: "Find med spas", href: "/search" },
+          { label: "Find medspas", href: "/search" },
           { label: st.state },
         ]}
         title="Best Medspas in"
@@ -237,8 +237,8 @@ export default async function StateLocationPage({ params }: Props) {
         <section className="flex flex-col gap-5">
           <h2 className={headingClass}>
             {total > 0
-              ? `${total} med spa${total === 1 ? "" : "s"} in ${st.state}`
-              : `Med spas in ${st.state}`}
+              ? `${total} medspa${total === 1 ? "" : "s"} in ${st.state}`
+              : `Medspas in ${st.state}`}
           </h2>
           {clinics.length > 0 ? (
             <div className="flex flex-col gap-4">
@@ -248,7 +248,7 @@ export default async function StateLocationPage({ params }: Props) {
             </div>
           ) : (
             <p className="font-montserrat text-[15px] text-zinc-600">
-              We&apos;re adding vetted med spas in {st.state} — check back soon.
+              We&apos;re adding vetted medspas in {st.state} — check back soon.
             </p>
           )}
           {total > clinics.length && (
@@ -256,7 +256,7 @@ export default async function StateLocationPage({ params }: Props) {
               href={`/search?location=${st.abbr}`}
               className="mt-2 inline-flex w-fit items-center gap-2 rounded-xl bg-[linear-gradient(90deg,#DE7F4C_0%,#C341D7_100%)] px-6 py-3 font-montserrat text-sm font-semibold text-white transition-opacity hover:opacity-90"
             >
-              View all {total} med spas in {st.state} →
+              View all {total} medspas in {st.state} →
             </Link>
           )}
         </section>

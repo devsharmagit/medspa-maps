@@ -6,7 +6,7 @@ import { Newsletter } from "@/components/hero/newsletter";
 export function Footer({
   showListingCta = false,
 }: {
-  /** "Get your med spa listed" banner — opt-in, home page only per marketing
+  /** "Get your medspa listed" banner — opt-in, home page only per marketing
    *  request. Defaults to false so any new page automatically excludes it
    *  unless explicitly opted in. */
   showListingCta?: boolean;

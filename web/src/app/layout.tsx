@@ -35,7 +35,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: "Medspa Maps — Find the Right Local Medspa",
   description:
-    "Explore 600+ vetted med spas, read expert treatment guides, and book with confidence.",
+    "Explore 600+ vetted medspas, read expert treatment guides, and book with confidence.",
 };
 
 export default function RootLayout({

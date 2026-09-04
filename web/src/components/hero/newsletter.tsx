@@ -31,7 +31,7 @@ export function Newsletter() {
               className="font-montserrat font-medium text-white text-[24px] sm:text-[36px] lg:text-[44px] leading-[116.02%] tracking-[-0.04em] mt-[-4px] mb-[-4px]"
               style={{ lineHeight: "116.02%" }}
             >
-              Find your <span className="font-heading italic">perfect med spa</span>
+              Find your <span className="font-heading italic">perfect medspa</span>
             </h2>
             <p className="font-montserrat font-medium text-white/90 text-[14px] sm:text-[16px] leading-[140%] tracking-[-0.02em] max-w-[520px]">
               Discover trusted practices, compare treatments, and book your next

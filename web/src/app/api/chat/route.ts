@@ -175,7 +175,7 @@ export async function POST(req: NextRequest) {
             type: "followups",
             value: [
               "What treatments do you cover?",
-              "Find med spas near me",
+              "Find medspas near me",
               "How does a consultation work?",
             ],
           });

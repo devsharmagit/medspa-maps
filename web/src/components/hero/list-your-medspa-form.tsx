@@ -69,7 +69,7 @@ export function ListYourMedspaForm() {
           Coming soon!
         </p>
         <p className="font-montserrat text-[14px] leading-[140%] text-[#98889A]">
-          Med spa listings aren&apos;t open just yet. We&apos;ve saved your
+          Medspa listings aren&apos;t open just yet. We&apos;ve saved your
           details and will let you know the moment they are.
         </p>
         <button
@@ -77,7 +77,7 @@ export function ListYourMedspaForm() {
           onClick={() => setDone(false)}
           className="mt-2 font-montserrat text-[14px] font-medium text-[#CF5D9A] underline"
         >
-          Submit another med spa
+          Submit another medspa
         </button>
       </div>
     );
@@ -140,7 +140,7 @@ export function ListYourMedspaForm() {
         className="mt-1 flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#DE7F4C] to-[#C341D7] py-3 font-montserrat text-base font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-70"
       >
         {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-        {submitting ? "Submitting…" : "List my med spa"}
+        {submitting ? "Submitting…" : "List my medspa"}
       </button>
     </form>
   );

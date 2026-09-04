@@ -37,7 +37,7 @@ export default function TermsPage() {
       <H2>About Medspa Maps</H2>
       <P>
         Medspa Maps is an informational directory and educational resource designed to help users
-        discover and compare med spas, providers, treatments, services, and related information.
+        discover and compare medspas, providers, treatments, services, and related information.
       </P>
       <P>
         Medspa Maps is not a medical practice or healthcare provider and does not provide medical
@@ -74,7 +74,7 @@ export default function TermsPage() {
 
       <H2>Practice and Provider Listings</H2>
       <P>
-        Medspa Maps provides information about independent med spas, practices, providers,
+        Medspa Maps provides information about independent medspas, practices, providers,
         treatments, and services.
       </P>
       <P>

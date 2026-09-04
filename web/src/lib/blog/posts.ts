@@ -65,7 +65,7 @@ export const BLOG_POSTS: BlogPostMeta[] = [
     dateModified: "2026-08-21",
     readingMinutes: 7,
     heroImage: "/images/blog/laser-skin-treatments-explained-hero.jpeg",
-    heroAlt: "A laser skin treatment being performed on a client's face at a med spa.",
+    heroAlt: "A laser skin treatment being performed on a client's face at a medspa.",
     keyTakeaways: [
       "“Laser skin treatment” is an umbrella term for several very different technologies, and picking the right one depends on what you’re treating.",
       "IPL and BBL aren’t technically lasers (they’re intense pulsed light), and are best for redness, sun spots, and overall tone.",
@@ -179,7 +179,7 @@ export const BLOG_POSTS: BlogPostMeta[] = [
     dateModified: "2026-08-21",
     readingMinutes: 8,
     heroImage: "/images/blog/dermal-fillers-101-hero.jpeg",
-    heroAlt: "A provider administering a dermal filler injection to a client at a med spa.",
+    heroAlt: "A provider administering a dermal filler injection to a client at a medspa.",
     keyTakeaways: [
       "Dermal fillers are injectable gels, most often hyaluronic acid (HA), that restore volume, smooth lines, and subtly reshape features like the lips and cheeks.",
       "The main families are HA fillers (Juvéderm, Restylane), calcium hydroxylapatite (Radiesse), poly-L-lactic acid (Sculptra), and PMMA (Bellafill).",

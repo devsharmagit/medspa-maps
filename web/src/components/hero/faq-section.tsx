@@ -9,22 +9,22 @@ const faqs = [
   {
     question: "What is Medspa Maps?",
     answer:
-      "Medspa Maps is a trusted directory of vetted med spas across the United States. We pair editorially reviewed listings with patient education, so you can research treatments, compare local practices, and book with confidence — all in one place.",
+      "Medspa Maps is a trusted directory of vetted medspas across the United States. We pair editorially reviewed listings with patient education, so you can research treatments, compare local practices, and book with confidence — all in one place.",
   },
   {
-    question: "Are the med spas listed on Medspa Maps vetted?",
+    question: "Are the medspas listed on Medspa Maps vetted?",
     answer:
       "Yes. Every practice is editorially reviewed against our quality standards before it's listed. Each listing surfaces real patient reviews, the treatments a practice actually offers, and the concerns it treats — so you compare practices on facts, not ads.",
   },
   {
     question: "Does it cost anything to use Medspa Maps?",
     answer:
-      "No. Medspa Maps is completely free for patients. You can search treatments, compare local med spas, read reviews, and get directions without creating an account or paying a fee.",
+      "No. Medspa Maps is completely free for patients. You can search treatments, compare local medspas, read reviews, and get directions without creating an account or paying a fee.",
   },
   {
     question: "How do I book an appointment with a practice?",
     answer:
-      "When you find a med spa you like, you book directly with the practice — either through the “Book Appointment” link to their own booking page or by calling them. Medspa Maps never sits between you and your provider, so there are no middleman fees.",
+      "When you find a medspa you like, you book directly with the practice — either through the “Book Appointment” link to their own booking page or by calling them. Medspa Maps never sits between you and your provider, so there are no middleman fees.",
   },
   {
     question: "What treatments and conditions can I search for?",

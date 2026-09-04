@@ -25,7 +25,7 @@ type SearchPageProps = {
 
 const GENERIC_TITLE = "Search Results | Medspa Maps";
 const GENERIC_DESCRIPTION =
-  "Find the best med spas and aesthetic practices near you. Compare ratings, treatments, and locations.";
+  "Find the best medspas and aesthetic practices near you. Compare ratings, treatments, and locations.";
 
 function firstParam(
   sp: Record<string, string | string[] | undefined>,
@@ -155,10 +155,10 @@ export async function generateMetadata({
     description = `Find and compare ${treatmentName} providers${inLocation || " near you"}. See ratings, treatments offered, and book with confidence on ${SITE_NAME}.`;
   } else if (conditionName) {
     base = `Medspas Treating ${conditionName}`;
-    description = `Find med spas that treat ${conditionName}${inLocation || " near you"}. Compare ratings, treatments, and locations on ${SITE_NAME}.`;
+    description = `Find medspas that treat ${conditionName}${inLocation || " near you"}. Compare ratings, treatments, and locations on ${SITE_NAME}.`;
   } else {
     base = "Best Medspas";
-    description = `Find the best med spas${inLocation || " near you"}. Compare ratings, treatments, and locations on ${SITE_NAME}.`;
+    description = `Find the best medspas${inLocation || " near you"}. Compare ratings, treatments, and locations on ${SITE_NAME}.`;
   }
 
   const title = `${base}${inLocation} | Medspa Maps`;

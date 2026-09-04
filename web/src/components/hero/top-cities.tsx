@@ -30,7 +30,7 @@ export function TopCities() {
           >
             <Image
               src={state.image}
-              alt={`${state.state} med spas`}
+              alt={`${state.state} medspas`}
               fill
               sizes="(min-width: 1024px) 16vw, (min-width: 640px) 30vw, 45vw"
               className="object-cover transition-transform duration-300 group-hover:scale-105"
@@ -41,7 +41,7 @@ export function TopCities() {
                 {state.state}
               </p>
               <p className="font-montserrat text-[12px] text-white/80 sm:text-[13px]">
-                {formatCountPlus(state.clinicCount)} med spas
+                {formatCountPlus(state.clinicCount)} medspas
               </p>
             </div>
           </Link>

@@ -10,7 +10,7 @@ import { SITE_NAME, absoluteUrl } from "@/lib/site";
 export const dynamic = "force-static";
 
 const DESCRIPTION =
-  "Beginner friendly guides to popular med spa treatments, from Botox and fillers to laser skin treatments and everyday skincare, so you know exactly what to expect before you book.";
+  "Beginner friendly guides to popular medspa treatments, from Botox and fillers to laser skin treatments and everyday skincare, so you know exactly what to expect before you book.";
 
 export const metadata: Metadata = {
   title: `Blog — ${SITE_NAME}`,

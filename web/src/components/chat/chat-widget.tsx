@@ -354,7 +354,7 @@ export default function ChatWidget() {
             {isEmpty ? (
               <div className="flex flex-col gap-4">
                 <div className="rounded-2xl bg-muted px-3 py-2.5 text-sm text-foreground">
-                  <p className="font-medium">Hi! 👋 I&apos;m your med spa concierge.</p>
+                  <p className="font-medium">Hi! 👋 I&apos;m your medspa concierge.</p>
                   <p className="mt-1 text-muted-foreground">
                     Ask me about treatments, skin concerns, or finding vetted
                     practices near you.

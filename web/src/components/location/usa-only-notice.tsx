@@ -91,7 +91,7 @@ export function UsaOnlyNotice() {
         {mode === "outside" ? (
           <p className="text-[13px] leading-snug text-[#3a3a3a]">
             <span className="font-semibold text-[#1a1a1a]">USA-only for now.</span>{" "}
-            {place ? `We don't list med spas near ${place} yet — ` : ""}
+            {place ? `We don't list medspas near ${place} yet — ` : ""}
             <span className="whitespace-nowrap">showing U.S. practices.</span>
           </p>
         ) : (

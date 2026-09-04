@@ -43,7 +43,7 @@ export default function PrivacyPolicyPage() {
 
       <H3>Information You Provide</H3>
       <P>
-        When you contact us, request to have a med spa listed, or submit information through a form
+        When you contact us, request to have a medspa listed, or submit information through a form
         on our website, we may collect information such as:
       </P>
       <UL
@@ -128,9 +128,9 @@ export default function PrivacyPolicyPage() {
         items={[
           "Operate, maintain, and improve our website and directory",
           "Provide and improve search functionality",
-          "Help users discover relevant med spas, treatments, and services",
+          "Help users discover relevant medspas, treatments, and services",
           "Personalize search results and website experiences",
-          "Process med spa listing requests",
+          "Process medspa listing requests",
           "Respond to questions, inquiries, or requests",
           "Analyze website traffic, usage, and performance",
           "Measure and improve the effectiveness of our advertising and marketing",
@@ -239,7 +239,7 @@ export default function PrivacyPolicyPage() {
 
       <H2>Third-Party Websites and Booking Services</H2>
       <P>
-        Medspa Maps contains links to independent med spas, provider websites, booking platforms, and
+        Medspa Maps contains links to independent medspas, provider websites, booking platforms, and
         other third-party websites or services.
       </P>
       <P>

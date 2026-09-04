@@ -8,7 +8,7 @@
  * reads like real editorial copy, never auto-generated spam.
  *
  * Rules (mirrors the /locations/[state] pattern): NO pricing, sentence case,
- * the brand is exactly "Medspa Maps", and the generic term "med spas" stays
+ * the brand is exactly "Medspa Maps", and the generic term "medspas" stays
  * lowercase. Treatment/condition names are kept in their catalog casing (proper
  * names), matching how the state pages render them.
  *
@@ -51,9 +51,9 @@ function listPhrase(items: string[]): string {
   return `${a.slice(0, -1).join(", ")}, and ${a[a.length - 1]}`;
 }
 
-/** "214 vetted med spas" / "1 vetted med spa". */
+/** "214 vetted medspas" / "1 vetted medspa". */
 function countPhrase(total: number): string {
-  return `${total.toLocaleString("en-US")} vetted med spa${total === 1 ? "" : "s"}`;
+  return `${total.toLocaleString("en-US")} vetted medspa${total === 1 ? "" : "s"}`;
 }
 
 // Shared closing sentence — the value proposition, evergreen and pricing-free.
@@ -87,7 +87,7 @@ export function buildSearchSeoContent(
       : `${treatmentName} providers${inLoc}`;
     const lead = hasCount
       ? `${BRAND} lists ${countPhrase(total)} offering ${subject}. ${COMPARE}`
-      : `Explore med spas offering ${subject} on ${BRAND}. ${COMPARE}`;
+      : `Explore medspas offering ${subject} on ${BRAND}. ${COMPARE}`;
     const popularSentence = popular.length
       ? ` Many also offer ${listPhrase(popular)}.`
       : "";
@@ -102,10 +102,10 @@ export function buildSearchSeoContent(
   if (conditionName) {
     const heading = hasCount
       ? `${countPhrase(total)}${inLoc} that treat ${conditionName}`
-      : `Med spas that treat ${conditionName}${inLoc}`;
+      : `Medspas that treat ${conditionName}${inLoc}`;
     const lead = hasCount
       ? `${BRAND} lists ${countPhrase(total)}${inLoc} that treat ${conditionName}. ${COMPARE}`
-      : `Find med spas that treat ${conditionName}${inLoc} on ${BRAND}. ${COMPARE}`;
+      : `Find medspas that treat ${conditionName}${inLoc} on ${BRAND}. ${COMPARE}`;
     const popularSentence = popular.length
       ? ` Common treatments include ${listPhrase(popular)}.`
       : "";
@@ -120,10 +120,10 @@ export function buildSearchSeoContent(
   if (locationLabel) {
     const heading = hasCount
       ? `${countPhrase(total)} ${locPrep} ${locationLabel}`
-      : `Med spas ${locPrep} ${locationLabel}`;
+      : `Medspas ${locPrep} ${locationLabel}`;
     const lead = hasCount
       ? `${BRAND} lists ${countPhrase(total)} ${locPrep} ${locationLabel}. ${COMPARE}`
-      : `Explore vetted med spas ${locPrep} ${locationLabel} on ${BRAND}. ${COMPARE}`;
+      : `Explore vetted medspas ${locPrep} ${locationLabel} on ${BRAND}. ${COMPARE}`;
     const popularSentence = popular.length
       ? ` Popular treatments include ${listPhrase(popular)}.`
       : "";
@@ -139,10 +139,10 @@ export function buildSearchSeoContent(
     ? ` Popular treatments include ${listPhrase(popular)}.`
     : "";
   return {
-    heading: "Find vetted med spas near you",
+    heading: "Find vetted medspas near you",
     accent: "near you",
     paragraphs: [
-      `${BRAND} helps you find and compare vetted med spas across the country. Search by treatment or skin concern, then compare by patient rating, treatments offered, and location.${popularSentence} ${VETTED_SENTENCE}`,
+      `${BRAND} helps you find and compare vetted medspas across the country. Search by treatment or skin concern, then compare by patient rating, treatments offered, and location.${popularSentence} ${VETTED_SENTENCE}`,
     ],
   };
 }

@@ -4,7 +4,7 @@ import { HeroHeader } from "@/components/hero/hero-header";
 import { HeroSearchBar } from "@/components/hero/hero-search-bar";
 
 const trustItems = [
-  "600+ med spa listings",
+  "600+ medspa listings",
   "Editorially curated content",
   "Top-rated providers",
   "Unbiased rankings",
@@ -46,7 +46,7 @@ export function HeroSection() {
             <div className="inline-flex w-fit max-w-full items-center gap-2 rounded-full border border-white/40 bg-black/25 px-4 py-1.5 backdrop-blur-sm ">
               <Image src={"/images/hero/Group.png"} alt="shield icon" width={15} height={16} style={{ height: "auto" }} />
               <span className="text-sm font-semibold tracking-wide sm:text-[17px] bg-gradient-to-r from-[#FFFFFF] to-[#DF67D6] bg-clip-text text-transparent">
-                <span className="">TRUSTED MED SPA DIRECTORY</span>
+                <span className="">TRUSTED MEDSPA DIRECTORY</span>
                 <span className=""> + PATIENT EDUCATION</span>
               </span>
             </div>
@@ -54,7 +54,7 @@ export function HeroSection() {
             {/* Headline */}
             <div className="max-w-[982px] space-y-4">
               <p className="max-w-[753px] text-base font-medium leading-snug text-[#fcfcfc]">
-                Explore 600+ vetted med spas, learn about what treatments are
+                Explore 600+ vetted medspas, learn about what treatments are
                 right for you, and book with confidence. The industry&apos;s
                 leading trusted resource for medical aesthetics patients.
               </p>

@@ -9,7 +9,7 @@ export function ResourcesSection() {
       id="list-your-medspa"
       className="mx-auto flex w-full max-w-[1372px] flex-col min-[1400px]:flex-row items-center min-[1400px]:items-stretch justify-between gap-6 overflow-visible py-8 px-4 min-[1400px]:px-0"
     >
-      {/* ── Left Card: Get your med spa listed ── */}
+      {/* ── Left Card: Get your medspa listed ── */}
       <div
         className="relative flex w-full min-[1400px]:w-[814px] h-auto min-[1400px]:min-h-[546px] flex-col items-start rounded-[18px] border border-[#DEC6DF] overflow-hidden p-6 sm:p-10 min-[1400px]:p-0 bg-[linear-gradient(145deg,#F5CFFA_0%,#FAE3F9_50%,#FFFFFF_100%)] bg-no-repeat min-[1400px]:bg-[url(/images/landingpage/gift-bg-whole.png)] min-[1400px]:bg-[length:107%] min-[1400px]:bg-center"
         style={{
@@ -22,7 +22,7 @@ export function ResourcesSection() {
             className="font-montserrat font-medium leading-[116.02%] tracking-[-0.04em] text-[#99597A] text-[28px] sm:text-[39px]"
             style={{ lineHeight: "116.02%" }}
           >
-            Get your med spa listed{" "}
+            Get your medspa listed{" "}
             <span className="font-heading italic block sm:inline">& get more clients!</span>
           </h2>
           <p className="mt-4 font-montserrat font-medium text-[16px] sm:text-[18px] leading-[140%] text-[#353535] max-w-[432px]">
@@ -108,7 +108,7 @@ export function ResourcesSection() {
             className="font-montserrat font-medium leading-[116.02%] tracking-[-0.04em] text-[#99597A] text-[28px] sm:text-[32px] text-center"
             style={{ lineHeight: "116.02%" }}
           >
-            List your med spa
+            List your medspa
           </h2>
         </div>
 
