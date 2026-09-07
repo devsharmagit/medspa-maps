@@ -197,7 +197,14 @@ export interface ChatSearchResult extends SearchResult {
   /** Total matches, of which `clinics` holds the first few. */
   total: number;
   resolved: { kind: "treatment" | "concern"; slug: string; name: string } | null;
-  /** What the user actually typed, before alias resolution. */
+  /**
+   * Set when the caller named a treatment/concern that is not in the catalog.
+   * The search was NOT run — carrying on would have produced an unfiltered
+   * location-wide list captioned with this term. The assistant should say we
+   * do not list it rather than present the results of a different question.
+   */
+  unlisted?: string;
+  /** What the user actually typed. */
   queryText: string | null;
   location: ResolvedChatLocation;
   /** Farther-away practices, when the scoped search found nothing. */
@@ -271,8 +278,13 @@ export async function chatSearch(input: ChatSearchInput): Promise<ChatSearchResu
 
   // ── Resolve the treatment/concern up front ───────────────────────────────
   // The engine would resolve it anyway, but we need the canonical slug here so
-  // the deep link carries `q=botox` rather than the user's raw phrasing (which
-  // the engine deliberately resolves to zero results).
+  // the deep link carries `q=botox` rather than the user's raw phrasing.
+  //
+  // `text` is already a catalog slug or an exact catalog name: intent.ts builds
+  // it from `matchCatalogEntities` over getLiveCatalog() (WHERE is_active) or
+  // from extractTreatments(), which maps through coreTreatmentFor(). So this is
+  // an exact lookup, not a guess — which is why the resolver losing its fuzzy
+  // and alias passes on 2026-09-07 did not affect chat.
   let resolved: ResolvedQuery = { kind: "unresolved" };
   if (text) {
     try {
@@ -280,6 +292,25 @@ export async function chatSearch(input: ChatSearchInput): Promise<ChatSearchResu
     } catch {
       resolved = { kind: "unresolved" };
     }
+  }
+
+  // If the caller named a treatment we could not place, STOP. Falling through
+  // leaves `params` holding only the location, so runSiteSearch would return
+  // every clinic in that city — and `filters.treatment` would still say
+  // "Morpheus8", captioning an unfiltered list as if it were a filtered one.
+  // An empty result is honest; that is not.
+  if (text && resolved.kind === "unresolved" && !input.rawParams) {
+    return {
+      clinics: [],
+      count: 0,
+      total: 0,
+      filters: { treatment: text, location: location.label },
+      search_page: "/search",
+      resolved: null,
+      unlisted: text,
+      queryText: text,
+      location,
+    };
   }
 
   const params = input.rawParams

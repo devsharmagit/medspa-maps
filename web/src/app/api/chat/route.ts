@@ -1,16 +1,19 @@
 /**
  * /api/chat — non-tool-calling AI assistant endpoint.
  *
- * The model NEVER calls tools. Every turn is exactly ONE plain, non-streaming
+ * The model NEVER calls tools. Every turn is exactly ONE streamed
  * chat-completion request whose prompt already contains every fact the model
  * needs. The flow is:
  *   1. deterministic intent extraction + routing (src/lib/chat/intent.ts)
  *   2. safety short-circuit (hardcoded reply, no LLM) OR backend data fetch
- *   3. build one system message + one labeled user message
- *   4. one OpenAI chat-completion call (hard timeout, one retry on 429/5xx)
- *   5. parse the ANSWER/FOLLOWUPS/MEMORY_UPDATE marker contract
- *   6. fallback ladder → always a complete, real-data answer
- *   7. fake-stream the answer, then emit followups + updated memory
+ *   3. emit the clinic cards (before any text, so they paint first)
+ *   4. build one system message + one labeled user message
+ *   5. one STREAMED OpenAI call (idle timeout, one retry on 429/5xx)
+ *   6. release the answer a guarded unit at a time as it arrives
+ *      (src/lib/chat/answer-stream.ts), which also keeps the FOLLOWUPS and
+ *      MEMORY_UPDATE sections of the same completion off the screen
+ *   7. nothing survived the guards → templated, real-data answer instead
+ *   8. emit followups + updated memory
  *
  * Streams newline-delimited JSON (NDJSON) events to the client:
  *   { "type": "status",    "value": "..." }        transient status line
@@ -34,6 +37,8 @@ import { rateLimit } from "@/lib/chat/rate-limit";
 import {
   route as routeIntent,
   updateSlots,
+  slugToName,
+  concernSlugToName,
   EMPTY_SLOTS,
   type PageContext,
   type PageType,
@@ -57,15 +62,21 @@ import { buildUserMessage, type GatheredContext } from "@/lib/chat/context";
 import {
   parseReply,
   templatedAnswer,
-  stripPricing,
   ungroundedPractices,
-  normalizeSiteLinks,
   stripLists,
+  PRICE_DEFLECTION,
 } from "@/lib/chat/format";
+import { createAnswerStream } from "@/lib/chat/answer-stream";
 import { mergeFollowups } from "@/lib/chat/followups";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+/**
+ * Explicit, because the default is shorter than this route's own worst case
+ * (fetchTimeoutMs 9s for context + llmTimeoutMs 12s of model idle) and
+ * streaming does NOT exempt a function from the duration limit.
+ */
+export const maxDuration = 60;
 
 const PAGE_TYPES: PageType[] = [
   "home",
@@ -199,11 +210,10 @@ export async function POST(req: NextRequest) {
           await streamText(msg, send);
           send({
             type: "followups",
-            value: [
-              "What treatments do you cover?",
-              "Find medspas near me",
-              "How does a consultation work?",
-            ],
+            // Hardcoded because this path never reaches the model. Kept at the
+            // same count as mergeFollowups' CHIP_COUNT so the row doesn't
+            // change size depending on which path answered.
+            value: ["Find medspas near me", "What treatments do you cover?"],
           });
           send({
             type: "memory",
@@ -295,58 +305,66 @@ export async function POST(req: NextRequest) {
           { role: "user", content: userMessage },
         ];
 
-        // ── One model call ───────────────────────────────────────────────────
-        const completion = await callModel(llmMessages);
-        const parsedReply = completion ? parseReply(completion) : null;
+        // ── One model call, streamed ─────────────────────────────────────────
+        // Text reaches the user as the model writes it. Nothing is released
+        // until it is a complete, guarded unit — see lib/chat/answer-stream.ts
+        // for why that gating is what makes streaming safe here.
+        const answerStream = createAnswerStream({
+          send,
+          ungrounded: (unit) => ungroundedPractices(unit, gathered),
+          suppressLists: sentClinicCards,
+        });
+        const sawTokens = await callModelStream(
+          llmMessages,
+          (delta) => answerStream.push(delta),
+          () => answerStream.hasReleased,
+        );
+        const streamed = answerStream.end();
 
-        // ── Fallback ladder → final answer text ──────────────────────────────
-        let answer: string;
-        let modelFollowups: string[] = [];
-        let memoryLine = "";
+        // FOLLOWUPS and MEMORY_UPDATE came down the same completion; the stream
+        // withheld them from the user and kept the raw text for this parse.
+        const parsedReply = streamed.raw.trim() ? parseReply(streamed.raw) : null;
+        const modelFollowups = parsedReply?.followups ?? [];
+        const memoryLine = parsedReply?.memory ?? "";
 
-        if (parsedReply && parsedReply.structured && parsedReply.answer) {
-          answer = parsedReply.answer;
-          modelFollowups = parsedReply.followups;
-          memoryLine = parsedReply.memory;
-        } else if (parsedReply && parsedReply.answer) {
-          // Markers missing but we got prose — keep it. Nothing is appended:
-          // the practices are already rendered as cards, so a prose list here
-          // would duplicate them (and would be model-typed, not data-driven).
-          answer = parsedReply.answer;
+        // Logged, never silent — a filter that hides a prompt regression is
+        // worse than the regression.
+        if (streamed.droppedUngrounded.length) {
+          console.warn(
+            `[chat] dropped sentence(s) naming ungrounded practices: ${streamed.droppedUngrounded.join(", ")}`,
+          );
+        }
+        if (streamed.droppedPricing) {
+          console.warn(`[chat] dropped ${streamed.droppedPricing} pricing sentence(s) mid-stream`);
+        }
+        if (streamed.droppedLists) {
+          console.warn(`[chat] dropped ${streamed.droppedLists} list/heading line(s) on a cards turn`);
+        }
+
+        if (!streamed.released) {
+          // Nothing survived — the model failed, or every unit was dropped.
+          // Nothing has been shown yet, so the whole answer can still be
+          // replaced: fall back to the templated, real-data one.
+          if (!sawTokens) console.warn("[chat] no model tokens; serving the templated answer");
+          let answer = templatedAnswer(gathered);
+          if (sentClinicCards) answer = stripLists(answer);
+          await streamText(ensureDisclaimer(answer, r, gathered), send);
         } else {
-          // Total model failure → fully templated, real-data answer.
-          answer = templatedAnswer(gathered);
+          // Two or more price sentences used to mean "throw the answer away and
+          // deflect instead". Text already on screen cannot be retracted, so
+          // the deflection is appended rather than substituted — the figures
+          // themselves never reached the user either way.
+          if (streamed.droppedPricing >= 2) {
+            await streamText(`\n\n${PRICE_DEFLECTION}`, send);
+          }
+          // ensureDisclaimer only ever appends, so the delta is a clean suffix.
+          const withDisclaimer = ensureDisclaimer(streamed.released, r, gathered);
+          if (withDisclaimer.length > streamed.released.length) {
+            await streamText(withDisclaimer.slice(streamed.released.length), send);
+          }
         }
 
-        // Pull any absolute site URLs back to relative BEFORE validating, so a
-        // domain-prefixed link is fixed rather than mistaken for a fabrication.
-        answer = normalizeSiteLinks(answer);
-
-        // A practice the model made up would hand the user a 404 and destroy
-        // trust in every other answer. If any link isn't in what we retrieved,
-        // throw the whole answer away and use the backend-rendered one.
-        const invented = ungroundedPractices(answer, gathered);
-        if (invented.length) {
-          console.warn(`[chat] discarded answer naming ungrounded practices: ${invented.join(", ")}`);
-          answer = templatedAnswer(gathered);
-        }
-
-        // Cards were sent for this turn, so the model has nothing to list or
-        // head — strip both outright rather than trusting it not to.
-        if (sentClinicCards) answer = stripLists(answer);
-
-        // Last line of defence: the model must never emit a money figure.
-        // Logged, not silent — a silent filter would hide a prompt regression.
-        const priced = stripPricing(answer);
-        if (priced.stripped) {
-          console.warn(`[chat] stripped ${priced.stripped} pricing sentence(s) from model answer`);
-        }
-        answer = ensureDisclaimer(priced.text, r, gathered);
-
-        // ── Stream the answer ────────────────────────────────────────────────
-        await streamText(answer, send);
-
-        // ── Follow-ups (always 3–5, grounded) ────────────────────────────────
+        // ── Follow-ups (always exactly 2, grounded) ──────────────────────────
         const followups = mergeFollowups(modelFollowups, r, gathered);
         send({ type: "followups", value: followups });
 
@@ -475,7 +493,16 @@ function statusLine(
   location: string | null
 ): string {
   if (r.path === "search" || r.path === "combined") {
-    const t = r.search?.treatment;
+    // r.search.treatment is a SLUG (intent.ts sets it from ex.treatments[0]), so
+    // interpolating it raw produced "Finding Laser-Hair-Removal practices near
+    // Austin…". Resolve it to the catalog's display name; a concern slug falls
+    // through to concernSlugToName since the same field carries either.
+    const slug = r.search?.treatment;
+    const t = slug
+      ? slugToName(slug) === slug
+        ? concernSlugToName(slug)
+        : slugToName(slug)
+      : "";
     const where = location ? ` near ${titleCase(location)}` : "";
     return t ? `Finding ${t} practices${where}…` : "Searching Medspa Maps…";
   }
@@ -505,29 +532,46 @@ function ensureDisclaimer(
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// One non-streaming OpenAI call: hard timeout, one retry on 429/5xx.
+// One STREAMED OpenAI call: idle timeout, one retry on 429/5xx.
 //
-// There is no model-fallback chain any more. That existed because free-tier
-// OpenRouter models are throttled independently, so rotating slugs was the only
-// way to get an answer. A paid OpenAI model doesn't need it — a 429 here means
+// Streamed since 2026-09-07. It used to send `stream: false`, await the whole
+// completion, and then replay it word-by-word over ~800 ms — which looked like
+// typing but put the entire wait before the first character.
+//
+// There is no model-fallback chain. That existed because free-tier OpenRouter
+// models are throttled independently, so rotating slugs was the only way to get
+// an answer. A paid OpenAI model doesn't need it — a 429 here means
 // account-level rate/quota, which another model id wouldn't dodge, so we retry
 // the same model once and otherwise fall through to the templated answer.
+//
+// Returns true if any content delta arrived.
 // ──────────────────────────────────────────────────────────────────────────
-async function callModel(
-  messages: { role: string; content: string }[]
-): Promise<string | null> {
+async function callModelStream(
+  messages: { role: string; content: string }[],
+  onDelta: (delta: string) => void,
+  hasReleased: () => boolean,
+): Promise<boolean> {
   const body = JSON.stringify({
     model: CHAT_MODEL,
     messages,
     temperature: CHAT_LIMITS.temperature,
     max_tokens: CHAT_LIMITS.maxTokens,
-    stream: false,
+    stream: true,
   });
 
   const MAX_ATTEMPTS = 2;
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), CHAT_LIMITS.llmTimeoutMs);
+    // IDLE timeout, not total. llmTimeoutMs was a deadline for one blocking
+    // call; against a stream the same number would abort a long-but-healthy
+    // answer partway through. Reset on every delta, so it now means "the
+    // provider went quiet", which is the failure actually worth aborting.
+    let timer = setTimeout(() => controller.abort(), CHAT_LIMITS.llmTimeoutMs);
+    const bump = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => controller.abort(), CHAT_LIMITS.llmTimeoutMs);
+    };
+
     try {
       const res = await fetch(OPENAI_CHAT_URL, {
         method: "POST",
@@ -535,48 +579,76 @@ async function callModel(
         signal: controller.signal,
         body,
       });
-      clearTimeout(timer);
 
-      if (!res.ok) {
+      if (!res.ok || !res.body) {
+        clearTimeout(timer);
         const errText = await res.text().catch(() => "");
-        console.error(
-          "[chat] model error:",
-          CHAT_MODEL,
-          res.status,
-          errText.slice(0, 160)
-        );
+        console.error("[chat] model error:", CHAT_MODEL, res.status, errText.slice(0, 160));
         // Hard 4xx (bad key, bad model, malformed request) won't fix itself.
-        if (res.status !== 429 && res.status < 500) return null;
+        if (res.status !== 429 && res.status < 500) return false;
         if (attempt < MAX_ATTEMPTS) {
           await sleep(500);
           continue;
         }
-        return null;
+        return false;
       }
 
-      const json = (await res.json().catch(() => null)) as {
-        error?: unknown;
-        choices?: Array<{ message?: { content?: string | null } }>;
-      } | null;
-      if (!json || json.error) {
-        console.error("[chat] bad body from", CHAT_MODEL);
-        return null;
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let sse = "";
+      let sawContent = false;
+
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        bump();
+        sse += decoder.decode(value, { stream: true });
+        // SSE frames are newline-delimited; a chunk can split one mid-JSON.
+        let nl: number;
+        while ((nl = sse.indexOf("\n")) !== -1) {
+          const line = sse.slice(0, nl).trim();
+          sse = sse.slice(nl + 1);
+          if (!line.startsWith("data:")) continue; // comments/keepalives
+          const payload = line.slice(5).trim();
+          if (payload === "[DONE]") continue;
+          try {
+            const frame = JSON.parse(payload) as {
+              choices?: Array<{ delta?: { content?: string | null } }>;
+            };
+            const delta = frame.choices?.[0]?.delta?.content;
+            if (typeof delta === "string" && delta) {
+              sawContent = true;
+              onDelta(delta);
+            }
+          } catch {
+            // Not valid JSON — a keepalive or a frame we don't care about.
+          }
+        }
       }
-      const content = json.choices?.[0]?.message?.content;
-      if (typeof content === "string" && content.trim()) return content;
-      console.error("[chat] empty turn from", CHAT_MODEL);
-      return null;
+      clearTimeout(timer);
+      if (!sawContent) console.error("[chat] empty turn from", CHAT_MODEL);
+      return sawContent;
     } catch (err) {
       clearTimeout(timer);
-      // Timeout or network blip — one more shot, then templated fallback.
-      console.error("[chat] fetch/abort:", CHAT_MODEL, (err as Error)?.name);
-      if (attempt < MAX_ATTEMPTS) continue;
+      console.error("[chat] stream fetch/abort:", CHAT_MODEL, (err as Error)?.name);
+      // Retry only while nothing has reached the user. Once text is on screen a
+      // second attempt would append a fresh answer to a half-finished one.
+      if (attempt < MAX_ATTEMPTS && !hasReleased()) continue;
+      return hasReleased();
     }
   }
-  return null; // caller serves the templated, real-data fallback
+  return false; // caller serves the templated, real-data fallback
 }
 
-/** Simulated word-by-word streaming for a live typing feel. */
+/**
+ * Word-by-word emitter for text we already hold in full.
+ *
+ * No longer the main path — the model's answer streams through
+ * createAnswerStream as it is generated. This remains for text the backend
+ * writes itself and therefore has all of up front: the templated fallback, the
+ * hardcoded safety reply, and the appended disclaimer. The small delay is
+ * cosmetic, so those don't appear as one instant block beside a real stream.
+ */
 async function streamText(
   text: string,
   send: (obj: Record<string, unknown>) => void

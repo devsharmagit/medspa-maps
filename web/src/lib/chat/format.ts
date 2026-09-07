@@ -21,12 +21,20 @@ export interface ParsedReply {
   structured: boolean;
 }
 
+/**
+ * Parse the FOLLOWUPS bullets.
+ *
+ * Kept one above the two chips actually shown: mergeFollowups rejects a
+ * proposal that names an unknown proper noun or invites a pricing question, so
+ * a spare candidate means a rejection still leaves two model-written chips
+ * rather than falling back to a generic one from the pool.
+ */
 function cleanupBullets(raw: string): string[] {
   return raw
     .split("\n")
     .map((l) => l.replace(/^\s*[-*•\d.]+\s*/, "").trim())
     .filter(Boolean)
-    .slice(0, 5);
+    .slice(0, 3);
 }
 
 /** Split a raw completion on the literal marker lines. */
@@ -183,40 +191,36 @@ export function templatedAnswer(g: GatheredContext): string {
 const CURRENCY_RE =
   /(?:\$|US\$|USD\s?)\s?\d[\d,]*(?:\.\d{1,2})?|\b\d[\d,]*\s?(?:dollars|bucks)\b/i;
 
-const PRICE_DEFLECTION =
+export const PRICE_DEFLECTION =
   "Pricing varies quite a bit by provider, product and treatment plan, so I can't quote a figure — the practice can give you an exact price at a consultation. Want me to find some near you?";
 
 /**
- * Strip any money figure the model produced, as a last line of defence behind
- * the prompt rule. We remove the WHOLE sentence, not just the number: deleting
- * the token alone leaves "Botox is typically  per unit," which reads as a bug
- * and still implies a price was known.
+ * Does this fragment contain a money figure?
+ *
+ * The last line of defence behind the prompt's pricing rule. Callers drop the
+ * WHOLE fragment, never just the number: deleting the token alone leaves "Botox
+ * is typically  per unit," which reads as a bug and still implies a price was
+ * known.
+ *
+ * This replaced a whole-answer `stripPricing()` when the answer began
+ * streaming. Sentence-at-a-time is now the only granularity available — text
+ * already sent cannot be rewritten — so the "two or more stripped sentences
+ * means answer the pricing question properly instead" rule moved to the route,
+ * which appends PRICE_DEFLECTION rather than substituting it.
  */
-export function stripPricing(answer: string): { text: string; stripped: number } {
-  if (!CURRENCY_RE.test(answer)) return { text: answer, stripped: 0 };
+export function containsPricing(fragment: string): boolean {
+  return CURRENCY_RE.test(fragment);
+}
 
-  let stripped = 0;
-  const kept = answer
-    .split(/\n/)
-    .map((line) => {
-      const sentences = line.split(/(?<=[.!?])\s+/);
-      const survivors = sentences.filter((s) => {
-        if (CURRENCY_RE.test(s)) {
-          stripped++;
-          return false;
-        }
-        return true;
-      });
-      return survivors.join(" ");
-    })
-    .filter((line, i, all) => line.trim() !== "" || (i > 0 && all[i - 1].trim() !== ""))
-    .join("\n")
-    .trim();
-
-  // If gutting the prices left nothing coherent, answer the question properly
-  // instead of shipping a hollowed-out reply.
-  if (!kept || stripped >= 2) return { text: PRICE_DEFLECTION, stripped };
-  return { text: kept, stripped };
+/**
+ * Is this line a Markdown list item or heading?
+ *
+ * Same predicate `stripLists` applies, exposed for the streaming path — which
+ * has to decide from the line's opening characters, before the rest of the line
+ * exists, whether to release it at all.
+ */
+export function isListOrHeadingLine(line: string): boolean {
+  return /^\s*(?:[-*•]\s+|\d+[.)]\s+)/.test(line) || /^\s*#{1,6}\s+/.test(line);
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -277,12 +281,9 @@ export function normalizeSiteLinks(answer: string): string {
  * turns, so removing both outright is both safe and total.
  */
 export function stripLists(answer: string): string {
-  const isListItem = (l: string) => /^\s*(?:[-*•]\s+|\d+[.)]\s+)/.test(l);
-  const isHeading = (l: string) => /^\s*#{1,6}\s+/.test(l);
-
-  const kept = answer
-    .split("\n")
-    .filter((l) => !isListItem(l) && !isHeading(l));
+  // Same predicate the streaming path applies line-by-line, so the two can
+  // never drift apart on what counts as a list.
+  const kept = answer.split("\n").filter((l) => !isListOrHeadingLine(l));
 
   return kept
     .join("\n")

@@ -1,5 +1,11 @@
 import { z } from "zod";
 
+import {
+  CORE_CONCERNS,
+  CORE_CONCERN_SLUGS,
+  CORE_TREATMENT_SLUGS,
+} from "@/lib/taxonomy/core-catalog";
+
 export const AGE_RANGES = [
   "under-25",
   "25-34",
@@ -18,26 +24,32 @@ export const GOAL_OPTIONS = [
 ] as const;
 
 // Concerns / symptoms — "what would you like to fix?"
-export const CONCERN_OPTIONS = [
-  { slug: "acne", label: "Acne" },
-  { slug: "wrinkles", label: "Wrinkles" },
-  { slug: "pigmentation", label: "Pigmentation" },
-  { slug: "hair-loss", label: "Hair loss" },
-  { slug: "loose-skin", label: "Loose skin" },
-  { slug: "dark-circles", label: "Dark circles" },
-  { slug: "facial-volume", label: "Facial volume" },
-  { slug: "redness", label: "Redness" },
-  { slug: "pores", label: "Pores" },
-  { slug: "texture", label: "Texture" },
-  { slug: "scars", label: "Scars" },
-  { slug: "double-chin", label: "Double chin" },
-  { slug: "unwanted-hair", label: "Unwanted hair" },
-] as const;
+//
+// DERIVED, never hand-written. These have to be real concern slugs:
+// associations.ts looks each one up in the concern→treatment co-occurrence map
+// by slug, so a chip whose slug is not in the `concerns` table silently
+// produces no recommendations at all. That invisible failure is exactly how
+// this list drifted before (it once carried its own vocabulary — loose-skin,
+// facial-volume, redness, pores, texture, scars, double-chin, dark-circles,
+// unwanted-hair — none of which were catalog slugs).
+//
+// The label is the catalog's own name, so a chip here reads identically to the
+// same concern in the search dropdown and on /conditions. It used to carry
+// conversational rewrites ("Loose skin" for skin-laxity, "Texture & pores" for
+// uneven-skin-texture, "Veins & redness" for veins), which made users read the
+// page as offering concerns the site does not list.
+//
+// Same pattern as src/app/conditions/page.tsx:33.
+export const CONCERN_OPTIONS: readonly { slug: string; label: string }[] =
+  CORE_CONCERNS.map((c) => ({ slug: c.slug, label: c.name }));
 
 // Combined list (used for slug validation and label lookup). The request keeps a
 // single `selected` array so downstream matching/prompting is unchanged; the UI
 // and prompt split it back into goals vs concerns for clarity.
-export const ALL_GOAL_OPTIONS = [...GOAL_OPTIONS, ...CONCERN_OPTIONS] as const;
+export const ALL_GOAL_OPTIONS: readonly { slug: string; label: string }[] = [
+  ...GOAL_OPTIONS,
+  ...CONCERN_OPTIONS,
+];
 
 const GOAL_SLUGS = new Set<string>(GOAL_OPTIONS.map((g) => g.slug));
 const CONCERN_SLUGS = new Set<string>(CONCERN_OPTIONS.map((c) => c.slug));
@@ -77,8 +89,26 @@ export const NavigatorRequestSchema = z.object({
 
 export type NavigatorRequest = z.infer<typeof NavigatorRequestSchema>;
 
+/**
+ * The model's vocabulary is CLOSED to the 19 core treatments / 14 core concerns.
+ *
+ * `slug` used to be a free `z.string()`, with the catalog offered to the model
+ * as advice only. That let it name a treatment the site does not list: the card
+ * still rendered (just without a "Find practices" button), and an off-catalog
+ * CONCERN slug silently matched zero clinics in matchByConcerns, which compares
+ * it verbatim against `concerns.slug`.
+ *
+ * The provider's JSON schema (prompt.ts NAVIGATOR_TOOL_SCHEMA) carries the same
+ * enum and runs with `strict: true`, so this is the second of two gates: it
+ * turns a provider that ignores the enum into a parse failure rather than a
+ * rendered recommendation.
+ *
+ * `label`/`name` stay free text but are NOT displayed — the UI renders the
+ * catalog's own name looked up by slug. They are kept because the model writes
+ * them anyway and they are useful in the persisted ai_response.
+ */
 export const NavigatorConcernSchema = z.object({
-  slug: z.string().trim().min(1).max(120),
+  slug: z.enum(CORE_CONCERN_SLUGS as unknown as [string, ...string[]]),
   label: z.string().trim().min(1).max(120),
   source: z.enum(["questionnaire", "photo", "both"]),
   severity: z.enum(["mild", "moderate", "significant", "unclear"]),
@@ -86,7 +116,7 @@ export const NavigatorConcernSchema = z.object({
 });
 
 export const NavigatorTreatmentSchema = z.object({
-  slug: z.string().trim().min(1).max(120),
+  slug: z.enum(CORE_TREATMENT_SLUGS as unknown as [string, ...string[]]),
   name: z.string().trim().min(1).max(120),
   priority: z.enum(["primary", "secondary", "maintenance"]),
   confidence: z.enum(["low", "medium", "high"]),

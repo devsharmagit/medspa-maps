@@ -33,6 +33,11 @@ import {
   type NavigatorClinicMatch,
 } from "@/lib/skin-navigator/schema";
 import { cn } from "@/lib/utils";
+import {
+  CORE_CONCERNS,
+  CORE_TREATMENTS,
+  CORE_TREATMENT_SLUGS,
+} from "@/lib/taxonomy/core-catalog";
 
 type AgeRange = (typeof AGE_RANGES)[number];
 type StepKey = "basics" | "goals" | "preferences" | "photos" | "results";
@@ -91,7 +96,13 @@ interface PersistedNavigatorDraft {
   result: NavigatorAnalyzeResponse | null;
 }
 
-const DRAFT_STORAGE_KEY = "medspa.ai-treatment-navigator.draft.v1";
+// Bumped to v2 on 2026-09-07. The key MUST change whenever the concern slugs
+// do: GoalSlugSchema is a z.enum, so a restored draft holding a retired slug
+// (dark-circles, pores, texture, …) fails validation server-side with a 422 the
+// user cannot clear — and because the chips render from CONCERN_OPTIONS, the
+// offending selection is invisible on screen. v1 was NOT bumped when the slugs
+// were aligned to the core catalog, which is how that trap got in.
+const DRAFT_STORAGE_KEY = "medspa.ai-treatment-navigator.draft.v2";
 
 const initialState: WizardState = {
   basics: {
@@ -1223,9 +1234,30 @@ function PhotoUploader({
   );
 }
 
-function treatmentSearchHref(treatmentName: string, location: LocationSelection): string {
+/**
+ * Display names come from the CATALOG, never from the model.
+ *
+ * Both `slug` fields are enum-bound to the catalog (skin-navigator/schema.ts),
+ * so the slug is trustworthy but the model's free-text `name`/`label` beside it
+ * is not — it would happily write "Morpheus8" next to slug `rf-microneedling`,
+ * naming something the site does not list. Looking the name up by slug keeps
+ * this page reading exactly like the search dropdown and /conditions.
+ */
+const CORE_TREATMENT_NAMES = new Map(CORE_TREATMENTS.map((t) => [t.slug, t.name]));
+const CORE_CONCERN_NAMES = new Map(CORE_CONCERNS.map((c) => [c.slug, c.name]));
+
+/**
+ * Deep link for a recommended treatment, or null when it is not searchable.
+ *
+ * `?q=` is an exact slug lookup as of 2026-09-07, and this slug comes from the
+ * MODEL — so it has to be checked against the real catalog before it becomes a
+ * link. An unrecognised one renders as plain text instead of a link that would
+ * land on "we don't list that".
+ */
+function treatmentSearchHref(treatmentSlug: string, location: LocationSelection): string | null {
+  if (!CORE_TREATMENT_SLUGS.includes(treatmentSlug)) return null;
   const params = new URLSearchParams();
-  params.set("q", treatmentName);
+  params.set("q", treatmentSlug);
   if (location.value) params.set("location", location.value);
   if (typeof location.lat === "number" && typeof location.lng === "number") {
     params.set("lat", String(location.lat));
@@ -1311,7 +1343,9 @@ function ResultsStep({
                 className="rounded-lg border border-slate-200 bg-white p-4"
               >
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className="font-semibold text-slate-950">{concern.label}</p>
+                  <p className="font-semibold text-slate-950">
+                    {CORE_CONCERN_NAMES.get(concern.slug) ?? concern.label}
+                  </p>
                   <Badge variant="outline" className="h-auto px-2 py-0.5 capitalize">
                     {concern.severity}
                   </Badge>
@@ -1384,16 +1418,23 @@ function TreatmentCard({
   locationLabel: string;
 }) {
   const hasLocation = Boolean(location.value?.trim());
+  // Null when the model named a treatment outside the catalog — the card still
+  // explains the recommendation, it just has no search to send you to.
+  const href = treatmentSearchHref(treatment.slug, location);
   return (
     <article className="flex flex-col rounded-lg border border-slate-200 bg-white p-5">
-      <h4 className="font-heading text-lg font-medium text-slate-950">{treatment.name}</h4>
+      <h4 className="font-heading text-lg font-medium text-slate-950">
+        {CORE_TREATMENT_NAMES.get(treatment.slug) ?? treatment.name}
+      </h4>
       <p className="mt-2 flex-1 text-sm leading-6 text-slate-600">{treatment.whyItFits}</p>
-      <Button asChild variant="outline" className="mt-4 h-10 w-full">
-        <Link href={treatmentSearchHref(treatment.name, location)}>
-          {hasLocation ? `Find practices in ${locationLabel}` : "Find practices"}
-          <ArrowRight className="size-4" />
-        </Link>
-      </Button>
+      {href && (
+        <Button asChild variant="outline" className="mt-4 h-10 w-full">
+          <Link href={href}>
+            {hasLocation ? `Find practices in ${locationLabel}` : "Find practices"}
+            <ArrowRight className="size-4" />
+          </Link>
+        </Button>
+      )}
     </article>
   );
 }

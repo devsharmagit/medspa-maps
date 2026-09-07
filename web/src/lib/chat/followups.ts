@@ -1,5 +1,5 @@
 /**
- * followups.ts — guarantees every reply ends with 3–5 relevant suggested
+ * followups.ts — guarantees every reply ends with exactly 2 relevant suggested
  * questions.
  *
  * The backend always computes a deterministic candidate pool from the resolved
@@ -8,6 +8,10 @@
  * follow-up naming a clinic/treatment not in context is as bad as a
  * hallucinated answer); the rest is padded from the pool. Result: a populated,
  * grounded follow-up row on every response, including total model failure.
+ *
+ * The count was 3–5 until 2026-09-07. Five chips crowded the widget and read as
+ * filler, since the tail was almost always padding from the pool rather than
+ * anything the model chose.
  *
  * SERVER-SIDE ONLY.
  */
@@ -69,9 +73,13 @@ export function candidatePool(route: Route, g: GatheredContext): string[] {
   return dedupe(pool);
 }
 
+/** How many chips the widget shows. Two, deliberately — see the header. */
+const CHIP_COUNT = 2;
+
 /**
  * mergeFollowups — take the model's proposed follow-ups if they look grounded,
- * then pad from the deterministic pool to 3–5. Never returns fewer than 3.
+ * then pad from the deterministic pool. Always returns exactly CHIP_COUNT,
+ * unless the pool itself somehow runs dry (it always contains EVERGREEN).
  */
 const PRICE_QUESTION_RE = /\b(cost|costs|price|pricing|pricey|expensive|afford|\$|how much)\b/i;
 
@@ -96,15 +104,16 @@ export function mergeFollowups(
     accepted.push(q);
   }
 
-  const out = dedupe([...accepted, ...pool]).slice(0, 5);
-  // Guarantee at least 3.
-  if (out.length < 3) {
+  const out = dedupe([...accepted, ...pool]).slice(0, CHIP_COUNT);
+  // Guarantee a full row even if every model proposal was rejected and the
+  // pool was unusually thin.
+  if (out.length < CHIP_COUNT) {
     for (const e of EVERGREEN) {
       if (!out.includes(e)) out.push(e);
-      if (out.length >= 3) break;
+      if (out.length >= CHIP_COUNT) break;
     }
   }
-  return out.slice(0, 5);
+  return out.slice(0, CHIP_COUNT);
 }
 
 // ──────────────────────────────────────────────────────────────────────────

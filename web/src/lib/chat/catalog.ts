@@ -2,16 +2,26 @@
  * catalog.ts — the assistant's view of the LIVE treatment/concern catalog.
  *
  * The chatbot used to recognise only the 15 curated services and 17 curated
- * concerns in `taxonomy/canonical.ts`. The live catalog holds 966 active
- * services and 191 active concerns, so the bot was blind to roughly 95% of what
- * the site actually offers and would tell people a real treatment "isn't
- * covered".
+ * concerns in `taxonomy/canonical.ts`, while the live catalog held 966 active
+ * services and 191 active concerns — so the bot was blind to roughly 95% of
+ * what the site offered and would tell people a real treatment "isn't covered".
+ * Reading the catalog live is what fixed that.
+ *
+ * Since the 2026-09-06 reduction the live catalog IS short: 19 core treatments
+ * and 14 core concerns. Reading it live still matters — it is what keeps the
+ * bot in step with the database rather than with a constant someone forgot to
+ * update — but the sampling below is no longer trimming anything.
  *
  * This module loads the whole catalog once per process (5-minute TTL,
  * single-flight) and exposes:
  *   - a normalized name/slug index for O(1) span lookups during intent extraction
- *   - a short, count-ranked sample for the prompt (never the full 966 — that
- *     would be tens of KB and would read as a whitelist)
+ *   - the count-ranked catalog for the prompt. Post-reduction this is the WHOLE
+ *     catalog and is presented to the model as a CLOSED list. A cap survives
+ *     only as a blast radius limit: if the catalog ever grows back to hundreds
+ *     of rows, pasting all of them into every prompt would cost tens of KB, and
+ *     the closed-list wording in context.ts would have to be revisited at the
+ *     same time. It is deliberately set above the real catalog size so it does
+ *     not bind today.
  *
  * SERVER-SIDE ONLY.
  */
@@ -44,8 +54,19 @@ export interface LiveCatalog {
 }
 
 const TTL_MS = 5 * 60 * 1000;
-const TOP_TREATMENTS = 15;
-const TOP_CONCERNS = 12;
+/**
+ * Blast-radius caps on how much catalog can reach a prompt — NOT a curation.
+ *
+ * These were 15 and 12, chosen when the catalog was 966/191 and the block was
+ * genuinely a sample. Post-reduction they silently truncated a catalog of 19/14:
+ * the model never saw IPL Photofacial, Hair Restoration, RF Microneedling or
+ * HydraFacial, nor Hair Loss or Melasma — six things the site covers and the bot
+ * could not name. Set well above the real size so nothing is hidden; if the
+ * catalog ever exceeds this, `catalogTruncated` below reports it rather than
+ * dropping rows in silence.
+ */
+const TOP_TREATMENTS = 60;
+const TOP_CONCERNS = 60;
 
 let cached: LiveCatalog | null = null;
 /** Single-flight: 20 concurrent turns must not fire 20 catalog loads. */
@@ -98,6 +119,14 @@ async function load(): Promise<LiveCatalog> {
   let topConcerns: LiveCatalog["topConcerns"] = [];
   try {
     const counts = await getSearchOptionCounts(new URLSearchParams());
+    if (counts.treatments.length > TOP_TREATMENTS || counts.concerns.length > TOP_CONCERNS) {
+      // The prompt calls this list complete. If it isn't, that wording is a lie
+      // and needs revisiting — say so loudly rather than quietly truncating.
+      console.error(
+        `[chat] catalog exceeds the prompt cap (${counts.treatments.length} treatments, ` +
+          `${counts.concerns.length} concerns) — the CLOSED-list wording in context.ts is now inaccurate`,
+      );
+    }
     topTreatments = counts.treatments.slice(0, TOP_TREATMENTS);
     topConcerns = counts.concerns.slice(0, TOP_CONCERNS);
   } catch (err) {

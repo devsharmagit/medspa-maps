@@ -32,25 +32,21 @@ export const STATE_NAME_TO_ABBR: Record<string, string> = Object.fromEntries(
 );
 
 // Broad concern → specific child concern slugs. Searching a broad concern also
-// returns clinics tagged with the narrower children. Kept in sync with the
-// AI-grown concern catalog after the 2026-07-13 cleanup (see scripts/clean-catalog-junk.ts).
+// returns clinics tagged with the narrower children. Read by BOTH search/query.ts
+// and search/option-counts.ts — they must agree, or the dropdown count and the
+// search total diverge (scripts/verify-option-counts.mjs guards that).
 export const BROAD_CONCERN_CHILDREN: Record<string, string[]> = {
-  "fine-lines-wrinkles": [
-    "forehead-lines",
-    "frown-lines",
-    "crows-feet",
-    "bunny-lines",
-    "marionette-lines",
-    "nasolabial-folds",
-    "smile-lines",
-    "lip-flip",
-  ],
-  "skin-laxity-sagging": [
-    "brow-lift",
-    "jawline",
-    "masseter-tmj-face-slimming",
-    "platysma-vertical-neck-cords",
-  ],
+  // Empty since the 2026-09-06 catalog reduction, and kept rather than deleted
+  // because the expansion mechanism is still the right shape if a future core
+  // entry needs children.
+  //
+  // It used to expand `fine-lines-wrinkles` onto 8 child slugs and
+  // `skin-laxity-sagging` onto 4, because those children were separate catalog
+  // rows that a search for the parent had to reach. The reduction folded every
+  // one of them INTO the parent at the data layer -- a clinic that had
+  // "Crow's Feet" now carries a `wrinkles` row of its own -- so expanding here
+  // as well would just re-count clinics the membership query already returns,
+  // and would reference slugs that are no longer active.
 };
 
 /** A concern slug plus its broad→child expansion, deduped. */
@@ -96,6 +92,29 @@ export function resolveTypedLocation(
   const cityState = trimmed.match(/^(.+?)\s*,\s*([A-Za-z .]{2,})$/);
   if (cityState) {
     const hit = lookupCityState(cityState[1], cityState[2]);
+    if (hit) return { lat: hit.lat, lng: hit.lng };
+  }
+
+  // "Salt Lake City UT" / "salt lake city utah" — a city and state with NO
+  // comma, which is how people actually type and speak.
+  //
+  // Without this the string missed every branch above and the caller fell back
+  // to a `city ILIKE` text scope, which matches only clinics whose own city
+  // column says "Salt Lake City" — none of the suburbs a 50-mile radius would
+  // have found. In the chat that surfaced as a confidently wrong answer: the
+  // assistant reported zero Chemical Peels practices near Salt Lake City while
+  // one in Lehi, 30 miles away, sat in the fallback list.
+  //
+  // A BARE city still returns null, deliberately (see the note above about
+  // ambiguity) — a trailing state token is what makes this specific enough.
+  const words = trimmed.split(/\s+/);
+  // Two words first: "new york new york", "salt lake city west virginia".
+  for (const tailLen of [2, 1]) {
+    if (words.length <= tailLen) continue;
+    const hit = lookupCityState(
+      words.slice(0, -tailLen).join(" "),
+      words.slice(-tailLen).join(" "),
+    );
     if (hit) return { lat: hit.lat, lng: hit.lng };
   }
   return null;

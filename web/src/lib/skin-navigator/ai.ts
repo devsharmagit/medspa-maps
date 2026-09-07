@@ -13,6 +13,7 @@ import {
 } from "./prompt";
 import { getConcernTreatmentMap } from "./associations";
 import { isConcernSlug } from "./schema";
+import { CORE_CONCERN_SLUGS, CORE_TREATMENT_SLUGS } from "@/lib/taxonomy/core-catalog";
 
 // Fixed seed so identical answers yield near-identical output (OpenAI backend).
 const NAVIGATOR_SEED = 7;
@@ -58,12 +59,20 @@ async function loadPromptCatalog(): Promise<NavigatorPromptCatalog> {
     ),
   ]);
 
-  const toItems = (rows: { slug: string; name: string }[]) =>
-    rows.map((r) => ({ slug: r.slug, name: r.name, summary: null, aliases: [] }));
+  // Intersected with the core slugs, which are what NAVIGATOR_TOOL_SCHEMA's
+  // enum is built from. The DB *is* the 19/14 today so this drops nothing, but
+  // the two lists must never diverge: `strict: true` would otherwise force the
+  // model to pick an enum value the prompt never showed it. The DB query stays
+  // (rather than reading core-catalog.ts directly) purely for its ordering —
+  // most-offered first, so the model prefers slugs with real nearby clinics.
+  const toItems = (rows: { slug: string; name: string }[], allowed: readonly string[]) =>
+    rows
+      .filter((r) => allowed.includes(r.slug))
+      .map((r) => ({ slug: r.slug, name: r.name, summary: null, aliases: [] }));
 
   return {
-    treatments: toItems(services.rows),
-    concerns: toItems(concerns.rows),
+    treatments: toItems(services.rows, CORE_TREATMENT_SLUGS),
+    concerns: toItems(concerns.rows, CORE_CONCERN_SLUGS),
   };
 }
 

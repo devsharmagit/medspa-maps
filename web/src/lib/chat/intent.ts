@@ -17,7 +17,14 @@ import {
   normalize,
 } from "@/lib/taxonomy/canonical";
 import { STATE_CODE_TO_NAME, toStateCode } from "@/lib/location/states";
+import { resolveTypedLocation } from "@/lib/search/location-scope";
 import { matchCatalogEntities, type LiveCatalog, type CatalogEntry } from "@/lib/chat/catalog";
+import {
+  CORE_CONCERNS,
+  CORE_TREATMENTS,
+  coreConcernFor,
+  coreTreatmentFor,
+} from "@/lib/taxonomy/core-catalog";
 
 // ──────────────────────────────────────────────────────────────────────────
 // Shared types (client sends PageContext + Slots; server maintains Slots)
@@ -114,10 +121,15 @@ function aliasHit(normText: string, alias: string): boolean {
 export function extractTreatments(message: string): string[] {
   const norm = normalize(message);
   if (!norm) return [];
+  // Map onto the core catalog and drop anything retired: every caller uses these
+  // slugs to build a /search link or look up live clinic counts, so a slug that
+  // is no longer active produces a dead-end answer.
   const hits: string[] = [];
   for (const svc of CANONICAL_SERVICES) {
     const candidates = [svc.name, svc.slug.replace(/-/g, " "), ...svc.aliases];
-    if (candidates.some((c) => aliasHit(norm, c))) hits.push(svc.slug);
+    if (!candidates.some((c) => aliasHit(norm, c))) continue;
+    const core = coreTreatmentFor(svc.slug);
+    if (core && !hits.includes(core)) hits.push(core);
   }
   return hits;
 }
@@ -129,7 +141,9 @@ export function extractConcerns(message: string): string[] {
   const hits: string[] = [];
   for (const c of CANONICAL_CONCERNS) {
     const candidates = [c.name, c.slug.replace(/-/g, " "), ...c.aliases];
-    if (candidates.some((cand) => aliasHit(norm, cand))) hits.push(c.slug);
+    if (!candidates.some((cand) => aliasHit(norm, cand))) continue;
+    const core = coreConcernFor(c.slug);
+    if (core && !hits.includes(core)) hits.push(core);
   }
   return hits;
 }
@@ -137,8 +151,95 @@ export function extractConcerns(message: string): string[] {
 const CITY_STATE_RE = /\b([A-Za-z][A-Za-z .'-]{1,28}),\s*([A-Z]{2})\b/;
 const ZIP_RE = /\b(\d{5})\b/;
 const NEAR_ME_RE = /\b(near me|nearby|around me|close to me|in my area)\b/i;
-const IN_PLACE_RE =
-  /\b(?:in|near|around|by|close to)\s+([A-Za-z][A-Za-z .'-]{2,30}?)(?=[,.?!]|$|\s+(?:that|which|who|offering|for|with|and|clinics?|medspas?|places?))/i;
+/** Words after "in/near/…" — up to six, enough for "salt lake city utah". */
+const AFTER_PREPOSITION_RE = /\b(?:in|near|around|by|close to|inside)\s+(.{2,80})/i;
+
+/**
+ * A phrase that points BACK at the location already under discussion rather
+ * than naming a new one: "in that city", "in this area", "in the same town".
+ *
+ * These have to yield NO location so the caller falls through to slot memory.
+ * They used to be captured as if they were place names, and the damage was
+ * silent and total: "that city" geocodes to nothing, so the scope degraded to
+ * `city ILIKE '%that city%'`, matched zero clinics, and the nearest-fallback
+ * then relaxed the location entirely — the user asked for chemical peels in
+ * Salt Lake City and got Henderson NV, Atlanta GA and Yardley PA, under a
+ * heading that said "around that city".
+ *
+ * Bare "there" already worked (nothing matched it), but "near there" did not.
+ */
+/**
+ * Nouns that follow "in" without naming a place. "tell me about botox in
+ * general" must not search a town called General.
+ *
+ * A stop-list rather than an index check, because the loose fallback exists
+ * precisely for small towns the postal index does not carry — rejecting
+ * everything unindexed would throw those away too.
+ */
+const NON_PLACE_NOUN_RE =
+  /^(?:general|particular|total|fact|mind|detail|details|advance|person|addition|short|summary|theory|practice|question|comparison|the\s+(?:future|past|meantime|end|us|usa|country|states?))$/i;
+
+const BACKREF_PLACE_RE =
+  /^(?:that|this|the same|the|same)\s+(?:city|town|area|region|place|state|zip|zipcode|neighborhood|county)$|^(?:over\s+)?there$|^here$/i;
+
+/**
+ * The longest run of words after "in/near/…" that names a place our own
+ * postal index recognises.
+ *
+ * Replaces a single lazy regex whose capture ended at a HARDCODED list of
+ * follow-on words (that|which|who|offering|for|with|and|clinics|medspas|places).
+ * Any other phrasing simply failed to match, and the failure was invisible:
+ * "i am in salt lake city utah can you find botox providers there?" fell
+ * through to the bare state-name scan, which matched "utah" and quietly
+ * searched the WHOLE STATE. The results were all Utah cities, so it looked
+ * right — Heber City and Roy are 40 miles from Salt Lake City in opposite
+ * directions.
+ *
+ * Validating candidates against the index instead of guessing where the place
+ * name ends means the sentence can be phrased any way at all.
+ *
+ * Returns at most one of:
+ *   backref — points at the remembered location; the caller must defer to it
+ *   place   — a validated, geocodable place string
+ *   loose   — nothing validated, but a plausible short phrase worth passing on
+ */
+function placeAfterPreposition(message: string): {
+  backref: boolean;
+  place: string | null;
+  loose: string | null;
+} {
+  const m = message.match(AFTER_PREPOSITION_RE);
+  if (!m) return { backref: false, place: null, loose: null };
+
+  const words = m[1].split(/\s+/).slice(0, 6);
+  let loose: string | null = null;
+
+  // Longest first: "salt lake city utah" must win over "salt lake city".
+  for (let n = Math.min(words.length, 6); n >= 1; n--) {
+    const candidate = words
+      .slice(0, n)
+      .join(" ")
+      // Trailing punctuation from "…in that city?" or "…in Austin."
+      .replace(/[^A-Za-z0-9 .'-]+$/g, "")
+      .trim();
+    if (candidate.length < 3) continue;
+    if (BACKREF_PLACE_RE.test(candidate)) return { backref: true, place: null, loose: null };
+    if (NON_PLACE_NOUN_RE.test(candidate)) continue;
+    // A treatment name is never a place ("in microneedling").
+    if (extractTreatments(candidate).length || extractConcerns(candidate).length) continue;
+    if (resolveTypedLocation(candidate) || toStateCode(candidate) || isStateName(candidate)) {
+      return { backref: false, place: candidate, loose: null };
+    }
+    // Remember the shortest plausible phrase as the loose fallback.
+    if (n <= 3) loose = candidate;
+  }
+  return { backref: false, place: null, loose };
+}
+
+function isStateName(s: string): boolean {
+  const n = s.trim().toLowerCase();
+  return Object.values(STATE_CODE_TO_NAME).some((name) => name.toLowerCase() === n);
+}
 
 /** Deterministic location heuristic. Returns a raw location string + nearMe. */
 export function extractLocation(message: string): {
@@ -147,24 +248,31 @@ export function extractLocation(message: string): {
 } {
   const nearMe = NEAR_ME_RE.test(message);
 
-  // "City, ST"
+  // "City, ST" — the comma+code is a reliable anchor, but the CITY half is not:
+  // the character class allows spaces, so the capture runs backwards over the
+  // whole preceding clause and "anything in Austin, TX?" yielded the location
+  // "anything in Austin, TX" — which geocodes to nothing and silently degrades
+  // the search to a text match. So walk back from the comma and keep the
+  // longest trailing run of words the index actually knows.
   const cs = message.match(CITY_STATE_RE);
-  if (cs) return { location: `${cs[1].trim()}, ${cs[2]}`, nearMe };
+  if (cs) {
+    const st = cs[2];
+    const cityWords = cs[1].trim().split(/\s+/);
+    for (let n = Math.min(cityWords.length, 4); n >= 1; n--) {
+      const candidate = `${cityWords.slice(-n).join(" ")}, ${st}`;
+      if (resolveTypedLocation(candidate)) return { location: candidate, nearMe };
+    }
+    // Not in the index (a very small town). Pass the last few words along
+    // rather than the whole clause — the site search tolerates a loose string.
+    return { location: `${cityWords.slice(-3).join(" ")}, ${st}`, nearMe };
+  }
 
   // "in/near <place>" BEFORE the bare state-name scan. "near provo utah" must
   // yield "provo utah" (a city) — scanning for state names first swallowed the
   // city and silently widened the search to all of Utah.
-  const inPlaceEarly = message.match(IN_PLACE_RE);
-  if (inPlaceEarly) {
-    const candidate = inPlaceEarly[1].trim();
-    if (
-      candidate.length > 2 &&
-      extractTreatments(candidate).length === 0 &&
-      extractConcerns(candidate).length === 0
-    ) {
-      return { location: candidate, nearMe };
-    }
-  }
+  const afterPrep = placeAfterPreposition(message);
+  if (afterPrep.backref) return { location: null, nearMe };
+  if (afterPrep.place) return { location: afterPrep.place, nearMe };
 
   // Full state name (longest match wins)
   const lower = ` ${normalize(message)} `;
@@ -186,18 +294,10 @@ export function extractLocation(message: string): {
   const zip = message.match(ZIP_RE);
   if (zip) return { location: zip[1], nearMe };
 
-  // Generic "in <place>" / "near <place>" fallback (loose; search tolerates it)
-  const inPlace = message.match(IN_PLACE_RE);
-  if (inPlace) {
-    const candidate = inPlace[1].trim();
-    // Reject if the captured phrase is actually a treatment/concern word.
-    if (
-      extractTreatments(candidate).length === 0 &&
-      extractConcerns(candidate).length === 0
-    ) {
-      return { location: candidate, nearMe };
-    }
-  }
+  // Generic "in <place>" / "near <place>" fallback: the phrase named no place
+  // our index knows, but the site search tolerates a loose string (it degrades
+  // to a city/state/zip ILIKE), so pass the shortest sensible candidate along.
+  if (afterPrep.loose) return { location: afterPrep.loose, nearMe };
 
   return { location: null, nearMe };
 }
@@ -509,13 +609,11 @@ export function route(
     // silently narrowed "clinics for acne scars" to one arbitrary treatment.
     // resolveSearchQuery resolves concern names too, so the adapter builds
     // `?condition=<slug>` from this.
-    const named = (slug: string) =>
-      ex.entities.find((e) => e.slug === slug)?.name ?? null;
-    const treatmentArg = ex.treatments[0]
-      ? named(ex.treatments[0]) ?? slugToName(ex.treatments[0])
-      : ex.concerns[0]
-        ? named(ex.concerns[0]) ?? concernSlugToName(ex.concerns[0])
-        : "";
+    // Pass the SLUG, not the display name. `ex.treatments`/`ex.concerns` are
+    // already catalog slugs, and resolveSearchQuery is an exact slug lookup as
+    // of 2026-09-07 — handing it a name would resolve to nothing and the
+    // adapter would (correctly) refuse to search at all.
+    const treatmentArg = ex.treatments[0] ?? ex.concerns[0] ?? "";
     return {
       extraction: ex,
       route: {
@@ -543,12 +641,31 @@ export function route(
 // ──────────────────────────────────────────────────────────────────────────
 // Small helpers
 // ──────────────────────────────────────────────────────────────────────────
+/**
+ * Slug → display name, CORE catalog first.
+ *
+ * These feed user-visible strings: the follow-up chips and the "Finding …
+ * practices near X" status line. They used to read CANONICAL_SERVICES only,
+ * which is the static Phase-0 list of 15 — post-reduction just 10 of the 19
+ * core treatment slugs and 2 of the 14 concern slugs appear in it, so the
+ * `?? slug` fallback took over and chips read "What does a rf-microneedling
+ * consultation involve?". CANONICAL_* is kept as a second lookup so a retired
+ * slug arriving from an old session slot still gets a readable name.
+ */
 export function slugToName(slug: string): string {
-  return CANONICAL_SERVICES.find((s) => s.slug === slug)?.name ?? slug;
+  return (
+    CORE_TREATMENTS.find((s) => s.slug === slug)?.name ??
+    CANONICAL_SERVICES.find((s) => s.slug === slug)?.name ??
+    slug
+  );
 }
 
 export function concernSlugToName(slug: string): string {
-  return CANONICAL_CONCERNS.find((c) => c.slug === slug)?.name ?? slug;
+  return (
+    CORE_CONCERNS.find((c) => c.slug === slug)?.name ??
+    CANONICAL_CONCERNS.find((c) => c.slug === slug)?.name ??
+    slug
+  );
 }
 
 /** Update slot memory from a turn's extraction (deterministic, never model-set). */
@@ -562,6 +679,12 @@ export function updateSlots(
   /** Set when the user explicitly widened the search ("anywhere", "any city"). */
   clearLocation = false
 ): Slots {
+  // Re-derive the widen signal from the message rather than trusting the flag
+  // alone. The caller reads it off the route, but only the SEARCH branch sets
+  // it — so "what about nationwide?" on its own (no treatment named, so it
+  // routes to smalltalk) left the old location in memory and the next search
+  // silently went back to it. Deriving it here means no future route can forget.
+  const widened = clearLocation || CLEAR_LOCATION_RE.test(message);
   const treatmentsDiscussed = [...prev.treatmentsDiscussed];
   for (const t of ex.treatments) {
     const idx = treatmentsDiscussed.indexOf(t);
@@ -581,8 +704,8 @@ export function updateSlots(
   return {
     ...prev,
     clinicInFocus,
-    lastLocation: clearLocation ? undefined : effectiveLocation || prev.lastLocation,
-    lastLocationLabel: clearLocation ? undefined : prev.lastLocationLabel,
+    lastLocation: widened ? undefined : effectiveLocation || prev.lastLocation,
+    lastLocationLabel: widened ? undefined : prev.lastLocationLabel,
     treatmentsDiscussed,
   };
 }

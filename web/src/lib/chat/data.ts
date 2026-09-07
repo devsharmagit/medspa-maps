@@ -23,6 +23,12 @@ import {
 } from "@/lib/taxonomy/canonical";
 import { TREATMENT_CATALOG } from "@/lib/treatments/catalog";
 import { CONCERN_CATALOG } from "@/lib/concerns/catalog";
+import {
+  CORE_CONCERNS,
+  CORE_TREATMENTS,
+  coreConcernFor,
+  coreTreatmentFor,
+} from "@/lib/taxonomy/core-catalog";
 
 // ──────────────────────────────────────────────────────────────────────────
 // Types (shared with intent/context/route)
@@ -252,15 +258,43 @@ export function getTreatmentInfo(query: string): TreatmentInfo {
 
   const svc = CANONICAL_SERVICES.find((s) => s.slug === m.slug)!;
   const cat = TREATMENT_CATALOG.find((t) => t.slug === m.slug);
-  const treatsConcerns = CANONICAL_CONCERNS.filter((c) =>
-    c.serviceSlugs.includes(m.slug!)
-  ).map((c) => ({ name: c.name, slug: c.slug, url: `/search?condition=${c.slug}` }));
+
+  // CANONICAL_SERVICES is the static Phase-0 list of 15 and still contains
+  // treatments the 2026-09-06 reduction retired (PDO Threads, Ultherapy,
+  // RF Skin Tightening). Answering about one is fine; linking to a search for
+  // it is not, because that search now returns nothing. Anything with no core
+  // equivalent is reported as not found rather than sent to an empty page.
+  const coreSlug = coreTreatmentFor(svc.slug);
+  if (!coreSlug) return { found: false };
+
+  // The NAME must come from the core catalog, not from svc. CANONICAL_SERVICES
+  // still holds the Phase-0 display names, so asking about CoolSculpting used to
+  // yield `TREATMENT CoolSculpting (/search?q=body-contouring)` — a name this
+  // site no longer lists, handed to the model as a fact about the site. The
+  // editorial copy below (summary, timings) is still svc's; only the label and
+  // the link speak for the catalog.
+  const coreName = CORE_TREATMENTS.find((t) => t.slug === coreSlug)?.name ?? svc.name;
+
+  // Deduped on the CORE slug: several retired concerns can map to the same core
+  // entry (fine-lines-wrinkles and dark-spots-melasma both collapse), and
+  // without this the bot emits the same link twice under two old names.
+  const concernsByCore = new Map<string, { name: string; slug: string; url: string }>();
+  for (const c of CANONICAL_CONCERNS) {
+    if (!c.serviceSlugs.includes(m.slug!)) continue;
+    const core = coreConcernFor(c.slug);
+    if (!core || concernsByCore.has(core)) continue;
+    // Core name, for the same reason as coreName above — c.name is the retired
+    // label ("Fine Lines & Wrinkles" for what is now just "Wrinkles").
+    const name = CORE_CONCERNS.find((x) => x.slug === core)?.name ?? c.name;
+    concernsByCore.set(core, { name, slug: core, url: `/search?condition=${core}` });
+  }
+  const treatsConcerns = [...concernsByCore.values()];
 
   return {
     found: true,
-    name: svc.name,
-    slug: svc.slug,
-    url: `/search?q=${svc.slug}`,
+    name: coreName,
+    slug: coreSlug,
+    url: `/search?q=${coreSlug}`,
     category: svc.category,
     summary: svc.summary,
     treatment_time: svc.treatment_time,
@@ -312,19 +346,29 @@ export function getConcernInfo(query: string): ConcernInfo {
   const c = resolveConcern(query || "");
   if (!c) return { found: false };
 
+  // Same guard as getTreatmentInfo: CANONICAL_CONCERNS still lists retired
+  // slugs (stretch-marks, stubborn-body-fat) that no longer resolve.
+  const coreSlug = coreConcernFor(c.slug);
+  if (!coreSlug) return { found: false };
+  const coreName = CORE_CONCERNS.find((x) => x.slug === coreSlug)?.name ?? c.name;
+
   const cat = CONCERN_CATALOG.find((x) => x.slug === c.slug);
-  const recommended = c.serviceSlugs
-    .map((slug) => {
-      const s = CANONICAL_SERVICES.find((z) => z.slug === slug);
-      return s ? { name: s.name, slug, url: `/search?q=${slug}` } : null;
-    })
-    .filter((x): x is { name: string; slug: string; url: string } => x !== null);
+  // Deduped on the core slug for the same reason as treatsConcerns above.
+  const byCore = new Map<string, { name: string; slug: string; url: string }>();
+  for (const slug of c.serviceSlugs) {
+    const s = CANONICAL_SERVICES.find((z) => z.slug === slug);
+    const core = coreTreatmentFor(slug);
+    if (!s || !core || byCore.has(core)) continue;
+    const name = CORE_TREATMENTS.find((t) => t.slug === core)?.name ?? s.name;
+    byCore.set(core, { name, slug: core, url: `/search?q=${core}` });
+  }
+  const recommended = [...byCore.values()];
 
   return {
     found: true,
-    name: c.name,
-    slug: c.slug,
-    url: `/search?condition=${c.slug}`,
+    name: coreName,
+    slug: coreSlug,
+    url: `/search?condition=${coreSlug}`,
     overview: cat?.overview ?? null,
     recommended_treatments: recommended,
   };

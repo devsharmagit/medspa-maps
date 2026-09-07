@@ -29,7 +29,7 @@ const QUESTIONS = [
   "dermal fillers near miami florida",
   "microneedling in utah",
   "best rated medspas in scottsdale az",
-  "coolsculpting in chicago",
+  "body contouring in chicago",
   "hydrafacial near seattle",
 ];
 
@@ -124,10 +124,48 @@ for (const question of QUESTIONS) {
     `at most ${MAX_CARDS} cards (got ${cards.clinics.length})`,
   );
 
+  // The answer may name a practice ONLY if the backend put it in RESULT_FACTS.
+  //
+  // This used to assert that no card name appeared in the prose at all, and it
+  // failed about one run in four — because that is stricter than the spec. The
+  // grounding rule in system-prompt.ts says the model must never write a
+  // practice name "unless it appears verbatim in CLINIC_IN_FOCUS or
+  // RESULT_FACTS", and context.ts resultFactsBlock() deliberately hands over
+  // the highest-rated, most-reviewed and closest practices with the
+  // instruction to quote them. So the model naming the top-rated one is
+  // correct behaviour, and one of the two follow-up chips we now render is
+  // literally "which of these has the best reviews?".
+  //
+  // What is still worth failing on: a name the backend never supplied — a
+  // fabrication, or the model re-listing the cards it was told not to list.
+  // That is the check with teeth, so it is the one kept. Mirrors the reducers
+  // in resultFactsBlock().
+  const rated = cards.clinics.filter((c) => c.rating != null);
+  const quotable = new Set();
+  if (rated.length) {
+    const best = rated.reduce((a, b) =>
+      (b.rating ?? 0) !== (a.rating ?? 0)
+        ? (b.rating ?? 0) > (a.rating ?? 0) ? b : a
+        : b.reviews > a.reviews ? b : a,
+    );
+    quotable.add(best.name);
+    quotable.add(rated.reduce((a, b) => (b.reviews > a.reviews ? b : a)).name);
+  }
+  const measured = cards.clinics.filter((c) => c.distance_miles != null);
+  if (measured.length) {
+    quotable.add(
+      measured.reduce((a, b) => ((b.distance_miles ?? 0) < (a.distance_miles ?? 0) ? b : a)).name,
+    );
+  }
+
   const leaked = cards.clinics
     .map((c) => c.name)
-    .filter((n) => text.toLowerCase().includes(n.toLowerCase()));
-  assert(leaked.length === 0, "answer names no practice in prose", leaked.join(", "));
+    .filter((n) => !quotable.has(n) && text.toLowerCase().includes(n.toLowerCase()));
+  assert(
+    leaked.length === 0,
+    "answer names no practice the backend did not supply",
+    leaked.join(", "),
+  );
 
   // The promise: the link in the reply reproduces the cards exactly.
   let live;

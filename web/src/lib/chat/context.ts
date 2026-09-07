@@ -10,7 +10,12 @@
  *
  * SERVER-SIDE ONLY.
  */
-import { CANONICAL_SERVICES, CANONICAL_CONCERNS } from "@/lib/taxonomy/canonical";
+import {
+  CORE_TREATMENTS,
+  CORE_CONCERNS,
+  coreTreatmentFor,
+  coreConcernFor,
+} from "@/lib/taxonomy/core-catalog";
 import type {
   ClinicContext,
   TreatmentInfo,
@@ -69,20 +74,42 @@ function ratingText(rating: number | null, reviews: number): string {
 // Individual blocks
 // ──────────────────────────────────────────────────────────────────────────
 /**
- * A SAMPLE of the catalog, not the catalog.
+ * The catalog — COMPLETE and CLOSED.
  *
- * This used to list the 15 curated treatments and 17 curated concerns, which
- * the model quite reasonably read as a whitelist — so it told people that real,
- * offered treatments "aren't covered". The live catalog has ~966 services and
- * ~191 concerns; dumping all of them would be tens of KB and would still read
- * as a whitelist. So we give the most-offered ones (with counts that match the
- * search dropdown exactly) and state plainly that the list is not the boundary.
+ * History matters here, because this block has been wrong in both directions.
+ * It first listed the 15 curated treatments and 17 curated concerns, which the
+ * model reasonably read as a whitelist — so it told people that real, offered
+ * treatments "aren't covered". The fix was to read the live catalog (966
+ * services / 191 concerns at the time), present the most-offered ones, and say
+ * plainly that the list was NOT the boundary.
+ *
+ * The 2026-09-06 reduction inverted the problem. The catalog is now 19
+ * treatments and 14 concerns — short enough to state in full — and everything
+ * outside it was purged, so a search for a retired name returns nothing. The old
+ * "never say it isn't covered" instruction became the licence the model used to
+ * discuss treatments this site does not list, sending people looking for
+ * something they cannot find here. So the wording is now the opposite: this is
+ * the whole catalog, and anything absent from it is genuinely not covered.
+ *
+ * Recognition is unaffected — intent.ts still maps "Morpheus8" onto
+ * rf-microneedling via coreTreatmentFor before this block is built. The bot
+ * understands the old names; it just answers using the real one.
  */
 function taxonomyBlock(catalog: LiveCatalog | null | undefined): string {
+  // Fallback when getLiveCatalog() or the count query failed. It must NOT be
+  // CANONICAL_SERVICES/CANONICAL_CONCERNS: those are the static Phase-0 lists
+  // and still contain Kybella, PDO Threads, Ultherapy, RF Skin Tightening,
+  // CoolSculpting, rosacea, stretch-marks and stubborn-body-fat — every one of
+  // them purged, every link they emit dead. A DB blip must not turn the bot
+  // into an advertiser for treatments the site dropped.
   if (!catalog || (!catalog.topTreatments.length && !catalog.topConcerns.length)) {
-    const t = CANONICAL_SERVICES.map((s) => `${s.name} (/search?q=${s.slug})`).join("; ");
-    const c = CANONICAL_CONCERNS.map((x) => `${x.name} (/search?condition=${x.slug})`).join("; ");
-    return `SITE_TAXONOMY (a sample — the full catalog is larger):\nTreatments — ${t}\nConcerns — ${c}`;
+    const t = CORE_TREATMENTS.map((s) => `${s.name} (/search?q=${s.slug})`).join("; ");
+    const c = CORE_CONCERNS.map((x) => `${x.name} (/search?condition=${x.slug})`).join("; ");
+    return (
+      `SITE_TAXONOMY (the COMPLETE list — practice counts are unavailable this turn):\n` +
+      `Treatments — ${t}\nConcerns — ${c}\n` +
+      `Anything not named above is not something this site lists.`
+    );
   }
 
   const t = catalog.topTreatments
@@ -94,12 +121,15 @@ function taxonomyBlock(catalog: LiveCatalog | null | undefined): string {
 
   return (
     `SITE_TAXONOMY:\n` +
-    `This site covers ${catalog.serviceCount} treatments and ${catalog.concernCount} conditions — ` +
-    `far more than can be listed here. The ones below are simply the most widely offered. ` +
-    `NEVER tell someone a treatment or condition isn't covered just because it is absent from this list; ` +
-    `anything the user named has already been resolved for you and appears in RESOLVED_ENTITIES.\n` +
-    `Most-offered treatments — ${t}\n` +
-    `Most-common conditions — ${c}\n` +
+    `This is the COMPLETE catalog — all ${catalog.serviceCount} treatments and ` +
+    `${catalog.concernCount} conditions this site covers. There is nothing else.\n` +
+    `If someone asks about a treatment that is NOT listed below, say plainly that ` +
+    `this site doesn't list it, then offer the closest one that IS listed. Do not ` +
+    `describe it, compare it, or imply it can be found here. Some older or brand ` +
+    `names map onto a listed treatment — when that has happened, RESOLVED_ENTITIES ` +
+    `names the listed one, and that is the name to use in your reply.\n` +
+    `Treatments — ${t}\n` +
+    `Conditions — ${c}\n` +
     `Browse everything: /search`
   );
 }
@@ -177,15 +207,21 @@ function pageContextBlock(g: GatheredContext): string {
     case "search":
       body = "Search results page. The user is browsing clinics.";
       break;
+    // Named from the CORE catalog, and via coreTreatmentFor so a legacy URL
+    // (/treatment/fine-lines-wrinkles) still resolves. Using CANONICAL_SERVICES
+    // here would label the page with a retired name and hand the model a link
+    // that returns nothing.
     case "treatment": {
-      const svc = CANONICAL_SERVICES.find((s) => s.slug === page.slug);
+      const core = coreTreatmentFor(page.slug ?? "");
+      const svc = core ? CORE_TREATMENTS.find((s) => s.slug === core) : undefined;
       body = svc
         ? `Treatment guide page for "${svc.name}" (/search?q=${svc.slug}).`
         : "A treatment guide page.";
       break;
     }
     case "concern": {
-      const cn = CANONICAL_CONCERNS.find((c) => c.slug === page.slug);
+      const core = coreConcernFor(page.slug ?? "");
+      const cn = core ? CORE_CONCERNS.find((c) => c.slug === core) : undefined;
       body = cn
         ? `Concern guide page for "${cn.name}" (/search?condition=${cn.slug}).`
         : "A concern guide page.";
