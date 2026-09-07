@@ -150,7 +150,7 @@ const wrinkles: LandingContent = {
   ],
   searchCta: {
     label: "Find wrinkle-treatment providers near you",
-    href: "/search?condition=fine-lines-wrinkles",
+    href: "/search?condition=wrinkles",
   },
   schemaAbout: { type: "MedicalCondition", name: "Wrinkles (facial rhytides)" },
 };
@@ -296,7 +296,7 @@ const pigmentation: LandingContent = {
   ],
   searchCta: {
     label: "Find pigmentation providers near you",
-    href: "/search?condition=hyperpigmentation",
+    href: "/search?condition=pigmentation",
   },
   schemaAbout: { type: "MedicalCondition", name: "Hyperpigmentation (skin discoloration)" },
 };
@@ -418,7 +418,7 @@ const veins: LandingContent = {
   ],
   searchCta: {
     label: "Find vein-treatment providers near you",
-    href: "/search?condition=spider-veins",
+    href: "/search?condition=veins",
   },
   searchAliases: { conditions: ["spider-veins", "varicose-veins"] },
   schemaAbout: { type: "MedicalCondition", name: "Varicose veins and spider veins" },

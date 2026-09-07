@@ -135,7 +135,7 @@ export const BLOG_POSTS: BlogPostMeta[] = [
     ],
     cta: {
       label: "Find hyperpigmentation providers near you",
-      href: "/search?condition=hyperpigmentation",
+      href: "/search?condition=pigmentation",
     },
     faqs: [
       {

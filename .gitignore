@@ -47,3 +47,14 @@ scripts/g99/.env.g99
 
 pages-docs
 treatment-service-images
+
+resume.tex
+
+# Bulk run artifacts — captured website text, DB dumps, per-clinic JSON,
+# per-clinic agent verdicts. These are DATA, not code, and the 2026-09-06
+# catalog-reduction set alone is 87 MB. They live outside the repo, together
+# with the one-shot scripts that produced them:
+#   ../medspa-map-archive/README.md
+web/reports/catalog-reduction-*/
+web/reports/g99-reconciliation-*.xlsx
+web/reports/g99-reconciliation-not-added-*.csv

@@ -5,6 +5,8 @@ import { ArrowRight } from "lucide-react";
 import { Footer } from "@/components/footer";
 import { ListingHero } from "@/components/shared/listing-hero";
 import { CONCERN_CATALOG } from "@/lib/concerns/catalog";
+import { CORE_CONCERNS } from "@/lib/taxonomy/core-catalog";
+import { coreConcernFor } from "@/lib/taxonomy/core-catalog";
 import { conditionImage } from "@/lib/images/catalog-images";
 
 export const metadata: Metadata = {
@@ -12,6 +14,34 @@ export const metadata: Metadata = {
   description:
     "Explore treatment guides and expert information for various skin and body conditions.",
 };
+
+/**
+ * The 14 core concerns, each with editorial copy where CONCERN_CATALOG still has
+ * some for the slug it absorbed.
+ *
+ * Before the 2026-09-06 reduction this page rendered CONCERN_CATALOG directly —
+ * 10 hand-written entries. Two of those slugs (stretch-marks, stubborn-body-fat)
+ * were retired with no core replacement, so their cards would now link to a
+ * search that returns nothing. Driving the list from CORE_CONCERNS instead means
+ * this page can only ever offer concerns that actually exist.
+ *
+ * The copy lookup is by redirect: `fine-lines-wrinkles` prose is reused for
+ * `wrinkles`, `hyperpigmentation` for `pigmentation`, and so on. Core concerns
+ * with no inherited copy fall back to a short generic line rather than an empty
+ * card.
+ */
+const CONDITION_CARDS = CORE_CONCERNS.map((core) => {
+  const legacy = CONCERN_CATALOG.find(
+    (c) => c.slug === core.slug || coreConcernFor(c.slug) === core.slug,
+  );
+  return {
+    slug: core.slug,
+    name: core.name,
+    overview:
+      legacy?.overview ??
+      `Find med spas near you that treat ${core.name.toLowerCase()}, with verified treatment menus and real patient reviews.`,
+  };
+});
 
 export default function ConditionsIndexPage() {
   return (
@@ -28,7 +58,7 @@ export default function ConditionsIndexPage() {
 
       <div className="mx-auto w-full max-w-[1400px] flex-1 px-4 pb-20 sm:px-6">
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {CONCERN_CATALOG.map((concern, index) => (
+          {CONDITION_CARDS.map((concern, index) => (
             <Link
               key={concern.slug}
               href={`/search?condition=${concern.slug}`}

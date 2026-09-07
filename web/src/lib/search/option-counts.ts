@@ -1,5 +1,4 @@
 import pool from "@/lib/db";
-import { matchService } from "@/lib/taxonomy/canonical";
 import {
   BROAD_CONCERN_CHILDREN,
   haversineMilesSql,
@@ -108,8 +107,7 @@ function scopeLabel(scope: LocationScope): string {
 }
 
 async function treatmentCounts(scope: ScopeSql): Promise<OptionCount[]> {
-  const [counted, allActive] = await Promise.all([
-    pool.query<OptionCount>(
+  const counted = await pool.query<OptionCount>(
       `WITH scope AS (${scope.sql})
        SELECT s.slug, s.name, count(DISTINCT cs.clinic_id)::int AS count
        FROM services s
@@ -121,38 +119,45 @@ async function treatmentCounts(scope: ScopeSql): Promise<OptionCount[]> {
          AND s.name !~* '(dentistry|dental|orthodont|veneer)'
        GROUP BY s.slug, s.name`,
       scope.params,
-    ),
-    // resolveSearchQuery looks the curated alias up against EVERY active
-    // service, dental ones included — so the same set is needed here.
-    pool.query<{ slug: string }>(`SELECT slug FROM services WHERE is_active = TRUE`),
-  ]);
+  );
 
   const countBySlug = new Map(counted.rows.map((r) => [r.slug, r.count]));
-  const activeSlugs = new Set(allActive.rows.map((r) => r.slug));
 
-  // Picking an option sends its slug as `?q=`, and the engine runs it through
-  // resolveSearchQuery FIRST — where curated aliases deliberately collapse
-  // brands into buckets ("dysport" → botox, see resolve-query.ts:62-76). So the
-  // honest count for an option is the count of the slug the search will
-  // actually run, not of the option's own membership rows. Without this,
-  // "Dysport" reads 0 next to a search that returns 25 clinics.
+  // Picking an option sends its slug as `?q=`, so the honest count is the count
+  // of whatever slug resolveSearchQuery will actually run.
+  //
+  // Since 2026-09-06 that is always the option's own slug: the resolver's FIRST
+  // pass is an exact match against the live catalog, and every option here comes
+  // from that same catalog, so an option slug can never reach the curated-alias
+  // layer.
+  //
+  // This used to apply `matchService(row.slug)` to follow brand→bucket
+  // collapses. Doing that now is not a no-op, it is WRONG — matchService still
+  // fuzzy-matches "lip-fillers" to `dermal-fillers` and "rf-microneedling" to
+  // `microneedling`, so the dropdown showed Lip Fillers as 512 next to a search
+  // returning 36. Both are core entries in their own right now; the alias layer
+  // no longer speaks for them.
   return counted.rows
-    .map((row) => {
-      const curated = matchService(row.slug).slug;
-      const effective = curated && activeSlugs.has(curated) ? curated : row.slug;
-      // An effective slug missing from the counted set is a dental row the
-      // search's own join excludes — it genuinely returns nothing.
-      return { slug: row.slug, name: row.name, count: countBySlug.get(effective) ?? 0 };
-    })
+    .map((row) => ({
+      slug: row.slug,
+      name: row.name,
+      // A slug missing from the counted set is a dental row the search's own
+      // join excludes — it genuinely returns nothing.
+      count: countBySlug.get(row.slug) ?? 0,
+    }))
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
 }
 
 async function concernCounts(scope: ScopeSql): Promise<OptionCount[]> {
   // A broad concern also matches its children, so its count is over the whole
-  // expanded slug set — `fine-lines-wrinkles` is 563 nationally, not the 395
-  // its own membership rows give. The expansion is built in SQL as
-  // (catalog_slug → match_slug) pairs: every concern maps to itself, plus the
-  // broad→child pairs from BROAD_CONCERN_CHILDREN.
+  // expanded slug set. The expansion is built in SQL as (catalog_slug →
+  // match_slug) pairs: every concern maps to itself, plus the broad→child pairs
+  // from BROAD_CONCERN_CHILDREN.
+  //
+  // That map is empty post-2026-09-06 — the children were folded into their
+  // parents at the data layer — so the UNION currently adds nothing. Both this
+  // and query.ts read the same map, which is what keeps the dropdown count and
+  // the search total equal; verify with scripts/verify-option-counts.mjs.
   const broadParents: string[] = [];
   const broadChildren: string[] = [];
   for (const [parent, children] of Object.entries(BROAD_CONCERN_CHILDREN)) {

@@ -11,18 +11,45 @@ import {
   Gem,
   Waves,
   Wand,
-  Flame,
   Sparkles,
-  Layers,
   Sun,
+  Zap,
+  Layers,
+  Aperture,
+  Smile,
+  HeartPulse,
+  Flame,
 } from "lucide-react";
 
 /**
- * Static homepage "Popular Treatments" list — the 15 treatments with the
- * highest clinic counts (per a 2026-07-21 DB snapshot), each with a distinct
- * lucide-react icon. clinicCount is a hand-maintained snapshot from the
- * `clinics`/`clinic_services` tables — same intentionally-static approach as
- * src/data/top-states.ts; refresh by hand if the counts drift meaningfully.
+ * Static homepage "Popular Treatments" list.
+ *
+ * Since the 2026-09-06 catalog reduction this is the WHOLE public treatment
+ * catalog — all 19 core treatments, ordered by clinic count — not a top-N slice
+ * of a longer list. Every slug here must be one of the 19; a slug that is not
+ * active in `services` links to a search that returns nothing.
+ *
+ * clinicCount is a hand-maintained snapshot (2026-09-07), same intentionally
+ * static approach as src/data/top-states.ts.
+ *
+ * These MUST equal what the search dropdown shows, or a card promises a count
+ * the search then contradicts. That means one source only:
+ *
+ *   getSearchOptionCounts(new URLSearchParams())   // lib/search/option-counts.ts
+ *
+ * national scope, which is the same function the dropdown calls. Do NOT
+ * hand-roll the SQL: the obvious form
+ * `LEFT JOIN clinics cl ON cl.id = cs.clinic_id AND cl.is_active` does not drop
+ * rows for inactive clinics and over-reports by ~30 (it is what once made a
+ * coverage figure read 102%). option-counts.ts uses a scope CTE plus an
+ * `IN (SELECT …)` membership test instead, which is correct.
+ *
+ * Drift is not silent: scripts/verify-core-links.ts fails the build check when
+ * any number here is more than 10% off the live count.
+ *
+ * The previous snapshot was taken mid-reduction — after the catalog cut but
+ * before the website-verified backfill landed — so every figure was low and Lip
+ * Fillers read 40 against a real 403.
  */
 
 export interface PopularTreatment {
@@ -33,19 +60,23 @@ export interface PopularTreatment {
 }
 
 export const POPULAR_TREATMENTS: PopularTreatment[] = [
-  { slug: "botox", name: "Botox", clinicCount: 559, icon: Syringe },
-  { slug: "dermal-fillers", name: "Dermal Fillers", clinicCount: 521, icon: Droplet },
-  { slug: "microneedling", name: "Microneedling", clinicCount: 426, icon: CircleDot },
-  { slug: "chemical-peels", name: "Chemical Peels", clinicCount: 344, icon: FlaskConical },
-  { slug: "laser-hair-removal", name: "Laser Hair Removal", clinicCount: 312, icon: Wand2 },
-  { slug: "medical-weight-loss", name: "Medical Weight Loss", clinicCount: 308, icon: Scale },
-  { slug: "prp-prf", name: "PRP (Platelet-Rich Plasma)", clinicCount: 274, icon: Droplets },
-  { slug: "iv-therapy", name: "IV Therapy", clinicCount: 271, icon: GlassWater },
-  { slug: "sculptra", name: "Sculptra", clinicCount: 231, icon: Gem },
-  { slug: "hydrafacial", name: "HydraFacial", clinicCount: 178, icon: Waves },
-  { slug: "dysport", name: "Dysport", clinicCount: 172, icon: Wand },
-  { slug: "kybella", name: "Kybella", clinicCount: 167, icon: Flame },
-  { slug: "facials", name: "Facials", clinicCount: 142, icon: Sparkles },
-  { slug: "pdo-threads", name: "PDO Threads", clinicCount: 120, icon: Layers },
-  { slug: "ipl-photofacial", name: "IPL / Photofacial", clinicCount: 96, icon: Sun },
+  { slug: "facials", name: "Facials", clinicCount: 593, icon: Sparkles },
+  { slug: "botox", name: "Botox", clinicCount: 579, icon: Syringe },
+  { slug: "microneedling", name: "Microneedling", clinicCount: 576, icon: CircleDot },
+  { slug: "dermal-fillers", name: "Dermal Fillers", clinicCount: 568, icon: Droplet },
+  { slug: "chemical-peels", name: "Chemical Peels", clinicCount: 511, icon: FlaskConical },
+  { slug: "laser-treatments", name: "Laser Treatments", clinicCount: 487, icon: Aperture },
+  { slug: "prp-prf", name: "PRP / PRF Therapy", clinicCount: 478, icon: Droplets },
+  { slug: "laser-hair-removal", name: "Laser Hair Removal", clinicCount: 421, icon: Wand2 },
+  { slug: "body-contouring", name: "Body Contouring", clinicCount: 405, icon: HeartPulse },
+  { slug: "lip-fillers", name: "Lip Fillers", clinicCount: 403, icon: Smile },
+  { slug: "medical-weight-loss", name: "Medical Weight Loss", clinicCount: 402, icon: Scale },
+  { slug: "sculptra", name: "Sculptra", clinicCount: 399, icon: Gem },
+  { slug: "dysport", name: "Dysport", clinicCount: 395, icon: Wand },
+  { slug: "iv-therapy", name: "IV Therapy", clinicCount: 368, icon: GlassWater },
+  { slug: "laser-skin-resurfacing", name: "Laser Skin Resurfacing", clinicCount: 359, icon: Zap },
+  { slug: "ipl-photofacial", name: "IPL Photofacial", clinicCount: 348, icon: Sun },
+  { slug: "hair-restoration", name: "Hair Restoration", clinicCount: 339, icon: Flame },
+  { slug: "rf-microneedling", name: "RF Microneedling", clinicCount: 322, icon: Layers },
+  { slug: "hydrafacial", name: "HydraFacial", clinicCount: 258, icon: Waves },
 ];

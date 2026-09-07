@@ -163,7 +163,7 @@ const botox: LandingContent = {
       a: "Botox relaxes the muscles that create expression lines, while dermal fillers add volume to plump lines and restore fullness. They treat different concerns and are often combined.",
     },
   ],
-  searchCta: { label: "Find Botox providers near you", href: "/search?q=Botox" },
+  searchCta: { label: "Find Botox providers near you", href: "/search?q=botox" },
   schemaAbout: { type: "MedicalProcedure", name: "Botox (botulinum toxin) injection" },
 };
 

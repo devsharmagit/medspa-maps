@@ -48,6 +48,7 @@ import { lookupG99ByDomain } from "../src/lib/g99/harvest";
 import { resolveClinicRating } from "../src/lib/ratings/fetch-rating";
 import { slugify } from "../src/lib/scraper/utils";
 import { normalizeState } from "../src/lib/address-parser";
+import { isCatalogClosed, coreRowFor } from "../src/lib/taxonomy/catalog-policy";
 import { isLandscapeImage } from "../src/lib/scraper/image-size";
 import { normalize, bestCatalogMatch, isServiceNoise, isConcernNoise } from "../src/lib/taxonomy/canonical";
 
@@ -426,6 +427,7 @@ async function saveOne(p: Payload, allowOverwrite = false): Promise<Record<strin
 
   // concerns — resolve/create then link (isConcernNoise backstop)
   let concernsSaved = 0;
+  let concernsDropped = 0;
   if (clinicId) {
     const catalog = await query<{ id: string; name: string; slug: string }>(`SELECT id, name, slug FROM concerns WHERE is_active = true`);
     const cat = catalog.map((c) => ({ id: c.id, name: c.name, slug: c.slug, aliases: [] as string[] }));
@@ -436,6 +438,10 @@ async function saveOne(p: Payload, allowOverwrite = false): Promise<Record<strin
       const n = normalize(name);
       let row = cat.find((c) => normalize(c.name) === n || normalize(c.slug) === n);
       if (!row) { const fz = bestCatalogMatch(name, cat, 0.84); if (fz) row = cat.find((c) => c.slug === fz.entry.slug); }
+      // Same closed-catalog rule as the AI ingest engine: fall back to the
+      // reduction's redirect map, then drop. See lib/taxonomy/catalog-policy.ts.
+      if (!row) row = coreRowFor("concern", [name], (slug) => cat.find((c) => c.slug === slug) ?? null) ?? undefined;
+      if (!row && isCatalogClosed()) { concernsDropped++; continue; }
       if (!row) {
         const base = slugify(name) || "concern"; let sl = base, i = 2;
         while (await queryOne(`SELECT 1 FROM concerns WHERE slug = $1`, [sl])) sl = `${base}-${i++}`;
@@ -448,7 +454,7 @@ async function saveOne(p: Payload, allowOverwrite = false): Promise<Record<strin
       await query(
         `INSERT INTO clinic_concerns (clinic_id, concern_id, source, is_active) VALUES ($1,$2,'scraped',true)
          ON CONFLICT (clinic_id, concern_id) DO UPDATE SET source='scraped', is_active=true, updated_at=now()
-         WHERE clinic_concerns.source <> 'removed'`, [clinicId, row.id]);
+         WHERE clinic_concerns.source NOT IN ('removed', 'manual')`, [clinicId, row.id]);
       concernsSaved++;
     }
   }
@@ -458,7 +464,7 @@ async function saveOne(p: Payload, allowOverwrite = false): Promise<Record<strin
     locations: locations.length, geocoded: locations.filter((l) => l.lat != null).length,
     treatments: services.length, matched: saved.servicesMatched, auto: saved.servicesAuto,
     dropped: saved.servicesDropped,
-    concernsSaved, providers: bundle.providers?.length ?? 0, images: saved.images,
+    concernsSaved, concernsDropped, providers: bundle.providers?.length ?? 0, images: saved.images,
     cover: coverUrl ? "yes" : "NONE",
     // Surfaced loudly: a dead image URL means the sub-agent read a path off the
     // page that the server will not actually serve.

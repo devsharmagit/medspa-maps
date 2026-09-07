@@ -8,10 +8,24 @@ export interface ClinicTreatment {
 }
 
 function TreatmentChip({ treatment }: { treatment: ClinicTreatment }) {
-  // Clicking finds every clinic that offers this treatment (mirrors concern chips).
+  // Clicking finds every clinic that offers this treatment (mirrors concern
+  // chips). Links by SLUG: `?q=` is an exact slug lookup as of 2026-09-07, so
+  // the display name would resolve to nothing. `slug` is null only for a row
+  // whose catalog entry is gone, which the query already filters out — the
+  // fallback renders the chip unlinked rather than pointing at a dead search.
+  if (!treatment.slug) {
+    return (
+      <span className="inline-flex items-center rounded-full border border-[#F0DDE8] bg-white px-4 py-2 font-montserrat text-[13px] font-medium leading-none text-[#575757] shadow-[0px_2px_6px_rgba(0,0,0,0.03)]">
+        {treatment.name}
+        {treatment.price_from != null && (
+          <span className="ml-1.5 text-[#A8698B]">· from ${treatment.price_from}</span>
+        )}
+      </span>
+    );
+  }
   return (
     <Link
-      href={`/search?q=${encodeURIComponent(treatment.name)}`}
+      href={`/search?q=${encodeURIComponent(treatment.slug)}`}
       className="inline-flex items-center rounded-full border border-[#F0DDE8] bg-white px-4 py-2 font-montserrat text-[13px] font-medium leading-none text-[#575757] shadow-[0px_2px_6px_rgba(0,0,0,0.03)] transition-colors hover:border-[#CF5B9D] hover:text-[#CF5B9D]"
     >
       {treatment.name}

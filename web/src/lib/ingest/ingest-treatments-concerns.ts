@@ -23,6 +23,7 @@ import {
 } from "@/lib/scraper/services";
 import type { ScrapedService } from "@/lib/scraper/types";
 import { bestCatalogMatch, isServiceNoise, isConcernNoise, normalize, type CatalogEntry } from "@/lib/taxonomy/canonical";
+import { isCatalogClosed, coreRowFor } from "@/lib/taxonomy/catalog-policy";
 import {
   findClinicsByDomain,
   saveClinicServices,
@@ -65,7 +66,7 @@ function tcLog(domain: string, stage: string, data?: Record<string, unknown>): v
   });
 }
 
-interface ConcernCatRow extends CatalogEntry {
+export interface ConcernCatRow extends CatalogEntry {
   id: string;
   origin: string;
   aliases: string[];
@@ -143,7 +144,8 @@ function displayConcernName(name: string): string {
   return clean.split(" ").map(titleCaseWord).join(" ");
 }
 
-async function loadConcernCatalog(): Promise<ConcernCatRow[]> {
+/** Exported as a testing seam for scripts/test-refresh-e2e.ts. */
+export async function loadConcernCatalog(): Promise<ConcernCatRow[]> {
   const rows = await query<{
     id: string;
     name: string;
@@ -420,13 +422,30 @@ function splitCompoundConcern(catalog: ConcernCatRow[], name: string): ConcernCa
   return rows.length >= 2 ? rows : null;
 }
 
-async function resolveConcernRow(
+/**
+ * Resolve a scraped concern name onto a catalog row.
+ *
+ * Returns null when the closed catalog cannot place the name — the caller drops
+ * it. `matchExistingConcern` only ever returns rows loaded WHERE is_active, so
+ * it is safe under either policy; the redirect map is what rescues the names it
+ * misses ("Hyperpigmentation" -> Pigmentation) before giving up.
+ */
+export async function resolveConcernRow(
   catalog: ConcernCatRow[],
   createdConcerns: string[],
   name: string
-): Promise<ConcernCatRow> {
+): Promise<ConcernCatRow | null> {
   const existing = matchExistingConcern(catalog, name);
   if (existing) return existing;
+
+  const redirected = coreRowFor<ConcernCatRow>("concern", [name], (slug) =>
+    catalog.find((c) => c.slug === slug) ?? null
+  );
+  if (redirected) return redirected;
+
+  // Closed catalog: minting here is exactly what re-grew the taxonomy after the
+  // 2026-09-06 reduction. Drop instead. See catalog-policy.ts.
+  if (isCatalogClosed()) return null;
 
   const clean = displayConcernName(name);
   const root = slugify(clean) || "concern";
@@ -784,13 +803,20 @@ export async function ingestTreatmentsAndConcernsForClinic(
     source_url: string | null;
   }>();
   let compoundsSplit = 0;
+  let concernsDropped = 0;
   for (const c of detected) {
     const cleanName = c.name?.trim();
     if (!cleanName || normalize(cleanName).length < 3) continue;
     if (isConcernNoise(cleanName)) continue; // treatments/procedures/goals are not concerns
     // "Spider Veins, Rosacea & Redness" -> three known rows, not one new row.
     const split = splitCompoundConcern(concernCatalog, cleanName);
-    const rows = split ?? [await resolveConcernRow(concernCatalog, createdConcerns, cleanName)];
+    const resolved = split ?? [await resolveConcernRow(concernCatalog, createdConcerns, cleanName)];
+    // Closed catalog: a name that maps to no active core concern is dropped.
+    const rows = resolved.filter((r): r is ConcernCatRow => r !== null);
+    if (rows.length === 0) {
+      concernsDropped++;
+      continue;
+    }
     if (split) compoundsSplit++;
     for (const row of rows) {
       if (!standaloneConcernRows.has(row.id)) {
@@ -806,6 +832,8 @@ export async function ingestTreatmentsAndConcernsForClinic(
     hasConditionsSection: collected.hasConditionsSection,
     extractedConcerns: extracted.concerns.length,
     compoundsSplit,
+    concernsDropped,
+    catalogPolicy: isCatalogClosed() ? "closed" : "open",
     concernsToSave: standaloneConcernRows.size,
     ms: Date.now() - started,
   });
@@ -904,6 +932,12 @@ export async function ingestTreatmentsAndConcernsForClinic(
     });
 
     // Replace scraped concern membership; admin `manual`/`removed` rows survive.
+    //
+    // The DELETE spares them, but the upsert below used to convert a surviving
+    // `manual` row to `scraped` whenever the crawl re-detected that concern —
+    // and the NEXT refresh's DELETE would then take it. That two-pass erosion
+    // defeated the whole reason apply-verdicts.ts writes source='manual', so the
+    // ON CONFLICT guard excludes 'manual' as well as 'removed'.
     await client.query(
       `DELETE FROM clinic_concerns WHERE clinic_id = $1 AND source = 'scraped'`,
       [clinicId]
@@ -917,7 +951,7 @@ export async function ingestTreatmentsAndConcernsForClinic(
            source = 'scraped',
            is_active = true,
            updated_at = NOW()
-         WHERE clinic_concerns.source <> 'removed'`,
+         WHERE clinic_concerns.source NOT IN ('removed', 'manual')`,
         [clinicId, concernIds]
       );
     }

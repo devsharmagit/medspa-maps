@@ -245,7 +245,7 @@ export default function ServicesPage() {
                             className="h-7 px-2.5 text-xs gap-1 border-slate-200 text-slate-600 hover:bg-slate-50"
                           >
                             <a
-                              href={`/treatments/${item.slug}`}
+                              href={`/search?q=${encodeURIComponent(item.slug)}`}
                               target="_blank"
                               rel="noreferrer"
                             >

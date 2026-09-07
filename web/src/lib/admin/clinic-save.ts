@@ -32,6 +32,7 @@ import {
   stripCredentials,
   CANONICAL_SERVICES,
 } from "@/lib/taxonomy/canonical";
+import { isCatalogClosed, coreRowFor } from "@/lib/taxonomy/catalog-policy";
 import { saveClinicConcerns } from "@/lib/concerns/clinic-concerns";
 
 const PRIORITY_SERVICE_SLUG_SET = new Set(CANONICAL_SERVICES.map((s) => s.slug));
@@ -285,7 +286,6 @@ export async function findExistingClinicsByDomain(
 async function uniqueClinicSlug(base: string): Promise<string> {
   let slug = base || "clinic";
   let n = 2;
-  // eslint-disable-next-line no-constant-condition
   while (true) {
     const existing = await queryOne<{ id: string }>(
       `SELECT id FROM clinics WHERE slug = $1`,
@@ -362,7 +362,17 @@ export async function saveClinicServices(
     : { query, queryOne };
 
   if (overwrite) {
-    await run.query(`DELETE FROM clinic_services WHERE clinic_id = $1`, [clinicId]);
+    // The 2026-09-06 website-verified backfill (scripts/apply-verdicts.ts) writes
+    // its treatment rows as "<Core Name> (verified)". Those assertions come from
+    // a human-gated read of the clinic's own pages, so a later automated scrape
+    // must not silently delete them — the suffix is the marker that identifies
+    // them, and it is still the undo handle documented in apply-verdicts.ts.
+    // Concerns get the same protection via source='manual' in the ingest engine.
+    await run.query(
+      `DELETE FROM clinic_services
+        WHERE clinic_id = $1 AND raw_name NOT LIKE '% (verified)'`,
+      [clinicId]
+    );
   }
 
   // Load the live catalog once (curated 15 + previously AI-grown rows).
@@ -408,6 +418,13 @@ export async function saveClinicServices(
   // matches the provider "Mara Costa".
   const providerNorms = new Set((opts.providerNames ?? []).map((n) => stripCredentials(n ?? "")).filter(Boolean));
 
+  // Closed catalog (the default): resolve onto an already-active row or drop.
+  // Every matcher below — curated, exact, fuzzy — can only ever return a row
+  // from `catalog`, which is loaded WHERE is_active, so they are all safe as-is.
+  // The only unsafe paths are the two createAiService() calls, which this
+  // disables in favour of the reduction's redirect map. See catalog-policy.ts.
+  const closed = isCatalogClosed();
+
   let matched = 0;
   let auto = 0;
   let dropped = 0;
@@ -446,6 +463,13 @@ export async function saveClinicServices(
       const gen = s.general_name?.trim();
       if (!gen || gen.length < 3) return false;
       const exact = exactNameMatch(gen);
+      // Closed catalog: an exact hit on an active row is the only thing this
+      // step may do. Reporting `false` hands the name to the curated matcher
+      // and then to the redirect/fuzzy fallback below, which is where a
+      // non-core general_name like "Morpheus8" gets placed. `forceCreatePublic`
+      // is meaningless here: it exists to keep distinct brands out of broad
+      // buckets, and after the reduction the broad buckets ARE the catalog.
+      if (closed && !exact) return false;
       const row = exact
         ? exact
         : forceCreatePublic
@@ -459,8 +483,13 @@ export async function saveClinicServices(
     };
 
     if (s.mapped_slug) {
+      // An admin override may name a slug the reduction retired. Closed mode
+      // sends it through the redirect map rather than resurrecting the row via
+      // an unfiltered slug lookup that ignores is_active.
       const svc = catBySlug.get(s.mapped_slug)
-        ?? (await queryOne<{ id: string }>(`SELECT id FROM services WHERE slug = $1`, [s.mapped_slug]));
+        ?? (closed
+          ? coreRowFor<CatRow>("treatment", [s.mapped_slug], (slug) => catBySlug.get(slug))
+          : await queryOne<{ id: string }>(`SELECT id FROM services WHERE slug = $1`, [s.mapped_slug]));
       serviceId = svc?.id ?? null;
       matchStatus = serviceId ? "matched" : null;
     } else if (publicDecision === "public" && await mapByGeneralName(true)) {
@@ -493,6 +522,35 @@ export async function saveClinicServices(
         }
       }
     }
+
+    // Closed catalog: last chance before the name is given up on. In open mode
+    // this is where createAiService() would have run.
+    //
+    //  a) The reduction's redirect map. 543 retired treatment names point at the
+    //     core entry that absorbed them, so this is a deterministic alias hit,
+    //     not a guess — hence match_status 'matched', the same as a curated
+    //     brand alias. general_name first, then the verbatim raw_name.
+    //  b) Failing that, a fuzzy match on the raw name against the active
+    //     catalog. Reached when general_name was present but unplaceable, which
+    //     the general_name-only branch above used to answer by minting a row.
+    if (closed && (!serviceId || !matchStatus)) {
+      const redirected = coreRowFor<CatRow>(
+        "treatment",
+        [s.general_name, raw],
+        (slug) => catBySlug.get(slug)
+      );
+      if (redirected) {
+        serviceId = redirected.id;
+        matchStatus = "matched";
+      } else {
+        const fuzzy = bestCatalogMatch(raw, catalog);
+        if (fuzzy) {
+          serviceId = catBySlug.get(fuzzy.entry.slug)!.id;
+          matchStatus = fuzzy.confidence >= 1 ? "matched" : "auto";
+        }
+      }
+    }
+
     // Unresolvable → not an offering we can name. Drop it rather than storing a
     // dangling row whose raw_name leaks into search.
     if (!serviceId || !matchStatus) {

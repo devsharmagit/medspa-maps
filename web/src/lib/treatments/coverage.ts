@@ -1,18 +1,22 @@
 /**
- * coverage.ts — Phase-0 priority-treatment coverage for a clinic.
+ * coverage.ts — core-catalog coverage for a clinic.
  *
- * Given the canonical service slugs a clinic resolves to (its matched/auto
- * clinic_services), report how many of the 15 priority treatments it offers,
- * which it's missing, and which priority concerns those treatments can treat.
- * Used by the add-clinic flow so an operator can see, at a glance, how well a
- * clinic covers the launch catalog.
+ * Given the service slugs a clinic resolves to (its matched/auto
+ * clinic_services), report how many of the core treatments it offers, which
+ * it's missing, and which core concerns those treatments can treat. Used by the
+ * add-clinic flow so an operator can see at a glance how well a clinic covers
+ * the public catalog.
+ *
+ * The denominator moved from the 15 Phase-0 CANONICAL_SERVICES to the 19 core
+ * treatments on 2026-09-06. It has to: after the reduction those are the only
+ * treatments the site can surface, so "12/15" would have been measuring against
+ * a list that no longer exists — and it counted PDO Threads and Ultherapy,
+ * which are now invisible to users, while ignoring Dysport and Lip Fillers,
+ * which are not.
  */
 
-import {
-  CANONICAL_SERVICES,
-  CANONICAL_CONCERNS,
-  concernsTreatedBy,
-} from "@/lib/taxonomy/canonical";
+import { concernsTreatedBy } from "@/lib/taxonomy/canonical";
+import { CORE_TREATMENTS, CORE_CONCERNS, coreConcernFor } from "@/lib/taxonomy/core-catalog";
 
 export interface PriorityTreatment {
   slug: string;
@@ -25,13 +29,13 @@ export interface PriorityConcern {
 }
 
 export interface PriorityCoverage {
-  /** Of the 15 priority treatments, the ones this clinic offers (catalog order). */
+  /** Of the core treatments, the ones this clinic offers (catalog order). */
   present: PriorityTreatment[];
-  /** Of the 15 priority treatments, the ones it doesn't offer (catalog order). */
+  /** Of the core treatments, the ones it doesn't offer (catalog order). */
   missing: PriorityTreatment[];
   /** present.length */
   count: number;
-  /** total priority treatments (15) */
+  /** total core treatments (19) */
   total: number;
   /** Priority concerns treatable by the present treatments (catalog order). */
   concerns: PriorityConcern[];
@@ -51,14 +55,18 @@ export function computePriorityCoverage(
 
   const present: PriorityTreatment[] = [];
   const missing: PriorityTreatment[] = [];
-  for (const s of CANONICAL_SERVICES) {
+  for (const s of CORE_TREATMENTS) {
     const item = { slug: s.slug, name: s.name };
     if (have.has(s.slug)) present.push(item);
     else missing.push(item);
   }
 
-  const treatable = new Set(concernsTreatedBy(have));
-  const concerns: PriorityConcern[] = CANONICAL_CONCERNS.filter((c) =>
+  // concernsTreatedBy still speaks the old CANONICAL_CONCERNS vocabulary, so
+  // map its output onto core slugs before intersecting.
+  const treatable = new Set(
+    [...concernsTreatedBy(have)].map((slug) => coreConcernFor(slug)).filter((s): s is string => s !== null)
+  );
+  const concerns: PriorityConcern[] = CORE_CONCERNS.filter((c) =>
     treatable.has(c.slug)
   ).map((c) => ({ slug: c.slug, name: c.name }));
 
@@ -66,7 +74,7 @@ export function computePriorityCoverage(
     present,
     missing,
     count: present.length,
-    total: CANONICAL_SERVICES.length,
+    total: CORE_TREATMENTS.length,
     concerns,
   };
 }
@@ -78,7 +86,7 @@ export interface EditableCoverage {
   missingTreatments: PriorityTreatment[];
   /** presentTreatments.length */
   treatmentCount: number;
-  /** total priority treatments (15) */
+  /** total core treatments (19) */
   treatmentTotal: number;
   /** Priority concerns explicitly selected (catalog order). */
   presentConcerns: PriorityConcern[];
@@ -86,7 +94,7 @@ export interface EditableCoverage {
   missingConcerns: PriorityConcern[];
   /** presentConcerns.length */
   concernCount: number;
-  /** total priority concerns (10) */
+  /** total core concerns (14) */
   concernTotal: number;
 }
 
@@ -110,7 +118,7 @@ export function computeEditableCoverage(
 
   const presentTreatments: PriorityTreatment[] = [];
   const missingTreatments: PriorityTreatment[] = [];
-  for (const s of CANONICAL_SERVICES) {
+  for (const s of CORE_TREATMENTS) {
     const item = { slug: s.slug, name: s.name };
     if (haveTreatments.has(s.slug)) presentTreatments.push(item);
     else missingTreatments.push(item);
@@ -118,7 +126,7 @@ export function computeEditableCoverage(
 
   const presentConcerns: PriorityConcern[] = [];
   const missingConcerns: PriorityConcern[] = [];
-  for (const c of CANONICAL_CONCERNS) {
+  for (const c of CORE_CONCERNS) {
     const item = { slug: c.slug, name: c.name };
     if (haveConcerns.has(c.slug)) presentConcerns.push(item);
     else missingConcerns.push(item);
@@ -128,10 +136,10 @@ export function computeEditableCoverage(
     presentTreatments,
     missingTreatments,
     treatmentCount: presentTreatments.length,
-    treatmentTotal: CANONICAL_SERVICES.length,
+    treatmentTotal: CORE_TREATMENTS.length,
     presentConcerns,
     missingConcerns,
     concernCount: presentConcerns.length,
-    concernTotal: CANONICAL_CONCERNS.length,
+    concernTotal: CORE_CONCERNS.length,
   };
 }

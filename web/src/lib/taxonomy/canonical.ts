@@ -78,9 +78,12 @@ export const CANONICAL_SERVICES: CanonicalService[] = [
       "botulinum toxin",
       "onabotulinumtoxina",
       "wrinkle relaxer",
+      "wrinkle relaxers",
       "anti-wrinkle injections",
-      "dysport",
-      "abobotulinumtoxina",
+      // "dysport" / "abobotulinumtoxina" deliberately NOT listed: Dysport is a
+      // core treatment in its own right as of the 2026-09-06 reduction, and
+      // folding it in here would make every Dysport search return Botox
+      // clinics. See lib/taxonomy/core-catalog.ts.
       "xeomin",
       "jeuveau",
       "daxxify",
@@ -104,8 +107,9 @@ export const CANONICAL_SERVICES: CanonicalService[] = [
       "dermal filler",
       "filler",
       "fillers",
-      "lip filler",
-      "lip fillers",
+      // "lip filler" / "lip fillers" deliberately NOT listed: Lip Fillers is a
+      // core treatment as of 2026-09-06. Keeping them here is what kept the
+      // lip-filler row at 5% coverage. See docs/INGESTION-ISSUES.md.
       "cheek filler",
       "under eye filler",
       "under-eye filler",
@@ -224,19 +228,11 @@ export const CANONICAL_SERVICES: CanonicalService[] = [
       "collagen induction",
       "collagen induction therapy",
       "skinpen",
-      "rf microneedling",
-      "radiofrequency microneedling",
-      "rf microneedling and microneedling",
-      "microneedling / rf microneedling",
-      "microneedling/rf microneedling",
-      "morpheus8",
-      "morpheus 8",
-      "morpheus8 treatment",
-      "sylfirm x",
-      "sylfirm x rf microneedling",
-      "sylfirm",
-      "vivace",
-      "secret rf",
+      "nanoneedling",
+      // RF devices moved OUT of this list on 2026-09-06: RF Microneedling is a
+      // core treatment of its own (142 clinics), and collapsing Morpheus8,
+      // Sylfirm, Vivace and Secret RF into plain microneedling made it
+      // unreachable. They are mapped in lib/taxonomy/core-catalog.ts instead.
       "ruma gold microchannel treatment",
       "ruma gold microchannel",
       "ruma gold",

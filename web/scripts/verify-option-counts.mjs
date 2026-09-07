@@ -26,7 +26,12 @@ const SCOPES = [
 const TOP_N = 8;
 // Broad concerns expand to child slugs in the search engine; if the counts
 // endpoint forgets that expansion these two are where it shows up.
-const MUST_CHECK_CONCERNS = ["fine-lines-wrinkles", "skin-laxity-sagging"];
+// Concerns whose count is most likely to drift from the search total. Both were
+// broad parents with child expansions before the 2026-09-06 reduction; they are
+// now plain core entries, and they stay pinned here because they carry the
+// largest memberships in the catalog — if the two SQL builders ever disagree,
+// these are where it shows up first.
+const MUST_CHECK_CONCERNS = ["wrinkles", "skin-laxity"];
 
 async function getJson(path, params) {
   const url = new URL(path, BASE);
