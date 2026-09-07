@@ -197,8 +197,10 @@ services and 14 -> 15 concerns in a single pass.
 
 ## Related
 
-- `web/reports/catalog-reduction-2026-09-06/` — the reduction run, its archive,
-  and the website-verified backfill that works around defects 1 and 2.
+- `../medspa-map-archive/catalog-reduction-2026-09-06/` — the reduction run, its
+  DB dumps, the 632 per-clinic website captures and the per-clinic verdicts
+  behind the backfill that works around defects 1 and 2. Kept **outside this
+  repo** (87 MB of data and one-shot scripts); see that directory's README.
 - `ai-extraction-treatments-concerns.md` — accurate description of the current
   pipeline. Note `ARCHITECTURE.md` is **stale**: it describes an Anthropic +
   OpenRouter setup with `claude-haiku-4-5` that no longer exists. The ingest path
@@ -210,7 +212,8 @@ services and 14 -> 15 concerns in a single pass.
 ## Appendix — what the 2026-09-06 website re-read actually found
 
 The catalog reduction included re-reading all 632 clinic websites from scratch
-(`web/scripts/fetch-clinic-pages.ts`, no AI, no ingest-pipeline code). Comparing
+(`fetch-clinic-pages.ts`, no AI, no ingest-pipeline code — archived alongside
+the run, see Related above). Comparing
 that read against what the pipeline had stored is the clearest available measure
 of the defects above.
 

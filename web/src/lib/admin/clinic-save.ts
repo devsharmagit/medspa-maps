@@ -362,7 +362,8 @@ export async function saveClinicServices(
     : { query, queryOne };
 
   if (overwrite) {
-    // The 2026-09-06 website-verified backfill (scripts/apply-verdicts.ts) writes
+    // The 2026-09-06 website-verified backfill (apply-verdicts.ts, archived at
+    // ../medspa-map-archive/one-time-scripts/) writes
     // its treatment rows as "<Core Name> (verified)". Those assertions come from
     // a human-gated read of the clinic's own pages, so a later automated scrape
     // must not silently delete them — the suffix is the marker that identifies
