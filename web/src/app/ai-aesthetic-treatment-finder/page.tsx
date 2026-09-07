@@ -11,7 +11,7 @@ export default function SkinNavigatorPage() {
       <div className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[690px] overflow-hidden bg-[#2f1832] sm:h-[560px]" aria-hidden>
         <div className="absolute inset-0 bg-hero-gradient opacity-95" />
         <Image
-          src="/images/hero/bg-overlay-1.jpg"
+          src="/images/hero/bg-overlay-1.webp"
           alt=""
           fill
           priority

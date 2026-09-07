@@ -38,7 +38,7 @@ export default async function Home() {
       {/* Page-wide Background Image */}
       <div className="absolute inset-0 pointer-events-none -z-10 overflow-hidden" aria-hidden="true">
         <Image
-          src="/images/landingpage/whole-bg-png.png"
+          src="/images/landingpage/whole-bg-png.webp"
           alt=""
           fill
           className="object-cover object-center opacity-20"

@@ -19,7 +19,7 @@ export function HeroSection() {
         <div className="absolute inset-0" aria-hidden>
           <div className="absolute inset-0 bg-hero-gradient" />
             <Image
-            src="/images/hero/bg-overlay-2.png"
+            src="/images/hero/bg-overlay-2.webp"
             alt=""
             fill
             className="object-cover object-[70%_center] opacity-40 brightness-50"
@@ -27,7 +27,7 @@ export function HeroSection() {
             sizes="100vw"
           />
           <Image
-            src="/images/hero/bg-overlay-1.jpg"
+            src="/images/hero/bg-overlay-1.webp"
             alt=""
             fill
             className="object-cover object-[70%_center] opacity-40"
