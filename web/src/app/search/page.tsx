@@ -5,7 +5,7 @@ import { SearchFaqs } from "@/components/search/search-faqs";
 import { HeroHeader } from "@/components/hero/hero-header";
 import { Footer } from "@/components/footer";
 import { searchClinics } from "@/lib/search/query";
-import { resolveSearchQuery } from "@/lib/search/resolve-query";
+import { resolveSearchQuery, activeConcern } from "@/lib/search/resolve-query";
 import { toStateName } from "@/lib/location/states";
 import {
   CANONICAL_CONCERNS,
@@ -134,8 +134,18 @@ export async function generateMetadata({
   let unresolved = false;
 
   if (conditionRaw) {
-    const r = await resolveSearchQuery(conditionRaw);
-    conditionName = r.kind !== "unresolved" ? r.name : prettifySlug(conditionRaw);
+    // `?condition=` carries a raw slug from a link, so it needs the concern
+    // lookup rather than resolveSearchQuery (which is treatments-first).
+    // An unrecognised one is a thin permutation exactly like an unrecognised
+    // `q` — it returns no clinics, so de-index it on the same terms. It used to
+    // fall back to prettifySlug and stay indexable, which put pages like
+    // "Best Medspas for Spider Veins" into Google over an empty result.
+    const row = await activeConcern(conditionRaw);
+    if (row) conditionName = row.name;
+    else {
+      conditionName = prettifySlug(conditionRaw);
+      unresolved = true;
+    }
   } else if (qRaw) {
     const r = await resolveSearchQuery(qRaw);
     if (r.kind === "treatment") treatmentName = r.name;
@@ -182,7 +192,7 @@ export async function generateMetadata({
       url: canonical,
       siteName: SITE_NAME,
     },
-    // A treatment-box query that names nothing real returns no clinics — don't
+    // A `q` or `condition` that names nothing real returns no clinics — don't
     // let those empty permutations into the index.
     ...(unresolved ? { robots: { index: false, follow: true } } : {}),
   };
@@ -227,8 +237,8 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   let conditionName: string | null =
     resolved?.kind === "concern" ? resolved.name : null;
   if (!treatmentName && !conditionName && conditionRaw) {
-    const r = await resolveSearchQuery(conditionRaw);
-    if (r.kind !== "unresolved") conditionName = r.name;
+    const row = await activeConcern(conditionRaw);
+    if (row) conditionName = row.name;
   }
 
   const locationLabel = toStateName(locationRaw) ?? (locationRaw || null);

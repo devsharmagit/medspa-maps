@@ -1,23 +1,35 @@
 /**
- * search/resolve-query.ts — turn a typed `q` into a real catalog entry, or nothing.
+ * search/resolve-query.ts — turn a `q` into a real catalog entry, or nothing.
  *
- * The search box is a treatment/condition search ("Search treatments…"), not a
- * free-text index. It used to run `clinic_services.raw_name ILIKE '%q%'`, which
- * meant two things:
+ * A treatment/concern search is a CHOICE, not free text. `q` must be the exact
+ * slug of an active catalog row; anything else resolves to nothing and returns
+ * no results.
  *
- *   1. any scraped string was searchable — including the phone numbers, street
- *      addresses and page titles that unresolved rows had left in the data;
- *   2. arbitrary input like "abc" matched whatever happened to contain "abc",
- *      so nonsense queries returned confident-looking results.
+ * This used to be four passes — exact slug, then a retired-slug redirect, then
+ * curated brand aliases, then a Dice-similarity fuzzy match at 0.7. The intent
+ * was good: someone typing "Morpheus8" got RF Microneedling. The effect was
+ * worse than a dead end, because the user asked for one thing and was shown
+ * results for another, which reads as a broken site rather than as a helpful
+ * redirect. Guessing was removed on 2026-09-07, along with the free-text input
+ * that made guessing necessary (see components/ui/searchable-dropdown.tsx).
  *
- * Now a query must name something in the catalog. Treatments are tried first,
- * then concerns (so typing a condition into the treatment box still works — it
- * is redirected to the concern branch rather than silently returning junk). An
- * unresolved query returns no results, and the response says so.
+ * TWO THINGS THAT LOOK RELATED AND ARE NOT:
+ *
+ * 1. `LEGACY_TREATMENT_REDIRECT` in taxonomy/core-catalog.ts still exists and is
+ *    still load-bearing — for INGEST, not search. taxonomy/catalog-policy.ts
+ *    uses it to place a SCRAPED "Morpheus8" onto RF Microneedling so the closed
+ *    catalog does not drop that clinic's row. Search no longer consults it;
+ *    ingest must.
+ * 2. `matchService` / `bestCatalogMatch` in taxonomy/canonical.ts are likewise
+ *    still used by the ingest path. Only search stopped calling them.
+ *
+ * Because this is now an exact lookup, the option-count contract in
+ * search/option-counts.ts holds trivially: picking an option sends its own slug,
+ * which resolves to itself, so the count beside an option always equals the
+ * total the search returns.
  */
 
 import { query } from "@/lib/db";
-import { bestCatalogMatch, matchService, normalize } from "@/lib/taxonomy/canonical";
 
 export type ResolvedQuery =
   | { kind: "treatment"; slug: string; name: string }
@@ -29,62 +41,40 @@ interface CatRow {
   name: string;
 }
 
-/** Minimum Dice similarity for a typo/variant to count as the same entry. */
-const FUZZY_THRESHOLD = 0.7;
+/**
+ * Resolve `q` against the live catalogs by exact slug. Treatments win over
+ * concerns when both match, because the treatment box is the one that sends `q`
+ * — though with a single grouped dropdown a slug collision cannot occur in
+ * practice.
+ */
+export async function resolveSearchQuery(q: string): Promise<ResolvedQuery> {
+  const slug = q.trim().toLowerCase();
+  if (!slug) return { kind: "unresolved" };
 
-function exact(rows: CatRow[], q: string): CatRow | undefined {
-  const n = normalize(q);
-  return rows.find((r) => normalize(r.name) === n || normalize(r.slug) === n);
-}
+  const [services, concerns] = await Promise.all([
+    query<CatRow>(`SELECT slug, name FROM services WHERE is_active = true AND slug = $1`, [slug]),
+    query<CatRow>(`SELECT slug, name FROM concerns WHERE is_active = true AND slug = $1`, [slug]),
+  ]);
 
-function fuzzy(rows: CatRow[], q: string): CatRow | undefined {
-  const hit = bestCatalogMatch(
-    q,
-    rows.map((r) => ({ slug: r.slug, name: r.name, aliases: [] })),
-    FUZZY_THRESHOLD
-  );
-  return hit ? rows.find((r) => r.slug === hit.entry.slug) : undefined;
+  if (services[0]) return { kind: "treatment", slug: services[0].slug, name: services[0].name };
+  if (concerns[0]) return { kind: "concern", slug: concerns[0].slug, name: concerns[0].name };
+  return { kind: "unresolved" };
 }
 
 /**
- * Resolve `q` against the live catalogs. Treatment wins over concern when both
- * match, because the treatment box is the one that sends `q`.
+ * The active concern with this slug, or null.
+ *
+ * Used by the `?condition=` branch, which never goes through
+ * `resolveSearchQuery` — it receives a slug straight from a link. Returns the
+ * row rather than a boolean so the response can echo the concern's display
+ * name without a second query.
  */
-export async function resolveSearchQuery(q: string): Promise<ResolvedQuery> {
-  const trimmed = q.trim();
-  if (!trimmed) return { kind: "unresolved" };
-
-  const [services, concerns] = await Promise.all([
-    query<CatRow>(`SELECT slug, name FROM services WHERE is_active = true`),
-    query<CatRow>(`SELECT slug, name FROM concerns WHERE is_active = true`),
-  ]);
-
-  // Curated aliases first — "tox", "wrinkle relaxers" → botox — then the live
-  // catalog by exact name/slug, then a bounded fuzzy match for typos.
-  //
-  // This order is DELIBERATE and must stay: the curated aliases encode
-  // brand→bucket collapses that intentionally over-return a superset. "Dysport"
-  // resolving to `botox` surfaces 562 clinics rather than the 174 that happen to
-  // spell out Dysport; "Juvederm" → `dermal-fillers` surfaces 523 rather than 20.
-  // Putting the live catalog first would silently narrow every brand search.
-  //
-  // Treatments whose own name was being shadowed by this order — `Facials`
-  // (144 clinics) and `Dermaplaning` (94) both resolved to `hydrafacial`,
-  // `Facelift` to `prp-prf` — were fixed in canonical.ts instead, by removing the
-  // generic facial aliases and by refusing to fuzzy-match single-token input.
-  // That is the narrower fix: it unshadows those rows without touching the
-  // intentional collapses.
-  const curated = matchService(trimmed);
-  if (curated.slug) {
-    const row = services.find((s) => s.slug === curated.slug);
-    if (row) return { kind: "treatment", slug: row.slug, name: row.name };
-  }
-
-  const svc = exact(services, trimmed) ?? fuzzy(services, trimmed);
-  if (svc) return { kind: "treatment", slug: svc.slug, name: svc.name };
-
-  const con = exact(concerns, trimmed) ?? fuzzy(concerns, trimmed);
-  if (con) return { kind: "concern", slug: con.slug, name: con.name };
-
-  return { kind: "unresolved" };
+export async function activeConcern(slug: string): Promise<CatRow | null> {
+  const clean = slug.trim().toLowerCase();
+  if (!clean) return null;
+  const rows = await query<CatRow>(
+    `SELECT slug, name FROM concerns WHERE is_active = true AND slug = $1`,
+    [clean],
+  );
+  return rows[0] ?? null;
 }

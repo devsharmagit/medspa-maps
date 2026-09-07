@@ -28,6 +28,8 @@ import {
 import {
   useTreatmentConditionOptions,
   splitSearchSelection,
+  resolveSelection,
+  SELECTION_REQUIRED,
   conditionValue,
 } from "@/lib/search/search-options";
 import { useLocation } from "@/lib/location/location-context";
@@ -231,6 +233,9 @@ export function SearchResults({ initialData }: { initialData?: InitialSearchData
   const [searchMode, setSearchMode] = useState<"treatment" | "condition">(
     condition ? "condition" : "treatment"
   );
+  // Seeded from the URL so a shared link shows its own filters. The options
+  // arrive asynchronously, so this cannot be validated here — the effect below
+  // clears it once they land if the value is not a real option.
   const [searchService, setSearchService] = useState(
     condition ? conditionValue(condition) : q
   );
@@ -248,8 +253,14 @@ export function SearchResults({ initialData }: { initialData?: InitialSearchData
   const treatmentOptions = serviceOptions.filter((option) => option.group === "Treatments");
   const conditionOptions = serviceOptions.filter((option) => option.group === "Conditions");
   const activeOptions = searchMode === "treatment" ? treatmentOptions : conditionOptions;
+  // The dropdown cannot hand typed text up as a value, so track it separately
+  // to tell "nothing entered" apart from "entered something not on the list".
+  const [typedText, setTypedText] = useState("");
+  const [selectionError, setSelectionError] = useState<string | null>(null);
 
   const chooseMode = (mode: "treatment" | "condition") => {
+    setSelectionError(null);
+    setTypedText("");
     setSearchMode(mode);
     setSearchService("");
   };
@@ -394,7 +405,14 @@ export function SearchResults({ initialData }: { initialData?: InitialSearchData
   // detected-state changes, so it never fights a manual edit.
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect */
-    setSearchService(condition ? conditionValue(condition) : q);
+    // An unrecognised param must not sit in the box looking like a valid
+    // selection — the dropdown renders any unmatched value as its own label, so
+    // `?q=morpheus8` would read as "morpheus8 is selected". Clear it instead
+    // and let the empty state do the explaining. Only once options exist:
+    // before that everything looks unrecognised.
+    const fromUrl = condition ? conditionValue(condition) : q;
+    const known = serviceOptions.length === 0 || serviceOptions.some((o) => o.value === fromUrl);
+    setSearchService(known ? fromUrl : "");
     if (condition) setSearchMode("condition");
     else if (q) setSearchMode("treatment");
     // Show the URL's location; otherwise the detected City, ST — but ONLY after an
@@ -402,7 +420,7 @@ export function SearchResults({ initialData }: { initialData?: InitialSearchData
     setSearchState(location || (requested ? cityStateLabel(userLoc) : ""));
     /* eslint-enable react-hooks/set-state-in-effect */
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, condition, location, requested, userLoc?.city, userLoc?.stateCode]);
+  }, [q, condition, location, requested, userLoc?.city, userLoc?.stateCode, serviceOptions]);
 
   // Replace (not push) filter changes so browser back goes to the previous PAGE,
   // not the previous filter state.
@@ -468,19 +486,20 @@ export function SearchResults({ initialData }: { initialData?: InitialSearchData
     e.preventDefault();
     // The dropdown value is either a treatment (→ q) or a `c:<slug>` condition
     // (→ condition); write one and clear the other (no combos supported).
-    let nextQ: string | null = null;
-    let nextCondition: string | null = null;
-
-    if (searchMode === "treatment") {
-      nextQ = searchService.trim() || null;
-    } else {
-      const { condition } = splitSearchSelection(searchService);
-      nextCondition = condition || searchService.trim() || null;
+    // Validate rather than trust the state. Two routes still put a non-option
+    // string here: the location field's Enter key submits this form, and the
+    // state below is seeded from the URL — so `?q=morpheus8` would otherwise be
+    // handed straight back to the engine. Nothing selected clears both params.
+    const sel = resolveSelection(searchService, activeOptions);
+    if (!sel && typedText.trim()) {
+      setSelectionError(SELECTION_REQUIRED);
+      return;
     }
+    setSelectionError(null);
 
     pushParams({
-      q: nextQ,
-      condition: nextCondition,
+      q: sel?.q || null,
+      condition: sel?.condition || null,
       location: searchState.trim() || null,
     });
   };
@@ -736,7 +755,9 @@ export function SearchResults({ initialData }: { initialData?: InitialSearchData
                 countsStale={countsStale}
                 loading={optionsLoading}
               value={searchService}
-              onChange={setSearchService}
+              onChange={(v) => { setSearchService(v); setSelectionError(null); }}
+              onQueryChange={setTypedText}
+              error={selectionError}
               onSelect={(opt) => {
                 // Picking auto-applies: a condition sets `condition` and clears
                 // `q`; a treatment does the reverse (combos unsupported).
@@ -745,7 +766,6 @@ export function SearchResults({ initialData }: { initialData?: InitialSearchData
               }}
               placeholder={searchMode === "treatment" ? "Search treatments…" : "Search conditions…"}
               className="flex-1"
-              allowFreeText
             />
           </div>
 
@@ -1045,7 +1065,12 @@ export function SearchResults({ initialData }: { initialData?: InitialSearchData
                    the typed text when it matched nothing in the catalog. */
                 q={q || condition ? serviceName : ""}
                 location={stateName}
-                unrecognized={Boolean(q) && !condition && resolved === null}
+                /* Either param naming nothing in the catalog. The engine now
+                   reports a VALID condition as resolved too, so `resolved ===
+                   null` means "we don't list this" rather than "no clinics" —
+                   previously a bad ?condition= fell through to the generic
+                   "No practices found" and read like an empty region. */
+                unrecognized={Boolean(q || condition) && resolved === null}
                 nearby={nearby}
                 onClear={clearFilters}
                 onSearchNationwide={() =>
@@ -1450,11 +1475,11 @@ function EmptyState({
       </div>
       <div className="text-center">
         <h2 className="text-xl font-semibold text-[#1a1a1a]">
-          {unrecognized ? "We don't recognise that treatment" : "No practices found"}
+          {unrecognized ? `We don't list "${q}"` : "No practices found"}
         </h2>
         <p className="mt-2 max-w-md text-sm text-brand-muted">
           {unrecognized
-            ? `"${q}" isn't a treatment or condition we track. Pick one from the suggestions as you type.`
+            ? "Choose a treatment or condition from the list above."
             : q && location
             ? `We couldn't find any practices matching "${q}" in "${location}". Try broadening your search.`
             : q

@@ -6,8 +6,13 @@
  *
  * One grouped dropdown enforces the product rule that treatment+condition
  * combos are NOT supported: the single selected value is EITHER a treatment
- * (plain service slug / free text → `q`) OR a condition (concern slug encoded
- * as `c:<slug>` → `condition`), never both.
+ * (plain service slug → `q`) OR a condition (concern slug encoded as
+ * `c:<slug>` → `condition`), never both.
+ *
+ * A treatment/concern search is a CHOICE, not free text. Typing filters the
+ * list; it cannot become a search term. Use `resolveSelection` below to turn a
+ * dropdown value into params — it refuses anything that is not a real option,
+ * which is what keeps a stale URL or a half-typed word out of the engine.
  *
  * Each option carries the number of clinics that match it in the caller's
  * current location, so a user can see there are 25 Botox practices near them
@@ -24,13 +29,46 @@ export function conditionValue(slug: string): string {
   return `${CONDITION_PREFIX}${slug}`;
 }
 
-/** Split a dropdown value into the search params it stands for. */
+/**
+ * Split a dropdown value into the search params it stands for.
+ *
+ * UNVALIDATED — it will happily return any string as `q`. Use it only where the
+ * value is already known to be an option (e.g. inside the dropdown's own
+ * `onSelect`). For anything driven by component state, use `resolveSelection`.
+ */
 export function splitSearchSelection(value: string): { q: string; condition: string } {
   const v = value.trim();
   if (v.startsWith(CONDITION_PREFIX)) {
     return { q: "", condition: v.slice(CONDITION_PREFIX.length) };
   }
   return { q: v, condition: "" };
+}
+
+/**
+ * Shown when the box holds text that is not one of the options. Lives here
+ * beside `resolveSelection` so the copy and the rule that triggers it cannot
+ * drift apart across the three search forms.
+ */
+export const SELECTION_REQUIRED = "Please select a listed treatment or concern.";
+
+/**
+ * Validating form of `splitSearchSelection`: returns params only when `value`
+ * is one of `options`, and `null` otherwise.
+ *
+ * Every search submit goes through this. The dropdown can no longer emit typed
+ * text, but two other routes still can: the location field's Enter key submits
+ * the surrounding form (it deliberately does not preventDefault), and /search
+ * seeds this state from the URL — so `?q=morpheus8` would otherwise be handed
+ * straight back to the engine on the next submit.
+ */
+export function resolveSelection(
+  value: string,
+  options: DropdownOption[],
+): { q: string; condition: string } | null {
+  const v = value.trim();
+  if (!v) return null;
+  if (!options.some((o) => o.value === v)) return null;
+  return splitSearchSelection(v);
 }
 
 /** Where the user is searching — drives the counts, not the option set. */

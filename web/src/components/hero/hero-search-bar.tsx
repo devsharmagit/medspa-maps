@@ -12,7 +12,8 @@ import {
 } from "@/components/ui/location-typeahead";
 import {
   useTreatmentConditionOptions,
-  splitSearchSelection,
+  resolveSelection,
+  SELECTION_REQUIRED,
 } from "@/lib/search/search-options";
 import { useLocation } from "@/lib/location/location-context";
 import { cn } from "@/lib/utils";
@@ -40,6 +41,11 @@ export function HeroSearchBar({ className }: { className?: string }) {
   const treatmentOptions = serviceOptions.filter((option) => option.group === "Treatments");
   const conditionOptions = serviceOptions.filter((option) => option.group === "Conditions");
   const activeOptions = searchMode === "treatment" ? treatmentOptions : conditionOptions;
+  // The dropdown cannot hand typed text up as a value, so track it separately
+  // to tell "nothing entered" (location-only search, allowed) apart from
+  // "something entered that is not on the list" (blocked).
+  const [typedText, setTypedText] = useState("");
+  const [selectionError, setSelectionError] = useState<string | null>(null);
 
   // Prefill ONLY after the visitor clicks "Use my current location" and we
   // resolve a US city/state (unless they've already typed something). Never on a
@@ -60,14 +66,20 @@ export function HeroSearchBar({ className }: { className?: string }) {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    const params = new URLSearchParams();
-    if (searchMode === "treatment") {
-      if (service.trim()) params.set("q", service.trim());
-    } else {
-      const { condition } = splitSearchSelection(service);
-      const conditionValue = condition || service.trim();
-      if (conditionValue) params.set("condition", conditionValue);
+
+    // A treatment/concern search is a CHOICE. If there is text in the box that
+    // is not one of the options, refuse and say so — do NOT navigate having
+    // quietly discarded it, which would look like the search ignored them.
+    const sel = resolveSelection(service, activeOptions);
+    if (!sel && typedText.trim()) {
+      setSelectionError(SELECTION_REQUIRED);
+      return;
     }
+    setSelectionError(null);
+
+    const params = new URLSearchParams();
+    if (sel?.q) params.set("q", sel.q);
+    if (sel?.condition) params.set("condition", sel.condition);
     if (location.trim()) params.set("location", location.trim());
     // Picked suggestion carries exact coordinates → instant radius search.
     if (locationGeo) {
@@ -83,6 +95,8 @@ export function HeroSearchBar({ className }: { className?: string }) {
   };
 
   const chooseMode = (mode: "treatment" | "condition") => {
+    setSelectionError(null);
+    setTypedText("");
     setSearchMode(mode);
     setService("");
   };
@@ -132,7 +146,9 @@ export function HeroSearchBar({ className }: { className?: string }) {
                 countsStale={countsStale}
                 loading={optionsLoading}
           value={service}
-          onChange={setService}
+          onChange={(v) => { setService(v); setSelectionError(null); }}
+          onQueryChange={setTypedText}
+          error={selectionError}
           placeholder={searchMode === "treatment" ? "Search treatments…" : "Search conditions…"}
           icon={
             <span className="flex size-5 items-center justify-center rounded-full bg-brand-magenta text-white">
@@ -144,7 +160,6 @@ export function HeroSearchBar({ className }: { className?: string }) {
             </span>
           }
           label={searchMode === "treatment" ? "Treatment" : "Condition"}
-          allowFreeText
         />
       </div>
 

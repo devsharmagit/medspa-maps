@@ -25,19 +25,27 @@ interface SearchableDropdownProps {
   label?: string;
   className?: string;
   inputClassName?: string;
-  /** If true, user can also type a freeform value not in the list */
-  allowFreeText?: boolean;
   /** Counts are being refetched for a new location — dim them, keep the list. */
   countsStale?: boolean;
   /** The option list has not arrived yet — show a loading row, not "no results". */
   loading?: boolean;
   /**
    * Fires ONLY when the user actually picks an option (click, or Enter on a
-   * match) — never on every keystroke, even with allowFreeText. Callers that
-   * apply filters live (e.g. a results page) should use this to push the change
-   * immediately, instead of waiting for a separate "Search" submit.
+   * match) — never on every keystroke. Callers that apply filters live (e.g. a
+   * results page) should use this to push the change immediately, instead of
+   * waiting for a separate "Search" submit.
    */
   onSelect?: (option: DropdownOption) => void;
+  /**
+   * The current filter text, on every keystroke.
+   *
+   * Typing cannot become a value here, so a caller that wants to say "pick one
+   * from the list" needs to know something IS typed. Cleared (to "") when an
+   * option is picked, when the field is cleared, and on Escape.
+   */
+  onQueryChange?: (query: string) => void;
+  /** Validation message to show under the field, e.g. after a blocked submit. */
+  error?: string | null;
 }
 
 export function SearchableDropdown({
@@ -49,10 +57,11 @@ export function SearchableDropdown({
   label,
   className,
   inputClassName,
-  allowFreeText = false,
   countsStale = false,
   loading = false,
   onSelect,
+  onQueryChange,
+  error = null,
 }: SearchableDropdownProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -117,12 +126,12 @@ export function SearchableDropdown({
       if (!inContainer && !inList) {
         setOpen(false);
         // Reset query to selected label if we close without selecting
-        if (!allowFreeText) setQuery("");
+        setQuery("");
       }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, [allowFreeText]);
+  }, []);
 
   // Track the trigger's position while open so the portaled list can follow
   // it on scroll/resize.
@@ -156,11 +165,12 @@ export function SearchableDropdown({
     (option: DropdownOption) => {
       onChange(option.value);
       onSelect?.(option);
+      onQueryChange?.("");
       setQuery("");
       setOpen(false);
       setHighlightedIdx(-1);
     },
-    [onChange, onSelect]
+    [onChange, onSelect, onQueryChange]
   );
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -174,7 +184,13 @@ export function SearchableDropdown({
       : options;
     setHighlightedIdx(val.trim() && nextFiltered.length > 0 ? 0 : -1);
     if (!open) setOpen(true);
-    if (allowFreeText) onChange(val);
+    onQueryChange?.(val);
+    // Typing FILTERS the list; it never becomes the value. This used to be
+    // `if (allowFreeText) onChange(val)`, which let a raw keystroke string
+    // escape as a search term — so "morpheus8" reached the engine and got
+    // resolved to something else, and the user saw results for a treatment
+    // they had not asked for. A treatment/concern search is now a choice from
+    // the catalog or nothing at all.
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -192,12 +208,13 @@ export function SearchableDropdown({
       } else if (filtered.length === 1) {
         handleSelect(filtered[0]);
       } else if (open) {
-        // Close and keep current query as value if freetext
+        // No match to commit — just close. The typed text is discarded.
         setOpen(false);
       }
     } else if (e.key === "Escape") {
       setOpen(false);
       setQuery("");
+      onQueryChange?.("");
       setHighlightedIdx(-1);
     }
   };
@@ -212,6 +229,7 @@ export function SearchableDropdown({
     e.stopPropagation();
     onChange("");
     setQuery("");
+    onQueryChange?.("");
     setHighlightedIdx(-1);
     inputRef.current?.focus();
   };
@@ -255,6 +273,8 @@ export function SearchableDropdown({
           aria-activedescendant={
             highlightedIdx >= 0 ? `${listboxId}-option-${highlightedIdx}` : undefined
           }
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? `${listboxId}-error` : undefined}
           autoComplete="off"
         />
         {showClear && (
@@ -275,6 +295,18 @@ export function SearchableDropdown({
           )}
         />
       </div>
+
+      {/* Validation message. role="alert" so it is announced the moment a
+          blocked submit sets it, rather than only being noticed visually. */}
+      {error && (
+        <p
+          id={`${listboxId}-error`}
+          role="alert"
+          className="absolute left-0 top-full z-10 mt-1.5 whitespace-nowrap text-[12px] font-medium leading-none text-[#C0357A]"
+        >
+          {error}
+        </p>
+      )}
 
       {/* Dropdown list — portaled to <body> so it can't be clipped by an
           ancestor's overflow-hidden (e.g. the hero section's background

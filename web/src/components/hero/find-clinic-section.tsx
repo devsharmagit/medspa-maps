@@ -8,7 +8,8 @@ import type { FeaturedClinic } from "@/lib/clinics/featured";
 import { useLocation } from "@/lib/location/location-context";
 import {
   useTreatmentConditionOptions,
-  splitSearchSelection,
+  resolveSelection,
+  SELECTION_REQUIRED,
 } from "@/lib/search/search-options";
 import { toStateCode } from "@/lib/location/states";
 import { Button } from "@/components/ui/button";
@@ -327,6 +328,8 @@ export function FindClinicSection({ clinics }: { clinics: FeaturedClinic[] }) {
   const treatmentOptions = serviceOptions.filter((option) => option.group === "Treatments");
   const conditionOptions = serviceOptions.filter((option) => option.group === "Conditions");
   const activeOptions = searchMode === "treatment" ? treatmentOptions : conditionOptions;
+  const [typedText, setTypedText] = useState("");
+  const [selectionError, setSelectionError] = useState<string | null>(null);
 
   // Prefill the location box ONLY after the visitor explicitly clicks "Use my
   // current location" (never from a position rehydrated from storage on load),
@@ -450,14 +453,19 @@ export function FindClinicSection({ clinics }: { clinics: FeaturedClinic[] }) {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    const params = new URLSearchParams();
-    if (searchMode === "treatment") {
-      if (selectedTreatment.trim()) params.set("q", selectedTreatment.trim());
-    } else {
-      const { condition } = splitSearchSelection(selectedTreatment);
-      const conditionValue = condition || selectedTreatment.trim();
-      if (conditionValue) params.set("condition", conditionValue);
+    // A treatment/concern search is a CHOICE. Text that is not one of the
+    // options blocks the submit with a message rather than being discarded —
+    // navigating without it would read as the search having ignored them.
+    const sel = resolveSelection(selectedTreatment, activeOptions);
+    if (!sel && typedText.trim()) {
+      setSelectionError(SELECTION_REQUIRED);
+      return;
     }
+    setSelectionError(null);
+
+    const params = new URLSearchParams();
+    if (sel?.q) params.set("q", sel.q);
+    if (sel?.condition) params.set("condition", sel.condition);
     if (location.trim()) params.set("location", location.trim());
     if (selectedRating) params.set("rating", selectedRating);
     // Picked suggestion carries exact coordinates → instant radius search.
@@ -469,6 +477,8 @@ export function FindClinicSection({ clinics }: { clinics: FeaturedClinic[] }) {
   };
 
   const chooseMode = (mode: "treatment" | "condition") => {
+    setSelectionError(null);
+    setTypedText("");
     setSearchMode(mode);
     setSelectedTreatment("");
   };
@@ -527,7 +537,9 @@ export function FindClinicSection({ clinics }: { clinics: FeaturedClinic[] }) {
                 countsStale={countsStale}
                 loading={optionsLoading}
               value={selectedTreatment}
-              onChange={setSelectedTreatment}
+              onChange={(v) => { setSelectedTreatment(v); setSelectionError(null); }}
+              onQueryChange={setTypedText}
+              error={selectionError}
               placeholder={searchMode === "treatment" ? "Search treatments…" : "Search conditions…"}
               icon={
                 <span className="flex size-5 items-center justify-center rounded-full bg-brand-magenta text-white">
@@ -539,7 +551,6 @@ export function FindClinicSection({ clinics }: { clinics: FeaturedClinic[] }) {
                 </span>
               }
               label={searchMode === "treatment" ? "Treatment" : "Condition"}
-              allowFreeText
             />
           </div>
 

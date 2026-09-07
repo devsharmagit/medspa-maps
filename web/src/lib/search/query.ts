@@ -1,4 +1,8 @@
-import { resolveSearchQuery, type ResolvedQuery } from "@/lib/search/resolve-query";
+import {
+  resolveSearchQuery,
+  activeConcern,
+  type ResolvedQuery,
+} from "@/lib/search/resolve-query";
 import pool from "@/lib/db";
 import {
   conditionSlugSet,
@@ -74,7 +78,8 @@ export async function runSearch(
 ): Promise<SearchListResponse | SearchPinsResponse> {
   const qRaw = searchParams.get("q") || "";
   let q = qRaw;
-  let condition = searchParams.get("condition") || "";
+  const conditionRaw = searchParams.get("condition") || "";
+  let condition = conditionRaw;
   const location = searchParams.get("location") || "";
   const tier = searchParams.get("tier") || "";
 
@@ -82,6 +87,28 @@ export async function runSearch(
   // condition wins and q is dropped (the UI enforces this too — one grouped
   // dropdown sets either q or condition, never both).
   if (condition) q = "";
+
+  // `?condition=` arrives as a raw slug from a link, not through the search box,
+  // so nothing else validates it. An unrecognised one is cleared rather than
+  // passed through, so it behaves exactly like an unrecognised `q`: the response
+  // reports it as unresolved and the UI says so, instead of rendering a
+  // confident "0 practices" for a filter we never had.
+  //
+  // This used to run `coreConcernFor(condition)`, quietly rewriting a retired
+  // slug onto the core entry that absorbed it. That guessing was removed on
+  // 2026-09-07 — the five in-repo links that relied on it now name the real
+  // slug directly.
+  let conditionUnresolved = false;
+  let conditionName = "";
+  if (condition) {
+    const row = await activeConcern(condition);
+    if (row) {
+      conditionName = row.name;
+    } else {
+      conditionUnresolved = true;
+      condition = "";
+    }
+  }
 
   // A typed treatment must NAME something in the catalog. Anything else — "abc",
   // a phone number, a page title — resolves to nothing and returns no results,
@@ -165,6 +192,12 @@ export async function runSearch(
     // user shares their location. The radius hard-filter below naturally
     // excludes null-coordinate clinics.
   }
+
+  // An unrecognised `?condition=` was cleared above so it cannot be used as a
+  // filter — but clearing it must not mean "no filter", or a stale link would
+  // render every clinic in the location under a heading naming a concern we
+  // never had. Match nothing instead, exactly as an unresolved `q` does.
+  if (conditionUnresolved) conditions.push("FALSE");
 
   // Treatment search — by the CANONICAL slug the query resolved to, never by
   // raw scraped text. An unresolved query matches nothing at all.
@@ -533,12 +566,19 @@ export async function runSearch(
     },
     query: {
       q: qRaw,
-      condition,
-      /** What `q` resolved to — null when it named nothing in the catalog. */
+      // The RAW value, so the UI can say which term is not listed. `condition`
+      // itself is empty by now when it failed validation.
+      condition: conditionRaw,
+      /**
+       * What the search actually ran. Null when neither param named a catalog
+       * row — which is what the UI turns into "we don't list that".
+       */
       resolved:
-        resolvedQuery.kind === "unresolved"
-          ? null
-          : { kind: resolvedQuery.kind, slug: resolvedQuery.slug, name: resolvedQuery.name },
+        resolvedQuery.kind !== "unresolved"
+          ? { kind: resolvedQuery.kind, slug: resolvedQuery.slug, name: resolvedQuery.name }
+          : condition
+            ? { kind: "concern", slug: condition, name: conditionName || condition }
+            : null,
       location,
       sort,
       tier,
