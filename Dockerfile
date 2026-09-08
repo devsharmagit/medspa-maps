@@ -8,13 +8,10 @@ RUN bun install --frozen-lockfile
 
 COPY web/ ./
 
-# Dummy DB URL so Next.js build doesn't crash — real URL is injected at runtime
-ARG DATABASE_URL=postgres://build:build@localhost/build
-ARG G99_DATABASE_URL=postgres://build:build@localhost/build
+# DB pools are created lazily at runtime (see web/src/lib/db.ts), so the build
+# runs with NO DATABASE_URL — it is injected at runtime via ECS Secrets Manager.
 ARG NEXTAUTH_SECRET=build-secret
 ARG INTERNAL_API_SECRET=build-secret
-ENV DATABASE_URL=$DATABASE_URL
-ENV G99_DATABASE_URL=$G99_DATABASE_URL
 ENV NEXTAUTH_SECRET=$NEXTAUTH_SECRET
 ENV INTERNAL_API_SECRET=$INTERNAL_API_SECRET
 

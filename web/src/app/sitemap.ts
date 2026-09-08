@@ -7,9 +7,11 @@ import { allTreatmentSlugs } from "@/lib/landing/treatments";
 import { allStateSlugs } from "@/lib/locations/state-content";
 import { absoluteUrl } from "@/lib/site";
 
-// Re-query active practices hourly so newly-added clinics enter the sitemap
-// without a redeploy.
-export const revalidate = 3600;
+// Rendered at request time so the sitemap always reflects the live runtime DB.
+// The DB URL is absent at build time (injected at runtime), so this must not be
+// prerendered — otherwise it would serve an empty build-time snapshot until the
+// first revalidation.
+export const dynamic = "force-dynamic";
 
 /**
  * Site sitemap. Enumerates the core indexable routes, every blog post (from the

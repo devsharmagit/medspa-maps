@@ -21,10 +21,29 @@ function createPool(): Pool {
   });
 }
 
-const pool: Pool =
-  process.env.NODE_ENV === "production"
-    ? createPool()
-    : (globalThis.__pgPool ??= createPool());
+// The primary pool is created LAZILY — never at module load — so `next build`
+// (which imports every route module with NODE_ENV=production) succeeds without
+// DATABASE_URL. The real URL is injected at runtime; creation is deferred to the
+// first actual query. Same rationale as getG99Pool below.
+let poolSingleton: Pool | undefined;
+
+export function getPool(): Pool {
+  if (process.env.NODE_ENV === "production") {
+    return (poolSingleton ??= createPool());
+  }
+  return (globalThis.__pgPool ??= createPool());
+}
+
+// Preserve the `import pool from "@/lib/db"` interface without eager creation:
+// the real pool is instantiated on first property access (always request-time,
+// never at import/build).
+const pool: Pool = new Proxy({} as Pool, {
+  get(_target, prop) {
+    const real = getPool();
+    const value = Reflect.get(real, prop, real);
+    return typeof value === "function" ? value.bind(real) : value;
+  },
+});
 
 function createG99Pool(): Pool {
   if (!process.env.G99_DATABASE_URL) {
@@ -65,7 +84,7 @@ export async function query<T = Record<string, unknown>>(
   sql: string,
   params?: unknown[]
 ): Promise<T[]> {
-  const result = await pool.query(sql, params);
+  const result = await getPool().query(sql, params);
   return result.rows as T[];
 }
 
@@ -86,7 +105,7 @@ export async function queryOne<T = Record<string, unknown>>(
 export async function withTransaction<T>(
   fn: (client: PoolClient) => Promise<T>
 ): Promise<T> {
-  const client = await pool.connect();
+  const client = await getPool().connect();
   try {
     await client.query("BEGIN");
     const result = await fn(client);

@@ -8,9 +8,11 @@ import { SITE_NAME, absoluteUrl } from "@/lib/site";
 
 // llms.txt — an emerging convention giving AI crawlers a clean, curated pointer
 // to the site's key content (https://llmstxt.org). Served as markdown text.
-// Re-generated hourly so the featured-practice list stays fresh without a hit
-// on every crawl.
-export const revalidate = 3600;
+// Rendered at request time so the featured-practice list reflects the live
+// runtime DB. The DB URL is absent at build time (injected at runtime), so this
+// must not be prerendered — otherwise it would serve an empty build-time
+// snapshot until the first revalidation.
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   let featuredLines: string[] = [];
