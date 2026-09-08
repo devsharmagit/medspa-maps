@@ -33,7 +33,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: "Medspa Maps — Find the Right Local Medspa",
+  title: "Medspa Maps - Find the Right Local Medspa",
   description:
     "Explore 600+ vetted medspas, read expert treatment guides, and book with confidence.",
 };

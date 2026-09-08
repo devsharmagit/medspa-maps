@@ -235,7 +235,7 @@ export function ArticleSection({ posts }: { posts: ArticleCard[] }) {
                     alt={art.alt}
                     fill
                     className="object-cover"
-                    sizes="74px"
+                    sizes="100%"
                   />
                 </div>
 
