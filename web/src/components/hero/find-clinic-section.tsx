@@ -100,7 +100,6 @@ function ClinicCard({ clinic }: { clinic: FeaturedClinic }) {
 
   const profileUrl = `/practices/${clinic.slug}`;
   const bookUrl = clinic.bookingUrl || clinic.website || profileUrl;
-  const bookExternal = Boolean(clinic.bookingUrl || clinic.website);
 
   return (
     <div
@@ -109,24 +108,32 @@ function ClinicCard({ clinic }: { clinic: FeaturedClinic }) {
     >
       {/* ── Main Image ── */}
       <div className="relative h-[200px] xl:h-[302px] w-full overflow-hidden">
-        {clinic.coverImage ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={clinic.coverImage}
-            alt={clinic.name}
-            className="h-full w-full object-cover"
-            loading="lazy"
-            draggable={false}
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#DE7F4C]/20 to-[#C341D7]/20 text-5xl font-semibold text-white/70">
-            {initials}
-          </div>
-        )}
+        <a
+          href={profileUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block size-full"
+          draggable={false}
+        >
+          {clinic.coverImage ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={clinic.coverImage}
+              alt={clinic.name}
+              className="h-full w-full object-cover"
+              loading="lazy"
+              draggable={false}
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#DE7F4C]/20 to-[#C341D7]/20 text-5xl font-semibold text-white/70">
+              {initials}
+            </div>
+          )}
+        </a>
 
         {/* Featured badge */}
         {clinic.featured && (
-          <div className="absolute left-[22px] top-[23px] rounded bg-[#D3A845] px-[10px] py-1">
+          <div className="absolute left-[22px] top-[23px] rounded bg-[#D3A845] px-[10px] py-1 pointer-events-none">
             <span className="font-montserrat text-[14px] font-semibold uppercase tracking-[-0.02em] text-white">
               Featured
             </span>
@@ -142,7 +149,12 @@ function ClinicCard({ clinic }: { clinic: FeaturedClinic }) {
           {/* Left: logo + text */}
           <div className="flex items-start gap-[11px]">
             {/* Logo */}
-            <div className="flex h-[50px] w-[57px] shrink-0 items-center justify-center overflow-hidden rounded-[6px] border border-[#E5E5E5] bg-[#faf5fa]">
+            <a
+              href={profileUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex h-[50px] w-[57px] shrink-0 items-center justify-center overflow-hidden rounded-[6px] border border-[#E5E5E5] bg-[#faf5fa] transition-opacity hover:opacity-85"
+            >
               {clinic.logo ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -157,13 +169,20 @@ function ClinicCard({ clinic }: { clinic: FeaturedClinic }) {
                   {initials}
                 </span>
               )}
-            </div>
+            </a>
 
             {/* Name + location */}
             <div className="flex flex-col gap-[4px]">
               <div className="flex items-center gap-[4px]">
                 <h3 className="font-montserrat text-[20px] font-medium leading-[116.02%] tracking-[0.02em] text-[#383838] line-clamp-1">
-                  {clinic.name}
+                  <a
+                    href={profileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="transition-colors hover:text-brand-magenta"
+                  >
+                    {clinic.name}
+                  </a>
                 </h3>
                 {clinic.verified && (
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="shrink-0">
@@ -191,8 +210,11 @@ function ClinicCard({ clinic }: { clinic: FeaturedClinic }) {
           {thumbs.length > 0 && (
             <div className="hidden xl:flex shrink-0 items-center gap-[9px]">
               {thumbs.map((img, idx) => (
-                <div
+                <a
                   key={idx}
+                  href={profileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="relative h-[56px] w-[76px] overflow-hidden rounded-[6px]"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -210,7 +232,7 @@ function ClinicCard({ clinic }: { clinic: FeaturedClinic }) {
                       </span>
                     </div>
                   )}
-                </div>
+                </a>
               ))}
             </div>
           )}
@@ -247,6 +269,8 @@ function ClinicCard({ clinic }: { clinic: FeaturedClinic }) {
             ))}
             <a
               href={profileUrl}
+              target="_blank"
+              rel="noopener noreferrer"
               draggable={false}
               className="rounded border-[0.5px] border-[#CF5B9D]/50 bg-[#FCEFF6] px-[10px] py-1 font-montserrat text-[12px] font-semibold tracking-[0.02em] text-[#CF5B9D] transition-colors hover:bg-[#F8DEEC]"
             >
@@ -258,13 +282,16 @@ function ClinicCard({ clinic }: { clinic: FeaturedClinic }) {
           <div className="mt-1 xl:mt-[20px] flex items-center gap-[9px] shrink-0">
             <a
               href={profileUrl}
+              target="_blank"
+              rel="noopener noreferrer"
               className="flex h-[43px] flex-1 xl:w-[120px] xl:flex-none items-center justify-center rounded-lg border border-[#CF5B9D] font-montserrat text-[14px] font-semibold text-[#CF5B9D] transition-colors hover:bg-pink-50"
             >
               View profile
             </a>
             <a
               href={bookUrl}
-              {...(bookExternal ? { target: "_blank", rel: "noreferrer" } : {})}
+              target="_blank"
+              rel="noopener noreferrer"
               className="flex h-[43px] flex-1 xl:w-[127px] xl:flex-none items-center justify-center rounded-lg bg-[linear-gradient(90deg,#DE7F4C_0%,#C341D7_100%)] font-montserrat text-[14px] font-semibold text-white transition-opacity hover:opacity-90"
             >
               Book now

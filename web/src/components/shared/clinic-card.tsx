@@ -120,6 +120,8 @@ export function ClinicCard({
       <div className={cn("w-full", compact ? "" : "shrink-0 sm:w-[220px]")}>
         <a
           href={profileUrl}
+          target="_blank"
+          rel="noopener noreferrer"
           className="relative block h-[160px] w-full overflow-hidden rounded-xl bg-gradient-to-br from-brand-coral/20 to-brand-purple/20"
         >
           {cover ? (
@@ -157,6 +159,8 @@ export function ClinicCard({
               return (
                 <a
                   href={profileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   key={i}
                   className="relative block h-[44px] overflow-hidden rounded-md bg-[#f5f0f5]"
                 >
@@ -176,7 +180,12 @@ export function ClinicCard({
 
       {/* Middle: details */}
       <div className="flex min-w-0 flex-1 flex-col gap-2">
-        <a href={profileUrl} className="flex items-center gap-1.5">
+        <a
+          href={profileUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1.5"
+        >
           <h3 className="line-clamp-1 text-lg font-semibold text-[#1a1a1a] transition-colors hover:text-brand-magenta">
             {clinic.clinic_name}
           </h3>
@@ -261,7 +270,7 @@ export function ClinicCard({
             className="h-[42px] flex-1 sm:flex-none gap-2 rounded-xl text-sm font-semibold"
             asChild
           >
-            <a href={profileUrl}>
+            <a href={profileUrl} target="_blank" rel="noopener noreferrer">
               <Eye className="size-4" />
               View Practice
             </a>

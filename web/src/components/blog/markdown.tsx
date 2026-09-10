@@ -75,11 +75,16 @@ export function Markdown({ children }: { children: string }) {
         a: ({ href, children }) => {
           const url = href ?? "#";
           const isInternal = url.startsWith("/");
+          const isPractice = url.startsWith("/practices/");
           const className =
             "font-medium text-[#b0339c] underline decoration-[#e6b8dd] underline-offset-2 transition-colors hover:text-[#7b2d6b]";
           if (isInternal) {
             return (
-              <Link href={url} className={className}>
+              <Link
+                href={url}
+                className={className}
+                {...(isPractice ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+              >
                 {children}
               </Link>
             );

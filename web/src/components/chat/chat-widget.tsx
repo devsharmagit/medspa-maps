@@ -761,8 +761,13 @@ function ChatLink({ href, label }: { href: string; label: string }) {
   const cls =
     "font-medium text-primary underline underline-offset-2 hover:opacity-80";
   if (href.startsWith("/")) {
+    const isPractice = href.startsWith("/practices/");
     return (
-      <Link href={href} className={cls}>
+      <Link
+        href={href}
+        className={cls}
+        {...(isPractice ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+      >
         {label}
       </Link>
     );

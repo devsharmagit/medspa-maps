@@ -142,22 +142,25 @@ function popupHtml(p: MapPin): string {
   // Prefer the logo; fall back to the cover/gallery photo when there's no logo.
   const thumbSrc = p.logo_url || p.cover_image_url;
   const thumbFit = p.logo_url ? "contain" : "cover";
-  const logo = thumbSrc
+  const logoImg = thumbSrc
     ? `<img src="${escapeHtml(thumbSrc)}" alt="" width="42" height="42" onerror="this.style.display='none'" style="width:42px;height:42px;flex:none;object-fit:${thumbFit};border-radius:8px;border:1px solid #ece6ec;background:#faf5fa" />`
+    : "";
+  const logo = logoImg
+    ? `<a href="${profile}" target="_blank" rel="noopener noreferrer" style="display:block;flex:none">${logoImg}</a>`
     : "";
   return `
     <div style="min-width:200px;font-family:inherit">
       <div style="display:flex;gap:10px;align-items:flex-start">
         ${logo}
         <div style="min-width:0">
-          <a href="${profile}" style="display:block;font-weight:600;font-size:14px;color:#383838;text-decoration:none;line-height:1.25">${name}</a>
+          <a href="${profile}" target="_blank" rel="noopener noreferrer" style="display:block;font-weight:600;font-size:14px;color:#383838;text-decoration:none;line-height:1.25">${name}</a>
           ${loc ? `<div style="margin-top:2px;font-size:12px;color:#727272">${loc}</div>` : ""}
           ${rating}
         </div>
       </div>
       <div style="display:flex;gap:6px;margin-top:8px">
-        <a href="${book}"${bookExternal ? ' target="_blank" rel="noreferrer"' : ""} style="flex:1;text-align:center;padding:6px 8px;border-radius:8px;font-size:12px;font-weight:600;color:#fff;text-decoration:none;background:linear-gradient(90deg,#DE7F4C 0%,#C341D7 100%)">Book</a>
-        <a href="${profile}" style="${ghost}">View</a>
+        <a href="${book}" target="_blank" rel="noopener noreferrer" style="flex:1;text-align:center;padding:6px 8px;border-radius:8px;font-size:12px;font-weight:600;color:#fff;text-decoration:none;background:linear-gradient(90deg,#DE7F4C 0%,#C341D7 100%)">Book</a>
+        <a href="${profile}" target="_blank" rel="noopener noreferrer" style="${ghost}">View</a>
         ${p.phone ? `<a href="tel:${escapeHtml(p.phone)}" style="${ghost}">Call</a>` : ""}
       </div>
     </div>`;

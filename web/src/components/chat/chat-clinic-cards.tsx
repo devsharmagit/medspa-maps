@@ -55,7 +55,12 @@ function ClinicRow({ clinic }: { clinic: ChatClinicCard }) {
   return (
     <div className="rounded-xl border border-[#ece6ec] bg-white p-2.5">
       <div className="flex gap-2.5">
-        <div className="relative size-[52px] shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-brand-coral/20 to-brand-purple/20">
+        <a
+          href={clinic.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="relative size-[52px] shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-brand-coral/20 to-brand-purple/20 block"
+        >
           {image ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -69,11 +74,13 @@ function ClinicRow({ clinic }: { clinic: ChatClinicCard }) {
               {initials(clinic.name)}
             </div>
           )}
-        </div>
+        </a>
 
         <div className="min-w-0 flex-1">
           <Link
             href={clinic.url}
+            target="_blank"
+            rel="noopener noreferrer"
             className="line-clamp-1 text-[13px] font-semibold text-[#373634] hover:text-[#CF5B9D]"
           >
             {clinic.name}
@@ -121,6 +128,8 @@ function ClinicRow({ clinic }: { clinic: ChatClinicCard }) {
       <div className="mt-2 flex gap-1.5">
         <Link
           href={clinic.url}
+          target="_blank"
+          rel="noopener noreferrer"
           className="flex-1 rounded-lg border border-[#ece6ec] px-2 py-1.5 text-center text-[11px] font-medium text-[#373634] hover:bg-[#faf7fa]"
         >
           View

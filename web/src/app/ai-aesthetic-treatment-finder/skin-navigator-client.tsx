@@ -1466,21 +1466,28 @@ function ClinicCard({
       style={{ boxShadow: "0px 4px 21.3px #E2D8E6" }}
     >
       <div className="relative h-[160px] w-full overflow-hidden">
-        {clinic.coverImageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={clinic.coverImageUrl}
-            alt=""
-            className="h-full w-full object-cover"
-            loading="lazy"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#DE7F4C]/20 to-[#C341D7]/20 text-3xl font-semibold text-white/70">
-            {initials || "M"}
-          </div>
-        )}
+        <a
+          href={clinic.profileUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block size-full"
+        >
+          {clinic.coverImageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={clinic.coverImageUrl}
+              alt=""
+              className="h-full w-full object-cover"
+              loading="lazy"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#DE7F4C]/20 to-[#C341D7]/20 text-3xl font-semibold text-white/70">
+              {initials || "M"}
+            </div>
+          )}
+        </a>
         {clinic.featured && (
-          <div className="absolute left-4 top-4 rounded bg-[#D3A845] px-2.5 py-1">
+          <div className="absolute left-4 top-4 rounded bg-[#D3A845] px-2.5 py-1 pointer-events-none">
             <span className="text-xs font-semibold uppercase tracking-[-0.02em] text-white">
               Featured
             </span>
@@ -1490,17 +1497,29 @@ function ClinicCard({
 
       <div className="px-4 py-5">
         <div className="flex items-start gap-2.5">
-          <div className="flex h-[42px] w-[48px] shrink-0 items-center justify-center overflow-hidden rounded-md border border-[#E5E5E5] bg-[#faf5fa]">
+          <a
+            href={clinic.profileUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex h-[42px] w-[48px] shrink-0 items-center justify-center overflow-hidden rounded-md border border-[#E5E5E5] bg-[#faf5fa] transition-opacity hover:opacity-85"
+          >
             {clinic.logoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={clinic.logoUrl} alt="" className="h-full w-full object-contain" loading="lazy" />
             ) : (
               <span className="text-sm font-semibold text-brand-magenta">{initials || "M"}</span>
             )}
-          </div>
+          </a>
           <div className="min-w-0">
             <h4 className="truncate text-lg font-medium leading-tight text-[#383838]">
-              {clinic.name}
+              <a
+                href={clinic.profileUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="transition-colors hover:text-brand-magenta"
+              >
+                {clinic.name}
+              </a>
             </h4>
             {clinic.distanceMiles !== null && (
               <p className="mt-0.5 text-xs text-[#727272]">{clinic.distanceMiles} mi away</p>
@@ -1532,6 +1551,8 @@ function ClinicCard({
         <div className="mt-4 flex items-center gap-2">
           <Link
             href={clinic.profileUrl}
+            target="_blank"
+            rel="noopener noreferrer"
             onClick={() =>
               recordEvent(sessionId, "navigator.clinic_profile_clicked", "results", {
                 clinicId: clinic.clinicId,
@@ -1544,7 +1565,8 @@ function ClinicCard({
           </Link>
           <a
             href={bookUrl}
-            {...(bookExternal ? { target: "_blank", rel: "noreferrer" } : {})}
+            target="_blank"
+            rel="noopener noreferrer"
             className="flex h-[43px] flex-1 items-center justify-center rounded-lg bg-[linear-gradient(90deg,#DE7F4C_0%,#C341D7_100%)] text-sm font-semibold text-white transition-opacity hover:opacity-90"
           >
             Book Now

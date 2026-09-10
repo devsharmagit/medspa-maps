@@ -101,6 +101,8 @@ function ProviderCard({ provider }: { provider: ConcernProvider }) {
         {/* View Practice button — full width gradient */}
         <Link
           href={`/practices/${provider.clinic_slug}`}
+          target="_blank"
+          rel="noopener noreferrer"
           className="flex h-10 w-full items-center justify-center rounded-lg bg-[linear-gradient(90deg,#DE7F4C_0%,#C341D7_100%)] font-montserrat text-[14px] font-semibold text-white transition-opacity hover:opacity-90"
         >
           View practice

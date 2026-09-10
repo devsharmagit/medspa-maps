@@ -99,7 +99,12 @@ function MiniPractice({ clinic }: { clinic: ClinicResult }) {
     .slice(0, 2);
 
   return (
-    <a href={`/practices/${clinic.clinic_slug}`} className="group flex gap-3">
+    <a
+      href={`/practices/${clinic.clinic_slug}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="group flex gap-3"
+    >
       <div className="relative h-[58px] w-[68px] shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-brand-coral/20 to-brand-purple/20">
         {cover ? (
           // eslint-disable-next-line @next/next/no-img-element
