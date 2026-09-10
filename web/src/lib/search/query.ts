@@ -127,9 +127,12 @@ export async function runSearch(
   // Pagination params
   const pageRaw = searchParams.get("page");
   const limitRaw = searchParams.get("limit");
-  const page = pageRaw && Number.isFinite(Number(pageRaw)) ? Math.max(1, Number(pageRaw)) : 1;
+  const requestedPage = pageRaw && Number.isFinite(Number(pageRaw)) ? Math.max(1, Number(pageRaw)) : 1;
   const limit = limitRaw && Number.isFinite(Number(limitRaw)) ? Math.min(Math.max(1, Number(limitRaw)), 50) : 50;
-  const offset = (page - 1) * limit;
+  // `page`/`offset` are finalized AFTER the count query (see below): an
+  // out-of-range page — a stale ?page=11 carried over from a filter change, or a
+  // hand-edited URL — clamps down to the last page instead of paging past every
+  // row and returning zero results while the count still reports a total.
 
   // Geo / rating params
   const ratingRaw = searchParams.get("rating");
@@ -416,6 +419,13 @@ export async function runSearch(
   const countResult = await pool.query(simpleCountQuery, params);
   const totalResults = Number(countResult.rows[0]?.total || 0);
 
+  // Clamp the requested page to the real last page now that the total is known,
+  // then derive the offset. Prevents ?page=N beyond the end from returning zero
+  // rows while `total` still shows a nonzero count (the "No practices found" bug).
+  const totalPages = Math.max(1, Math.ceil(totalResults / limit));
+  const page = Math.min(requestedPage, totalPages);
+  const offset = (page - 1) * limit;
+
   // Now get the paginated results
   const query = `
     WITH ordered_results AS (
@@ -560,8 +570,8 @@ export async function runSearch(
     pagination: {
       page,
       limit,
-      totalPages: Math.ceil(totalResults / limit),
-      hasNext: page < Math.ceil(totalResults / limit),
+      totalPages,
+      hasNext: page < totalPages,
       hasPrevious: page > 1,
     },
     query: {

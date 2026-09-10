@@ -427,6 +427,12 @@ export function SearchResults({ initialData }: { initialData?: InitialSearchData
   const pushParams = useCallback(
     (next: Record<string, string | null>) => {
       const params = new URLSearchParams(searchParams.toString());
+      // A filter change returns to page 1 — otherwise a stale ?page=N (e.g. 11)
+      // survives a location/treatment/condition change and pages past a smaller
+      // result set, showing "No practices found" while the count says results
+      // exist. Explicit page navigation opts out by passing a `page` key (the
+      // paginator does, via updateParam("page", …)).
+      if (!("page" in next)) params.delete("page");
       for (const [key, value] of Object.entries(next)) {
         if (value) params.set(key, value);
         else params.delete(key);
