@@ -130,6 +130,7 @@ Hair Transplant
 Hand Rejuvenation
 Hormone Optimization & Pellet Therapy
 Hormone Replacement Therapy
+Hormone Therapy
 HydraFacial
 Hyperbaric Oxygen Therapy
 Hyperdilute Radiesse
@@ -137,6 +138,7 @@ IPL
 IPL / Photofacial
 IPL Facial
 IPL Laser
+IPL Photofacial
 IV Therapy
 Infrared Sauna
 Injections
@@ -179,6 +181,7 @@ Letybo
 Lip Augmentation
 Lip Enhancement
 Lip Filler
+Lip Fillers
 Lip Flip
 Lip Injections
 Lip Lift
@@ -245,6 +248,7 @@ PRF for Hair Loss
 PRP & PRF
 PRP & PRF Microneedling
 PRP (Platelet-Rich Plasma)
+PRP / PRF Therapy
 PRP Facial
 PRP Hair Restoration
 PRP Joint Injections

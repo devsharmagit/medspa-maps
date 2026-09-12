@@ -19,6 +19,9 @@ import {
   Smile,
   HeartPulse,
   Flame,
+  Snowflake,
+  Lightbulb,
+  Pill,
 } from "lucide-react";
 
 /**
@@ -79,4 +82,9 @@ export const POPULAR_TREATMENTS: PopularTreatment[] = [
   { slug: "hair-restoration", name: "Hair Restoration", clinicCount: 339, icon: Flame },
   { slug: "rf-microneedling", name: "RF Microneedling", clinicCount: 322, icon: Layers },
   { slug: "hydrafacial", name: "HydraFacial", clinicCount: 258, icon: Waves },
+  // Added 2026-09-12 (19 -> 22 core treatments). Counts from the website-verified
+  // coverage backfill (national scope), same source as the search dropdown.
+  { slug: "hormone-therapy", name: "Hormone Therapy", clinicCount: 234, icon: Pill },
+  { slug: "red-light-therapy", name: "Red Light Therapy", clinicCount: 200, icon: Lightbulb },
+  { slug: "cryotherapy", name: "Cryotherapy", clinicCount: 18, icon: Snowflake },
 ];

@@ -53,6 +53,9 @@ export const CORE_TREATMENTS: readonly CoreEntry[] = [
   { slug: "medical-weight-loss", name: "Medical Weight Loss" },
   { slug: "iv-therapy", name: "IV Therapy" },
   { slug: "hair-restoration", name: "Hair Restoration" },
+  { slug: "cryotherapy", name: "Cryotherapy" },
+  { slug: "red-light-therapy", name: "Red Light Therapy" },
+  { slug: "hormone-therapy", name: "Hormone Therapy" },
 ] as const;
 
 export const CORE_CONCERNS: readonly CoreEntry[] = [

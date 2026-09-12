@@ -8,9 +8,9 @@
 const U = (id: string) =>
   `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=900&q=80`;
 
-/** slug → hero image. One distinct, on-theme photo per treatment (15 total). */
+/** slug → hero image. One distinct, on-theme photo per treatment (22 total). */
 export const TREATMENT_IMAGES: Record<string, string> = {
-  // The 19 core treatments (2026-09-06 reduction). Photo IDs are reused rather
+  // The 22 core treatments (2026-09-06 reduction + 3 added 2026-09-12). Photo IDs are reused rather
   // than newly sourced — every one here is already proven to load, and a broken
   // Unsplash id degrades worse than a shared photo.
   botox: U("1512290923902-8a9f81dc236c"), // facial injectable treatment
@@ -32,6 +32,9 @@ export const TREATMENT_IMAGES: Record<string, string> = {
   "medical-weight-loss": U("1517836357463-d25dfeac3438"), // body / fitness
   "iv-therapy": U("1596755094514-f87e34085b2c"), // clinical consult
   "hair-restoration": U("1502823403499-6ccfcf4fb453"), // hair / portrait
+  cryotherapy: U("1571019613454-1cb2f99b2d8b"), // body / recovery
+  "red-light-therapy": U("1629909613654-28e377c37b09"), // clinical treatment room / device
+  "hormone-therapy": U("1596755094514-f87e34085b2c"), // clinical consult / wellness
 
   // Retired slugs, kept so any cached page or old link renders as it did.
   kybella: U("1519824145371-296894a0daa9"), // neck & décolletage
