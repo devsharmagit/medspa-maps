@@ -34,17 +34,17 @@
 export type CoreEntry = { slug: string; name: string };
 
 export const CORE_TREATMENTS: readonly CoreEntry[] = [
-  { slug: "botox", name: "Botox" },
-  { slug: "dysport", name: "Dysport" },
+  { slug: "botox", name: "Botox®" },
+  { slug: "dysport", name: "Dysport®" },
   { slug: "dermal-fillers", name: "Dermal Fillers" },
   { slug: "lip-fillers", name: "Lip Fillers" },
-  { slug: "sculptra", name: "Sculptra" },
+  { slug: "sculptra", name: "Sculptra®" },
   { slug: "prp-prf", name: "PRP / PRF Therapy" },
   { slug: "microneedling", name: "Microneedling" },
   { slug: "rf-microneedling", name: "RF Microneedling" },
   { slug: "chemical-peels", name: "Chemical Peels" },
   { slug: "facials", name: "Facials" },
-  { slug: "hydrafacial", name: "HydraFacial" },
+  { slug: "hydrafacial", name: "HydraFacial®" },
   { slug: "laser-treatments", name: "Laser Treatments" },
   { slug: "laser-hair-removal", name: "Laser Hair Removal" },
   { slug: "laser-skin-resurfacing", name: "Laser Skin Resurfacing" },
@@ -53,6 +53,9 @@ export const CORE_TREATMENTS: readonly CoreEntry[] = [
   { slug: "medical-weight-loss", name: "Medical Weight Loss" },
   { slug: "iv-therapy", name: "IV Therapy" },
   { slug: "hair-restoration", name: "Hair Restoration" },
+  { slug: "cryotherapy", name: "Cryotherapy" },
+  { slug: "red-light-therapy", name: "Red Light Therapy" },
+  { slug: "hormone-therapy", name: "Hormone Therapy" },
 ] as const;
 
 export const CORE_CONCERNS: readonly CoreEntry[] = [

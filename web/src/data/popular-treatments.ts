@@ -19,6 +19,8 @@ import {
   Smile,
   HeartPulse,
   Flame,
+  Lightbulb,
+  Pill,
 } from "lucide-react";
 
 /**
@@ -61,7 +63,7 @@ export interface PopularTreatment {
 
 export const POPULAR_TREATMENTS: PopularTreatment[] = [
   { slug: "facials", name: "Facials", clinicCount: 593, icon: Sparkles },
-  { slug: "botox", name: "Botox", clinicCount: 579, icon: Syringe },
+  { slug: "botox", name: "Botox®", clinicCount: 579, icon: Syringe },
   { slug: "microneedling", name: "Microneedling", clinicCount: 576, icon: CircleDot },
   { slug: "dermal-fillers", name: "Dermal Fillers", clinicCount: 568, icon: Droplet },
   { slug: "chemical-peels", name: "Chemical Peels", clinicCount: 511, icon: FlaskConical },
@@ -71,12 +73,20 @@ export const POPULAR_TREATMENTS: PopularTreatment[] = [
   { slug: "body-contouring", name: "Body Contouring", clinicCount: 405, icon: HeartPulse },
   { slug: "lip-fillers", name: "Lip Fillers", clinicCount: 403, icon: Smile },
   { slug: "medical-weight-loss", name: "Medical Weight Loss", clinicCount: 402, icon: Scale },
-  { slug: "sculptra", name: "Sculptra", clinicCount: 399, icon: Gem },
-  { slug: "dysport", name: "Dysport", clinicCount: 395, icon: Wand },
+  { slug: "sculptra", name: "Sculptra®", clinicCount: 399, icon: Gem },
+  { slug: "dysport", name: "Dysport®", clinicCount: 395, icon: Wand },
   { slug: "iv-therapy", name: "IV Therapy", clinicCount: 368, icon: GlassWater },
   { slug: "laser-skin-resurfacing", name: "Laser Skin Resurfacing", clinicCount: 359, icon: Zap },
   { slug: "ipl-photofacial", name: "IPL Photofacial", clinicCount: 348, icon: Sun },
   { slug: "hair-restoration", name: "Hair Restoration", clinicCount: 339, icon: Flame },
   { slug: "rf-microneedling", name: "RF Microneedling", clinicCount: 322, icon: Layers },
-  { slug: "hydrafacial", name: "HydraFacial", clinicCount: 258, icon: Waves },
+  { slug: "hydrafacial", name: "HydraFacial®", clinicCount: 258, icon: Waves },
+  // Added 2026-09-12 (19 -> 22 core treatments). Counts from the website-verified
+  // coverage backfill (national scope), same source as the search dropdown.
+  // NOTE: Cryotherapy is a core, fully searchable treatment but is intentionally
+  // NOT featured here — aesthetic cryotherapy is a niche offering (18 clinics), and
+  // the common fat-freezing "cryo" devices are counted under Body Contouring. So
+  // this carousel is a curated subset, not the whole 22-treatment catalog.
+  { slug: "hormone-therapy", name: "Hormone Therapy", clinicCount: 234, icon: Pill },
+  { slug: "red-light-therapy", name: "Red Light Therapy", clinicCount: 200, icon: Lightbulb },
 ];

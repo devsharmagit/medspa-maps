@@ -65,7 +65,7 @@ export interface CanonicalConcern {
 export const CANONICAL_SERVICES: CanonicalService[] = [
   // ── Injectables ──────────────────────────────────────────────────────────
   {
-    name: "Botox",
+    name: "Botox®",
     slug: "botox",
     category: "Injectables",
     aliases: [
@@ -80,9 +80,9 @@ export const CANONICAL_SERVICES: CanonicalService[] = [
       "wrinkle relaxer",
       "wrinkle relaxers",
       "anti-wrinkle injections",
-      // "dysport" / "abobotulinumtoxina" deliberately NOT listed: Dysport is a
+      // "dysport" / "abobotulinumtoxina" deliberately NOT listed: Dysport® is a
       // core treatment in its own right as of the 2026-09-06 reduction, and
-      // folding it in here would make every Dysport search return Botox
+      // folding it in here would make every Dysport® search return Botox®
       // clinics. See lib/taxonomy/core-catalog.ts.
       "xeomin",
       "jeuveau",
@@ -92,7 +92,7 @@ export const CANONICAL_SERVICES: CanonicalService[] = [
     summary:
       "Smooths dynamic wrinkles by relaxing the facial muscles responsible for fine lines.",
     description:
-      "Botox and other neuromodulators are non-surgical injectables that temporarily relax targeted facial muscles to soften the appearance of fine lines and wrinkles. They are most commonly used on forehead lines, frown lines, and crow's feet while preserving natural, expressive movement.",
+      "Botox® and other neuromodulators are non-surgical injectables that temporarily relax targeted facial muscles to soften the appearance of fine lines and wrinkles. They are most commonly used on forehead lines, frown lines, and crow's feet while preserving natural, expressive movement.",
     treatment_time: "20-30 mins",
     results_timeline: "Within 1 week",
     results_duration: "3-4 Months",
@@ -136,7 +136,7 @@ export const CANONICAL_SERVICES: CanonicalService[] = [
     summary:
       "Restores lost volume and smooths folds using injectable hyaluronic acid and volumizing gels.",
     description:
-      "Dermal fillers are injectable gels, most often hyaluronic acid based, used to restore lost facial volume, smooth deep folds, and refine the contours of the cheeks, lips, under-eyes, and jawline. Collagen-stimulating options such as Sculptra and Radiesse deliver gradual, longer-lasting volume restoration without surgery.",
+      "Dermal fillers are injectable gels, most often hyaluronic acid based, used to restore lost facial volume, smooth deep folds, and refine the contours of the cheeks, lips, under-eyes, and jawline. Collagen-stimulating options such as Sculptra® and Radiesse deliver gradual, longer-lasting volume restoration without surgery.",
     treatment_time: "30-45 mins",
     results_timeline: "Immediately",
     results_duration: "6-18 Months",
@@ -271,7 +271,7 @@ export const CANONICAL_SERVICES: CanonicalService[] = [
     is_published: true,
   },
   {
-    name: "HydraFacial",
+    name: "HydraFacial®",
     slug: "hydrafacial",
     category: "Skin",
     // Brand terms ONLY. The generic "facial"/"facials"/"facial treatment(s)"/
@@ -280,8 +280,8 @@ export const CANONICAL_SERVICES: CanonicalService[] = [
     // because `resolveSearchQuery` consults the curated matcher first, that
     // SHADOWED the live catalog's own `Facials` row (144 clinics) and
     // `Dermaplaning` row (94 clinics) — a search for either sent users to
-    // HydraFacial clinics instead. A basic facial at a day spa is not a
-    // HydraFacial. "dermaplaning facial" also contradicted dedupe-services.ts,
+    // HydraFacial® clinics instead. A basic facial at a day spa is not a
+    // HydraFacial®. "dermaplaning facial" also contradicted dedupe-services.ts,
     // which folds dermaplaning-facial into dermaplaning.
     aliases: [
       "hydrafacial",
@@ -294,7 +294,7 @@ export const CANONICAL_SERVICES: CanonicalService[] = [
     summary:
       "A medical-grade facial that cleanses, exfoliates, extracts, and hydrates in one session.",
     description:
-      "HydraFacial is a multi-step, medical-grade facial that cleanses, gently exfoliates, extracts impurities, and infuses the skin with hydrating serums and antioxidants. It improves tone, clarity, and radiance with no downtime, making it a popular maintenance treatment for nearly every skin type.",
+      "HydraFacial® is a multi-step, medical-grade facial that cleanses, gently exfoliates, extracts impurities, and infuses the skin with hydrating serums and antioxidants. It improves tone, clarity, and radiance with no downtime, making it a popular maintenance treatment for nearly every skin type.",
     treatment_time: "30-45 mins",
     results_timeline: "Immediately",
     results_duration: "2-4 Weeks",
@@ -702,7 +702,7 @@ const PAGE_NAV_RE =
 const BLOG_TITLE_RE =
   /^(how|why|what|when|where|which|who|maintain(?:ing)?|protect(?:ing)?|understand(?:ing)?|everything\s+you|the\s+benefits|is|are|can|should|does)\b/i;
 
-// SEO location-suffix pages ("Botox in Orem", "Facelift in Bismarck, ND").
+// SEO location-suffix pages ("Botox® in Orem", "Facelift in Bismarck, ND").
 const SEO_LOCATION_RE = /\b(?:in|near)\s+[A-Z][a-zA-Z.'-]+(?:,?\s+[A-Z]{2})?\s*$/;
 
 // Patient conditions/goals surfacing AS treatments (they belong in concerns).

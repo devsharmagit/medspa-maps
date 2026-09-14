@@ -28,12 +28,12 @@ export interface TreatmentCatalogEntry {
 export const TREATMENT_CATALOG: TreatmentCatalogEntry[] = [
   {
     slug: "botox",
-    name: "Botox",
+    name: "Botox®",
     aliases: ["tox", "botulinum", "neuromodulator"],
     summary:
       "Smooths dynamic wrinkles by relaxing the facial muscles responsible for fine lines.",
     description:
-      "Botox and other neuromodulators are non-surgical injectables that temporarily relax targeted facial muscles to soften the appearance of fine lines and wrinkles. They are most commonly used on forehead lines, frown lines, and crow's feet while preserving natural, expressive movement.",
+      "Botox® and other neuromodulators are non-surgical injectables that temporarily relax targeted facial muscles to soften the appearance of fine lines and wrinkles. They are most commonly used on forehead lines, frown lines, and crow's feet while preserving natural, expressive movement.",
     price_from: 12,
     price_unit: "Unit",
     treatment_time: "20-30 mins",
@@ -48,7 +48,7 @@ export const TREATMENT_CATALOG: TreatmentCatalogEntry[] = [
     summary:
       "Restores lost volume and smooths folds using injectable hyaluronic acid and volumizing gels.",
     description:
-      "Dermal fillers are injectable gels, most often hyaluronic acid based, used to restore lost facial volume, smooth deep folds, and refine the contours of the cheeks, lips, under-eyes, and jawline. Collagen-stimulating options such as Sculptra and Radiesse deliver gradual, longer-lasting volume restoration without surgery.",
+      "Dermal fillers are injectable gels, most often hyaluronic acid based, used to restore lost facial volume, smooth deep folds, and refine the contours of the cheeks, lips, under-eyes, and jawline. Collagen-stimulating options such as Sculptra® and Radiesse deliver gradual, longer-lasting volume restoration without surgery.",
     price_from: 650,
     price_unit: "Syringe",
     treatment_time: "30-45 mins",
@@ -133,12 +133,12 @@ export const TREATMENT_CATALOG: TreatmentCatalogEntry[] = [
   },
   {
     slug: "hydrafacial",
-    name: "HydraFacial",
+    name: "HydraFacial®",
     aliases: ["hydra facial", "facial", "facials", "medical facial"],
     summary:
       "A medical-grade facial that cleanses, exfoliates, extracts, and hydrates in one session.",
     description:
-      "HydraFacial is a multi-step, medical-grade facial that cleanses, gently exfoliates, extracts impurities, and infuses the skin with hydrating serums and antioxidants. It improves tone, clarity, and radiance with no downtime, making it a popular maintenance treatment for nearly every skin type.",
+      "HydraFacial® is a multi-step, medical-grade facial that cleanses, gently exfoliates, extracts impurities, and infuses the skin with hydrating serums and antioxidants. It improves tone, clarity, and radiance with no downtime, making it a popular maintenance treatment for nearly every skin type.",
     price_from: 175,
     price_unit: "Session",
     treatment_time: "30-45 mins",

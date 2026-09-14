@@ -7,7 +7,7 @@ import starsvg from "@/../public/images/landingpage/star-svg.svg";
 import { cn } from "@/lib/utils";
 
 const TREATMENTS = [
-  { slug: "botox",                  label: ["Botox"] },
+  { slug: "botox",                  label: ["Botox®"] },
   { slug: "dermal-fillers",         label: ["Dermal", "Fillers"] },
   { slug: "kybella",                label: ["Kybella"] },
   { slug: "pdo-threads",            label: ["PDO", "Threads"] },

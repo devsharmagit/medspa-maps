@@ -19,6 +19,7 @@ export const dynamic = "force-dynamic";
 // in-process TTL cache is enough. The key rounds coordinates to ~7 miles, which
 // collapses the location typeahead's per-keystroke coordinate churn to a handful
 // of entries without changing any count a user would notice.
+// Cache busted for trademark update
 const TTL_MS = 5 * 60_000;
 const MAX_ENTRIES = 64;
 const cache = new Map<string, { at: number; payload: SearchOptionCounts }>();

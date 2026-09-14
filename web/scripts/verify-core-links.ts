@@ -130,9 +130,12 @@ async function main() {
       );
     }
   }
+  // The carousel is a CURATED SUBSET of the core treatments (e.g. Cryotherapy is
+  // core + searchable but intentionally not featured — see popular-treatments.ts).
+  // So a core slug missing here is allowed; we only note it, not fail.
   for (const s of CORE_TREATMENT_SLUGS) {
     if (!POPULAR_TREATMENTS.some((t) => t.slug === s)) {
-      bad(`treatment "${s}" is core but missing from the homepage carousel`);
+      console.log(`   note: "${s}" is core but not featured on the homepage carousel (curated subset)`);
     }
   }
   if (drift.length) {
