@@ -13,7 +13,7 @@ const categories = [
   { name: "Patient guide" },
 ];
 
-const popularTopics = ["Botox", "Fillers", "Laser treatments", "Acne", "Anti aging"];
+const popularTopics = ["Botox®", "Fillers", "Laser treatments", "Acne", "Anti aging"];
 
 /** Light, serializable shape passed from the server homepage. */
 export interface ArticleCard {

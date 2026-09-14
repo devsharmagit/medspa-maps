@@ -29,7 +29,7 @@ const faqs = [
   {
     question: "What treatments and conditions can I search for?",
     answer:
-      "You can search by treatment — like Botox, dermal fillers, or laser hair removal — or by the concern you want to address, like acne, fine lines, or hyperpigmentation. We match you with local practices that offer exactly what you're looking for.",
+      "You can search by treatment — like Botox®, dermal fillers, or laser hair removal — or by the concern you want to address, like acne, fine lines, or hyperpigmentation. We match you with local practices that offer exactly what you're looking for.",
   },
 ];
 

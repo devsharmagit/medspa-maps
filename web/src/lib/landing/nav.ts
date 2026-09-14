@@ -13,7 +13,7 @@ export interface NavItem {
 export const PATIENTS_FAV_HREF = "/patients-favourites";
 
 export const FAV_TREATMENTS: NavItem[] = [
-  { label: "Botox", href: "/treatment/botox" },
+  { label: "Botox®", href: "/treatment/botox" },
   { label: "Dermal Fillers", href: "/treatment/dermal-fillers" },
   { label: "Facials", href: "/treatment/facials" },
   { label: "Laser Treatments", href: "/treatment/laser-treatments" },

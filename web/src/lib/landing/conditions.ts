@@ -26,7 +26,7 @@ const wrinkles: LandingContent = {
   atGlance: [
     "Wrinkles are lines and creases that form as skin loses collagen, elastin, and volume with age and sun exposure.",
     "There are two main kinds: dynamic wrinkles from repeated movement, and static wrinkles present even at rest.",
-    "Botox is best for dynamic lines; dermal fillers restore volume for static lines; resurfacing (laser, microneedling, peels) improves texture.",
+    "Botox® is best for dynamic lines; dermal fillers restore volume for static lines; resurfacing (laser, microneedling, peels) improves texture.",
     "Daily sun protection and a good skincare routine are the foundation of prevention.",
     "The best treatment depends on the type and depth of your wrinkles, so a consultation matters.",
     "Use Medspa Maps to find and compare providers who treat wrinkles near you.",
@@ -55,22 +55,22 @@ const wrinkles: LandingContent = {
       table: {
         headers: ["Type", "When they show", "Common examples", "Best-suited treatments"],
         rows: [
-          ["Dynamic", "With movement", "Frown lines, forehead lines, crow's feet", "Botox and other neuromodulators"],
+          ["Dynamic", "With movement", "Frown lines, forehead lines, crow's feet", "Botox® and other neuromodulators"],
           ["Static", "At rest", "Nasolabial folds, deep creases, volume loss", "Dermal fillers, resurfacing"],
         ],
       },
       pullQuote:
-        "Dynamic wrinkles appear when your face moves and respond to Botox; static wrinkles are visible at rest and are usually softened with fillers or resurfacing.",
+        "Dynamic wrinkles appear when your face moves and respond to Botox®; static wrinkles are visible at rest and are usually softened with fillers or resurfacing.",
     },
     {
       id: "treatments-for-wrinkles",
       heading: "What medspa treatments help with",
       headingAccent: "wrinkles?",
       body: [
-        "The most common professional options are Botox for movement lines, dermal fillers for volume and static lines, and resurfacing treatments like laser, microneedling, and chemical peels for texture and fine lines. The right plan often combines more than one.",
+        "The most common professional options are Botox® for movement lines, dermal fillers for volume and static lines, and resurfacing treatments like laser, microneedling, and chemical peels for texture and fine lines. The right plan often combines more than one.",
       ],
       bullets: [
-        "Botox and neuromodulators: relax the muscles that cause frown lines, forehead lines, and crow's feet.",
+        "Botox® and neuromodulators: relax the muscles that cause frown lines, forehead lines, and crow's feet.",
         "Dermal fillers: restore lost volume and soften deeper static folds.",
         "Laser resurfacing: remodels the skin's surface to smooth lines and texture.",
         "Microneedling: stimulates collagen to improve fine lines and tone.",
@@ -87,7 +87,7 @@ const wrinkles: LandingContent = {
       heading: "Which wrinkle treatment is right for",
       headingAccent: "me?",
       body: [
-        "It depends on where your wrinkles are and whether they appear with movement or at rest. Movement lines on the upper face usually point to Botox, volume loss and deep folds to fillers, and overall texture or fine lines to resurfacing.",
+        "It depends on where your wrinkles are and whether they appear with movement or at rest. Movement lines on the upper face usually point to Botox®, volume loss and deep folds to fillers, and overall texture or fine lines to resurfacing.",
         "Most people benefit from a personalized combination, and a qualified provider can map your concerns to the right treatments and sequence. For a deeper look at injectables and lasers, our treatment guides cover each option in detail.",
       ],
     },
@@ -125,19 +125,19 @@ const wrinkles: LandingContent = {
   faqs: [
     {
       q: "How do you get rid of forehead wrinkles?",
-      a: "Forehead lines that appear with movement respond well to Botox and other neuromodulators, while deeper lines present at rest may also benefit from dermal filler or resurfacing. Daily sunscreen and a retinoid can help prevent them from deepening. A provider can recommend the right combination.",
+      a: "Forehead lines that appear with movement respond well to Botox® and other neuromodulators, while deeper lines present at rest may also benefit from dermal filler or resurfacing. Daily sunscreen and a retinoid can help prevent them from deepening. A provider can recommend the right combination.",
     },
     {
       q: "What is the best treatment for wrinkles?",
-      a: "There is no single best treatment; it depends on the type and depth of the wrinkle. Botox is best for dynamic (movement) lines, fillers restore volume and soften static lines, and resurfacing treatments like laser, microneedling, and peels improve texture. Many people combine approaches.",
+      a: "There is no single best treatment; it depends on the type and depth of the wrinkle. Botox® is best for dynamic (movement) lines, fillers restore volume and soften static lines, and resurfacing treatments like laser, microneedling, and peels improve texture. Many people combine approaches.",
     },
     {
       q: "Can wrinkles be reversed?",
       a: "Existing wrinkles can often be softened significantly, though results vary and are usually maintained rather than permanent. Early, consistent care and professional treatment tend to produce the best improvement.",
     },
     {
-      q: "Should I get Botox or filler for wrinkles?",
-      a: "Botox relaxes the muscles that cause expression lines, while filler adds volume to smooth static lines and restore fullness. The right choice depends on your specific wrinkles, and the two are often used together.",
+      q: "Should I get Botox® or filler for wrinkles?",
+      a: "Botox® relaxes the muscles that cause expression lines, while filler adds volume to smooth static lines and restore fullness. The right choice depends on your specific wrinkles, and the two are often used together.",
     },
     {
       q: "How can I prevent wrinkles?",
