@@ -8,7 +8,7 @@ on:
 
 env:
   AWS_REGION: us-east-2
-  ECR_REGISTRY: 584537429324.dkr.ecr.us-east-2.amazonaws.com
+  ECR_REGISTRY: 330866750640.dkr.ecr.us-east-2.amazonaws.com
   ECR_REPOSITORY: medspa-maps
 
 jobs:
@@ -26,22 +26,25 @@ jobs:
       - name: Configure AWS credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v6
         with:
-          role-to-assume: arn:aws:iam::584537429324:role/Bitbucket
+          role-to-assume: arn:aws:iam::330866750640:role/github-oidc-cicd
           role-session-name: github-ecr-push-${{ github.run_id }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Build, tag, and push image to ECR
         env:
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build \
+          docker buildx build \
+            --platform linux/amd64 \
             -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
-            -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:latest \
+            --push .
           echo "Image pushed: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
 
       - name: Download task definition
@@ -61,5 +64,5 @@ jobs:
         with:
           task-definition: ${{ steps.render-task-def.outputs.task-definition }}
           service: medspa-maps
-          cluster: Infra
+          cluster: infratools
           wait-for-service-stability: false
