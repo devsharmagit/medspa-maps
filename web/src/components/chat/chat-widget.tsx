@@ -67,6 +67,29 @@ const SUGGESTIONS = [
   "What treatments do you cover?",
 ];
 
+/** Canonical trademarked spelling for the registered brands. */
+const BRAND_TM: Record<string, string> = {
+  botox: "Botox®",
+  dysport: "Dysport®",
+  xeomin: "Xeomin®",
+  jeuveau: "Jeuveau®",
+  sculptra: "Sculptra®",
+  hydrafacial: "HydraFacial®",
+};
+const BRAND_RE = /\b(botox|dysport|xeomin|jeuveau|sculptra|hydrafacial)\b®?/gi;
+
+/**
+ * Normalise a suggestion/follow-up chip for display AND for the query it sends:
+ * give the six registered brands their ® (folding any existing one so we never
+ * double it) and capitalise the first character. The chat intent resolver
+ * strips ® (see taxonomy `normalize`), so sending the branded form resolves
+ * identically to the bare name.
+ */
+function formatChipLabel(s: string): string {
+  const withTm = s.replace(BRAND_RE, (_m, name: string) => BRAND_TM[name.toLowerCase()]);
+  return withTm.charAt(0).toUpperCase() + withTm.slice(1);
+}
+
 const EMPTY_SLOTS: Slots = { treatmentsDiscussed: [] };
 
 /** Map the current pathname to the page context the assistant is opened from. */
@@ -422,16 +445,19 @@ export default function ChatWidget() {
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {SUGGESTIONS.map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => sendMessage(s)}
-                      className="rounded-full border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground transition hover:bg-muted"
-                    >
-                      {s}
-                    </button>
-                  ))}
+                  {SUGGESTIONS.map((s) => {
+                    const label = formatChipLabel(s);
+                    return (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => sendMessage(label)}
+                        className="rounded-full border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground transition hover:bg-muted"
+                      >
+                        {superscriptTrademark(label)}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             ) : (
@@ -491,16 +517,19 @@ export default function ChatWidget() {
                   Suggested
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  {followups.map((f) => (
-                    <button
-                      key={f}
-                      type="button"
-                      onClick={() => sendMessage(f)}
-                      className="rounded-full border border-border bg-background px-3 py-1.5 text-left text-xs font-medium text-foreground transition hover:bg-muted"
-                    >
-                      {f}
-                    </button>
-                  ))}
+                  {followups.map((f) => {
+                    const label = formatChipLabel(f);
+                    return (
+                      <button
+                        key={f}
+                        type="button"
+                        onClick={() => sendMessage(label)}
+                        className="rounded-full border border-border bg-background px-3 py-1.5 text-left text-xs font-medium text-foreground transition hover:bg-muted"
+                      >
+                        {superscriptTrademark(label)}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
