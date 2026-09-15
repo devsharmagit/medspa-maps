@@ -20,14 +20,21 @@ export function superscriptTrademark(text: string | null | undefined): ReactNode
 
   // Split on the capturing group (non-global regex → no lastIndex state to leak).
   const parts = text.split(TM_SYMBOL);
-  return parts.map((part, i) =>
-    part === "®" || part === "™" || part === "©" ? (
-      <sup key={i} className="align-super text-[0.6em] leading-none">
-        {part}
-      </sup>
-    ) : (
-      <Fragment key={i}>{part}</Fragment>
-    )
+  // Wrap in a single inline span so the result is ONE node — otherwise the
+  // sibling text/sup nodes become separate flex items in a flex parent (e.g. a
+  // `justify-between` FAQ summary or a `gap-3` list item) and get spread apart.
+  return (
+    <span>
+      {parts.map((part, i) =>
+        part === "®" || part === "™" || part === "©" ? (
+          <sup key={i} className="align-super text-[0.6em] leading-none">
+            {part}
+          </sup>
+        ) : (
+          <Fragment key={i}>{part}</Fragment>
+        )
+      )}
+    </span>
   );
 }
 

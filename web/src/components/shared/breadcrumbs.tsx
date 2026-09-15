@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import React from "react";
+import { superscriptTrademark } from "@/lib/format/trademark";
 
 export interface BreadcrumbItem {
   label: string;
@@ -20,11 +21,11 @@ export function Breadcrumbs({ items }: BreadcrumbsProps) {
         return (
           <React.Fragment key={index}>
             {isLast ? (
-              <span className="text-[#A8698A]/60">{item.label}</span>
+              <span className="text-[#A8698A]/60">{superscriptTrademark(item.label)}</span>
             ) : (
               <>
                 <Link href={item.href || "#"} className="text-[#A8698A] hover:opacity-80 transition-opacity">
-                  {item.label}
+                  {superscriptTrademark(item.label)}
                 </Link>
                 <ChevronRight className="size-3.5 text-[#A8698A]" />
               </>
