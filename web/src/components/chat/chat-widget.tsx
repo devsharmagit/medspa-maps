@@ -13,6 +13,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { MessageCircle, X, ArrowUp, Sparkles, Loader2, Mic, Square } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { superscriptTrademark } from "@/lib/format/trademark";
 import ChatClinicCards, { type ChatClinicPayload } from "./chat-clinic-cards";
 import { useSpeechInput } from "@/lib/chat/use-speech-input";
 import { useLocation } from "@/lib/location/location-context";
@@ -741,19 +742,21 @@ function renderInline(text: string): ReactNode[] {
   let m: RegExpExecArray | null;
 
   while ((m = re.exec(text)) !== null) {
-    if (m.index > last) out.push(text.slice(last, m.index));
+    if (m.index > last)
+      out.push(<Fragment key={key++}>{superscriptTrademark(text.slice(last, m.index))}</Fragment>);
     if (m[1] !== undefined && m[2] !== undefined) {
       out.push(<ChatLink key={key++} href={m[2]} label={m[1]} />);
     } else if (m[3] !== undefined) {
-      out.push(<strong key={key++}>{m[3]}</strong>);
+      out.push(<strong key={key++}>{superscriptTrademark(m[3])}</strong>);
     } else if (m[4] !== undefined) {
-      out.push(<em key={key++}>{m[4]}</em>);
+      out.push(<em key={key++}>{superscriptTrademark(m[4])}</em>);
     } else if (m[5] !== undefined) {
-      out.push(<em key={key++}>{m[5]}</em>);
+      out.push(<em key={key++}>{superscriptTrademark(m[5])}</em>);
     }
     last = re.lastIndex;
   }
-  if (last < text.length) out.push(text.slice(last));
+  if (last < text.length)
+    out.push(<Fragment key={key++}>{superscriptTrademark(text.slice(last))}</Fragment>);
   return out;
 }
 

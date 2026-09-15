@@ -4,6 +4,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import { slugifyText } from "@/lib/blog/toc";
+import { rehypeTrademark } from "@/lib/format/trademark";
 
 /** Flatten React children to a plain string (headings are plain text here). */
 function toText(children: ReactNode): string {
@@ -36,6 +37,7 @@ export function Markdown({ children }: { children: string }) {
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
+      rehypePlugins={[rehypeTrademark]}
       components={{
         h2: ({ children }) => (
           <h2

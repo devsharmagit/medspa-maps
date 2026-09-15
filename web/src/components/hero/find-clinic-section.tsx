@@ -3,6 +3,7 @@
 import { HeartPulse, MapPin, Search, Sparkles, Star } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Trademark } from "@/lib/format/trademark";
 
 import type { FeaturedClinic } from "@/lib/clinics/featured";
 import { useLocation } from "@/lib/location/location-context";
@@ -264,7 +265,7 @@ function ClinicCard({ clinic }: { clinic: FeaturedClinic }) {
                 key={t.slug}
                 className="rounded border-[0.5px] border-[#DFDFDF] bg-[#F5F5F5] px-[10px] py-1 font-montserrat text-[12px] tracking-[0.02em] text-[#7F7F7F]"
               >
-                {t.name}
+                <Trademark>{t.name}</Trademark>
               </span>
             ))}
             <a

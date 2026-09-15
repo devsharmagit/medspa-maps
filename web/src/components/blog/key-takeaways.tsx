@@ -1,4 +1,5 @@
 import { Check } from "lucide-react";
+import { superscriptTrademark } from "@/lib/format/trademark";
 
 /** TL;DR "Key Takeaways" callout box shown at the top of an article. */
 export function KeyTakeaways({ items }: { items: string[] }) {
@@ -21,7 +22,7 @@ export function KeyTakeaways({ items }: { items: string[] }) {
               <Check className="size-3 text-[#7b2d6b]" strokeWidth={2.5} aria-hidden />
             </span>
             <span className="font-montserrat text-[14px] leading-[1.6] text-[#3d3140] sm:text-[15px]">
-              {item}
+              {superscriptTrademark(item)}
             </span>
           </li>
         ))}

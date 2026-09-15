@@ -1,6 +1,7 @@
 import { ChevronDown } from "lucide-react";
 
 import type { BlogFaq } from "@/lib/blog";
+import { superscriptTrademark } from "@/lib/format/trademark";
 
 /**
  * FAQ list rendered as native <details>/<summary> — no JS, SEO-friendly, and
@@ -21,14 +22,14 @@ export function BlogFaqSection({ faqs }: { faqs: BlogFaq[] }) {
         {faqs.map((faq, i) => (
           <details key={i} className="group py-2">
             <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-3 font-montserrat text-[16px] font-medium text-[#373634] sm:text-[17px]">
-              {faq.q}
+              {superscriptTrademark(faq.q)}
               <ChevronDown
                 className="size-5 shrink-0 text-[#CF5B9D] transition-transform group-open:rotate-180"
                 aria-hidden
               />
             </summary>
             <p className="pb-4 pr-8 font-montserrat text-[15px] leading-[1.7] text-zinc-600">
-              {faq.a}
+              {superscriptTrademark(faq.a)}
             </p>
           </details>
         ))}

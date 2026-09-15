@@ -4,6 +4,7 @@ import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useSta
 import { createPortal } from "react-dom";
 import { Check, ChevronDown, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { superscriptTrademark } from "@/lib/format/trademark";
 
 export interface DropdownOption {
   label: string;
@@ -401,14 +402,14 @@ export function SearchableDropdown({
                   >
                     <span className="flex-1 truncate">
                       {matchStart === -1 ? (
-                        option.label
+                        superscriptTrademark(option.label)
                       ) : (
                         <>
-                          {option.label.slice(0, matchStart)}
+                          {superscriptTrademark(option.label.slice(0, matchStart))}
                           <span className="font-semibold">
-                            {option.label.slice(matchStart, matchStart + q.length)}
+                            {superscriptTrademark(option.label.slice(matchStart, matchStart + q.length))}
                           </span>
-                          {option.label.slice(matchStart + q.length)}
+                          {superscriptTrademark(option.label.slice(matchStart + q.length))}
                         </>
                       )}
                     </span>

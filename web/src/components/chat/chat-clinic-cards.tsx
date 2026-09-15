@@ -10,6 +10,7 @@
  * components/blog/treatment-practices.tsx, plus treatment chips and CTAs.
  */
 import Link from "next/link";
+import { Trademark } from "@/lib/format/trademark";
 import { MapPin, Star, ArrowUpRight } from "lucide-react";
 
 export interface ChatClinicCard {
@@ -117,7 +118,7 @@ function ClinicRow({ clinic }: { clinic: ChatClinicCard }) {
                   key={t}
                   className="rounded-md border border-[#ece6ec] bg-[#faf7fa] px-1.5 py-0.5 text-[10px] text-[#8a6f8a]"
                 >
-                  {t}
+                  <Trademark>{t}</Trademark>
                 </span>
               ))}
             </div>

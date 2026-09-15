@@ -21,7 +21,7 @@ export function ListingHero({
   contentClassName,
 }: {
   crumbs: BreadcrumbItem[];
-  title: string;
+  title: React.ReactNode;
   accent?: string;
   subtitle?: string;
   children?: React.ReactNode;
