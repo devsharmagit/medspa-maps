@@ -2,6 +2,7 @@
 
 import { ArrowLeft, ArrowRight, type LucideIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { Trademark } from "@/lib/format/trademark";
 import { useRef } from "react";
 
 import { POPULAR_TREATMENTS } from "@/data/popular-treatments";
@@ -50,7 +51,7 @@ function TreatmentCard({
 
       {/* Title */}
       <p className="flex h-auto sm:h-[30px] w-[104px] sm:w-[124px] items-center justify-center text-center font-montserrat text-[13px] sm:text-[14px] font-medium leading-[116.02%] text-[#383838]">
-        {name}
+        <Trademark>{name}</Trademark>
       </p>
 
       {/* Clinics */}

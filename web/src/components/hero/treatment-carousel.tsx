@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRef } from "react";
 import starsvg from "@/../public/images/landingpage/star-svg.svg";
 import { cn } from "@/lib/utils";
+import { Trademark } from "@/lib/format/trademark";
 
 const TREATMENTS = [
   { slug: "botox",                  label: ["Botox®"] },
@@ -34,7 +35,7 @@ function TreatmentItem({ slug, label }: { slug: string; label: readonly string[]
       <div className="text-[13px] sm:text-sm font-medium leading-tight tracking-wide text-brand-carousel">
         {label.map((line) => (
           <span key={line} className="block">
-            {line}
+            <Trademark>{line}</Trademark>
           </span>
         ))}
       </div>

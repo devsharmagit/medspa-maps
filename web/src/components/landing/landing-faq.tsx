@@ -1,6 +1,7 @@
 import { ChevronDown } from "lucide-react";
 
 import type { LandingFaq } from "@/lib/landing/types";
+import { superscriptTrademark } from "@/lib/format/trademark";
 
 /**
  * Centered FAQ using native <details>/<summary> (no client JS). The same `faqs`
@@ -22,13 +23,13 @@ export function LandingFaq({ faqs, subject }: { faqs: LandingFaq[]; subject?: st
             className="group rounded-[14px] border border-[#F0E2EC] bg-white px-5 py-4 shadow-[0px_6px_14px_rgba(170,78,179,0.05)] open:shadow-[0px_10px_24px_rgba(170,78,179,0.10)]"
           >
             <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-[15.5px] font-semibold text-[#373634] marker:content-['']">
-              {faq.q}
+              {superscriptTrademark(faq.q)}
               <ChevronDown
                 className="size-5 shrink-0 text-[#CF5B9D] transition-transform group-open:rotate-180"
                 aria-hidden
               />
             </summary>
-            <p className="mt-3 text-[14.5px] leading-[1.65] text-zinc-600">{faq.a}</p>
+            <p className="mt-3 text-[14.5px] leading-[1.65] text-zinc-600">{superscriptTrademark(faq.a)}</p>
           </details>
         ))}
       </div>

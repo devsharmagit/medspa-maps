@@ -17,6 +17,7 @@ import {
   X,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Trademark, superscriptTrademark } from "@/lib/format/trademark";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -1353,7 +1354,7 @@ function ResultsStep({
                 <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-brand-coral">
                   {CONCERN_SOURCE_LABELS[concern.source] ?? concern.source}
                 </p>
-                <p className="mt-2 text-sm leading-6 text-slate-600">{concern.rationale}</p>
+                <p className="mt-2 text-sm leading-6 text-slate-600">{superscriptTrademark(concern.rationale)}</p>
               </article>
             ))}
           </div>
@@ -1424,9 +1425,9 @@ function TreatmentCard({
   return (
     <article className="flex flex-col rounded-lg border border-slate-200 bg-white p-5">
       <h4 className="font-heading text-lg font-medium text-slate-950">
-        {CORE_TREATMENT_NAMES.get(treatment.slug) ?? treatment.name}
+        <Trademark>{CORE_TREATMENT_NAMES.get(treatment.slug) ?? treatment.name}</Trademark>
       </h4>
-      <p className="mt-2 flex-1 text-sm leading-6 text-slate-600">{treatment.whyItFits}</p>
+      <p className="mt-2 flex-1 text-sm leading-6 text-slate-600">{superscriptTrademark(treatment.whyItFits)}</p>
       {href && (
         <Button asChild variant="outline" className="mt-4 h-10 w-full">
           <Link href={href}>
@@ -1542,7 +1543,7 @@ function ClinicCard({
                 key={treatment.slug}
                 className="rounded border border-[#DFDFDF] bg-[#F5F5F5] px-2.5 py-1 text-xs text-[#7F7F7F]"
               >
-                {treatment.name}
+                <Trademark>{treatment.name}</Trademark>
               </span>
             ))}
           </div>

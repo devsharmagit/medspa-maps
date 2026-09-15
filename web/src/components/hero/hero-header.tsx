@@ -12,6 +12,7 @@ import {
   PATIENTS_FAV_HREF,
   type NavItem,
 } from "@/lib/landing/nav";
+import { Trademark } from "@/lib/format/trademark";
 
 const navLinks = [
   { label: "Find My Treatment", href: "/ai-aesthetic-treatment-finder" },
@@ -178,7 +179,7 @@ function DropdownColumn({ title, items }: { title: string; items: NavItem[] }) {
           href={item.href}
           className="block rounded-lg px-2 py-2 text-[14px] font-medium text-[#373634] transition-colors hover:bg-[#FCEFF6] hover:text-[#9b3a6e]"
         >
-          {item.label}
+          <Trademark>{item.label}</Trademark>
         </Link>
       ))}
     </div>
@@ -206,7 +207,7 @@ function MobileFavGroup({
           onClick={onNavigate}
           className="block px-1 py-1.5 text-[14px] font-medium text-white/90 transition-opacity hover:opacity-80"
         >
-          {item.label}
+          <Trademark>{item.label}</Trademark>
         </Link>
       ))}
     </div>

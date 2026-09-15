@@ -4,6 +4,7 @@ import { ArrowRight, Check, MapPin, Sparkles } from "lucide-react";
 import { Footer } from "@/components/footer";
 import { Button } from "@/components/ui/button";
 import { ListingHero } from "@/components/shared/listing-hero";
+import { superscriptTrademark } from "@/lib/format/trademark";
 import { MedicalDisclaimer } from "@/components/shared/medical-disclaimer";
 import { JsonLd } from "@/components/shared/json-ld";
 import { faqPageJsonLd } from "@/lib/seo/json-ld";
@@ -72,7 +73,7 @@ export function LandingPage({ content }: { content: LandingContent }) {
     >
       <JsonLd data={jsonLd} />
 
-      <ListingHero crumbs={crumbs} title={content.title} contentClassName={CONTENT_WIDTH}>
+      <ListingHero crumbs={crumbs} title={superscriptTrademark(content.title)} contentClassName={CONTENT_WIDTH}>
         <p className="font-montserrat text-[13px] text-zinc-500 sm:text-[14px]">
           A <span className="font-medium text-zinc-700">{SITE_NAME}</span> {guideLabel}
           <span className="mx-2 text-zinc-300">·</span>
@@ -103,7 +104,7 @@ export function LandingPage({ content }: { content: LandingContent }) {
             {content.atGlance.map((item) => (
               <li key={item} className="flex items-start gap-3 text-[15.5px] leading-[1.55] text-zinc-700">
                 <span className="mt-2 size-1.5 shrink-0 rounded-full bg-[#CF5B9D]" aria-hidden />
-                {item}
+                {superscriptTrademark(item)}
               </li>
             ))}
           </ul>
@@ -121,7 +122,7 @@ export function LandingPage({ content }: { content: LandingContent }) {
             <LandingHeading heading="What to look for in a" accent="provider" />
             {content.provider.intro.map((p, i) => (
               <p key={i} className="mt-5 text-[16.5px] leading-[1.75] text-zinc-700">
-                {p}
+                {superscriptTrademark(p)}
               </p>
             ))}
             <ul className="mt-7 grid gap-3.5 sm:grid-cols-2">
@@ -137,11 +138,13 @@ export function LandingPage({ content }: { content: LandingContent }) {
                     <span>
                       {label ? (
                         <>
-                          <strong className="font-semibold text-[#373634]">{label}</strong>
-                          {tip.slice(idx + 1)}
+                          <strong className="font-semibold text-[#373634]">
+                            {superscriptTrademark(label)}
+                          </strong>
+                          {superscriptTrademark(tip.slice(idx + 1))}
                         </>
                       ) : (
-                        tip
+                        superscriptTrademark(tip)
                       )}
                     </span>
                   </li>
@@ -153,8 +156,10 @@ export function LandingPage({ content }: { content: LandingContent }) {
             <div className="mt-6 flex flex-col gap-3 rounded-[16px] border border-[#F0E2EC] bg-[#fdf4fb] p-5 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-[15.5px] font-medium text-[#373634]">
                 {content.kind === "treatment"
-                  ? `Looking for a ${content.shortName} provider?`
-                  : `Looking for a provider who treats ${content.shortName.toLowerCase()}?`}
+                  ? superscriptTrademark(`Looking for a ${content.shortName} provider?`)
+                  : superscriptTrademark(
+                      `Looking for a provider who treats ${content.shortName.toLowerCase()}?`,
+                    )}
               </p>
               <Button
                 asChild
@@ -164,7 +169,7 @@ export function LandingPage({ content }: { content: LandingContent }) {
               >
                 <Link href={content.searchCta.href}>
                   <MapPin className="size-[18px]" aria-hidden />
-                  {content.searchCta.label}
+                  {superscriptTrademark(content.searchCta.label)}
                   <ArrowRight className="size-[18px]" aria-hidden />
                 </Link>
               </Button>
@@ -184,7 +189,7 @@ export function LandingPage({ content }: { content: LandingContent }) {
         <section className="mt-20">
           <div className="overflow-hidden rounded-[28px] bg-gradient-to-r from-[#7b2d6b] via-[#9b3a6e] to-[#b6663f] px-6 py-14 text-center sm:px-12 sm:py-16">
             <h2 className="font-montserrat text-[26px] font-medium leading-[116%] tracking-[-0.03em] text-white sm:text-[34px]">
-              {content.searchCta.label.replace(/\s*near you\s*$/, " ")}
+              {superscriptTrademark(content.searchCta.label.replace(/\s*near you\s*$/, " "))}
               <span className="font-fraunces font-normal italic">near you</span>
             </h2>
             <p className="mx-auto mt-3 max-w-[580px] text-[15.5px] leading-[1.6] text-white/85">
@@ -195,7 +200,7 @@ export function LandingPage({ content }: { content: LandingContent }) {
               <Button asChild size="search" className="bg-white text-[#9b3a6e] hover:bg-white/90">
                 <Link href={content.searchCta.href}>
                   <MapPin className="size-[18px]" aria-hidden />
-                  {content.searchCta.label}
+                  {superscriptTrademark(content.searchCta.label)}
                   <ArrowRight className="size-[18px]" aria-hidden />
                 </Link>
               </Button>

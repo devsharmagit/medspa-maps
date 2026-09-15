@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { ResourcesSection } from "@/components/hero/resources-section";
 import { Newsletter } from "@/components/hero/newsletter";
+import { superscriptTrademark } from "@/lib/format/trademark";
 
 export function Footer({
   showListingCta = false,
@@ -32,7 +33,9 @@ export function Footer({
           </Link>
         </nav>
         <p className="mb-2 max-w-3xl text-center font-montserrat text-[11px] font-medium leading-[160%] text-[#9A9A9A]">
-          Botox®, Dysport®, Xeomin®, Jeuveau®, Sculptra®, and HydraFacial® are registered trademarks of their respective owners.
+          {superscriptTrademark(
+            "Botox®, Dysport®, Xeomin®, Jeuveau®, Sculptra®, and HydraFacial® are registered trademarks of their respective owners.",
+          )}
         </p>
         <p className="text-center font-montserrat text-[14px] font-medium uppercase leading-[180%] tracking-[0.02em] text-[#C4C4C4]">
           Medspa Maps © 2026. All rights reserved.{" "}

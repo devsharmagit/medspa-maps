@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { toStateCode } from "@/lib/location/states";
 import { cn } from "@/lib/utils";
+import { Trademark } from "@/lib/format/trademark";
 
 // Server-renderable clinic card, shared by the /search results grid and the
 // /locations/[state] landing grid. It uses no React hooks, so it renders in a
@@ -233,7 +234,7 @@ export function ClinicCard({
                 key={svc.slug}
                 className="rounded-md border border-[#ece6ec] bg-[#faf7fa] px-2 py-0.5 text-[11px] font-medium text-[#8a6f8a]"
               >
-                {svc.name}
+                <Trademark>{svc.name}</Trademark>
               </span>
             ))}
           </div>

@@ -3,6 +3,7 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { Trademark } from "@/lib/format/trademark";
 import { useRef, useState, useEffect } from "react";
 
 const categories = [
@@ -110,7 +111,7 @@ export function ArticleSection({ posts }: { posts: ArticleCard[] }) {
                   key={index}
                   className="flex justify-center items-center h-[26px] bg-[#E2CCE2] rounded-[6px] px-2.5 py-[4px] font-montserrat font-medium text-[12px] text-[#353535]"
                 >
-                  {topic}
+                  <Trademark>{topic}</Trademark>
                 </span>
               ))}
             </div>

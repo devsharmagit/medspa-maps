@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Trademark } from "@/lib/format/trademark";
 
 export interface ClinicTreatment {
   name: string;
@@ -16,7 +17,7 @@ function TreatmentChip({ treatment }: { treatment: ClinicTreatment }) {
   if (!treatment.slug) {
     return (
       <span className="inline-flex items-center rounded-full border border-[#F0DDE8] bg-white px-4 py-2 font-montserrat text-[13px] font-medium leading-none text-[#575757] shadow-[0px_2px_6px_rgba(0,0,0,0.03)]">
-        {treatment.name}
+        <Trademark>{treatment.name}</Trademark>
         {treatment.price_from != null && (
           <span className="ml-1.5 text-[#A8698B]">· from ${treatment.price_from}</span>
         )}
@@ -28,7 +29,7 @@ function TreatmentChip({ treatment }: { treatment: ClinicTreatment }) {
       href={`/search?q=${encodeURIComponent(treatment.slug)}`}
       className="inline-flex items-center rounded-full border border-[#F0DDE8] bg-white px-4 py-2 font-montserrat text-[13px] font-medium leading-none text-[#575757] shadow-[0px_2px_6px_rgba(0,0,0,0.03)] transition-colors hover:border-[#CF5B9D] hover:text-[#CF5B9D]"
     >
-      {treatment.name}
+      <Trademark>{treatment.name}</Trademark>
       {treatment.price_from != null && (
         <span className="ml-1.5 text-[#A8698B]">· from ${treatment.price_from}</span>
       )}

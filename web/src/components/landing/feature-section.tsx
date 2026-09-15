@@ -3,6 +3,7 @@ import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { LandingSection, LandingTable } from "@/lib/landing/types";
 import { LandingImage } from "./image-placeholder";
+import { superscriptTrademark } from "@/lib/format/trademark";
 
 /** "Label: rest of sentence" → bold the label. */
 function Bullet({ text }: { text: string }) {
@@ -10,12 +11,14 @@ function Bullet({ text }: { text: string }) {
   if (idx > 0 && idx < 42) {
     return (
       <>
-        <strong className="font-semibold text-[#373634]">{text.slice(0, idx + 1)}</strong>
-        {text.slice(idx + 1)}
+        <strong className="font-semibold text-[#373634]">
+          {superscriptTrademark(text.slice(0, idx + 1))}
+        </strong>
+        {superscriptTrademark(text.slice(idx + 1))}
       </>
     );
   }
-  return <>{text}</>;
+  return <>{superscriptTrademark(text)}</>;
 }
 
 export function LandingHeading({
@@ -34,11 +37,11 @@ export function LandingHeading({
         className,
       )}
     >
-      {heading}
+      {superscriptTrademark(heading)}
       {accent ? (
         <>
           {" "}
-          <span className="font-fraunces font-normal italic">{accent}</span>
+          <span className="font-fraunces font-normal italic">{superscriptTrademark(accent)}</span>
         </>
       ) : null}
     </h2>
@@ -50,7 +53,7 @@ function Body({ paragraphs }: { paragraphs?: string[] }) {
   return (
     <div className="mt-5 space-y-4 text-[16.5px] leading-[1.75] text-zinc-700">
       {paragraphs.map((p, i) => (
-        <p key={i}>{p}</p>
+        <p key={i}>{superscriptTrademark(p)}</p>
       ))}
     </div>
   );
@@ -81,7 +84,7 @@ function Table({ table }: { table?: LandingTable }) {
           <tr className="border-b border-[#F0E2EC] bg-[#faf5fa]">
             {table.headers.map((h) => (
               <th key={h} className="px-5 py-3.5 text-[13px] font-semibold text-[#7b2d6b]">
-                {h}
+                {superscriptTrademark(h)}
               </th>
             ))}
           </tr>
@@ -97,7 +100,7 @@ function Table({ table }: { table?: LandingTable }) {
                     j === 0 && "font-semibold text-[#373634]",
                   )}
                 >
-                  {cell}
+                  {superscriptTrademark(cell)}
                 </td>
               ))}
             </tr>
@@ -112,7 +115,7 @@ function PullQuote({ quote }: { quote?: string }) {
   if (!quote) return null;
   return (
     <blockquote className="mt-7 border-l-[3px] border-[#CF5B9D] pl-5 font-fraunces text-[20px] italic leading-[1.5] text-[#7b2d6b] sm:text-[23px]">
-      {quote}
+      {superscriptTrademark(quote)}
     </blockquote>
   );
 }

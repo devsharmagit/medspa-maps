@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 
 import { Footer } from "@/components/footer";
 import { ListingHero } from "@/components/shared/listing-hero";
+import { Trademark } from "@/lib/format/trademark";
 import { ClinicCard, type ClinicResult } from "@/components/shared/clinic-card";
 import { BlogFaqSection } from "@/components/blog/blog-faq";
 import { MedicalDisclaimer } from "@/components/shared/medical-disclaimer";
@@ -227,7 +228,7 @@ export default async function StateLocationPage({ params }: Props) {
                   href={`/search?q=${encodeURIComponent(t.slug)}&location=${st.abbr}`}
                   className={chipClass}
                 >
-                  {t.name}
+                  <Trademark>{t.name}</Trademark>
                 </Link>
               ))}
             </div>

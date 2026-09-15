@@ -13,6 +13,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { MessageCircle, X, ArrowUp, Sparkles, Loader2, Mic, Square } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { superscriptTrademark } from "@/lib/format/trademark";
 import ChatClinicCards, { type ChatClinicPayload } from "./chat-clinic-cards";
 import { useSpeechInput } from "@/lib/chat/use-speech-input";
 import { useLocation } from "@/lib/location/location-context";
@@ -65,6 +66,29 @@ const SUGGESTIONS = [
   "What helps with acne scars?",
   "What treatments do you cover?",
 ];
+
+/** Canonical trademarked spelling for the registered brands. */
+const BRAND_TM: Record<string, string> = {
+  botox: "Botox®",
+  dysport: "Dysport®",
+  xeomin: "Xeomin®",
+  jeuveau: "Jeuveau®",
+  sculptra: "Sculptra®",
+  hydrafacial: "HydraFacial®",
+};
+const BRAND_RE = /\b(botox|dysport|xeomin|jeuveau|sculptra|hydrafacial)\b®?/gi;
+
+/**
+ * Normalise a suggestion/follow-up chip for display AND for the query it sends:
+ * give the six registered brands their ® (folding any existing one so we never
+ * double it) and capitalise the first character. The chat intent resolver
+ * strips ® (see taxonomy `normalize`), so sending the branded form resolves
+ * identically to the bare name.
+ */
+function formatChipLabel(s: string): string {
+  const withTm = s.replace(BRAND_RE, (_m, name: string) => BRAND_TM[name.toLowerCase()]);
+  return withTm.charAt(0).toUpperCase() + withTm.slice(1);
+}
 
 const EMPTY_SLOTS: Slots = { treatmentsDiscussed: [] };
 
@@ -421,16 +445,19 @@ export default function ChatWidget() {
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {SUGGESTIONS.map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => sendMessage(s)}
-                      className="rounded-full border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground transition hover:bg-muted"
-                    >
-                      {s}
-                    </button>
-                  ))}
+                  {SUGGESTIONS.map((s) => {
+                    const label = formatChipLabel(s);
+                    return (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => sendMessage(label)}
+                        className="rounded-full border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground transition hover:bg-muted"
+                      >
+                        {superscriptTrademark(label)}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             ) : (
@@ -490,16 +517,19 @@ export default function ChatWidget() {
                   Suggested
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  {followups.map((f) => (
-                    <button
-                      key={f}
-                      type="button"
-                      onClick={() => sendMessage(f)}
-                      className="rounded-full border border-border bg-background px-3 py-1.5 text-left text-xs font-medium text-foreground transition hover:bg-muted"
-                    >
-                      {f}
-                    </button>
-                  ))}
+                  {followups.map((f) => {
+                    const label = formatChipLabel(f);
+                    return (
+                      <button
+                        key={f}
+                        type="button"
+                        onClick={() => sendMessage(label)}
+                        className="rounded-full border border-border bg-background px-3 py-1.5 text-left text-xs font-medium text-foreground transition hover:bg-muted"
+                      >
+                        {superscriptTrademark(label)}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -741,19 +771,21 @@ function renderInline(text: string): ReactNode[] {
   let m: RegExpExecArray | null;
 
   while ((m = re.exec(text)) !== null) {
-    if (m.index > last) out.push(text.slice(last, m.index));
+    if (m.index > last)
+      out.push(<Fragment key={key++}>{superscriptTrademark(text.slice(last, m.index))}</Fragment>);
     if (m[1] !== undefined && m[2] !== undefined) {
       out.push(<ChatLink key={key++} href={m[2]} label={m[1]} />);
     } else if (m[3] !== undefined) {
-      out.push(<strong key={key++}>{m[3]}</strong>);
+      out.push(<strong key={key++}>{superscriptTrademark(m[3])}</strong>);
     } else if (m[4] !== undefined) {
-      out.push(<em key={key++}>{m[4]}</em>);
+      out.push(<em key={key++}>{superscriptTrademark(m[4])}</em>);
     } else if (m[5] !== undefined) {
-      out.push(<em key={key++}>{m[5]}</em>);
+      out.push(<em key={key++}>{superscriptTrademark(m[5])}</em>);
     }
     last = re.lastIndex;
   }
-  if (last < text.length) out.push(text.slice(last));
+  if (last < text.length)
+    out.push(<Fragment key={key++}>{superscriptTrademark(text.slice(last))}</Fragment>);
   return out;
 }
 
