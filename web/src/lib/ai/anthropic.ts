@@ -18,13 +18,13 @@
 
 import { extractViaOpenAI } from "@/lib/ai/openai";
 
-/** Cheap default extraction model; override with OPENAI_MODEL. */
+/** Cheap default extraction model; override with AI_MODEL. */
 export function ingestModel(): string {
-  return process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini";
+  return process.env.AI_MODEL?.trim() || "gpt-4o-mini";
 }
 
 /** Stronger model we escalate to when a cheap-model result fails validation. */
-export const ESCALATION_MODEL = process.env.OPENAI_ESCALATION_MODEL?.trim() || "gpt-4o";
+export const ESCALATION_MODEL = process.env.AI_ESCALATION_MODEL?.trim() || "gpt-4o";
 
 export interface ToolExtractOptions {
   system: string;

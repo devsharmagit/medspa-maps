@@ -61,14 +61,14 @@ function httpStatusFromError(err: unknown): number {
     return (err as { status: number }).status;
   }
   if (err instanceof ZodError) return 422;
-  if (err instanceof Error && err.message.includes("OPENAI_API_KEY")) return 503;
+  if (err instanceof Error && err.message.includes("AI_API_KEY")) return 503;
   if (err instanceof Error && err.message.startsWith("OpenAI")) return 502;
   return 500;
 }
 
 function userMessageFromError(err: unknown): string {
   if (err instanceof ZodError) return "Please check your answers and try again.";
-  if (err instanceof Error && err.message.includes("OPENAI_API_KEY")) {
+  if (err instanceof Error && err.message.includes("AI_API_KEY")) {
     return "The AI Treatment Navigator is not configured yet.";
   }
   if (err instanceof Error && err.message.startsWith("OpenAI")) {

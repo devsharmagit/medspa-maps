@@ -32,6 +32,7 @@ import {
   openAiHeaders,
   CHAT_LIMITS,
 } from "@/lib/chat/config";
+import { thinkingBodyExtras } from "@/lib/ai/openai";
 import { buildSystemPrompt, safetyMessage } from "@/lib/chat/system-prompt";
 import { rateLimit } from "@/lib/chat/rate-limit";
 import {
@@ -144,7 +145,7 @@ function getClientIp(req: NextRequest): string {
 }
 
 export async function POST(req: NextRequest) {
-  if (!process.env.OPENAI_API_KEY?.trim()) {
+  if (!process.env.AI_API_KEY?.trim()) {
     return jsonError("Chat is not configured (missing API key).", 503);
   }
 
@@ -557,6 +558,7 @@ async function callModelStream(
     temperature: CHAT_LIMITS.temperature,
     max_tokens: CHAT_LIMITS.maxTokens,
     stream: true,
+    ...thinkingBodyExtras(),
   });
 
   const MAX_ATTEMPTS = 2;

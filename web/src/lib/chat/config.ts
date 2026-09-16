@@ -5,22 +5,26 @@
  * secret API key from the environment.
  */
 
-export const OPENAI_CHAT_URL = "https://api.openai.com/v1/chat/completions";
+// Base URL is env-configurable so the chatbot can target any OpenAI-compatible
+// endpoint (e.g. a self-hosted vLLM server). Defaults to OpenAI.
+const AI_BASE_URL =
+  process.env.AI_BASE_URL?.trim() || "https://api.openai.com/v1";
+export const OPENAI_CHAT_URL = `${AI_BASE_URL.replace(/\/$/, "")}/chat/completions`;
 
 /**
  * Chat model id. Swappable via env, independently of the ingest pipeline's
- * OPENAI_MODEL so the two can be tuned separately (the chatbot is
+ * AI_MODEL so the two can be tuned separately (the chatbot is
  * latency-sensitive; ingest is accuracy-sensitive).
  */
 export const CHAT_MODEL =
-  process.env.OPENAI_CHAT_MODEL?.trim() ||
-  process.env.OPENAI_MODEL?.trim() ||
+  process.env.AI_CHAT_MODEL?.trim() ||
+  process.env.AI_MODEL?.trim() ||
   "gpt-4o-mini";
 
 /** Throws if the key is missing so the route can return a clean error. */
 export function getOpenAIKey(): string {
-  const key = process.env.OPENAI_API_KEY?.trim();
-  if (!key) throw new Error("OPENAI_API_KEY is not set");
+  const key = process.env.AI_API_KEY?.trim();
+  if (!key) throw new Error("AI_API_KEY is not set");
   return key;
 }
 

@@ -45,7 +45,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const result = await resolveProviderExpertise(provider);
     return successResponse(result);
   } catch (err) {
-    if (err instanceof Error && err.message.includes("OPENAI_API_KEY")) {
+    if (err instanceof Error && err.message.includes("AI_API_KEY")) {
       return errorResponse("AI is not configured.", 503);
     }
     return errorResponse("Failed to load provider expertise.", 500);

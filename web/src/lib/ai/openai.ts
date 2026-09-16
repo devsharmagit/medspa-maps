@@ -9,10 +9,29 @@
 
 import type { ToolExtractOptions, ToolExtractResult } from "./anthropic";
 
-const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
+// Base URL is env-configurable so the app can target any OpenAI-compatible
+// endpoint (e.g. a self-hosted vLLM server). Defaults to OpenAI.
+const AI_BASE_URL =
+  process.env.AI_BASE_URL?.trim() || "https://api.openai.com/v1";
+const OPENAI_URL = `${AI_BASE_URL.replace(/\/$/, "")}/chat/completions`;
 
 export function openaiModel(): string {
-  return process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini";
+  return process.env.AI_MODEL?.trim() || "gpt-4o-mini";
+}
+
+/**
+ * Some OpenAI-compatible servers (e.g. vLLM serving Qwen "thinking" models)
+ * emit chain-of-thought into the response unless told not to. Setting
+ * AI_DISABLE_THINKING=true adds the vendor `chat_template_kwargs` flag that
+ * turns it off — which both removes the reasoning leak and cuts latency. It is
+ * omitted by default so real OpenAI (which rejects unknown params) is unaffected.
+ */
+export function thinkingBodyExtras(): Record<string, unknown> {
+  const v = process.env.AI_DISABLE_THINKING?.trim().toLowerCase();
+  if (v === "true" || v === "1" || v === "yes") {
+    return { chat_template_kwargs: { enable_thinking: false } };
+  }
+  return {};
 }
 
 type ContentPart =
@@ -80,13 +99,14 @@ async function postWithRetry(key: string, body: string): Promise<Response> {
 export async function extractViaOpenAI<T>(
   opts: ToolExtractOptions
 ): Promise<ToolExtractResult<T>> {
-  const key = process.env.OPENAI_API_KEY?.trim();
-  if (!key) throw new Error("OPENAI_API_KEY is not set");
+  const key = process.env.AI_API_KEY?.trim();
+  if (!key) throw new Error("AI_API_KEY is not set");
   const model = opts.model || openaiModel();
 
   const body = JSON.stringify({
     model,
     temperature: 0,
+    ...thinkingBodyExtras(),
     ...(typeof opts.seed === "number" ? { seed: opts.seed } : {}),
     max_completion_tokens: opts.maxTokens ?? 2048,
     messages: [
