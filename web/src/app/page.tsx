@@ -32,6 +32,7 @@ export default async function Home() {
     image: post.heroImage,
     alt: post.heroAlt,
   }));
+  console.log("home page")
 
   return (
     <main className="relative flex flex-1 flex-col items-center bg-[#FDFDFD] gap-10 isolate w-full overflow-x-clip">
