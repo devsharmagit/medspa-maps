@@ -8,6 +8,7 @@ import {
   AlertTriangle,
   Building2,
   CheckCircle2,
+  Clock,
   ExternalLink,
   ImageIcon,
   Loader2,
@@ -275,6 +276,9 @@ export default function EditClinicPage(props: {
   const [saved, setSaved] = useState(false);
 
   const [isActive, setIsActive] = useState(true);
+  // When true, the clinic row and all locations save `hours = null` (clears the
+  // Hours card on the public page) regardless of the per-day editor state.
+  const [clearHours, setClearHours] = useState(false);
   const [locations, setLocations] = useState<LocationForm[]>([]);
   const [deletedLocationIds, setDeletedLocationIds] = useState<string[]>([]);
   const [logo, setLogo] = useState<ImageRef | null>(null);
@@ -322,6 +326,7 @@ export default function EditClinicPage(props: {
           });
 
         setIsActive(c.is_active);
+        setClearHours(false);
         setLocations(loadedLocations);
         setDeletedLocationIds([]);
         setLogo(logoImage);
@@ -503,7 +508,7 @@ export default function EditClinicPage(props: {
       linkedin_url: nullable(form.linkedin_url),
       yelp_url: nullable(form.yelp_url),
       google_my_business: nullable(form.google_my_business),
-      hours: hoursPayload(primary.hours),
+      hours: clearHours ? null : hoursPayload(primary.hours),
       ext_rating: ratingStr === "" ? null : Number(ratingStr),
       ext_review_count: reviewStr === "" ? null : parseInt(reviewStr, 10),
       is_active: isActive,
@@ -534,7 +539,7 @@ export default function EditClinicPage(props: {
           email: nullable(loc.email),
           booking_url: nullable(loc.booking_url),
           google_maps_url: nullable(loc.google_maps_url),
-          hours: hoursPayload(loc.hours),
+          hours: clearHours ? null : hoursPayload(loc.hours),
           is_primary: loc.is_primary,
         };
         if (loc.id) {
@@ -563,6 +568,7 @@ export default function EditClinicPage(props: {
     
 
       setSaved(true);
+      setClearHours(false);
       setDeletedLocationIds([]);
       router.refresh();
     } catch (err) {
@@ -733,11 +739,40 @@ export default function EditClinicPage(props: {
               {locations.length}
             </Badge>
           </CardTitle>
-          <Button type="button" variant="outline" size="sm" onClick={addLocation}>
-            <Plus size={14} /> Add location
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className={
+                clearHours
+                  ? "border-red-300 bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700"
+                  : "text-slate-600"
+              }
+              onClick={() => {
+                setClearHours((v) => !v);
+                markDirty();
+              }}
+            >
+              <Clock size={14} /> {clearHours ? "Hours will be cleared" : "Clear hours"}
+            </Button>
+            <Button type="button" variant="outline" size="sm" onClick={addLocation}>
+              <Plus size={14} /> Add location
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="flex flex-col gap-5 p-6">
+          {clearHours && (
+            <div className="flex items-start gap-2.5 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+              <span>
+                On save, the clinic hours and all location hours will be set to
+                empty (null) — the Hours card will be hidden on the public page.
+                The per-day settings below are ignored while this is on. Click
+                &ldquo;Hours will be cleared&rdquo; again to cancel.
+              </span>
+            </div>
+          )}
           {locations.map((loc, idx) => (
             <div
               key={loc.id ?? `new-${idx}`}
