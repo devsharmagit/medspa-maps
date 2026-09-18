@@ -184,7 +184,8 @@ export async function generateMetadata({
   return {
     title,
     description,
-    alternates: { canonical },
+    // No <link rel="canonical"> on /search — it is a query/results page, not a
+    // canonical destination (per SEO guidance: canonicals only on real pages).
     openGraph: {
       type: "website",
       title,

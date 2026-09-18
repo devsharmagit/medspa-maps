@@ -1,7 +1,12 @@
 import Image from "next/image";
+import type { Metadata } from "next";
 import { Footer } from "@/components/footer";
 import { HeroHeader } from "@/components/hero/hero-header";
 import { SkinNavigatorClient } from "./skin-navigator-client";
+
+export const metadata: Metadata = {
+  alternates: { canonical: "/ai-aesthetic-treatment-finder" },
+};
 
 export const dynamic = "force-dynamic";
 

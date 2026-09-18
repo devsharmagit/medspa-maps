@@ -13,6 +13,11 @@ import { SPOTLIGHT_PROVIDERS } from "@/lib/providers/spotlight-static";
 import { getRecentPosts } from "@/lib/blog";
 import { formatBlogMeta } from "@/lib/blog/format";
 import Image from "next/image";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+};
 
 // Queries the database, so it can't be prerendered at Docker build time —
 // env (DATABASE_URL etc.) is only injected at runtime via ECS Secrets Manager.

@@ -8,6 +8,7 @@ export const metadata: Metadata = {
   title: "Expert Providers — Medspa Maps",
   description:
     "Discover verified and expert medical spa providers tailored to your needs.",
+  alternates: { canonical: "/providers" },
 };
 
 export const dynamic = "force-dynamic";

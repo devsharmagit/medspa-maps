@@ -40,6 +40,18 @@ export const metadata: Metadata = {
   verification: {
     google: "9fds86az679AXZLrdij1vD9s5RYzIhW3_m4_LEyKCao",
   },
+  // Site-wide crawler directive. Renders:
+  //   <meta name="robots" content="index, follow, max-snippet:-1,
+  //     max-image-preview:large, max-video-preview:-1">
+  // Individual pages can override (e.g. /search noindexes empty query
+  // permutations, /admin noindexes the whole subtree).
+  robots: {
+    index: true,
+    follow: true,
+    "max-snippet": -1,
+    "max-image-preview": "large",
+    "max-video-preview": -1,
+  },
 };
 
 export default function RootLayout({
