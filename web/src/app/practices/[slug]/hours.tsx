@@ -102,7 +102,7 @@ export function HoursNoteCard({ note }: { note: string }) {
           Working Hours
         </p>
       </div>
-      <p className="font-inter text-[14px] leading-[1.6] text-[#616161]">
+      <p className="font-montserrat text-[14px] leading-[1.6] tracking-[0.02em] text-[#616161]">
         {note}
       </p>
     </div>
