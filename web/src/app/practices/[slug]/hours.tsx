@@ -88,6 +88,27 @@ export function WeeklyHours({
   );
 }
 
+/**
+ * Titled hours card that shows a free-text note instead of a weekly grid.
+ * Used when a clinic advertises flexible/by-request hours rather than fixed
+ * daily times.
+ */
+export function HoursNoteCard({ note }: { note: string }) {
+  return (
+    <div className="flex h-full w-full flex-col gap-[14px] rounded-[16px] border border-[#DEDEDE] bg-white p-6 shadow-[0px_9px_11.1px_rgba(240,223,241,0.6)]">
+      <div className="flex items-center gap-[8px]">
+        <Clock className="h-[20px] w-[20px] text-[#EE97C6]" strokeWidth={1.5} />
+        <p className="font-montserrat text-[16px] font-semibold tracking-[-0.02em] text-[#373634]">
+          Working Hours
+        </p>
+      </div>
+      <p className="font-inter text-[14px] leading-[1.6] text-[#616161]">
+        {note}
+      </p>
+    </div>
+  );
+}
+
 /** Titled hours card for the clinic detail page (clinic-wide hours). */
 export function HoursCard({ hours }: { hours: unknown }) {
   if (!hasWeeklyHours(hours)) return null;

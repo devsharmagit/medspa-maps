@@ -36,6 +36,9 @@ export const metadata: Metadata = {
   title: "Medspa Maps - Find the Right Local Medspa",
   description:
     "Explore 600+ vetted medspas, read expert treatment guides, and book with confidence.",
+  verification: {
+    google: "9fds86az679AXZLrdij1vD9s5RYzIhW3_m4_LEyKCao",
+  },
 };
 
 export default function RootLayout({

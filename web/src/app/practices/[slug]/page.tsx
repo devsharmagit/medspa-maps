@@ -9,7 +9,7 @@ import { toStateCode } from "@/lib/location/states";
 import { ClinicGallery } from "./gallery";
 import { ClinicBeforeAfterCarousel } from "./before-after";
 import { ClinicLocationsSection } from "./locations";
-import { HoursCard, hasWeeklyHours } from "./hours";
+import { HoursCard, HoursNoteCard, hasWeeklyHours } from "./hours";
 import { ClinicContactCard } from "./contact-card";
 import { OtherProvidersCarousel } from "@/components/shared/other-providers-carousel";
 import { ClinicTreatmentsCarousel } from "@/components/shared/clinic-treatments-carousel";
@@ -57,6 +57,15 @@ export async function generateMetadata({
     },
   };
 }
+
+// Hardcoded free-text "Working Hours" notes for clinics that advertise flexible
+// / by-request hours instead of a fixed weekly schedule. Keyed by clinic slug.
+// Text is taken from the clinic's own website. When a slug is present here it
+// replaces the weekly Hours grid on the public page.
+const HOURS_NOTE_BY_SLUG: Record<string, string> = {
+  "sotto-aesthetics":
+    "Flexible booking hours, including evenings and weekends. Don't see a time that works? Contact us and we'll find one.",
+};
 
 function buildMapsUrl(parts: (string | null)[]): string {
   const q = parts.filter(Boolean).join(", ");
@@ -298,9 +307,16 @@ export default async function ClinicPage({
         </section>
 
         {/* ── Hours + Contact Information ── */}
-        {(hasWeeklyHours(clinic.hours) || clinic.phone || clinic.email || heroAddress || clinic.website) && (
+        {/* Hardcoded free-text working-hours note for specific clinics that
+            advertise flexible/by-request hours instead of a fixed weekly grid
+            (text sourced from the clinic's own website). */}
+        {(hasWeeklyHours(clinic.hours) || HOURS_NOTE_BY_SLUG[slug] || clinic.phone || clinic.email || heroAddress || clinic.website) && (
           <section className="grid items-stretch gap-[24px] px-0 sm:px-[24px] pt-[8px] lg:grid-cols-2">
-            <HoursCard hours={clinic.hours} />
+            {HOURS_NOTE_BY_SLUG[slug] ? (
+              <HoursNoteCard note={HOURS_NOTE_BY_SLUG[slug]} />
+            ) : (
+              <HoursCard hours={clinic.hours} />
+            )}
             <ClinicContactCard
               phone={clinic.phone}
               email={clinic.email}
