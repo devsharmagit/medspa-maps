@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { Fraunces, Geist_Mono, Inter, Montserrat } from "next/font/google";
 import NextAuthProvider from "@/app/_providers/session-provider";
 import ChatWidget from "@/components/chat/chat-widget";
@@ -53,6 +54,21 @@ export default function RootLayout({
       className={`${montserrat.variable} ${inter.variable} ${fraunces.variable} ${geistMono.variable} h-full scroll-smooth antialiased`}
       suppressHydrationWarning
     >
+      <head>
+        {/* Google tag (gtag.js) */}
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-15B6X0YF9T"
+          strategy="afterInteractive"
+        />
+        <Script id="gtag-init" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-15B6X0YF9T');
+          `}
+        </Script>
+      </head>
       <body
         className="flex min-h-full flex-col"
         suppressHydrationWarning
