@@ -1430,9 +1430,15 @@ function TreatmentCard({
       </h4>
       <p className="mt-2 flex-1 text-sm leading-6 text-slate-600">{superscriptTrademark(treatment.whyItFits)}</p>
       {href && (
-        <Button asChild variant="outline" className="mt-4 h-10 w-full">
+        <Button
+          asChild
+          variant="outline"
+          className="mt-4 h-auto min-h-10 w-full whitespace-normal py-2 text-center leading-snug"
+        >
           <Link href={href}>
-            {hasLocation ? `Find practices in ${locationLabel}` : "Find practices"}
+            <span className="min-w-0">
+              {hasLocation ? `Find practices in ${locationLabel}` : "Find practices"}
+            </span>
             <ArrowRight className="size-4" />
           </Link>
         </Button>

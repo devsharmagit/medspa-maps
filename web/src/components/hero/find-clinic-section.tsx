@@ -523,34 +523,34 @@ export function FindClinicSection({ clinics }: { clinics: FeaturedClinic[] }) {
       {/* ── Search Bar — mirrors the hero search bar (treatment + location +
           rating, one Search button; no separate Clear/Apply) ── */}
       <div className="flex w-full flex-col items-center gap-3 px-4 lg:px-8">
-        <div className="inline-flex items-center gap-2 rounded-full border border-[#eadcea] bg-white p-1 shadow-[0_8px_30px_rgba(203,151,206,0.16)]">
-          <span className="pl-3 pr-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-brand-muted">
+        <div className="flex w-full max-w-full sm:inline-flex sm:w-auto items-center gap-1 sm:gap-2 rounded-full border border-[#eadcea] bg-white p-1 shadow-[0_8px_30px_rgba(203,151,206,0.16)]">
+          <span className="shrink-0 pl-2.5 pr-0.5 sm:pr-1 text-[11px] font-semibold uppercase tracking-[0.06em] sm:tracking-[0.12em] text-brand-muted">
             Search by
           </span>
           <button
             type="button"
             onClick={() => chooseMode("treatment")}
             className={cn(
-              "flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-semibold uppercase tracking-[0.08em] transition-colors",
+              "flex flex-1 sm:flex-none min-w-0 h-8 items-center justify-center gap-1 sm:gap-1.5 rounded-full px-2 sm:px-3 text-xs font-semibold uppercase tracking-[0.06em] sm:tracking-[0.08em] transition-colors",
               searchMode === "treatment"
                 ? "bg-brand-magenta text-white shadow-sm"
                 : "text-brand-muted hover:bg-brand-magenta/8 hover:text-brand-magenta",
             )}
           >
-            <Sparkles className="size-3.5" aria-hidden />
+            <Sparkles className="size-3.5 shrink-0" aria-hidden />
             Treatment
           </button>
           <button
             type="button"
             onClick={() => chooseMode("condition")}
             className={cn(
-              "flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-semibold uppercase tracking-[0.08em] transition-colors",
+              "flex flex-1 sm:flex-none min-w-0 h-8 items-center justify-center gap-1 sm:gap-1.5 rounded-full px-2 sm:px-3 text-xs font-semibold uppercase tracking-[0.06em] sm:tracking-[0.08em] transition-colors",
               searchMode === "condition"
                 ? "bg-brand-magenta text-white shadow-sm"
                 : "text-brand-muted hover:bg-brand-magenta/8 hover:text-brand-magenta",
             )}
           >
-            <HeartPulse className="size-3.5" aria-hidden />
+            <HeartPulse className="size-3.5 shrink-0" aria-hidden />
             Condition
           </button>
         </div>

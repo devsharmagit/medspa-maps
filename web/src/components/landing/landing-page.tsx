@@ -197,11 +197,15 @@ export function LandingPage({ content }: { content: LandingContent }) {
               and book directly with the provider.
             </p>
             <div className="mt-8 flex justify-center">
-              <Button asChild size="search" className="bg-white text-[#9b3a6e] hover:bg-white/90">
+              <Button
+                asChild
+                size="search"
+                className="h-auto min-h-[47px] w-full max-w-full whitespace-normal py-2.5 text-center leading-tight bg-white text-[#9b3a6e] hover:bg-white/90 sm:w-auto"
+              >
                 <Link href={content.searchCta.href}>
-                  <MapPin className="size-[18px]" aria-hidden />
+                  <MapPin className="size-[18px] shrink-0" aria-hidden />
                   {superscriptTrademark(content.searchCta.label)}
-                  <ArrowRight className="size-[18px]" aria-hidden />
+                  <ArrowRight className="size-[18px] shrink-0" aria-hidden />
                 </Link>
               </Button>
             </div>

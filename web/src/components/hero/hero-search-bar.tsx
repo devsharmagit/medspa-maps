@@ -103,34 +103,34 @@ export function HeroSearchBar({ className }: { className?: string }) {
 
   return (
     <div className={cn("flex w-full flex-col items-start gap-3", className)}>
-      <div className="inline-flex items-center gap-2 rounded-full border border-white/35 bg-white/18 p-1 shadow-[0_8px_30px_rgba(61,46,56,0.12)] backdrop-blur-md">
-        <span className="pl-3 pr-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-white/85">
+      <div className="flex w-full max-w-full sm:inline-flex sm:w-auto items-center gap-1 sm:gap-2 rounded-full border border-white/35 bg-white/18 p-1 shadow-[0_8px_30px_rgba(61,46,56,0.12)] backdrop-blur-md">
+        <span className="shrink-0 pl-2.5 pr-0.5 sm:pr-1 text-[11px] font-semibold uppercase tracking-[0.06em] sm:tracking-[0.12em] text-white/85">
           Search by
         </span>
         <button
           type="button"
           onClick={() => chooseMode("treatment")}
           className={cn(
-            "flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-semibold uppercase tracking-[0.08em] transition-colors",
+            "flex flex-1 sm:flex-none min-w-0 h-8 items-center justify-center gap-1 sm:gap-1.5 rounded-full px-2 sm:px-3 text-xs font-semibold uppercase tracking-[0.06em] sm:tracking-[0.08em] transition-colors",
             searchMode === "treatment"
               ? "bg-white text-brand-magenta shadow-sm"
               : "text-white/80 hover:bg-white/10 hover:text-white",
           )}
         >
-          <Sparkles className="size-3.5" aria-hidden />
+          <Sparkles className="size-3.5 shrink-0" aria-hidden />
           Treatment
         </button>
         <button
           type="button"
           onClick={() => chooseMode("condition")}
           className={cn(
-            "flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-semibold uppercase tracking-[0.08em] transition-colors",
+            "flex flex-1 sm:flex-none min-w-0 h-8 items-center justify-center gap-1 sm:gap-1.5 rounded-full px-2 sm:px-3 text-xs font-semibold uppercase tracking-[0.06em] sm:tracking-[0.08em] transition-colors",
             searchMode === "condition"
               ? "bg-white text-brand-magenta shadow-sm"
               : "text-white/80 hover:bg-white/10 hover:text-white",
           )}
         >
-          <HeartPulse className="size-3.5" aria-hidden />
+          <HeartPulse className="size-3.5 shrink-0" aria-hidden />
           Condition
         </button>
       </div>
