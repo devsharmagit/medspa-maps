@@ -1,5 +1,6 @@
 "use client";
 
+import { ResilientImg } from "@/components/shared/resilient-img";
 import { useCallback, useEffect, useState } from "react";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -93,8 +94,7 @@ export function Lightbox({
             <ChevronLeft className="size-6" />
           </button>
         )}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <ResilientImg
           src={images[index].source_url}
           alt={images[index].alt_text || `${name} photo ${index + 1}`}
           className="max-h-full max-w-full rounded-xl object-contain"
@@ -128,8 +128,7 @@ export function Lightbox({
                   : "opacity-50 ring-transparent hover:opacity-100"
               }`}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <ResilientImg
                 src={img.source_url}
                 alt=""
                 className="size-14 object-cover sm:size-16"
@@ -184,8 +183,7 @@ export function ClinicGallery({
           onClick={() => openAt(0)}
           className="group relative flex w-full h-[240px] sm:h-[335px] overflow-hidden rounded-[18px]"
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <ResilientImg
             src={primary.source_url}
             alt={primary.alt_text || name}
             className="w-full h-full object-cover transition duration-300 group-hover:scale-[1.03]"
@@ -205,8 +203,7 @@ export function ClinicGallery({
                   onClick={() => openAt(i + 1)}
                   className="group relative h-full flex-1 min-w-0 overflow-hidden rounded-[10px]"
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
+                  <ResilientImg
                     src={img.source_url}
                     alt={img.alt_text || name}
                     className="w-full h-full object-cover transition duration-300 group-hover:scale-[1.06]"
@@ -278,8 +275,7 @@ export function BeforeAfterGallery({
               onClick={() => openAt(i)}
               className="group relative overflow-hidden rounded-2xl shadow-sm ring-1 ring-zinc-100"
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <ResilientImg
                 src={img.source_url}
                 alt={img.alt_text || `${name} before and after`}
                 className="aspect-square w-full object-cover transition duration-300 group-hover:scale-[1.05]"

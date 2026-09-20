@@ -13,6 +13,7 @@ const imageRefSchema = z.object({
 const imagesSchema = z.object({
   logo: imageRefSchema.nullable().optional(),
   gallery: z.array(imageRefSchema).optional(),
+  before_after: z.array(imageRefSchema).optional(),
 });
 
 interface RouteContext {
@@ -55,13 +56,13 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
       `DELETE FROM images
         WHERE entity_type = 'clinic'
           AND entity_id = $1
-          AND role IN ('logo', 'cover', 'gallery')`,
+          AND role IN ('logo', 'cover', 'gallery', 'before_after')`,
       [clinicId]
     );
 
     const insertImage = async (
       image: z.infer<typeof imageRefSchema>,
-      role: "logo" | "cover" | "gallery",
+      role: "logo" | "cover" | "gallery" | "before_after",
       sortOrder: number
     ) => {
       await query(
@@ -79,12 +80,26 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
       );
     };
 
-    if (data.logo) {
+    // The unique key is (entity_type, entity_id, source_url) — role is NOT part
+    // of it — so a single URL must be inserted under exactly one role. De-dup
+    // across role lists with priority logo > cover/gallery > before_after.
+    const seen = new Set<string>();
+
+    if (data.logo && !seen.has(data.logo.source_url)) {
+      seen.add(data.logo.source_url);
       await insertImage(data.logo, "logo", 0);
     }
 
     for (const [idx, image] of (data.gallery ?? []).entries()) {
+      if (seen.has(image.source_url)) continue;
+      seen.add(image.source_url);
       await insertImage(image, idx === 0 ? "cover" : "gallery", idx);
+    }
+
+    for (const [idx, image] of (data.before_after ?? []).entries()) {
+      if (seen.has(image.source_url)) continue;
+      seen.add(image.source_url);
+      await insertImage(image, "before_after", idx);
     }
 
     const images = await query<ImageRow>(

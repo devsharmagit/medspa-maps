@@ -9,6 +9,7 @@
  * the narrow-panel precedent already set by MiniPractice in
  * components/blog/treatment-practices.tsx, plus treatment chips and CTAs.
  */
+import { ResilientImg } from "@/components/shared/resilient-img";
 import Link from "next/link";
 import { Trademark } from "@/lib/format/trademark";
 import { MapPin, Star, ArrowUpRight } from "lucide-react";
@@ -63,8 +64,8 @@ function ClinicRow({ clinic }: { clinic: ChatClinicCard }) {
           className="relative size-[52px] shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-brand-coral/20 to-brand-purple/20 block"
         >
           {image ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+             
+            <ResilientImg
               src={image}
               alt=""
               className="size-full object-cover"

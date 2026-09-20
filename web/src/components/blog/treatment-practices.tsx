@@ -1,5 +1,6 @@
 "use client";
 
+import { ResilientImg } from "@/components/shared/resilient-img";
 import Link from "next/link";
 import { MapPin, Star } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -107,8 +108,8 @@ function MiniPractice({ clinic }: { clinic: ClinicResult }) {
     >
       <div className="relative h-[58px] w-[68px] shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-brand-coral/20 to-brand-purple/20">
         {cover ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={cover} alt={clinic.clinic_name} className="size-full object-cover" />
+           
+          <ResilientImg src={cover} alt={clinic.clinic_name} className="size-full object-cover" />
         ) : (
           <div className="flex size-full items-center justify-center text-sm font-semibold text-white/70">
             {initials}

@@ -326,7 +326,16 @@ CREATE TABLE public.images (
     last_checked_at timestamp with time zone,
     g99_image_id bigint,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    blob_bytes bytea,
+    blob_mime text,
+    blob_size integer,
+    blob_width integer,
+    blob_height integer,
+    blob_etag text,
+    blob_status text DEFAULT 'pending'::text NOT NULL,
+    blob_captured_at timestamp with time zone,
+    blob_checked_at timestamp with time zone
 );
 
 
@@ -385,7 +394,16 @@ CREATE TABLE public.providers (
     card_tagline text,
     source_url text,
     expertise_summary text,
-    summary_updated_at timestamp with time zone
+    summary_updated_at timestamp with time zone,
+    blob_bytes bytea,
+    blob_mime text,
+    blob_size integer,
+    blob_width integer,
+    blob_height integer,
+    blob_etag text,
+    blob_status text DEFAULT 'pending'::text NOT NULL,
+    blob_captured_at timestamp with time zone,
+    blob_checked_at timestamp with time zone
 );
 
 
@@ -870,6 +888,27 @@ CREATE INDEX idx_images_role ON public.images USING btree (entity_type, entity_i
 --
 
 CREATE INDEX idx_images_scrape_status ON public.images USING btree (scrape_status);
+
+
+--
+-- Name: idx_images_source_url; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_images_source_url ON public.images USING btree (source_url);
+
+
+--
+-- Name: idx_images_cdn_url; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_images_cdn_url ON public.images USING btree (cdn_url) WHERE (cdn_url IS NOT NULL);
+
+
+--
+-- Name: idx_providers_image_url; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_providers_image_url ON public.providers USING btree (image_url);
 
 
 --

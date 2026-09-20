@@ -151,6 +151,17 @@ async function runRescrape(): Promise<void> {
     }
 
     ok++;
+
+    // Best-effort: recapture the clinic's durable image copies. A failure here
+    // must never affect the treatment/concern refresh outcome.
+    try {
+      await api.captureMedia(clinic.id);
+    } catch (err) {
+      console.warn(
+        `[media] ⚠ ${clinic.name}: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
+
     totalAdded += result.added.length;
     totalRemoved += result.removed.length;
     totalServices += result.servicesFound;

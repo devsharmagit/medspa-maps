@@ -1,6 +1,15 @@
 import { query, queryOne } from "@/lib/db";
 import type { Provider, ProviderSummary, ProviderPayload } from "./types";
 
+/**
+ * The `provider_services` / `provider_concerns` join tables were dropped from
+ * this database, but some code paths still reference them. Treat a missing
+ * relation (Postgres 42P01) as "no links" so provider read/save keeps working.
+ */
+function isMissingRelation(err: unknown): boolean {
+  return typeof err === "object" && err !== null && (err as { code?: string }).code === "42P01";
+}
+
 // ── READ ──────────────────────────────────────────────────────────────────────
 
 /** Fetch all providers for a given clinic (slim summary). */
@@ -103,7 +112,7 @@ export async function getAllProviders(
 /** Fetch a single full provider row by ID. */
 export async function getProviderById(id: string): Promise<Provider | null> {
   return queryOne<Provider>(
-    `SELECT id, clinic_id, name, title, card_tagline, image_url,
+    `SELECT id, clinic_id, name, title, card_tagline, expertise_summary, image_url,
             is_verified, is_active, created_at, updated_at
        FROM providers
       WHERE id = $1`,
@@ -115,22 +124,32 @@ export async function getProviderById(id: string): Promise<Provider | null> {
 export async function getProviderServiceIds(
   providerId: string
 ): Promise<string[]> {
-  const rows = await query<{ service_id: string }>(
-    `SELECT service_id FROM provider_services WHERE provider_id = $1`,
-    [providerId]
-  );
-  return rows.map((r) => r.service_id);
+  try {
+    const rows = await query<{ service_id: string }>(
+      `SELECT service_id FROM provider_services WHERE provider_id = $1`,
+      [providerId]
+    );
+    return rows.map((r) => r.service_id);
+  } catch (err) {
+    if (isMissingRelation(err)) return [];
+    throw err;
+  }
 }
 
 /** Fetch concern IDs linked to a provider. */
 export async function getProviderConcernIds(
   providerId: string
 ): Promise<string[]> {
-  const rows = await query<{ concern_id: string }>(
-    `SELECT concern_id FROM provider_concerns WHERE provider_id = $1`,
-    [providerId]
-  );
-  return rows.map((r) => r.concern_id);
+  try {
+    const rows = await query<{ concern_id: string }>(
+      `SELECT concern_id FROM provider_concerns WHERE provider_id = $1`,
+      [providerId]
+    );
+    return rows.map((r) => r.concern_id);
+  } catch (err) {
+    if (isMissingRelation(err)) return [];
+    throw err;
+  }
 }
 
 // ── WRITE ─────────────────────────────────────────────────────────────────────
@@ -144,6 +163,7 @@ export async function createProvider(
     name,
     title = null,
     card_tagline = null,
+    expertise_summary = null,
     image_url = null,
     is_verified = false,
     service_ids = [],
@@ -152,11 +172,11 @@ export async function createProvider(
 
   const rows = await query<Provider>(
     `INSERT INTO providers
-       (clinic_id, name, title, card_tagline, image_url, is_verified)
-     VALUES ($1, $2, $3, $4, $5, $6)
-     RETURNING id, clinic_id, name, title, card_tagline, image_url,
+       (clinic_id, name, title, card_tagline, expertise_summary, image_url, is_verified)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     RETURNING id, clinic_id, name, title, card_tagline, expertise_summary, image_url,
                is_verified, is_active, created_at, updated_at`,
-    [clinicId, name, title, card_tagline, image_url, is_verified]
+    [clinicId, name, title, card_tagline, expertise_summary, image_url, is_verified]
   );
 
   const provider = rows[0];
@@ -178,19 +198,28 @@ export async function updateProvider(
   id: string,
   payload: Partial<ProviderPayload>
 ): Promise<Provider | null> {
-  const { name, title, card_tagline, image_url, is_verified, service_ids, concern_ids } =
-    payload;
+  const {
+    name,
+    title,
+    card_tagline,
+    expertise_summary,
+    image_url,
+    is_verified,
+    service_ids,
+    concern_ids,
+  } = payload;
 
   const rows = await query<Provider>(
     `UPDATE providers SET
-       name         = COALESCE($2, name),
-       title        = COALESCE($3, title),
-       card_tagline = COALESCE($4, card_tagline),
-       image_url    = COALESCE($5, image_url),
-       is_verified  = COALESCE($6, is_verified),
-       updated_at   = NOW()
+       name              = COALESCE($2, name),
+       title             = COALESCE($3, title),
+       card_tagline      = COALESCE($4, card_tagline),
+       image_url         = COALESCE($5, image_url),
+       is_verified       = COALESCE($6, is_verified),
+       expertise_summary = COALESCE($7, expertise_summary),
+       updated_at        = NOW()
      WHERE id = $1
-     RETURNING id, clinic_id, name, title, card_tagline, image_url,
+     RETURNING id, clinic_id, name, title, card_tagline, expertise_summary, image_url,
                is_verified, is_active, created_at, updated_at`,
     [
       id,
@@ -199,6 +228,7 @@ export async function updateProvider(
       card_tagline !== undefined ? card_tagline : null,
       image_url !== undefined ? image_url : null,
       is_verified !== undefined ? is_verified : null,
+      expertise_summary !== undefined ? expertise_summary : null,
     ]
   );
 
@@ -244,23 +274,28 @@ async function syncProviderServices(
   providerId: string,
   serviceIds: string[]
 ): Promise<void> {
-  // Remove existing links
-  await query(
-    `DELETE FROM provider_services WHERE provider_id = $1`,
-    [providerId]
-  );
+  try {
+    // Remove existing links
+    await query(
+      `DELETE FROM provider_services WHERE provider_id = $1`,
+      [providerId]
+    );
 
-  if (serviceIds.length === 0) return;
+    if (serviceIds.length === 0) return;
 
-  // Bulk insert new links
-  const values = serviceIds
-    .map((_, i) => `($1, $${i + 2})`)
-    .join(", ");
-  await query(
-    `INSERT INTO provider_services (provider_id, service_id) VALUES ${values}
-     ON CONFLICT DO NOTHING`,
-    [providerId, ...serviceIds]
-  );
+    // Bulk insert new links
+    const values = serviceIds
+      .map((_, i) => `($1, $${i + 2})`)
+      .join(", ");
+    await query(
+      `INSERT INTO provider_services (provider_id, service_id) VALUES ${values}
+       ON CONFLICT DO NOTHING`,
+      [providerId, ...serviceIds]
+    );
+  } catch (err) {
+    if (isMissingRelation(err)) return;
+    throw err;
+  }
 }
 
 /** Replace the full set of concern links for a provider. */
@@ -268,19 +303,24 @@ async function syncProviderConcerns(
   providerId: string,
   concernIds: string[]
 ): Promise<void> {
-  await query(
-    `DELETE FROM provider_concerns WHERE provider_id = $1`,
-    [providerId]
-  );
+  try {
+    await query(
+      `DELETE FROM provider_concerns WHERE provider_id = $1`,
+      [providerId]
+    );
 
-  if (concernIds.length === 0) return;
+    if (concernIds.length === 0) return;
 
-  const values = concernIds
-    .map((_, i) => `($1, $${i + 2})`)
-    .join(", ");
-  await query(
-    `INSERT INTO provider_concerns (provider_id, concern_id) VALUES ${values}
-     ON CONFLICT DO NOTHING`,
-    [providerId, ...concernIds]
-  );
+    const values = concernIds
+      .map((_, i) => `($1, $${i + 2})`)
+      .join(", ");
+    await query(
+      `INSERT INTO provider_concerns (provider_id, concern_id) VALUES ${values}
+       ON CONFLICT DO NOTHING`,
+      [providerId, ...concernIds]
+    );
+  } catch (err) {
+    if (isMissingRelation(err)) return;
+    throw err;
+  }
 }

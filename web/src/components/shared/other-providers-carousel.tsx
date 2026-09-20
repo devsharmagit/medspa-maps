@@ -1,5 +1,6 @@
 "use client";
 
+import { ResilientImg } from "@/components/shared/resilient-img";
 import { ArrowLeft, ArrowRight, BadgeCheck, Calendar, Phone, X, Loader2 } from "lucide-react";
 import { useRef, useState, useEffect } from "react";
 
@@ -142,8 +143,8 @@ export function OtherProvidersCarousel({ clinicName, title, providers, bookUrl, 
                 {/* ── Image with gradient overlay ── */}
                 <div className="relative h-[340px] w-full overflow-hidden">
                   {other.image_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
+                     
+                    <ResilientImg
                       src={other.image_url}
                       alt={other.name}
                       className="h-full w-full object-cover object-top transition-transform duration-700 ease-out group-hover:scale-[1.06]"
@@ -312,8 +313,8 @@ function ProviderExpertiseModal({
       >
         <div className="flex gap-4 p-5 sm:p-6">
           {provider.image_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+             
+            <ResilientImg
               src={provider.image_url}
               alt={provider.name}
               className="h-20 w-20 shrink-0 rounded-xl object-cover object-top"

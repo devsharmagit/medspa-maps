@@ -1,6 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Loader2,
   Trash2,
@@ -10,6 +18,7 @@ import {
   Plus,
   MessageSquareQuote,
   Star,
+  RefreshCw,
 } from "lucide-react";
 import {
   adminGet,
@@ -53,6 +62,14 @@ interface Review {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  /** Deferred-mode staging flags (not from the API). */
+  _new?: boolean;
+  _dirty?: boolean;
+}
+
+/** Imperative handle so the parent can flush staged edits on "Save Clinic". */
+export interface ClinicManagerHandle {
+  flush: () => Promise<void>;
 }
 
 interface FormState {
@@ -77,13 +94,33 @@ const EMPTY_FORM: FormState = {
  * dialogs render their own <form> inside a portaled Radix Dialog, so they are
  * not nested in the edit form's DOM tree.
  */
-export function ClinicReviewsManager({ clinicId }: { clinicId: string }) {
+export const ClinicReviewsManager = forwardRef<ClinicManagerHandle, {
+  clinicId: string;
+  deferred?: boolean;
+  onDirtyChange?: () => void;
+  /** Called after a successful "Fetch rating from Google" so the parent can
+   *  stage the aggregated rating + count into its ext_rating fields. */
+  onRatingFetched?: (rating: number, reviewCount: number | null, source: string) => void;
+}>(function ClinicReviewsManager(
+  { clinicId, deferred = false, onDirtyChange, onRatingFetched },
+  ref
+) {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // Google rating fetch
+  const [fetchingRating, setFetchingRating] = useState(false);
+  const [ratingNote, setRatingNote] = useState<string | null>(null);
+
+  // Snapshot for the deferred flush diff.
+  const initialIdsRef = useRef<Set<string>>(new Set());
+  const initialApprovedRef = useRef<Map<string, boolean>>(new Map());
+  const reviewsRef = useRef<Review[]>([]);
+  const tempIdRef = useRef(0);
 
   // Add dialog
   const [addOpen, setAddOpen] = useState(false);
@@ -104,7 +141,10 @@ export function ClinicReviewsManager({ clinicId }: { clinicId: string }) {
       const data = await adminGet<Review[]>(
         `/reviews?clinicId=${encodeURIComponent(clinicId)}`
       );
-      setReviews(data);
+      const active = data.filter((r) => r.is_active);
+      setReviews(active);
+      initialIdsRef.current = new Set(active.map((r) => r.id));
+      initialApprovedRef.current = new Map(active.map((r) => [r.id, r.is_approved]));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load reviews.");
     } finally {
@@ -118,8 +158,49 @@ export function ClinicReviewsManager({ clinicId }: { clinicId: string }) {
 
   // Only show active reviews (soft-deleted ones are is_active = false).
   const visible = useMemo(() => reviews.filter((r) => r.is_active), [reviews]);
+  reviewsRef.current = reviews;
+
+  function markDirty() {
+    onDirtyChange?.();
+  }
+
+  async function handleFetchRating() {
+    setFetchingRating(true);
+    setRatingNote(null);
+    setError(null);
+    try {
+      const res = await adminGet<{
+        found: boolean;
+        rating?: number;
+        reviewCount?: number | null;
+        source?: string;
+        message?: string;
+      }>(`/clinics/${clinicId}/rating`);
+      if (!res.found || res.rating == null) {
+        setRatingNote(res.message || "No rating found.");
+        return;
+      }
+      const label = res.source === "google_places" ? "Google" : "website";
+      setRatingNote(
+        `Fetched ${res.rating} · ${res.reviewCount ?? "?"} reviews (from ${label}). ` +
+          `Click "Save Clinic" to save it.`
+      );
+      onRatingFetched?.(res.rating, res.reviewCount ?? null, res.source ?? "google_places");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to fetch rating.");
+    } finally {
+      setFetchingRating(false);
+    }
+  }
 
   async function handleToggleApprove(review: Review) {
+    if (deferred) {
+      setReviews((prev) =>
+        prev.map((r) => (r.id === review.id ? { ...r, is_approved: !r.is_approved } : r))
+      );
+      markDirty();
+      return;
+    }
     setTogglingId(review.id);
     try {
       const updated = await adminPatch<Review>(`/reviews/${review.id}`, {
@@ -134,6 +215,12 @@ export function ClinicReviewsManager({ clinicId }: { clinicId: string }) {
   }
 
   async function handleDelete(review: Review) {
+    if (deferred) {
+      if (!confirm("Delete this review? It will apply when you save the clinic.")) return;
+      setReviews((prev) => prev.filter((r) => r.id !== review.id));
+      markDirty();
+      return;
+    }
     if (
       !confirm(
         "Delete this review? It will be removed from the site and the clinic rating will recompute."
@@ -162,6 +249,27 @@ export function ClinicReviewsManager({ clinicId }: { clinicId: string }) {
     setAddError(null);
     if (!addForm.body.trim()) {
       setAddError("Review body is required.");
+      return;
+    }
+    if (deferred) {
+      const tempId = `new-${tempIdRef.current++}`;
+      const staged: Review = {
+        id: tempId,
+        clinic_id: clinicId,
+        rating: addForm.rating,
+        body: addForm.body.trim(),
+        reviewer_name: addForm.reviewer_name.trim() || null,
+        source: "manual",
+        source_url: null,
+        is_approved: true,
+        is_active: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        _new: true,
+      };
+      setReviews((prev) => [staged, ...prev]);
+      setAddOpen(false);
+      markDirty();
       return;
     }
     setAddSaving(true);
@@ -200,6 +308,24 @@ export function ClinicReviewsManager({ clinicId }: { clinicId: string }) {
       setEditError("Review body cannot be empty.");
       return;
     }
+    if (deferred) {
+      setReviews((prev) =>
+        prev.map((r) =>
+          r.id === editTarget.id
+            ? {
+                ...r,
+                rating: editForm.rating,
+                body: editForm.body.trim(),
+                reviewer_name: editForm.reviewer_name.trim() || null,
+                _dirty: r._new ? r._dirty : true,
+              }
+            : r
+        )
+      );
+      setEditTarget(null);
+      markDirty();
+      return;
+    }
     setEditSaving(true);
     try {
       const updated = await adminPatch<Review>(`/reviews/${editTarget.id}`, {
@@ -218,6 +344,50 @@ export function ClinicReviewsManager({ clinicId }: { clinicId: string }) {
     }
   }
 
+  // flush(): persist the staged review diff (deferred mode only).
+  useImperativeHandle(ref, () => ({
+    async flush() {
+      if (!deferred) return;
+      const current = reviewsRef.current;
+
+      // Deletions: initial ids no longer present.
+      for (const id of initialIdsRef.current) {
+        if (!current.some((r) => r.id === id)) {
+          await adminDelete(`/reviews/${id}`);
+        }
+      }
+
+      for (const r of current) {
+        if (r._new) {
+          const created = await adminPost<Review>("/reviews", {
+            clinic_id: clinicId,
+            rating: r.rating,
+            body: (r.body ?? "").trim(),
+            reviewer_name: r.reviewer_name,
+            is_approved: r.is_approved,
+          });
+          if (r.is_approved === false && created?.id) {
+            await adminPatch(`/reviews/${created.id}`, { is_approved: false });
+          }
+        } else {
+          if (r._dirty) {
+            await adminPatch(`/reviews/${r.id}`, {
+              rating: r.rating,
+              body: (r.body ?? "").trim(),
+              reviewer_name: r.reviewer_name,
+            });
+          }
+          const initApproved = initialApprovedRef.current.get(r.id);
+          if (initApproved !== undefined && initApproved !== r.is_approved) {
+            await adminPatch(`/reviews/${r.id}`, { is_approved: r.is_approved });
+          }
+        }
+      }
+
+      await loadReviews();
+    },
+  }), [deferred, clinicId, loadReviews]);
+
   return (
     <Card className="border-slate-200 shadow-sm">
       <CardHeader className="flex flex-row items-center justify-between border-b border-slate-100 bg-slate-50/50 pb-4">
@@ -228,15 +398,38 @@ export function ClinicReviewsManager({ clinicId }: { clinicId: string }) {
             {visible.length}
           </Badge>
         </CardTitle>
-        <Button type="button" variant="outline" size="sm" onClick={openAdd}>
-          <Plus size={14} /> Add review
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleFetchRating}
+            disabled={fetchingRating}
+            title="Fetch aggregated rating + review count from Google / the clinic website"
+          >
+            {fetchingRating ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <RefreshCw size={14} />
+            )}
+            Fetch rating from Google
+          </Button>
+          <Button type="button" variant="outline" size="sm" onClick={openAdd}>
+            <Plus size={14} /> Add review
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-3 p-6">
         <p className="text-xs text-slate-500">
-          Reviews save immediately and recompute this clinic&apos;s rating. They
-          are independent of the Save Clinic button above.
+          {deferred
+            ? "Review changes and the fetched rating are saved when you click Save Clinic."
+            : "Reviews save immediately and recompute this clinic's rating. They are independent of the Save Clinic button above."}
         </p>
+        {ratingNote && (
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+            {ratingNote}
+          </div>
+        )}
 
         {error && (
           <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
@@ -513,4 +706,4 @@ export function ClinicReviewsManager({ clinicId }: { clinicId: string }) {
       </Dialog>
     </Card>
   );
-}
+});

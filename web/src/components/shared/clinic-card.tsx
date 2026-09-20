@@ -1,3 +1,4 @@
+import { ResilientImg } from "@/components/shared/resilient-img";
 import {
   CalendarDays,
   Crown,
@@ -126,8 +127,8 @@ export function ClinicCard({
           className="relative block h-[160px] w-full overflow-hidden rounded-xl bg-gradient-to-br from-brand-coral/20 to-brand-purple/20"
         >
           {cover ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+             
+            <ResilientImg
               src={cover}
               alt={clinic.clinic_name}
               className="size-full object-cover"
@@ -165,8 +166,7 @@ export function ClinicCard({
                   key={i}
                   className="relative block h-[44px] overflow-hidden rounded-md bg-[#f5f0f5]"
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={src} alt="" className="size-full object-cover" />
+                  <ResilientImg src={src} alt="" className="size-full object-cover" />
                   {isLast && extraThumbs > 0 && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/50 text-xs font-semibold text-white">
                       +{extraThumbs}

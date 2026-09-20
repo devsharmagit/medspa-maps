@@ -8,6 +8,8 @@ export interface Provider {
   title: string | null;
   /** Short one/two-line pitch shown on the provider card. */
   card_tagline: string | null;
+  /** Longer bio shown in the "Meet the Experts" modal on the practice page. */
+  expertise_summary: string | null;
   image_url: string | null;
   is_verified: boolean;
   is_active: boolean;
@@ -32,6 +34,8 @@ export interface ProviderPayload {
   name: string;
   title?: string | null;
   card_tagline?: string | null;
+  /** Longer bio shown in the practice-page provider modal. */
+  expertise_summary?: string | null;
   image_url?: string | null;
   is_verified?: boolean;
   /** IDs of canonical services (treatments) this provider performs. */

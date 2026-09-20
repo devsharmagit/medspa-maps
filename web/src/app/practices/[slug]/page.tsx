@@ -23,6 +23,7 @@ import { JsonLd } from "@/components/shared/json-ld";
 import { medicalBusinessJsonLd, breadcrumbListJsonLd } from "@/lib/seo/json-ld";
 import { absoluteUrl, SITE_NAME } from "@/lib/site";
 import { withBookingUtm, formatLongDate } from "@/lib/utils";
+import { ResilientImg } from "@/components/shared/resilient-img";
 
 export const dynamic = "force-dynamic";
 
@@ -177,8 +178,7 @@ export default async function ClinicPage({
               <div className="flex items-center gap-3 sm:gap-[16px]">
                 {clinic.logo_url ? (
                   <div className="flex h-[84px] w-[96px] sm:h-[106px] sm:w-[122px] shrink-0 items-center justify-center overflow-hidden rounded-[16px] border border-[#E5E5E5] bg-[#faf5fa] p-2">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
+                    <ResilientImg
                       src={clinic.logo_url}
                       alt={`${clinic.name} logo`}
                       className="size-full object-contain"

@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useMemo, useState } from "react";
+import { use, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -33,7 +33,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { ClinicReviewsManager } from "@/components/admin/clinic-reviews-manager";
+import { ClinicReviewsManager, type ClinicManagerHandle } from "@/components/admin/clinic-reviews-manager";
+import { ClinicProvidersManager } from "@/components/admin/clinic-providers-manager";
 
 const BRAND = "#9b3a9b";
 
@@ -279,13 +280,21 @@ export default function EditClinicPage(props: {
   // When true, the clinic row and all locations save `hours = null` (clears the
   // Hours card on the public page) regardless of the per-day editor state.
   const [clearHours, setClearHours] = useState(false);
+  // Clinic-level hours (clinics.hours) — this is what the public practice page
+  // renders, separate from per-location hours.
+  const [clinicHours, setClinicHours] = useState<HoursState>(emptyHours());
   const [locations, setLocations] = useState<LocationForm[]>([]);
   const [deletedLocationIds, setDeletedLocationIds] = useState<string[]>([]);
   const [logo, setLogo] = useState<ImageRef | null>(null);
   const [gallery, setGallery] = useState<ImageRef[]>([]);
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  const [beforeAfter, setBeforeAfter] = useState<ImageRef[]>([]);
   const [logoUrlInput, setLogoUrlInput] = useState("");
   const [galleryUrlInput, setGalleryUrlInput] = useState("");
+  const [beforeAfterUrlInput, setBeforeAfterUrlInput] = useState("");
+  const [ratingSource, setRatingSource] = useState<string | null>(null);
+  const providersRef = useRef<ClinicManagerHandle>(null);
+  const reviewsRef = useRef<ClinicManagerHandle>(null);
   const [form, setForm] = useState<FormState>({
     name: "",
     slug: "",
@@ -327,13 +336,20 @@ export default function EditClinicPage(props: {
 
         setIsActive(c.is_active);
         setClearHours(false);
+        setClinicHours(parseHours(c.hours));
         setLocations(loadedLocations);
         setDeletedLocationIds([]);
+        const beforeAfterImages = (c.images ?? [])
+          .filter((img) => img.role === "before_after")
+          .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+
         setLogo(logoImage);
         setGallery(galleryImages);
         setCoverUrl(galleryImages[0]?.source_url ?? null);
+        setBeforeAfter(beforeAfterImages);
         setLogoUrlInput("");
         setGalleryUrlInput("");
+        setBeforeAfterUrlInput("");
         setForm({
           name: s(c.name),
           slug: s(c.slug),
@@ -404,6 +420,11 @@ export default function EditClinicPage(props: {
     markDirty();
   }
 
+  function updateClinicDay(day: Day, patch: Partial<DayHours>) {
+    setClinicHours((prev) => ({ ...prev, [day]: { ...prev[day], ...patch } }));
+    markDirty();
+  }
+
   function addLocation() {
     setLocations((prev) => [...prev, emptyLocation(prev.length)]);
     markDirty();
@@ -449,6 +470,22 @@ export default function EditClinicPage(props: {
       return next;
     });
     setGalleryUrlInput("");
+    markDirty();
+  }
+
+  function addBeforeAfterFromInput() {
+    const url = beforeAfterUrlInput.trim();
+    if (!url) return;
+    setBeforeAfter((prev) => {
+      if (prev.some((img) => img.source_url === url)) return prev;
+      return [...prev, { source_url: url, alt_text: null, role: "before_after", sort_order: prev.length }];
+    });
+    setBeforeAfterUrlInput("");
+    markDirty();
+  }
+
+  function removeBeforeAfter(idx: number) {
+    setBeforeAfter((prev) => prev.filter((_, i) => i !== idx));
     markDirty();
   }
 
@@ -508,11 +545,12 @@ export default function EditClinicPage(props: {
       linkedin_url: nullable(form.linkedin_url),
       yelp_url: nullable(form.yelp_url),
       google_my_business: nullable(form.google_my_business),
-      hours: clearHours ? null : hoursPayload(primary.hours),
+      hours: clearHours ? null : hoursPayload(clinicHours),
       ext_rating: ratingStr === "" ? null : Number(ratingStr),
       ext_review_count: reviewStr === "" ? null : parseInt(reviewStr, 10),
       is_active: isActive,
     };
+    if (ratingSource) clinicPayload.ext_rating_source = ratingSource;
 
     const imageGallery = coverUrl
       ? [
@@ -561,11 +599,23 @@ export default function EditClinicPage(props: {
           source_url: img.source_url,
           alt_text: img.alt_text ?? null,
         })),
+        before_after: beforeAfter.map((img) => ({
+          source_url: img.source_url,
+          alt_text: img.alt_text ?? null,
+        })),
       });
 
-   
+      // Persist staged provider + review edits (deferred managers).
+      await providersRef.current?.flush();
+      await reviewsRef.current?.flush();
 
-    
+      // Capture durable fallback copies of any newly saved image URLs.
+      // Non-fatal: a capture hiccup must not fail the save.
+      try {
+        await adminPost(`/clinics/${id}/media/capture`, {});
+      } catch {
+        /* ignore — the monthly cron / backfill will pick these up */
+      }
 
       setSaved(true);
       setClearHours(false);
@@ -727,6 +777,29 @@ export default function EditClinicPage(props: {
               <Input value={form.google_my_business} onChange={(e) => update("google_my_business", e.target.value)} className="h-9" placeholder="https://maps.google.com/..." />
             </Field>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-slate-200 shadow-sm">
+        <CardHeader className="border-b border-slate-100 bg-slate-50/50 pb-4">
+          <CardTitle className="flex items-center gap-2 text-base font-semibold text-slate-800">
+            <Clock size={16} style={{ color: BRAND }} />
+            Clinic hours
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3 p-6">
+          <p className="text-xs text-slate-500">
+            These are the hours shown on the public practice page. Use
+            &ldquo;Clear hours&rdquo; in the Locations card to blank them.
+          </p>
+          {clearHours ? (
+            <div className="flex items-start gap-2.5 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+              <span>Clinic hours will be cleared on save (the per-day settings below are ignored).</span>
+            </div>
+          ) : (
+            <HoursEditor hours={clinicHours} onChange={updateClinicDay} />
+          )}
         </CardContent>
       </Card>
 
@@ -923,16 +996,48 @@ export default function EditClinicPage(props: {
             <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-slate-400">
               Before / After
             </p>
-            <p className="text-xs italic text-slate-400">
-              Before/after image fetching is currently disabled. This section can be enabled in a future update.
-            </p>
+            {beforeAfter.length === 0 ? (
+              <p className="text-sm text-slate-400">No before/after images.</p>
+            ) : (
+              <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
+                {beforeAfter.map((img, idx) => (
+                  <div key={`${img.source_url}-${idx}`} className="group relative aspect-square overflow-hidden rounded-lg border border-slate-200 bg-slate-100">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={img.cdn_url || img.source_url} alt={img.alt_text || "Before / after"} className="h-full w-full object-cover" />
+                    <button type="button" onClick={() => removeBeforeAfter(idx)} className="absolute right-1.5 top-1.5 rounded-full bg-red-500 p-1 text-white opacity-0 shadow-sm transition-opacity group-hover:opacity-100 hover:bg-red-600" aria-label="Remove image">
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="mt-3 flex gap-2">
+              <Input type="url" placeholder="Add before/after image by URL..." value={beforeAfterUrlInput} onChange={(e) => setBeforeAfterUrlInput(e.target.value)} className="h-8 text-xs" onKeyDown={(e) => { if (e.key === "Enter" && beforeAfterUrlInput.trim()) { e.preventDefault(); addBeforeAfterFromInput(); } }} />
+              <Button type="button" variant="outline" size="sm" className="h-8 shrink-0 text-xs" onClick={addBeforeAfterFromInput}>Add Image</Button>
+            </div>
           </div>
         </CardContent>
       </Card>
 
      
 
-      <ClinicReviewsManager clinicId={id} />
+      <ClinicProvidersManager ref={providersRef} clinicId={id} deferred onDirtyChange={markDirty} />
+
+      <ClinicReviewsManager
+        ref={reviewsRef}
+        clinicId={id}
+        deferred
+        onDirtyChange={markDirty}
+        onRatingFetched={(rating, count, source) => {
+          setForm((prev) => ({
+            ...prev,
+            ext_rating: String(rating),
+            ext_review_count: count != null ? String(count) : "",
+          }));
+          setRatingSource(source);
+          markDirty();
+        }}
+      />
 
       <div className="sticky bottom-0 z-10 flex flex-col gap-3 rounded-xl border border-slate-200 bg-white/95 p-4 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] backdrop-blur">
         {error && (
@@ -943,7 +1048,7 @@ export default function EditClinicPage(props: {
         )}
         <div className="flex items-center justify-between gap-4">
           <div className="text-xs text-slate-500">
-            <span>Saving will update this clinic and its locations.</span>
+            <span>Saving will update this clinic, its locations, providers and reviews.</span>
           </div>
           <Button type="submit" variant="gradient" className="h-10 px-8" disabled={saving}>
             {saving ? (

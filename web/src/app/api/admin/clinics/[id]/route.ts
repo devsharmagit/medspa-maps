@@ -32,6 +32,7 @@ const patchSchema = z
     google_maps_url: z.union([z.url("Must be a valid URL"), z.literal(""), z.null()]),
     ext_rating: z.number().min(0).max(5).nullable(),
     ext_review_count: z.number().int().min(0).nullable(),
+    ext_rating_source: z.string().max(50).nullable(),
     is_active: z.boolean(),
     featured: z.boolean().optional(),
   })
@@ -70,6 +71,7 @@ interface ClinicRow {
   review_count: number;
   ext_rating: string | null;
   ext_review_count: number | null;
+  ext_rating_source: string | null;
   featured: boolean;
   data_source: string;
   is_active: boolean;
@@ -123,7 +125,7 @@ const CLINIC_COLS = `id, name, slug, tagline, about, website, booking_url,
   address, country, phone, email, hours,
   instagram_url, facebook_url, tiktok_url, youtube_url, x_url, linkedin_url,
   yelp_url, google_my_business, google_maps_url, google_place_id, avg_rating, review_count,
-  ext_rating, ext_review_count, featured,
+  ext_rating, ext_review_count, ext_rating_source, featured,
   data_source, is_active, created_at, updated_at`;
 
 // GET /api/admin/clinics/[id] — full editable record + images + treatments offered
@@ -203,6 +205,11 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
         cols.push(`${key} = $${i++}`);
         values.push(value);
       }
+    }
+
+    // Stamp rating provenance whenever the external rating itself is updated.
+    if (Object.prototype.hasOwnProperty.call(fields, "ext_rating")) {
+      cols.push(`ext_rating_updated_at = NOW()`);
     }
 
     // Nothing left to update (e.g. only an empty website was sent).

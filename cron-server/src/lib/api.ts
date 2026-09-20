@@ -115,6 +115,12 @@ export const api = {
     return call<{ refreshed: boolean }>(`/api/internal/rescrape/refresh-view`, "POST");
   },
 
+  // Recapture the durable image copies (blob store) for one clinic. Best-effort:
+  // a source 404 keeps the existing stored bytes.
+  captureMedia(id: string): Promise<{ clinicId: string; ok: number; too_big: number; error: number; skipped: number }> {
+    return call(`/api/internal/media/capture/${id}`, "POST");
+  },
+
   async health(): Promise<boolean> {
     try {
       const res = await fetch(`${NEXTJS_URL}/health`, {

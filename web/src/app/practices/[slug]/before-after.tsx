@@ -1,5 +1,6 @@
 "use client";
 
+import { ResilientImg } from "@/components/shared/resilient-img";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
@@ -99,8 +100,7 @@ export function ClinicBeforeAfterCarousel({
               }}
               className="group relative aspect-[4/3] w-[280px] sm:w-[300px] shrink-0 overflow-hidden rounded-[22px] border border-[#EFE3EC] bg-[#F5F0F5] shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)]"
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <ResilientImg
                 src={img.source_url}
                 alt={img.alt_text || `${name} before and after`}
                 className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.05]"

@@ -142,8 +142,10 @@ function popupHtml(p: MapPin): string {
   // Prefer the logo; fall back to the cover/gallery photo when there's no logo.
   const thumbSrc = p.logo_url || p.cover_image_url;
   const thumbFit = p.logo_url ? "contain" : "cover";
+  // On error, swap once to our stored copy at /api/media, then hide if that fails too.
+  const mediaFallback = escapeHtml(`/api/media?u=${encodeURIComponent(thumbSrc || "")}`);
   const logoImg = thumbSrc
-    ? `<img src="${escapeHtml(thumbSrc)}" alt="" width="42" height="42" onerror="this.style.display='none'" style="width:42px;height:42px;flex:none;object-fit:${thumbFit};border-radius:8px;border:1px solid #ece6ec;background:#faf5fa" />`
+    ? `<img src="${escapeHtml(thumbSrc)}" alt="" width="42" height="42" onerror="if(!this.dataset.f){this.dataset.f='1';this.src='${mediaFallback}'}else{this.style.display='none'}" style="width:42px;height:42px;flex:none;object-fit:${thumbFit};border-radius:8px;border:1px solid #ece6ec;background:#faf5fa" />`
     : "";
   const logo = logoImg
     ? `<a href="${profile}" target="_blank" rel="noopener noreferrer" style="display:block;flex:none">${logoImg}</a>`

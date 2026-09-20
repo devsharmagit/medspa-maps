@@ -1,5 +1,6 @@
 "use client";
 
+import { ResilientImg } from "@/components/shared/resilient-img";
 import Link from "next/link";
 import { useRef, useState, useEffect } from "react";
 
@@ -59,8 +60,7 @@ function ProviderCard({ provider }: { provider: ConcernProvider }) {
       <div className="relative w-[150px] sm:w-[200.5px] shrink-0 bg-zinc-100">
         {/* Arbitrary scraped/CDN URLs — use a plain img (not next/image, which
             requires each host in remotePatterns). */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <ResilientImg
           src={provider.image_url || DEFAULT_PHOTO}
           alt={provider.name}
           className="absolute inset-0 h-full w-full object-cover object-top"

@@ -1,5 +1,6 @@
 "use client";
 
+import { ResilientImg } from "@/components/shared/resilient-img";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import {
@@ -1474,8 +1475,7 @@ function ClinicCard({
           className="block size-full"
         >
           {clinic.coverImageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <ResilientImg
               src={clinic.coverImageUrl}
               alt=""
               className="h-full w-full object-cover"
@@ -1505,8 +1505,7 @@ function ClinicCard({
             className="flex h-[42px] w-[48px] shrink-0 items-center justify-center overflow-hidden rounded-md border border-[#E5E5E5] bg-[#faf5fa] transition-opacity hover:opacity-85"
           >
             {clinic.logoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={clinic.logoUrl} alt="" className="h-full w-full object-contain" loading="lazy" />
+              <ResilientImg src={clinic.logoUrl} alt="" className="h-full w-full object-contain" loading="lazy" />
             ) : (
               <span className="text-sm font-semibold text-brand-magenta">{initials || "M"}</span>
             )}

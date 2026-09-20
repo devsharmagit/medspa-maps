@@ -1,5 +1,6 @@
 "use client";
 
+import { ResilientImg } from "@/components/shared/resilient-img";
 import { useState, useMemo } from "react";
 import { BadgeCheck, ArrowLeft } from "lucide-react";
 import Link from "next/link";
@@ -62,8 +63,7 @@ function DesktopProviderCard({ p }: { p: SharedProviderData }) {
   return (
     <div className="flex bg-white shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)] rounded-[22px] overflow-hidden h-full">
       <div className="relative w-[130px] xl:w-[150px] shrink-0 bg-zinc-100 min-h-[300px]">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={p.image_url || DEFAULT_PHOTO} alt={p.name} className="absolute inset-0 w-full h-full object-cover object-top" />
+        <ResilientImg src={p.image_url || DEFAULT_PHOTO} alt={p.name} className="absolute inset-0 w-full h-full object-cover object-top" />
       </div>
 
       <div className="flex-1 min-w-0 p-4 xl:p-5 flex flex-col justify-between">
@@ -108,8 +108,7 @@ function MobileProviderCard({ p }: { p: SharedProviderData }) {
     <div className="flex min-h-[320px] overflow-hidden rounded-[22px] border border-[#DEDEDE] bg-white shadow-[0px_6px_10.5px_1px_rgba(0,0,0,0.05)]">
       {/* Photo — left */}
       <div className="relative w-[150px] min-[420px]:w-[168px] shrink-0 bg-zinc-100">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={p.image_url || DEFAULT_PHOTO} alt={p.name} className="absolute inset-0 h-full w-full object-cover object-top" />
+        <ResilientImg src={p.image_url || DEFAULT_PHOTO} alt={p.name} className="absolute inset-0 h-full w-full object-cover object-top" />
       </div>
 
       {/* Info — right */}

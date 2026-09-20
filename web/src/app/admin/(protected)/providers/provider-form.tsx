@@ -42,6 +42,7 @@ interface ProviderData {
   name: string;
   title: string | null;
   card_tagline: string | null;
+  expertise_summary: string | null;
   image_url: string | null;
   is_verified: boolean;
   service_ids: string[];
@@ -52,6 +53,7 @@ interface FormState {
   name: string;
   title: string;
   card_tagline: string;
+  expertise_summary: string;
   image_url: string;
   is_verified: boolean;
   selected_service_ids: string[];
@@ -68,6 +70,7 @@ function emptyForm(): FormState {
     name: "",
     title: "",
     card_tagline: "",
+    expertise_summary: "",
     image_url: "",
     is_verified: false,
     selected_service_ids: [],
@@ -80,6 +83,7 @@ function formFromData(d: ProviderData): FormState {
     name: d.name,
     title: d.title ?? "",
     card_tagline: d.card_tagline ?? "",
+    expertise_summary: d.expertise_summary ?? "",
     image_url: d.image_url ?? "",
     is_verified: d.is_verified,
     selected_service_ids: d.service_ids ?? [],
@@ -93,18 +97,56 @@ export function ProviderForm({
   clinicId,
   providerId,
   backUrl,
+  embedded = false,
+  onSaved,
+  onCancel,
+  onDeleted,
+  onSubmitData,
+  initialData,
 }: {
   clinicId: string;
   providerId?: string;
   backUrl?: string;
+  /** When true, render inline (no back link / outer chrome) and use callbacks
+   *  instead of router navigation on save/cancel/delete. */
+  embedded?: boolean;
+  onSaved?: () => void;
+  onCancel?: () => void;
+  onDeleted?: () => void;
+  /** Deferred mode: instead of hitting the API, hand the edited fields back to
+   *  the parent to stage until the main "Save Clinic" button is pressed. */
+  onSubmitData?: (data: {
+    name: string;
+    title: string | null;
+    image_url: string | null;
+    expertise_summary: string;
+  }) => void;
+  /** Deferred mode: seed the form from staged values instead of fetching by id
+   *  (so unsaved edits aren't lost when re-opening the dialog). */
+  initialData?: {
+    name: string;
+    title: string | null;
+    image_url: string | null;
+    expertise_summary: string;
+  };
 }) {
   const router = useRouter();
   const isEdit = Boolean(providerId);
 
-  const [form, setForm] = useState<FormState>(emptyForm());
+  const [form, setForm] = useState<FormState>(() =>
+    initialData
+      ? {
+          ...emptyForm(),
+          name: initialData.name,
+          title: initialData.title ?? "",
+          image_url: initialData.image_url ?? "",
+          expertise_summary: initialData.expertise_summary,
+        }
+      : emptyForm()
+  );
   const [clinicServices, setClinicServices] = useState<ClinicService[]>([]);
   const [concerns, setConcerns] = useState<ConcernOption[]>([]);
-  const [loading, setLoading] = useState(isEdit);
+  const [loading, setLoading] = useState(isEdit && !initialData);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -126,16 +168,17 @@ export function ProviderForm({
       .catch(() => {/* non-fatal */});
   }, []);
 
-  // Load provider data when editing
+  // Load provider data when editing (skipped in deferred mode where the parent
+  // seeds staged values via initialData).
   useEffect(() => {
-    if (!providerId) return;
+    if (!providerId || initialData) return;
     let cancelled = false;
     adminGet<ProviderData>(`/providers/${providerId}`)
       .then((d) => { if (!cancelled) setForm(formFromData(d)); })
       .catch((err) => { if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load provider"); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [providerId]);
+  }, [providerId, initialData]);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -164,13 +207,26 @@ export function ProviderForm({
     e.preventDefault();
     if (!form.name.trim()) { setError("Provider name is required."); return; }
 
-    setSaving(true);
     setError(null);
+
+    // Deferred mode — hand fields to the parent, don't touch the API.
+    if (onSubmitData) {
+      onSubmitData({
+        name: form.name.trim(),
+        title: form.title.trim() || null,
+        image_url: form.image_url.trim() || null,
+        expertise_summary: form.expertise_summary.trim(),
+      });
+      return;
+    }
+
+    setSaving(true);
 
     const payload = {
       name: form.name.trim(),
       title: form.title.trim() || null,
       card_tagline: form.card_tagline.trim() || null,
+      expertise_summary: form.expertise_summary.trim(),
       image_url: form.image_url.trim() || null,
       is_verified: form.is_verified,
       service_ids: form.selected_service_ids,
@@ -182,6 +238,11 @@ export function ProviderForm({
         await adminPut(`/providers/${providerId}`, payload);
       } else {
         await adminPost(`/clinics/${clinicId}/providers`, payload);
+      }
+      if (embedded) {
+        setSaving(false);
+        onSaved?.();
+        return;
       }
       router.push(backPath);
       router.refresh();
@@ -197,6 +258,11 @@ export function ProviderForm({
     setDeleting(true);
     try {
       await adminDelete(`/providers/${providerId}`);
+      if (embedded) {
+        setDeleting(false);
+        onDeleted?.();
+        return;
+      }
       router.push(backPath);
       router.refresh();
     } catch (err) {
@@ -207,27 +273,33 @@ export function ProviderForm({
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="flex w-full max-w-2xl flex-col gap-6">
+    <div className={cn("flex w-full flex-col gap-6", !embedded && "max-w-2xl")}>
       {/* Header */}
       <div className="flex flex-col gap-2">
-        <Link
-          href={backPath}
-          className="inline-flex w-fit items-center gap-1 text-sm text-slate-500 transition-colors hover:text-slate-800"
-        >
-          <ArrowLeft size={14} /> {backUrl ? "Back" : "Back to clinic"}
-        </Link>
+        {!embedded && (
+          <Link
+            href={backPath}
+            className="inline-flex w-fit items-center gap-1 text-sm text-slate-500 transition-colors hover:text-slate-800"
+          >
+            <ArrowLeft size={14} /> {backUrl ? "Back" : "Back to clinic"}
+          </Link>
+        )}
         <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900">
-              {isEdit ? "Edit provider" : "Add new provider"}
-            </h2>
-            <p className="text-sm text-slate-500">
-              {isEdit
-                ? "Update the provider's profile. Changes apply immediately."
-                : "Add a provider profile linked to this clinic."}
-            </p>
-          </div>
-          {isEdit && (
+          {!embedded ? (
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">
+                {isEdit ? "Edit provider" : "Add new provider"}
+              </h2>
+              <p className="text-sm text-slate-500">
+                {isEdit
+                  ? "Update the provider's profile. Changes apply immediately."
+                  : "Add a provider profile linked to this clinic."}
+              </p>
+            </div>
+          ) : (
+            <span />
+          )}
+          {isEdit && !onSubmitData && (
             <Button
               type="button"
               variant="outline"
@@ -277,18 +349,36 @@ export function ProviderForm({
                   />
                 </div>
 
+                {!embedded && (
+                  <div className="col-span-2 flex flex-col gap-1.5">
+                    <Label htmlFor="prov-tagline">Card Tagline</Label>
+                    <textarea
+                      id="prov-tagline"
+                      value={form.card_tagline}
+                      onChange={(e) => update("card_tagline", e.target.value)}
+                      rows={2}
+                      placeholder="e.g. Expert in Botox, fillers and laser treatments. Provides soft and natural looking results."
+                      className={TEXTAREA}
+                    />
+                    <span className="text-xs text-slate-400">
+                      Short one/two-line pitch shown on the provider card.
+                    </span>
+                  </div>
+                )}
+
                 <div className="col-span-2 flex flex-col gap-1.5">
-                  <Label htmlFor="prov-tagline">Card Tagline</Label>
+                  <Label htmlFor="prov-bio">Bio</Label>
                   <textarea
-                    id="prov-tagline"
-                    value={form.card_tagline}
-                    onChange={(e) => update("card_tagline", e.target.value)}
-                    rows={2}
-                    placeholder="e.g. Expert in Botox, fillers and laser treatments. Provides soft and natural looking results."
+                    id="prov-bio"
+                    value={form.expertise_summary}
+                    onChange={(e) => update("expertise_summary", e.target.value)}
+                    rows={5}
+                    placeholder="e.g. Shelby Miller is the CEO, Medical Director, and Founder of RUMA Medical…"
                     className={TEXTAREA}
                   />
                   <span className="text-xs text-slate-400">
-                    Short one/two-line pitch shown on the provider card.
+                    Full bio shown in the &ldquo;Meet the Experts&rdquo; pop-up on the practice page.
+                    Leave blank to let it be auto-generated.
                   </span>
                 </div>
 
@@ -319,6 +409,10 @@ export function ProviderForm({
                 </div>
               </div>
 
+              {/* The verified badge, treatments and concerns don't appear on the
+                  practice page, so the embedded (clinic-edit) widget hides them. */}
+              {!embedded && (
+              <>
               {/* ── Verified badge toggle ──────────────────────────────────── */}
               <button
                 type="button"
@@ -456,6 +550,8 @@ export function ProviderForm({
                   </div>
                 </>
               )}
+              </>
+              )}
 
               {/* ── Error ────────────────────────────────────────────────── */}
               {error && (
@@ -467,9 +563,15 @@ export function ProviderForm({
 
               {/* ── Actions ───────────────────────────────────────────────── */}
               <div className="flex justify-end gap-2 pt-1">
-                <Button asChild type="button" variant="outline" disabled={saving}>
-                  <Link href={backPath}>Cancel</Link>
-                </Button>
+                {embedded ? (
+                  <Button type="button" variant="outline" disabled={saving} onClick={() => onCancel?.()}>
+                    Cancel
+                  </Button>
+                ) : (
+                  <Button asChild type="button" variant="outline" disabled={saving}>
+                    <Link href={backPath}>Cancel</Link>
+                  </Button>
+                )}
                 <Button type="submit" variant="gradient" disabled={saving} className="gap-1.5">
                   {saving && <Loader2 size={14} className="animate-spin" />}
                   {isEdit ? "Save changes" : "Add provider"}
