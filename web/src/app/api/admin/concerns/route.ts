@@ -26,8 +26,11 @@ export async function GET() {
   try {
     await requireAdmin();
 
-    const concerns = await query<Concern>(
-      `SELECT c.id, c.name, c.slug, c.origin, c.is_active, c.created_at, c.updated_at
+    const concerns = await query<Concern & { clinic_count: number }>(
+      `SELECT c.id, c.name, c.slug, c.origin, c.is_active, c.created_at, c.updated_at,
+              (SELECT count(DISTINCT cc.clinic_id)::int
+                 FROM clinic_concerns cc
+                 WHERE cc.concern_id = c.id AND cc.is_active = true) AS clinic_count
        FROM concerns c
        ORDER BY c.name`
     );

@@ -42,6 +42,7 @@ interface ConcernListRow {
   name: string;
   slug: string;
   is_active: boolean;
+  clinic_count: number;
 }
 
 export default function ConcernsPage() {
@@ -170,6 +171,9 @@ export default function ConcernsPage() {
                   <TableHead className="text-xs font-semibold uppercase tracking-wider text-slate-500">
                     Concern
                   </TableHead>
+                  <TableHead className="w-[90px] text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Clinics
+                  </TableHead>
                   <TableHead className="w-[120px] text-xs font-semibold uppercase tracking-wider text-slate-500">
                     Status
                   </TableHead>
@@ -202,6 +206,11 @@ export default function ConcernsPage() {
                           </span>
                         </div>
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-[13px] font-medium text-slate-700 tabular-nums">
+                        {item.clinic_count}
+                      </span>
                     </TableCell>
                     <TableCell>
                       <Badge
