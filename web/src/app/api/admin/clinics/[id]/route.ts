@@ -35,6 +35,11 @@ const patchSchema = z
     ext_rating_source: z.string().max(50).nullable(),
     is_active: z.boolean(),
     featured: z.boolean().optional(),
+    clinic_type: z.string().max(64).nullable(),
+    google_place_id: z.string().max(255).nullable(),
+    g99_clinic_id: z.number().int().nullable(),
+    g99_business_id: z.number().int().nullable(),
+    g99_tenant_id: z.number().int().nullable(),
   })
   .partial()
   .refine((v) => Object.keys(v).length > 0, {
@@ -72,6 +77,10 @@ interface ClinicRow {
   ext_rating: string | null;
   ext_review_count: number | null;
   ext_rating_source: string | null;
+  clinic_type: string | null;
+  g99_clinic_id: string | null;
+  g99_business_id: string | null;
+  g99_tenant_id: string | null;
   featured: boolean;
   data_source: string;
   is_active: boolean;
@@ -126,6 +135,7 @@ const CLINIC_COLS = `id, name, slug, tagline, about, website, booking_url,
   instagram_url, facebook_url, tiktok_url, youtube_url, x_url, linkedin_url,
   yelp_url, google_my_business, google_maps_url, google_place_id, avg_rating, review_count,
   ext_rating, ext_review_count, ext_rating_source, featured,
+  clinic_type, g99_clinic_id, g99_business_id, g99_tenant_id,
   data_source, is_active, created_at, updated_at`;
 
 // GET /api/admin/clinics/[id] — full editable record + images + treatments offered
@@ -170,11 +180,22 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
       [id]
     );
 
+    // Concerns currently linked to this clinic (for the condition chips).
+    const concerns = await query<{ concern_id: string; slug: string; name: string }>(
+      `SELECT cc.concern_id, c.slug, c.name
+         FROM clinic_concerns cc
+         JOIN concerns c ON c.id = cc.concern_id
+        WHERE cc.clinic_id = $1 AND cc.is_active = true AND cc.source <> 'removed'
+        ORDER BY c.name`,
+      [id]
+    );
+
     return successResponse({
       ...clinic,
       images,
       treatments,
       locations,
+      concerns,
     });
   } catch (err) {
     return handleApiError(err);

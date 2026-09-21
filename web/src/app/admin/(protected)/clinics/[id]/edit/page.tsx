@@ -16,12 +16,18 @@ import {
   Plus,
   Sparkles,
   Trash2,
+  HeartPulse,
+  Check,
+  Search,
+  Hash,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import {
   adminDelete,
   adminGet,
   adminPatch,
   adminPost,
+  adminPut,
 } from "@/lib/admin/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,6 +43,16 @@ import { ClinicReviewsManager, type ClinicManagerHandle } from "@/components/adm
 import { ClinicProvidersManager } from "@/components/admin/clinic-providers-manager";
 
 const BRAND = "#9b3a9b";
+
+const CLINIC_TYPES = [
+  "medspa",
+  "plastic_surgery",
+  "cosmetic_derm",
+  "dental_aesthetics",
+  "day_spa_salon",
+  "wellness_plus_aesthetics",
+  "other_medical_plus_aesthetics",
+] as const;
 
 const DAYS = [
   "MONDAY",
@@ -121,8 +137,23 @@ interface ClinicFull {
   ext_rating: string | null;
   ext_review_count: number | null;
   is_active: boolean;
+  featured: boolean;
+  clinic_type: string | null;
+  google_place_id: string | null;
+  g99_clinic_id: string | number | null;
+  g99_business_id: string | number | null;
+  g99_tenant_id: string | number | null;
   images: ImageRef[];
   locations: LocationRef[];
+  treatments: { service_id: string | null }[];
+  concerns: { concern_id: string }[];
+}
+
+interface CatalogRef {
+  id: string;
+  name: string;
+  slug: string;
+  is_active?: boolean;
 }
 
 interface FormState {
@@ -141,6 +172,11 @@ interface FormState {
   google_my_business: string;
   ext_rating: string;
   ext_review_count: string;
+  clinic_type: string;
+  google_place_id: string;
+  g99_clinic_id: string;
+  g99_business_id: string;
+  g99_tenant_id: string;
 }
 
 interface LocationForm {
@@ -293,6 +329,13 @@ export default function EditClinicPage(props: {
   const [galleryUrlInput, setGalleryUrlInput] = useState("");
   const [beforeAfterUrlInput, setBeforeAfterUrlInput] = useState("");
   const [ratingSource, setRatingSource] = useState<string | null>(null);
+  const [isFeatured, setIsFeatured] = useState(false);
+  const [treatmentCatalog, setTreatmentCatalog] = useState<CatalogRef[]>([]);
+  const [concernCatalog, setConcernCatalog] = useState<CatalogRef[]>([]);
+  const [selectedTreatmentIds, setSelectedTreatmentIds] = useState<string[]>([]);
+  const [selectedConcernIds, setSelectedConcernIds] = useState<string[]>([]);
+  const [treatmentSearch, setTreatmentSearch] = useState("");
+  const [concernSearch, setConcernSearch] = useState("");
   const providersRef = useRef<ClinicManagerHandle>(null);
   const reviewsRef = useRef<ClinicManagerHandle>(null);
   const [form, setForm] = useState<FormState>({
@@ -311,6 +354,11 @@ export default function EditClinicPage(props: {
     google_my_business: "",
     ext_rating: "",
     ext_review_count: "",
+    clinic_type: "",
+    google_place_id: "",
+    g99_clinic_id: "",
+    g99_business_id: "",
+    g99_tenant_id: "",
   });
 
   useEffect(() => {
@@ -335,6 +383,11 @@ export default function EditClinicPage(props: {
           });
 
         setIsActive(c.is_active);
+        setIsFeatured(Boolean(c.featured));
+        setSelectedTreatmentIds(
+          (c.treatments ?? []).map((t) => t.service_id).filter((x): x is string => Boolean(x))
+        );
+        setSelectedConcernIds((c.concerns ?? []).map((cc) => cc.concern_id).filter(Boolean));
         setClearHours(false);
         setClinicHours(parseHours(c.hours));
         setLocations(loadedLocations);
@@ -366,6 +419,11 @@ export default function EditClinicPage(props: {
           google_my_business: s(c.google_my_business),
           ext_rating: s(c.ext_rating),
           ext_review_count: s(c.ext_review_count),
+          clinic_type: s(c.clinic_type),
+          google_place_id: s(c.google_place_id),
+          g99_clinic_id: s(c.g99_clinic_id),
+          g99_business_id: s(c.g99_business_id),
+          g99_tenant_id: s(c.g99_tenant_id),
         });
         setError(null);
       })
@@ -379,6 +437,29 @@ export default function EditClinicPage(props: {
       active = false;
     };
   }, [id]);
+
+  // Load the full treatment + condition catalogs for the chip selectors.
+  useEffect(() => {
+    adminGet<CatalogRef[]>(`/services`)
+      .then((rows) => setTreatmentCatalog(rows.filter((r) => r.is_active !== false)))
+      .catch(() => {});
+    adminGet<CatalogRef[]>(`/concerns`)
+      .then((rows) => setConcernCatalog(rows.filter((r) => r.is_active !== false)))
+      .catch(() => {});
+  }, []);
+
+  function toggleTreatment(sid: string) {
+    setSelectedTreatmentIds((prev) =>
+      prev.includes(sid) ? prev.filter((x) => x !== sid) : [...prev, sid]
+    );
+    markDirty();
+  }
+  function toggleConcern(cid: string) {
+    setSelectedConcernIds((prev) =>
+      prev.includes(cid) ? prev.filter((x) => x !== cid) : [...prev, cid]
+    );
+    markDirty();
+  }
 
   const primaryLocation = useMemo(
     () => locations.find((loc) => loc.is_primary) ?? locations[0],
@@ -549,6 +630,12 @@ export default function EditClinicPage(props: {
       ext_rating: ratingStr === "" ? null : Number(ratingStr),
       ext_review_count: reviewStr === "" ? null : parseInt(reviewStr, 10),
       is_active: isActive,
+      featured: isFeatured,
+      clinic_type: nullable(form.clinic_type),
+      google_place_id: nullable(form.google_place_id),
+      g99_clinic_id: form.g99_clinic_id.trim() === "" ? null : Number(form.g99_clinic_id.trim()),
+      g99_business_id: form.g99_business_id.trim() === "" ? null : Number(form.g99_business_id.trim()),
+      g99_tenant_id: form.g99_tenant_id.trim() === "" ? null : Number(form.g99_tenant_id.trim()),
     };
     if (ratingSource) clinicPayload.ext_rating_source = ratingSource;
 
@@ -562,6 +649,12 @@ export default function EditClinicPage(props: {
     setSaving(true);
     try {
       await adminPatch(`/clinics/${id}`, clinicPayload);
+
+      // Manual treatment + condition chips.
+      await adminPut(`/clinics/${id}/catalog`, {
+        treatment_ids: selectedTreatmentIds,
+        concern_ids: selectedConcernIds,
+      });
 
       for (const loc of normalizedLocations) {
         const payload = {
@@ -1019,7 +1112,81 @@ export default function EditClinicPage(props: {
         </CardContent>
       </Card>
 
-     
+      {/* Treatments & Conditions chips — manual override of what a clinic offers */}
+      <Card className="border-slate-200 shadow-sm">
+        <CardHeader className="border-b border-slate-100 bg-slate-50/50 pb-4">
+          <CardTitle className="flex items-center gap-2 text-base font-semibold text-slate-800">
+            <Sparkles size={16} style={{ color: BRAND }} />
+            Treatments &amp; Conditions
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-6 p-6">
+          <ChipPicker
+            title="Treatments offered"
+            help="Toggle the treatments this clinic provides. Saved with the clinic."
+            icon={<Sparkles size={13} />}
+            items={treatmentCatalog}
+            selected={selectedTreatmentIds}
+            onToggle={toggleTreatment}
+            search={treatmentSearch}
+            setSearch={setTreatmentSearch}
+          />
+          <div className="h-px bg-slate-100" />
+          <ChipPicker
+            title="Conditions treated"
+            help="Toggle the conditions this clinic treats."
+            icon={<HeartPulse size={13} />}
+            items={concernCatalog}
+            selected={selectedConcernIds}
+            onToggle={toggleConcern}
+            search={concernSearch}
+            setSearch={setConcernSearch}
+          />
+        </CardContent>
+      </Card>
+
+      {/* IDs & classification */}
+      <Card className="border-slate-200 shadow-sm">
+        <CardHeader className="border-b border-slate-100 bg-slate-50/50 pb-4">
+          <CardTitle className="flex items-center gap-2 text-base font-semibold text-slate-800">
+            <Hash size={16} style={{ color: BRAND }} />
+            IDs &amp; classification
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 gap-4 p-6 sm:grid-cols-2">
+          <Field label="Clinic type">
+            <select
+              value={form.clinic_type}
+              onChange={(e) => update("clinic_type", e.target.value)}
+              className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+            >
+              <option value="">— none —</option>
+              {CLINIC_TYPES.map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Featured">
+            <label className="flex h-9 cursor-pointer items-center gap-2 text-sm text-slate-700">
+              <input type="checkbox" checked={isFeatured} onChange={(e) => { setIsFeatured(e.target.checked); markDirty(); }} className="size-4" />
+              Show in featured lists
+            </label>
+          </Field>
+          <Field label="Google Place ID">
+            <Input value={form.google_place_id} onChange={(e) => update("google_place_id", e.target.value)} className="h-9" placeholder="ChIJ..." />
+          </Field>
+          <div className="hidden sm:block" />
+          <Field label="G99 clinic ID">
+            <Input value={form.g99_clinic_id} onChange={(e) => update("g99_clinic_id", e.target.value)} className="h-9" inputMode="numeric" placeholder="e.g. 9086" />
+          </Field>
+          <Field label="G99 business ID">
+            <Input value={form.g99_business_id} onChange={(e) => update("g99_business_id", e.target.value)} className="h-9" inputMode="numeric" placeholder="e.g. 8644" />
+          </Field>
+          <Field label="G99 tenant ID">
+            <Input value={form.g99_tenant_id} onChange={(e) => update("g99_tenant_id", e.target.value)} className="h-9" inputMode="numeric" placeholder="optional" />
+          </Field>
+        </CardContent>
+      </Card>
 
       <ClinicProvidersManager ref={providersRef} clinicId={id} deferred onDirtyChange={markDirty} />
 
@@ -1134,6 +1301,80 @@ function Field({
         {required && <span className="text-red-500">*</span>}
       </Label>
       {children}
+    </div>
+  );
+}
+
+function ChipPicker({
+  title,
+  help,
+  icon,
+  items,
+  selected,
+  onToggle,
+  search,
+  setSearch,
+}: {
+  title: string;
+  help: string;
+  icon: React.ReactNode;
+  items: { id: string; name: string }[];
+  selected: string[];
+  onToggle: (id: string) => void;
+  search: string;
+  setSearch: (v: string) => void;
+}) {
+  const q = search.trim().toLowerCase();
+  const filtered = q ? items.filter((it) => it.name.toLowerCase().includes(q)) : items;
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <Label className="text-sm font-semibold text-slate-800">{title}</Label>
+          <p className="mt-0.5 text-xs text-slate-400">{help}</p>
+        </div>
+        {selected.length > 0 && (
+          <Badge className="shrink-0 border border-purple-200 bg-purple-50 text-purple-700">
+            {selected.length} selected
+          </Badge>
+        )}
+      </div>
+      <div className="relative">
+        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder={`Search ${title.toLowerCase()}…`}
+          className="h-9 bg-white pl-9 text-sm"
+        />
+      </div>
+      {items.length === 0 ? (
+        <p className="py-2 text-xs text-slate-400">Loading catalog…</p>
+      ) : filtered.length === 0 ? (
+        <p className="py-2 text-xs text-slate-400">No matches for &ldquo;{search}&rdquo;</p>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          {filtered.map((it) => {
+            const on = selected.includes(it.id);
+            return (
+              <button
+                key={it.id}
+                type="button"
+                onClick={() => onToggle(it.id)}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[13px] font-medium transition-all",
+                  on
+                    ? "border-purple-300 bg-purple-50 text-purple-800"
+                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                )}
+              >
+                {on ? <Check size={13} strokeWidth={3} className="text-purple-600" /> : <span className="text-slate-300">{icon}</span>}
+                {it.name}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
