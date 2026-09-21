@@ -1,0 +1,66 @@
+{
+  "website": "https://afivestarsmile.com/",
+  "clinic_type": "dental_aesthetics",
+  "name": "Cosmetic Dental Spa Ricardo M. Perez, DDS",
+  "tagline": "Where Technology Meets Timeless Smile",
+  "about": "A cosmetic dental practice in Pleasant Hill, CA combining modern dental technology with cosmetic precision in a spa-like environment. Led by Ricardo M. Perez, DDS, a member of the American Academy of Cosmetic Dentistry, the practice offers personalized cosmetic and restorative care alongside facial aesthetic treatments like Botox and dermal fillers.",
+  "phone": "(925) 687-2299",
+  "booking_url": "https://afivestarsmile.com/",
+  "socials": {
+    "instagram": "https://www.instagram.com/riicardoperezdds",
+    "facebook": "",
+    "tiktok": "https://www.tiktok.com/@ricardoperezdds",
+    "youtube": "",
+    "x": "",
+    "linkedin": "",
+    "yelp": ""
+  },
+  "hours": {
+    "MONDAY": {"open": "08:00", "close": "17:00", "is_open": true},
+    "TUESDAY": {"open": "08:00", "close": "17:00", "is_open": true},
+    "WEDNESDAY": {"open": "07:00", "close": "16:00", "is_open": true},
+    "THURSDAY": {"open": "07:00", "close": "16:00", "is_open": true},
+    "FRIDAY": {"open": "08:00", "close": "17:00", "is_open": true},
+    "SATURDAY": {"open": null, "close": null, "is_open": false},
+    "SUNDAY": {"open": null, "close": null, "is_open": false}
+  },
+  "locations": [
+    {
+      "address": "81 Gregory Lane, Suite 320",
+      "city": "Pleasant Hill",
+      "state": "CA",
+      "zip": "94523",
+      "phone": "(925) 687-2299",
+      "is_primary": true
+    }
+  ],
+  "providers": [
+    {
+      "name": "Ricardo M. Perez, DDS",
+      "title": "Owner / Cosmetic Dentist",
+      "image_url": "https://afivestarsmile.com/storage/2026/06/Dr-Ricardo-M-Perez-DDS.webp",
+      "is_owner": true
+    }
+  ],
+  "treatments": [
+    {"raw_name": "Botox®", "general_name": "Botox®"},
+    {"raw_name": "Dermal Fillers", "general_name": "Dermal Fillers"},
+    {"raw_name": "HydraFacial®", "general_name": "HydraFacial®"},
+    {"raw_name": "Laser Facial Aesthetics", "general_name": "Laser Skin Resurfacing"}
+  ],
+  "concerns": [
+    "Wrinkles",
+    "Fine Lines",
+    "Facial Volume Loss",
+    "Pigmentation",
+    "Uneven Skin Texture",
+    "Skin Laxity"
+  ],
+  "images": {
+    "logo": "https://afivestarsmile.com/storage/2026/06/Logo-Ricardo-Perez.svg",
+    "cover": "https://afivestarsmile.com/storage/2026/06/Dr-Ricardo-M-Perez-DDS.webp",
+    "gallery": [
+      "https://afivestarsmile.com/storage/2026/06/Dr-Ricardo-Perez-Doing-Teeth-Treatment-in-Pleasant-Hill-CA.webp"
+    ]
+  }
+}

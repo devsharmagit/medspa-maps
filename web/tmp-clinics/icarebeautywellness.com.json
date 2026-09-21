@@ -1,0 +1,64 @@
+{
+  "website": "https://icarebeautywellness.com/",
+  "clinic_type": "wellness_plus_aesthetics",
+  "name": "iCare Beauty & Wellness Spa",
+  "tagline": "Where Clinical Expertise Meets Your Natural Glow",
+  "about": "A nurse-led, assessment-first wellness destination in Lawrenceville, GA, founded by Ivy E. Cox, BSN. The spa blends clinical precision with an inclusive Melanin Glow philosophy, offering medically supervised treatments and personalized protocols under the direction of Medical Director Dr. Lori Martin, MD.",
+  "phone": "(470) 562-9293",
+  "booking_url": "https://icarebeautywellness.myaestheticrecord.com/online-booking",
+  "socials": {
+    "instagram": "https://www.instagram.com/iCareBeautyWellness26/",
+    "facebook": "https://www.facebook.com/people/ICare-Beauty-Wellness-Spa/61590671153101/",
+    "tiktok": "",
+    "youtube": "",
+    "x": "",
+    "linkedin": "",
+    "yelp": ""
+  },
+  "hours": {
+    "MONDAY": {"open": null, "close": null, "is_open": false},
+    "TUESDAY": {"open": "10:00", "close": "18:00", "is_open": true},
+    "WEDNESDAY": {"open": "10:00", "close": "18:00", "is_open": true},
+    "THURSDAY": {"open": "10:00", "close": "18:00", "is_open": true},
+    "FRIDAY": {"open": "10:00", "close": "18:00", "is_open": true},
+    "SATURDAY": {"open": "09:00", "close": "17:00", "is_open": true},
+    "SUNDAY": {"open": null, "close": null, "is_open": false}
+  },
+  "locations": [
+    {
+      "address": "1960 Riverside Pkwy Suite 104",
+      "city": "Lawrenceville",
+      "state": "GA",
+      "zip": "30043",
+      "phone": "(470) 562-9293",
+      "is_primary": true
+    }
+  ],
+  "providers": [
+    {"name": "Ivy E. Cox, BSN", "title": "Founder & Chief Wellness Officer", "is_owner": true},
+    {"name": "Dr. Lori Martin, MD", "title": "Medical Director", "is_owner": false},
+    {"name": "Amber Cox", "title": "Esthetician Consultant/Supervisor", "is_owner": false},
+    {"name": "Jeanny Carpio", "title": "Lead Esthetician", "is_owner": false},
+    {"name": "Tara", "title": "Operations & Growth Professional", "is_owner": false},
+    {"name": "Jalyn", "title": "Front Desk Coordinator", "is_owner": false},
+    {"name": "Emil Lawryn", "title": "Front Desk Coordinator", "is_owner": false}
+  ],
+  "treatments": [
+    {"raw_name": "Chemical Peels", "general_name": "Chemical Peels"},
+    {"raw_name": "Facials", "general_name": "Facials"},
+    {"raw_name": "iHydrafacials", "general_name": "HydraFacial®"},
+    {"raw_name": "IV Therapy", "general_name": "IV Therapy"},
+    {"raw_name": "Red Light Therapy", "general_name": "Red Light Therapy"},
+    {"raw_name": "Cryotherapy", "general_name": "Cryotherapy"},
+    {"raw_name": "GLP-1 Support & THINNR Weight Loss Program", "general_name": "Medical Weight Loss"}
+  ],
+  "concerns": [],
+  "images": {
+    "logo": "https://icarebeautywellness.com/storage/2026/05/icare-coloured-new-care-beauty_wellness-spa-llc-at-georgia.svg",
+    "cover": "https://icarebeautywellness.com/storage/2026/07/herospace-left-section-hero-new-care-Beauty-Wellness-Spa-LLC-at-Georgia.webp",
+    "gallery": [
+      "https://icarebeautywellness.com/storage/2026/07/herospace-right-two-care-Beauty-Wellness-Spa-LLC-at-Georgia.webp",
+      "https://icarebeautywellness.com/storage/2026/07/about-team-new-new-one-care-Beauty-Wellness-Spa-LLC-at-Georgia.webp"
+    ]
+  }
+}

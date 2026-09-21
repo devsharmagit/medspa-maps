@@ -1,0 +1,127 @@
+{
+  "website": "https://www.vive4me.com/",
+  "clinic_type": "medspa",
+  "name": "VIVE Med Spa",
+  "tagline": "Meet Your Best Self",
+  "about": "VIVE Med Spa is a wellness and aesthetic care practice in Verona, Wisconsin, founded by nurse practitioner Stephanie M. Shulman. The practice balances science and artistry with evidence-based medicine to enhance natural beauty and confidence, offering aesthetic treatments, weight loss programs, and menopause hormone therapy.",
+  "phone": "(608) 745-2834",
+  "booking_url": "https://na02.patientnow.com/a/vivemedicalaesthetics/",
+  "socials": {
+    "instagram": "https://www.instagram.com/vive_medspa_stephanie_np/",
+    "facebook": "https://www.facebook.com/vive4me/"
+  },
+  "hours": {
+    "MONDAY": {
+      "open": "09:00",
+      "close": "17:00",
+      "is_open": true
+    },
+    "TUESDAY": {
+      "open": "09:00",
+      "close": "17:00",
+      "is_open": true
+    },
+    "WEDNESDAY": {
+      "open": "10:00",
+      "close": "18:00",
+      "is_open": true
+    },
+    "THURSDAY": {
+      "open": null,
+      "close": null,
+      "is_open": false
+    },
+    "FRIDAY": {
+      "open": "09:00",
+      "close": "15:00",
+      "is_open": true
+    },
+    "SATURDAY": {
+      "open": null,
+      "close": null,
+      "is_open": false
+    },
+    "SUNDAY": {
+      "open": null,
+      "close": null,
+      "is_open": false
+    }
+  },
+  "locations": [
+    {
+      "address": "9817 Talons Way",
+      "city": "Verona",
+      "state": "WI",
+      "zip": "53593",
+      "phone": "(608) 745-2834",
+      "is_primary": true
+    }
+  ],
+  "providers": [
+    {
+      "name": "Stephanie M. Shulman",
+      "title": "APNP, AGACNP-BC, Nurse Practitioner & Founder",
+      "is_owner": true
+    }
+  ],
+  "treatments": [
+    {
+      "raw_name": "BOTOX® Cosmetic",
+      "general_name": "Botox®"
+    },
+    {
+      "raw_name": "Hyaluronic Acid Fillers (RHA Collection, Versa+, Lips+)",
+      "general_name": "Dermal Fillers"
+    },
+    {
+      "raw_name": "Lips+ Filler",
+      "general_name": "Lip Fillers"
+    },
+    {
+      "raw_name": "Sculptra®",
+      "general_name": "Sculptra®"
+    },
+    {
+      "raw_name": "PRP/PRF Treatments",
+      "general_name": "PRP / PRF Therapy"
+    },
+    {
+      "raw_name": "Microneedling with SkinPen®",
+      "general_name": "Microneedling"
+    },
+    {
+      "raw_name": "LinderHealth Chemical Peels",
+      "general_name": "Chemical Peels"
+    },
+    {
+      "raw_name": "IV Therapy",
+      "general_name": "IV Therapy"
+    },
+    {
+      "raw_name": "Weight Loss Assessment (Comprehensive)",
+      "general_name": "Medical Weight Loss"
+    },
+    {
+      "raw_name": "Female Menopause Hormone Therapy Consult",
+      "general_name": "Hormone Therapy"
+    }
+  ],
+  "concerns": [
+    "Wrinkles",
+    "Fine Lines",
+    "Facial Volume Loss",
+    "Skin Laxity"
+  ],
+  "images": {
+    "before_after": [
+      "https://www.vive4me.com/storage/2026/09/Gallery-Before-After-body-slimming-VIVE-Medical-Aesthetics-in-Verona-WI.webp",
+      "https://www.vive4me.com/storage/2026/09/Gallery-Before-After-body-weight-VIVE-Medical-Aesthetics-in-Verona-WI.webp",
+      "https://www.vive4me.com/storage/2026/09/Gallery-Before-After-eyes-VIVE-Medical-Aesthetics-in-Verona-WI.webp",
+      "https://www.vive4me.com/storage/2026/09/Gallery-Before-After-facial-front-face-VIVE-Medical-Aesthetics-in-Verona-WI.webp",
+      "https://www.vive4me.com/storage/2026/09/Gallery-Before-After-forehead-VIVE-Medical-Aesthetics-in-Verona-WI.webp",
+      "https://www.vive4me.com/storage/2026/09/Gallery-Before-After-lip-filler-VIVE-Medical-Aesthetics-in-Verona-WI.webp",
+      "https://www.vive4me.com/storage/2026/09/Gallery-Before-After-under-eye-prf-VIVE-Medical-Aesthetics-in-Verona-WI.webp",
+      "https://www.vive4me.com/storage/2026/09/Gallery-Before-After-weight-loss-VIVE-Medical-Aesthetics-in-Verona-WI.webp"
+    ]
+  }
+}
