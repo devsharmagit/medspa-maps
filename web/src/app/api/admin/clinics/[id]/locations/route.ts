@@ -14,7 +14,6 @@ const locationSchema = z.object({
   country: z.string().nullable().optional(),
   phone: z.string().nullable().optional(),
   email: z.string().nullable().optional(),
-  booking_url: z.union([z.url(), z.literal(""), z.null()]).optional(),
   google_maps_url: z.union([z.url(), z.literal(""), z.null()]).optional(),
   hours: z.record(z.string(), z.unknown()).nullable().optional(),
   lat: z.number().nullable().optional(),
@@ -34,7 +33,7 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
 
     const rows = await query(
       `SELECT id, label, address, city, state, zip, country, lat::text, lng::text,
-              phone, email, booking_url, google_maps_url, hours, is_primary, sort_order
+              phone, email, google_maps_url, hours, is_primary, sort_order
          FROM clinic_locations
         WHERE clinic_id = $1 AND is_active = true
         ORDER BY sort_order, created_at`,
@@ -87,10 +86,10 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     const row = await queryOne(
       `INSERT INTO clinic_locations
          (clinic_id, label, address, city, state, zip, country, phone, email,
-          booking_url, google_maps_url, hours, lat, lng, is_primary, sort_order)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb,$13,$14,$15,$16)
+          google_maps_url, hours, lat, lng, is_primary, sort_order)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12,$13,$14,$15)
        RETURNING id, label, address, city, state, zip, country, lat::text, lng::text,
-                 phone, email, booking_url, google_maps_url, hours, is_primary, sort_order`,
+                 phone, email, google_maps_url, hours, is_primary, sort_order`,
       [
         clinicId,
         data.label ?? null,
@@ -101,7 +100,6 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
         data.country || "US",
         data.phone ?? null,
         data.email ?? null,
-        data.booking_url || null,
         data.google_maps_url || null,
         hoursJson,
         data.lat ?? null,
@@ -132,11 +130,9 @@ async function syncPrimaryToClinics(clinicId: string) {
     country: string | null;
     phone: string | null;
     email: string | null;
-    booking_url: string | null;
     google_maps_url: string | null;
-    hours: unknown;
   }>(
-    `SELECT address, country, phone, email, booking_url, google_maps_url, hours
+    `SELECT address, country, phone, email, google_maps_url
        FROM clinic_locations
       WHERE clinic_id = $1 AND is_primary = true AND is_active = true
       ORDER BY sort_order LIMIT 1`,
@@ -144,21 +140,20 @@ async function syncPrimaryToClinics(clinicId: string) {
   );
   if (!primary) return;
 
+  // NOTE: hours now live ONLY on clinic_locations and booking_url ONLY on
+  // clinics, so neither is synced here anymore.
   await query(
     `UPDATE clinics SET
         address = $2, country = COALESCE($3, country),
         phone = COALESCE($4, phone),
         email = COALESCE($5, email),
-        booking_url = COALESCE($6, booking_url),
-        google_maps_url = COALESCE($7, google_maps_url),
-        hours = $8::jsonb,
+        google_maps_url = COALESCE($6, google_maps_url),
         updated_at = NOW()
       WHERE id = $1`,
     [
       clinicId,
       primary.address, primary.country,
-      primary.phone, primary.email, primary.booking_url, primary.google_maps_url,
-      primary.hours == null ? null : JSON.stringify(primary.hours),
+      primary.phone, primary.email, primary.google_maps_url,
     ]
   );
 }

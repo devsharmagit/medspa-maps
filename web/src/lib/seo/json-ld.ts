@@ -189,7 +189,7 @@ export function medicalBusinessJsonLd(input: MedicalBusinessInput) {
   ].filter((u): u is string => Boolean(u));
   if (sameAs.length) node.sameAs = sameAs;
 
-  const hoursSpec = openingHoursSpecification(clinic.hours);
+  const hoursSpec = openingHoursSpecification(clinic.primaryHours);
   if (hoursSpec.length) node.openingHoursSpecification = hoursSpec;
 
   // Rating comes back from pg as a string; coerce and guard.

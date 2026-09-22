@@ -185,7 +185,7 @@ export async function getClinicBySlug(
     SELECT
       c.id, c.slug, c.name, c.avg_rating, c.review_count,
       c.ext_rating, c.ext_review_count,
-      c.booking_url, c.phone, c.website, c.hours, c.tagline, c.about,
+      c.booking_url, c.phone, c.website, c.tagline, c.about,
       c.address AS clinic_address,
       ploc.city, ploc.state, ploc.address AS loc_address,
       ploc.phone AS loc_phone, ploc.hours AS loc_hours,
@@ -238,7 +238,7 @@ export async function getClinicBySlug(
       reviews: rawReviews != null ? Number(rawReviews) : 0,
       services: Array.isArray(r.services) ? r.services : [],
       hasBooking: Boolean(r.booking_url),
-      hours: formatHours(r.loc_hours) ?? formatHours(r.hours),
+      hours: formatHours(r.loc_hours),
       tagline: r.tagline ?? null,
       about: typeof r.about === "string" ? r.about.slice(0, 600) : null,
       locationCount: Number(r.location_count ?? 1),

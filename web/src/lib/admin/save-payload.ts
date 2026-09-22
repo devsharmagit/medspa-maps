@@ -37,7 +37,6 @@ export interface ClinicJsonPayload {
   name: string;
   tagline?: string;
   about?: string;
-  clinic_type?: string;
   phone?: string;
   email?: string;
   booking_url?: string;
@@ -208,8 +207,11 @@ export async function saveClinicFromPayload(
   const ratingQuery = [p.name, loc0?.city, loc0?.state].filter(Boolean).join(", ");
   const rating = await resolveClinicRating({ website: p.website, query: ratingQuery || null }).catch(() => null);
 
+  // Hours live only on clinic_locations now — attach the payload's hours to the
+  // primary (first) location.
+  const payloadHours = normalizeHours(p.hours);
   const locations = [];
-  for (const l of p.locations ?? []) {
+  for (const [idx, l] of (p.locations ?? []).entries()) {
     let lat: number | null = null, lng: number | null = null;
     const street = (l.address ?? "").replace(/,?\s*(ste|suite|unit|#|bldg|building|apt|fl(oor)?)\.?\s*\S+.*$/i, "").trim();
     const attempts = [
@@ -227,9 +229,10 @@ export async function saveClinicFromPayload(
       address: l.address ?? null, city: l.city ?? null,
       state: normalizeState(l.state) ?? l.state ?? null,
       zip: l.zip ?? null, phone: l.phone ?? null, lat, lng,
+      hours: idx === 0 ? payloadHours : null,
     });
   }
-  if (locations.length === 0) locations.push({});
+  if (locations.length === 0) locations.push({ hours: payloadHours });
 
   const services: SaveService[] = (p.treatments ?? [])
     .map((t) => (typeof t === "string" ? { raw_name: t, general_name: t } : t))
@@ -279,11 +282,10 @@ export async function saveClinicFromPayload(
 
   const bundle: ClinicBundle = {
     website: p.website,
-    clinic_type: p.clinic_type ?? null,
     business: { name: p.name || domain },
     clinic: {
       booking_url: p.booking_url ?? null, about: p.about ?? null, tagline: p.tagline ?? null,
-      email: p.email ?? null, phone: p.phone ?? null, hours: normalizeHours(p.hours),
+      email: p.email ?? null, phone: p.phone ?? null,
       instagram_url: s.instagram ?? null, facebook_url: s.facebook ?? null, tiktok_url: s.tiktok ?? null,
       youtube_url: s.youtube ?? null, x_url: s.x ?? null, linkedin_url: s.linkedin ?? null, yelp_url: s.yelp ?? null,
     },

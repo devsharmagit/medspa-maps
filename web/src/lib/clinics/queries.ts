@@ -8,7 +8,6 @@ export interface ClinicLocation {
   state: string | null;
   zip: string | null;
   phone: string | null;
-  booking_url: string | null;
   google_maps_url: string | null;
   google_place_id: string | null;
   hours: unknown;
@@ -30,7 +29,9 @@ export interface ClinicPageData {
     website: string | null;
     booking_url: string | null;
     google_maps_url: string | null;
-    hours: unknown;
+    /** Hours shown in the top "Hours" card — the primary location's hours
+     *  (clinic-level hours were removed; hours live only on clinic_locations). */
+    primaryHours: unknown;
     instagram_url: string | null;
     facebook_url: string | null;
     tiktok_url: string | null;
@@ -79,7 +80,7 @@ export async function getClinicData(slug: string): Promise<ClinicPageData | null
   const clinic = await pool.query(
     `SELECT
        c.id, c.slug, c.name, c.tagline, c.about, c.address,
-       c.phone, c.email, c.website, c.booking_url, c.google_maps_url, c.hours, c.instagram_url,
+       c.phone, c.email, c.website, c.booking_url, c.google_maps_url, c.instagram_url,
        c.facebook_url, c.tiktok_url, c.youtube_url, c.x_url, c.linkedin_url, c.yelp_url,
        c.avg_rating,
        c.review_count, c.ext_rating, c.ext_review_count, c.ext_rating_source, c.featured,
@@ -183,7 +184,7 @@ export async function getClinicData(slug: string): Promise<ClinicPageData | null
     ),
     pool.query(
       `SELECT id, label, address, city, state, zip, phone,
-              booking_url, google_maps_url, google_place_id, hours, is_primary, lat, lng
+              google_maps_url, google_place_id, hours, is_primary, lat, lng
          FROM clinic_locations
         WHERE clinic_id = $1 AND is_active = true
         ORDER BY sort_order, created_at`,
@@ -208,9 +209,10 @@ export async function getClinicData(slug: string): Promise<ClinicPageData | null
     lat: r.lat != null ? Number(r.lat) : null,
     lng: r.lng != null ? Number(r.lng) : null,
   })) as ClinicLocation[];
-  // City now lives at the location level (clinic-level city column was dropped).
-  const primaryCity =
-    (locations.find((l) => l.is_primary) ?? locations[0])?.city ?? null;
+  // City + hours now live at the location level (the clinic-level columns were dropped).
+  const primaryLoc = locations.find((l) => l.is_primary) ?? locations[0];
+  const primaryCity = primaryLoc?.city ?? null;
+  const primaryHours = primaryLoc?.hours ?? null;
 
   return {
     // pg returns numeric columns as strings when no type parser is registered.
@@ -227,7 +229,7 @@ export async function getClinicData(slug: string): Promise<ClinicPageData | null
       website: c.website,
       booking_url: c.booking_url,
       google_maps_url: c.google_maps_url,
-      hours: c.hours,
+      primaryHours,
       instagram_url: c.instagram_url,
       facebook_url: c.facebook_url,
       tiktok_url: c.tiktok_url,

@@ -20,7 +20,6 @@ const patchSchema = z
     country: z.string().nullable(),
     phone: z.string().nullable(),
     email: z.string().nullable(),
-    hours: z.record(z.string(), z.unknown()).nullable(),
     instagram_url: z.string().nullable(),
     facebook_url: z.string().nullable(),
     tiktok_url: z.string().nullable(),
@@ -35,7 +34,6 @@ const patchSchema = z
     ext_rating_source: z.string().max(50).nullable(),
     is_active: z.boolean(),
     featured: z.boolean().optional(),
-    clinic_type: z.string().max(64).nullable(),
     google_place_id: z.string().max(255).nullable(),
     g99_clinic_id: z.number().int().nullable(),
     g99_business_id: z.number().int().nullable(),
@@ -46,8 +44,9 @@ const patchSchema = z
     message: "At least one field is required",
   });
 
-// JSONB column — must be stringified for the pg driver.
-const JSONB_COLS = new Set(["hours"]);
+// JSONB column — must be stringified for the pg driver. (Clinic-level hours were
+// removed; hours now live only on clinic_locations.)
+const JSONB_COLS = new Set<string>([]);
 
 interface ClinicRow {
   id: string;
@@ -61,7 +60,6 @@ interface ClinicRow {
   country: string | null;
   phone: string | null;
   email: string | null;
-  hours: Record<string, unknown> | null;
   instagram_url: string | null;
   facebook_url: string | null;
   tiktok_url: string | null;
@@ -77,7 +75,6 @@ interface ClinicRow {
   ext_rating: string | null;
   ext_review_count: number | null;
   ext_rating_source: string | null;
-  clinic_type: string | null;
   g99_clinic_id: string | null;
   g99_business_id: string | null;
   g99_tenant_id: string | null;
@@ -109,7 +106,6 @@ interface LocationRef {
   lng: string | null;
   phone: string | null;
   email: string | null;
-  booking_url: string | null;
   google_maps_url: string | null;
   hours: Record<string, unknown> | null;
   is_primary: boolean;
@@ -131,11 +127,11 @@ interface RouteContext {
 }
 
 const CLINIC_COLS = `id, name, slug, tagline, about, website, booking_url,
-  address, country, phone, email, hours,
+  address, country, phone, email,
   instagram_url, facebook_url, tiktok_url, youtube_url, x_url, linkedin_url,
   yelp_url, google_my_business, google_maps_url, google_place_id, avg_rating, review_count,
   ext_rating, ext_review_count, ext_rating_source, featured,
-  clinic_type, g99_clinic_id, g99_business_id, g99_tenant_id,
+  g99_clinic_id, g99_business_id, g99_tenant_id,
   data_source, is_active, created_at, updated_at`;
 
 // GET /api/admin/clinics/[id] — full editable record + images + treatments offered
@@ -173,7 +169,7 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
     const locations = await query<LocationRef>(
       `SELECT id, label, address, city, state, zip, country,
               lat::text, lng::text, phone, email,
-              booking_url, google_maps_url, hours, is_primary, sort_order
+              google_maps_url, hours, is_primary, sort_order
          FROM clinic_locations
         WHERE clinic_id = $1 AND is_active = true
         ORDER BY sort_order, created_at`,

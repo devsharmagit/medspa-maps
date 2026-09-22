@@ -202,15 +202,6 @@ export interface ClinicBundle {
   g99_tenant_id?: string | number | null;
   /** Google Place ID carried over from G99 (clinics.google_place_id). */
   google_place_id?: string | null;
-  /**
-   * Practice type as read from the site: 'medspa' | 'plastic_surgery' |
-   * 'cosmetic_derm' | 'dental_aesthetics' | 'day_spa_salon' |
-   * 'wellness_plus_aesthetics' | 'other_medical_plus_aesthetics'.
-   *
-   * Only ever written when non-null (COALESCE on update), so a re-save that does
-   * not know the type cannot erase a type an earlier pass established.
-   */
-  clinic_type?: string | null;
 }
 
 export interface SaveClinicResult {
@@ -658,9 +649,8 @@ export async function saveClinicBundle(
   // Headline address — blank in clinic-level mode.
   const cAddress = clinicMode ? null : primaryLoc.address ?? null;
   const cMapsUrl = clinicMode ? null : primaryLoc.maps_url ?? null;
-  // Working hours: clinic-wide in clinic mode, else derived from primary loc.
-  const cHours = clinicMode ? cl.hours ?? null : primaryLoc.hours ?? null;
-  const cHoursJson = cHours ? JSON.stringify(cHours) : null;
+  // Hours now live ONLY on clinic_locations (clinics.hours column dropped); the
+  // per-location INSERT below writes each location's hours.
 
   if (clinicId) {
     const setOrOverwrite = (col: string, idx: number) =>
@@ -684,10 +674,8 @@ export async function saveClinicBundle(
           ${setOrOverwrite("linkedin_url", 16)},
           ${setOrOverwrite("yelp_url", 17)},
           ${setOrOverwrite("google_my_business", 18)},
-          hours = ${overwrite ? "$19::jsonb" : "COALESCE($19::jsonb, hours)"},
-          g99_business_id = COALESCE($20::bigint, g99_business_id),
-          g99_tenant_id   = COALESCE($21::bigint, g99_tenant_id),
-          clinic_type     = COALESCE($22, clinic_type),
+          g99_business_id = COALESCE($19::bigint, g99_business_id),
+          g99_tenant_id   = COALESCE($20::bigint, g99_tenant_id),
           data_source = 'scraped',
           last_scraped_at = NOW(),
           updated_at = NOW()
@@ -701,9 +689,7 @@ export async function saveClinicBundle(
         cTagline, cMapsUrl,
         cX, cLinkedin,
         cYelp, cGmb,
-        cHoursJson,
         g99BusinessId, g99TenantId,
-        payload.clinic_type ?? null,
       ]
     );
     const existing = await queryOne<{ slug: string }>(
@@ -718,8 +704,8 @@ export async function saveClinicBundle(
          (name, slug, website, booking_url, address,
           phone, email, about, instagram_url, facebook_url, tiktok_url, youtube_url,
           tagline, google_maps_url, x_url, linkedin_url, yelp_url, google_my_business,
-          hours, g99_business_id, g99_tenant_id, clinic_type, data_source, last_scraped_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19::jsonb,$20::bigint,$21::bigint,$22,'scraped',NOW())
+          g99_business_id, g99_tenant_id, data_source, last_scraped_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19::bigint,$20::bigint,'scraped',NOW())
        RETURNING id`,
       [
         clinicName, slug, website,
@@ -730,9 +716,7 @@ export async function saveClinicBundle(
         cTagline, cMapsUrl,
         cX, cLinkedin,
         cYelp, cGmb,
-        cHoursJson,
         g99BusinessId, g99TenantId,
-        payload.clinic_type ?? null,
       ]
     );
     clinicId = ins!.id;
@@ -773,15 +757,15 @@ export async function saveClinicBundle(
     await query(
       `INSERT INTO clinic_locations
          (clinic_id, label, address, city, state, zip, phone, email,
-          booking_url, google_maps_url, hours, lat, lng, is_primary, sort_order)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12,$13,$14,$15)
+          google_maps_url, hours, lat, lng, is_primary, sort_order)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11,$12,$13,$14)
        ON CONFLICT DO NOTHING`,
       [
         clinicId,
         loc.city ?? (locations.length > 1 ? `Location ${i + 1}` : null),
         loc.address ?? null, loc.city ?? null, loc.state ?? null, loc.zip ?? null,
         loc.phone ?? null, loc.email ?? null,
-        loc.booking_url ?? null, loc.maps_url ?? null,
+        loc.maps_url ?? null,
         loc.hours ? JSON.stringify(loc.hours) : null,
         loc.lat ?? null, loc.lng ?? null,
         isPrimary, i,

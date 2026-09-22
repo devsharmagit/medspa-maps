@@ -31,10 +31,6 @@ import { basename, join } from "node:path";
 import { isServiceNoise, isConcernNoise, normalize } from "../src/lib/taxonomy/canonical";
 import { websiteDomain } from "../src/lib/admin/clinic-save";
 
-const CLINIC_TYPES = new Set([
-  "medspa", "plastic_surgery", "cosmetic_derm", "dental_aesthetics",
-  "day_spa_salon", "wellness_plus_aesthetics", "other_medical_plus_aesthetics",
-]);
 const PLACEHOLDER_EMAIL = /^(seo\.loginuser|onboarding\.india)@growth99\.com$/i;
 // US-only directory: reject Canadian provinces (2-letter, so they'd otherwise
 // pass the "is 2 letters" check silently — see canadian-clinics-excluded-2026-08-04.csv).
@@ -117,20 +113,16 @@ for (const file of files) {
   for (const b of img.before_after ?? []) {
     if (shown.has(b)) hard.push(`H6 before_after URL also used as cover/gallery: ${b}`);
   }
-  // H7 clinic_type
-  if (!p.clinic_type) hard.push("H7 missing clinic_type");
-  else if (!CLINIC_TYPES.has(String(p.clinic_type))) hard.push(`H7 unknown clinic_type "${p.clinic_type}"`);
 
   // soft
   if (!img.cover) soft.push("no cover image (hero shows placeholder)");
   const cons: string[] = Array.isArray(p.concerns) ? p.concerns : [];
-  if (p.clinic_type === "day_spa_salon" && cons.length > 0) soft.push(`day_spa_salon with ${cons.length} concerns (brief says [])`);
   for (const c of cons) if (isConcernNoise(c)) soft.push(`isConcernNoise would DROP "${c}"`);
 
   const ok = hard.length === 0;
   hardTotal += hard.length ? 1 : 0;
   console.log(
-    `\n${ok ? "✓" : "✗"} ${dom}  [${p.clinic_type ?? "?"}]  tx=${tx.length} concerns=${cons.length} ` +
+    `\n${ok ? "✓" : "✗"} ${dom}  tx=${tx.length} concerns=${cons.length} ` +
       `locs=${locs.length} providers=${(p.providers ?? []).length} new_names=${declared.size}`
   );
   for (const h of hard) console.log(`   HARD  ${h}`);

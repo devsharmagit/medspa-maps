@@ -194,7 +194,6 @@ CREATE TABLE public.clinic_locations (
     geo public.geography(Point,4326),
     phone text,
     email text,
-    booking_url text,
     google_maps_url text,
     google_place_id text,
     hours jsonb,
@@ -250,7 +249,6 @@ CREATE TABLE public.clinics (
     yelp_url text,
     google_my_business text,
     google_place_id text,
-    hours jsonb,
     featured boolean DEFAULT false NOT NULL,
     avg_rating numeric(3,2),
     review_count integer DEFAULT 0 NOT NULL,
@@ -268,8 +266,7 @@ CREATE TABLE public.clinics (
     ext_rating_source text,
     ext_rating_updated_at timestamp with time zone,
     g99_business_id bigint,
-    g99_tenant_id bigint,
-    clinic_type text
+    g99_tenant_id bigint
 );
 
 

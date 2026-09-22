@@ -44,15 +44,6 @@ import { ClinicProvidersManager } from "@/components/admin/clinic-providers-mana
 
 const BRAND = "#9b3a9b";
 
-const CLINIC_TYPES = [
-  "medspa",
-  "plastic_surgery",
-  "cosmetic_derm",
-  "dental_aesthetics",
-  "day_spa_salon",
-  "wellness_plus_aesthetics",
-  "other_medical_plus_aesthetics",
-] as const;
 
 const DAYS = [
   "MONDAY",
@@ -105,7 +96,6 @@ interface LocationRef {
   lng: string | null;
   phone: string | null;
   email: string | null;
-  booking_url: string | null;
   google_maps_url: string | null;
   hours: Record<string, unknown> | null;
   is_primary: boolean;
@@ -125,7 +115,6 @@ interface ClinicFull {
   country: string | null;
   phone: string | null;
   email: string | null;
-  hours: Record<string, unknown> | null;
   instagram_url: string | null;
   facebook_url: string | null;
   tiktok_url: string | null;
@@ -138,7 +127,6 @@ interface ClinicFull {
   ext_review_count: number | null;
   is_active: boolean;
   featured: boolean;
-  clinic_type: string | null;
   google_place_id: string | null;
   g99_clinic_id: string | number | null;
   g99_business_id: string | number | null;
@@ -170,9 +158,9 @@ interface FormState {
   linkedin_url: string;
   yelp_url: string;
   google_my_business: string;
+  booking_url: string;
   ext_rating: string;
   ext_review_count: string;
-  clinic_type: string;
   google_place_id: string;
   g99_clinic_id: string;
   g99_business_id: string;
@@ -191,7 +179,6 @@ interface LocationForm {
   lng: string;
   phone: string;
   email: string;
-  booking_url: string;
   google_maps_url: string;
   hours: HoursState;
   is_primary: boolean;
@@ -258,7 +245,6 @@ function emptyLocation(sortOrder: number): LocationForm {
     lng: "",
     phone: "",
     email: "",
-    booking_url: "",
     google_maps_url: "",
     hours: emptyHours(),
     is_primary: sortOrder === 0,
@@ -279,7 +265,6 @@ function fromLocationRef(loc: LocationRef, sortOrder: number): LocationForm {
     lng: s(loc.lng),
     phone: s(loc.phone),
     email: s(loc.email),
-    booking_url: s(loc.booking_url),
     google_maps_url: s(loc.google_maps_url),
     hours: parseHours(loc.hours),
     is_primary: loc.is_primary,
@@ -294,9 +279,7 @@ function fromClinicFallback(c: ClinicFull): LocationForm {
     country: s(c.country) || "US",
     phone: s(c.phone),
     email: s(c.email),
-    booking_url: s(c.booking_url),
     google_maps_url: s(c.google_maps_url),
-    hours: parseHours(c.hours),
     is_primary: true,
   };
 }
@@ -316,9 +299,6 @@ export default function EditClinicPage(props: {
   // When true, the clinic row and all locations save `hours = null` (clears the
   // Hours card on the public page) regardless of the per-day editor state.
   const [clearHours, setClearHours] = useState(false);
-  // Clinic-level hours (clinics.hours) — this is what the public practice page
-  // renders, separate from per-location hours.
-  const [clinicHours, setClinicHours] = useState<HoursState>(emptyHours());
   const [locations, setLocations] = useState<LocationForm[]>([]);
   const [deletedLocationIds, setDeletedLocationIds] = useState<string[]>([]);
   const [logo, setLogo] = useState<ImageRef | null>(null);
@@ -352,9 +332,9 @@ export default function EditClinicPage(props: {
     linkedin_url: "",
     yelp_url: "",
     google_my_business: "",
+    booking_url: "",
     ext_rating: "",
     ext_review_count: "",
-    clinic_type: "",
     google_place_id: "",
     g99_clinic_id: "",
     g99_business_id: "",
@@ -389,7 +369,6 @@ export default function EditClinicPage(props: {
         );
         setSelectedConcernIds((c.concerns ?? []).map((cc) => cc.concern_id).filter(Boolean));
         setClearHours(false);
-        setClinicHours(parseHours(c.hours));
         setLocations(loadedLocations);
         setDeletedLocationIds([]);
         const beforeAfterImages = (c.images ?? [])
@@ -417,9 +396,9 @@ export default function EditClinicPage(props: {
           linkedin_url: s(c.linkedin_url),
           yelp_url: s(c.yelp_url),
           google_my_business: s(c.google_my_business),
+          booking_url: s(c.booking_url),
           ext_rating: s(c.ext_rating),
           ext_review_count: s(c.ext_review_count),
-          clinic_type: s(c.clinic_type),
           google_place_id: s(c.google_place_id),
           g99_clinic_id: s(c.g99_clinic_id),
           g99_business_id: s(c.g99_business_id),
@@ -498,11 +477,6 @@ export default function EditClinicPage(props: {
           : loc
       )
     );
-    markDirty();
-  }
-
-  function updateClinicDay(day: Day, patch: Partial<DayHours>) {
-    setClinicHours((prev) => ({ ...prev, [day]: { ...prev[day], ...patch } }));
     markDirty();
   }
 
@@ -610,7 +584,7 @@ export default function EditClinicPage(props: {
       name: form.name.trim(),
       slug: form.slug.trim() || undefined,
       website: form.website.trim(),
-      booking_url: nullable(primary.booking_url),
+      booking_url: nullable(form.booking_url),
       google_maps_url: nullable(primary.google_maps_url),
       about: nullable(form.about),
       tagline: nullable(form.tagline),
@@ -626,12 +600,10 @@ export default function EditClinicPage(props: {
       linkedin_url: nullable(form.linkedin_url),
       yelp_url: nullable(form.yelp_url),
       google_my_business: nullable(form.google_my_business),
-      hours: clearHours ? null : hoursPayload(clinicHours),
       ext_rating: ratingStr === "" ? null : Number(ratingStr),
       ext_review_count: reviewStr === "" ? null : parseInt(reviewStr, 10),
       is_active: isActive,
       featured: isFeatured,
-      clinic_type: nullable(form.clinic_type),
       google_place_id: nullable(form.google_place_id),
       g99_clinic_id: form.g99_clinic_id.trim() === "" ? null : Number(form.g99_clinic_id.trim()),
       g99_business_id: form.g99_business_id.trim() === "" ? null : Number(form.g99_business_id.trim()),
@@ -668,7 +640,6 @@ export default function EditClinicPage(props: {
           lng: numberOrNull(loc.lng),
           phone: nullable(loc.phone),
           email: nullable(loc.email),
-          booking_url: nullable(loc.booking_url),
           google_maps_url: nullable(loc.google_maps_url),
           hours: clearHours ? null : hoursPayload(loc.hours),
           is_primary: loc.is_primary,
@@ -805,6 +776,15 @@ export default function EditClinicPage(props: {
                 className="h-9"
               />
             </Field>
+            <Field label="Booking URL">
+              <Input
+                type="url"
+                placeholder="https://... (falls back to website)"
+                value={form.booking_url}
+                onChange={(e) => update("booking_url", e.target.value)}
+                className="h-9"
+              />
+            </Field>
             <Field label="Published">
               <label className="flex h-9 cursor-pointer items-center gap-2 rounded-lg border border-slate-200 px-3 text-sm text-slate-700">
                 <input
@@ -874,29 +854,6 @@ export default function EditClinicPage(props: {
       </Card>
 
       <Card className="border-slate-200 shadow-sm">
-        <CardHeader className="border-b border-slate-100 bg-slate-50/50 pb-4">
-          <CardTitle className="flex items-center gap-2 text-base font-semibold text-slate-800">
-            <Clock size={16} style={{ color: BRAND }} />
-            Clinic hours
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3 p-6">
-          <p className="text-xs text-slate-500">
-            These are the hours shown on the public practice page. Use
-            &ldquo;Clear hours&rdquo; in the Locations card to blank them.
-          </p>
-          {clearHours ? (
-            <div className="flex items-start gap-2.5 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-              <AlertTriangle size={16} className="mt-0.5 shrink-0" />
-              <span>Clinic hours will be cleared on save (the per-day settings below are ignored).</span>
-            </div>
-          ) : (
-            <HoursEditor hours={clinicHours} onChange={updateClinicDay} />
-          )}
-        </CardContent>
-      </Card>
-
-      <Card className="border-slate-200 shadow-sm">
         <CardHeader className="flex flex-row items-center justify-between border-b border-slate-100 bg-slate-50/50 pb-4">
           <CardTitle className="flex items-center gap-2 text-base font-semibold text-slate-800">
             <MapPin size={16} style={{ color: BRAND }} />
@@ -932,9 +889,9 @@ export default function EditClinicPage(props: {
             <div className="flex items-start gap-2.5 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
               <AlertTriangle size={16} className="mt-0.5 shrink-0" />
               <span>
-                On save, the clinic hours and all location hours will be set to
-                empty (null) — the Hours card will be hidden on the public page.
-                The per-day settings below are ignored while this is on. Click
+                On save, all location hours will be set to empty (null) — the
+                Hours card will be hidden on the public page. The per-day
+                settings below are ignored while this is on. Click
                 &ldquo;Hours will be cleared&rdquo; again to cancel.
               </span>
             </div>
@@ -1004,9 +961,6 @@ export default function EditClinicPage(props: {
                     <Input value={loc.zip} onChange={(e) => updateLocation(idx, { zip: e.target.value })} className="h-9" />
                   </Field>
                 </div>
-                <Field label="Booking URL">
-                  <Input value={loc.booking_url} onChange={(e) => updateLocation(idx, { booking_url: e.target.value })} className="h-9" />
-                </Field>
                 <Field label="Maps URL">
                   <Input value={loc.google_maps_url} onChange={(e) => updateLocation(idx, { google_maps_url: e.target.value })} className="h-9" />
                 </Field>
@@ -1154,18 +1108,6 @@ export default function EditClinicPage(props: {
           </CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 gap-4 p-6 sm:grid-cols-2">
-          <Field label="Clinic type">
-            <select
-              value={form.clinic_type}
-              onChange={(e) => update("clinic_type", e.target.value)}
-              className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-            >
-              <option value="">— none —</option>
-              {CLINIC_TYPES.map((t) => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </select>
-          </Field>
           <Field label="Featured">
             <label className="flex h-9 cursor-pointer items-center gap-2 text-sm text-slate-700">
               <input type="checkbox" checked={isFeatured} onChange={(e) => { setIsFeatured(e.target.checked); markDirty(); }} className="size-4" />

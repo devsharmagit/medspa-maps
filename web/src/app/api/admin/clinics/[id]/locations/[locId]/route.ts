@@ -15,7 +15,6 @@ const patchSchema = z
     country: z.string().nullable(),
     phone: z.string().nullable(),
     email: z.string().nullable(),
-    booking_url: z.union([z.url(), z.literal(""), z.null()]),
     google_maps_url: z.union([z.url(), z.literal(""), z.null()]),
     hours: z.record(z.string(), z.unknown()).nullable(),
     lat: z.number().nullable(),
@@ -71,7 +70,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
       `UPDATE clinic_locations SET ${cols.join(", ")}, updated_at = NOW()
         WHERE id = $1
         RETURNING id, label, address, city, state, zip, country, lat::text, lng::text,
-                  phone, email, booking_url, google_maps_url, hours, is_primary, sort_order`,
+                  phone, email, google_maps_url, hours, is_primary, sort_order`,
       values
     );
 
@@ -143,9 +142,9 @@ async function syncPrimaryToClinics(clinicId: string) {
   const primary = await queryOne<{
     address: string | null; country: string | null;
     phone: string | null; email: string | null;
-    booking_url: string | null; google_maps_url: string | null; hours: unknown;
+    google_maps_url: string | null;
   }>(
-    `SELECT address, country, phone, email, booking_url, google_maps_url, hours
+    `SELECT address, country, phone, email, google_maps_url
        FROM clinic_locations
       WHERE clinic_id = $1 AND is_primary = true AND is_active = true
       ORDER BY sort_order LIMIT 1`,
@@ -153,16 +152,13 @@ async function syncPrimaryToClinics(clinicId: string) {
   );
   if (!primary) return;
 
+  // hours now live ONLY on clinic_locations; booking_url ONLY on clinics — neither synced here.
   await query(
     `UPDATE clinics SET address=$2, country=COALESCE($3,country),
         phone=COALESCE($4,phone), email=COALESCE($5,email),
-        booking_url=COALESCE($6,booking_url),
-        google_maps_url=COALESCE($7,google_maps_url),
-        hours=$8::jsonb, updated_at=NOW()
+        google_maps_url=COALESCE($6,google_maps_url), updated_at=NOW()
       WHERE id=$1`,
     [clinicId, primary.address, primary.country,
-     primary.phone, primary.email,
-     primary.booking_url, primary.google_maps_url,
-     primary.hours == null ? null : JSON.stringify(primary.hours)]
+     primary.phone, primary.email, primary.google_maps_url]
   );
 }

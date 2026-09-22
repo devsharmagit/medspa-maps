@@ -310,12 +310,12 @@ export default async function ClinicPage({
         {/* Hardcoded free-text working-hours note for specific clinics that
             advertise flexible/by-request hours instead of a fixed weekly grid
             (text sourced from the clinic's own website). */}
-        {(hasWeeklyHours(clinic.hours) || HOURS_NOTE_BY_SLUG[slug] || clinic.phone || clinic.email || heroAddress || clinic.website) && (
+        {(hasWeeklyHours(clinic.primaryHours) || HOURS_NOTE_BY_SLUG[slug] || clinic.phone || clinic.email || heroAddress || clinic.website) && (
           <section className="grid items-stretch gap-[24px] px-0 sm:px-[24px] pt-[8px] lg:grid-cols-2">
             {HOURS_NOTE_BY_SLUG[slug] ? (
               <HoursNoteCard note={HOURS_NOTE_BY_SLUG[slug]} />
             ) : (
-              <HoursCard hours={clinic.hours} />
+              <HoursCard hours={clinic.primaryHours} />
             )}
             <ClinicContactCard
               phone={clinic.phone}

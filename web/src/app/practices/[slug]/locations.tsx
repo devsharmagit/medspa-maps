@@ -1,6 +1,7 @@
-import { MapPin, MapPinned, Phone } from "lucide-react";
+import { MapPin, MapPinned, Phone, Clock } from "lucide-react";
 import type { ClinicLocation } from "@/lib/clinics/queries";
 import { toStateCode } from "@/lib/location/states";
+import { WeeklyHours, hasWeeklyHours } from "./hours";
 
 function addressQuery(loc: ClinicLocation, clinicName: string): string {
   const addr = [loc.address, loc.city, loc.state, loc.zip].filter(Boolean).join(", ");
@@ -197,6 +198,17 @@ export function ClinicLocationsSection({
                     >
                       {loc.phone}
                     </a>
+                  </div>
+                )}
+
+                {/* Per-location hours — only when a clinic has multiple locations
+                    (a single location's hours already show in the top Hours card). */}
+                {locations.length > 1 && hasWeeklyHours(loc.hours) && (
+                  <div className="flex items-start gap-[8px]">
+                    <Clock className="mt-[2px] h-[18px] w-[18px] shrink-0 text-[#EE97C6]" strokeWidth={1.5} />
+                    <div className="min-w-0 flex-1">
+                      <WeeklyHours hours={loc.hours} />
+                    </div>
                   </div>
                 )}
               </div>

@@ -450,7 +450,6 @@ export async function runSearch(
         c.ext_review_count,
         c.featured,
         c.about,
-        c.hours,
         c.booking_url,
         c.google_place_id,
         c.instagram_url,
@@ -500,7 +499,7 @@ export async function runSearch(
         (
           SELECT COALESCE(json_agg(loc ORDER BY loc.sort_order), '[]'::json) FROM (
             SELECT cl.id, cl.label, cl.address, cl.city, cl.state, cl.zip,
-                   cl.lat, cl.lng, cl.phone, cl.booking_url, cl.google_maps_url,
+                   cl.lat, cl.lng, cl.phone, cl.google_maps_url,
                    cl.is_primary, cl.sort_order
             FROM clinic_locations cl
             WHERE cl.clinic_id = c.id AND cl.is_active = true

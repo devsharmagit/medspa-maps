@@ -44,7 +44,6 @@ const PLACEHOLDER = `Paste one clinic JSON object, or an array of them:
 
 {
   "website": "https://example.com/",
-  "clinic_type": "medspa",
   "name": "Example Med Spa",
   "phone": "...",
   "locations": [{ "address": "...", "city": "...", "state": "TX", "zip": "..." }],
