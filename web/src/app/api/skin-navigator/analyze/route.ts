@@ -1,4 +1,5 @@
 import type { NextRequest } from "next/server";
+import sharp from "sharp";
 import { ZodError } from "zod";
 import { errorResponse, successResponse } from "@/lib/api-response";
 import { rateLimit } from "@/lib/chat/rate-limit";
@@ -15,6 +16,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const MAX_IMAGE_DIMENSION = 1600;
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 // Per-IP hourly cap. Generous in development so testing/demos aren't throttled;
@@ -44,10 +46,32 @@ async function readPhoto(form: FormData, key: string, label: string): Promise<Na
   }
 
   const buffer = Buffer.from(await value.arrayBuffer());
+  let normalized: Buffer;
+  try {
+    // Some OpenRouter providers reject otherwise browser-valid PNG/WebP files
+    // (especially images with mobile metadata) when passed as a data URL.
+    // Re-encoding gives every provider one small, standard JPEG and applies
+    // EXIF orientation before the model sees the face.
+    normalized = await sharp(buffer, { failOn: "error" })
+      .rotate()
+      .resize({
+        width: MAX_IMAGE_DIMENSION,
+        height: MAX_IMAGE_DIMENSION,
+        fit: "inside",
+        withoutEnlargement: true,
+      })
+      .jpeg({ quality: 85, mozjpeg: true })
+      .toBuffer();
+  } catch {
+    throw Object.assign(new Error("This image could not be read. Please choose a valid JPEG, PNG, or WebP photo."), {
+      status: 400,
+    });
+  }
+
   return {
     label,
-    mediaType: value.type,
-    base64: buffer.toString("base64"),
+    mediaType: "image/jpeg",
+    base64: normalized.toString("base64"),
   };
 }
 
