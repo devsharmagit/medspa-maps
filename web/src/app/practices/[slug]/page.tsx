@@ -59,14 +59,16 @@ export async function generateMetadata({
   };
 }
 
-// Hardcoded free-text "Working Hours" notes for clinics that advertise flexible
-// / by-request hours instead of a fixed weekly schedule. Keyed by clinic slug.
-// Text is taken from the clinic's own website. When a slug is present here it
-// replaces the weekly Hours grid on the public page.
-const HOURS_NOTE_BY_SLUG: Record<string, string> = {
-  "sotto-aesthetics":
-    "Flexible booking hours, including evenings and weekends. Don't see a time that works? Contact us and we'll find one.",
-};
+// Fallback "Working Hours" note shown when a clinic has no fixed weekly
+// schedule on file. Keeps the Hours card from rendering empty and points
+// visitors to booking/contact instead of a blank grid.
+const DEFAULT_HOURS_NOTE =
+  "Hours vary and are available by appointment. Contact us to confirm availability and book a time that works for you.";
+
+// Optional per-clinic overrides of the fallback note (e.g. wording taken from a
+// clinic's own website). A slug present here replaces DEFAULT_HOURS_NOTE for
+// that clinic when it has no weekly grid.
+const HOURS_NOTE_BY_SLUG: Record<string, string> = {};
 
 function buildMapsUrl(parts: (string | null)[]): string {
   const q = parts.filter(Boolean).join(", ");
@@ -307,15 +309,15 @@ export default async function ClinicPage({
         </section>
 
         {/* ── Hours + Contact Information ── */}
-        {/* Hardcoded free-text working-hours note for specific clinics that
-            advertise flexible/by-request hours instead of a fixed weekly grid
-            (text sourced from the clinic's own website). */}
-        {(hasWeeklyHours(clinic.primaryHours) || HOURS_NOTE_BY_SLUG[slug] || clinic.phone || clinic.email || heroAddress || clinic.website) && (
+        {/* Hours card: a weekly grid when the clinic has fixed hours, otherwise
+            a generic booking note (per-clinic override, else DEFAULT_HOURS_NOTE)
+            so the card is never blank. */}
+        {(
           <section className="grid items-stretch gap-[24px] px-0 sm:px-[24px] pt-[8px] lg:grid-cols-2">
-            {HOURS_NOTE_BY_SLUG[slug] ? (
-              <HoursNoteCard note={HOURS_NOTE_BY_SLUG[slug]} />
-            ) : (
+            {hasWeeklyHours(clinic.primaryHours) ? (
               <HoursCard hours={clinic.primaryHours} />
+            ) : (
+              <HoursNoteCard note={HOURS_NOTE_BY_SLUG[slug] ?? DEFAULT_HOURS_NOTE} />
             )}
             <ClinicContactCard
               phone={clinic.phone}
