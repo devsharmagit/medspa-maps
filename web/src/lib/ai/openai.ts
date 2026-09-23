@@ -20,6 +20,14 @@ export function openaiModel(): string {
   return process.env.AI_MODEL?.trim() || "gpt-4o-mini";
 }
 
+function isOpenRouter(): boolean {
+  try {
+    return new URL(AI_BASE_URL).hostname === "openrouter.ai";
+  } catch {
+    return false;
+  }
+}
+
 function supportsOnlyAutomaticToolChoice(model: string): boolean {
   return model.toLowerCase().includes("muse-spark");
 }
@@ -107,6 +115,7 @@ export async function extractViaOpenAI<T>(
   const key = process.env.AI_API_KEY?.trim();
   if (!key) throw new Error("AI_API_KEY is not set");
   const model = opts.model || openaiModel();
+  const usingOpenRouter = isOpenRouter();
 
   const body = JSON.stringify({
     model,
@@ -124,11 +133,18 @@ export async function extractViaOpenAI<T>(
         function: {
           name: opts.toolName,
           description: opts.toolDescription,
-          strict: true,
+          // OpenRouter can route a request to many providers. Unlike OpenAI,
+          // not all of them implement strict structured tool output. Zod still
+          // validates every response below, so skip this provider-specific
+          // constraint instead of rejecting otherwise-valid tool calls.
+          ...(usingOpenRouter ? {} : { strict: true }),
           parameters: opts.inputSchema,
         },
       },
     ],
+    // Muse Spark Contributor rejects a provider-specific forced-function
+    // object. Keep forcing the function for other models, which is more
+    // reliable than allowing them to reply without a tool call.
     tool_choice: supportsOnlyAutomaticToolChoice(model)
       ? "auto"
       : {
