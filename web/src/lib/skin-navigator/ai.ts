@@ -102,37 +102,54 @@ export async function analyzeTreatmentNavigator(
     relevantAssociations(request),
   ]);
   const hasPhotos = photos.length > 0;
-  const result = await extractViaOpenAI<unknown>({
+  const toolOptions = {
     system: buildNavigatorSystemPrompt(),
     user: buildNavigatorUserPrompt(request, catalog, hasPhotos, associations),
     toolName: "create_treatment_navigation",
     toolDescription:
-      "Create non-diagnostic cosmetic treatment recommendations and photo observations for the AI Treatment Navigator.",
+      "Create one complete treatment-navigation result. The function arguments must include concerns, recommendedTreatments, photoObservations, consultationQuestions, and disclaimer.",
     inputSchema: NAVIGATOR_TOOL_SCHEMA,
-    maxTokens: 2400,
+    // Some OpenRouter contributor models spend completion tokens on hidden
+    // reasoning before emitting their tool arguments. Leave room for a complete
+    // 3–5 treatment response rather than accepting a truncated object.
+    maxTokens: 3200,
     seed: NAVIGATOR_SEED,
     images: photos.map((photo) => ({
       label: photo.label,
       source: {
-        type: "base64",
+        type: "base64" as const,
         media_type: photo.mediaType,
         data: photo.base64,
       },
     })),
-  });
+  };
 
-  const parsed = NavigatorAnalysisSchema.parse(result.data);
+  // Meta Muse Spark Contributor only supports automatic tool choice through
+  // OpenRouter. Unlike a forced OpenAI tool call, it occasionally returns an
+  // empty or partial arguments object despite the supplied strict schema. A
+  // single validation retry makes that transient provider behaviour invisible
+  // to users while keeping Zod as the final safety gate.
+  let result = await extractViaOpenAI<unknown>(toolOptions);
+  let parsed = NavigatorAnalysisSchema.safeParse(result.data);
+  if (!parsed.success) {
+    result = await extractViaOpenAI<unknown>({
+      ...toolOptions,
+      user: `${toolOptions.user}\n\nIMPORTANT: Your previous tool call was invalid because required fields were omitted. Call create_treatment_navigation now and include every required field, including recommendedTreatments and photoObservations.`,
+    });
+    parsed = NavigatorAnalysisSchema.safeParse(result.data);
+  }
+  if (!parsed.success) throw parsed.error;
 
   // Determinism/safety: if no photo was included, no concern may claim a photo
   // source. Coerce any stray "photo"/"both" back to "questionnaire".
-  if (!parsed.photoObservations.provided) {
-    for (const concern of parsed.concerns) {
+  if (!parsed.data.photoObservations.provided) {
+    for (const concern of parsed.data.concerns) {
       if (concern.source !== "questionnaire") concern.source = "questionnaire";
     }
   }
 
   return {
-    analysis: parsed,
+    analysis: parsed.data,
     model: result.model,
     usage: result.usage,
   };

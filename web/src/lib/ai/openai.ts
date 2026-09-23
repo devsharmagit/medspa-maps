@@ -8,6 +8,7 @@
  */
 
 import type { ToolExtractOptions, ToolExtractResult } from "./anthropic";
+import { jsonrepair } from "jsonrepair";
 
 // Base URL is env-configurable so the app can target any OpenAI-compatible
 // endpoint (e.g. a self-hosted vLLM server). Defaults to OpenAI.
@@ -17,6 +18,10 @@ const OPENAI_URL = `${AI_BASE_URL.replace(/\/$/, "")}/chat/completions`;
 
 export function openaiModel(): string {
   return process.env.AI_MODEL?.trim() || "gpt-4o-mini";
+}
+
+function supportsOnlyAutomaticToolChoice(model: string): boolean {
+  return model.toLowerCase().includes("muse-spark");
 }
 
 /**
@@ -124,10 +129,12 @@ export async function extractViaOpenAI<T>(
         },
       },
     ],
-    tool_choice: {
-      type: "function",
-      function: { name: opts.toolName },
-    },
+    tool_choice: supportsOnlyAutomaticToolChoice(model)
+      ? "auto"
+      : {
+          type: "function",
+          function: { name: opts.toolName },
+        },
   });
 
   const res = await postWithRetry(key, body);
@@ -169,11 +176,15 @@ export async function extractViaOpenAI<T>(
   try {
     parsed = JSON.parse(args);
   } catch (err) {
-    throw new Error(
-      `OpenAI returned invalid JSON for "${opts.toolName}": ${
-        err instanceof Error ? err.message : String(err)
-      }`
-    );
+    try {
+      parsed = JSON.parse(jsonrepair(args));
+    } catch (repairErr) {
+      throw new Error(
+        `OpenAI returned invalid JSON for "${opts.toolName}": ${
+          err instanceof Error ? err.message : String(err)
+        }${repairErr instanceof Error ? `; repair failed: ${repairErr.message}` : ""}`
+      );
+    }
   }
 
   return {
