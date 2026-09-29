@@ -17,6 +17,15 @@ import { SITE_NAME, SITE_URL } from "@/lib/site";
 import { DEFAULT_OG_IMAGE, DEFAULT_TWITTER_IMAGE } from "@/lib/seo/metadata";
 import type { Metadata } from "next";
 
+// Homepage-only og:image block, per the SEO spec: adds og:image:secure_url and
+// og:image:type on top of the shared default. Scoped here rather than added to
+// DEFAULT_OG_IMAGE so the other routes are unaffected.
+const HOMEPAGE_OG_IMAGE = {
+  ...DEFAULT_OG_IMAGE,
+  secureUrl: DEFAULT_OG_IMAGE.url,
+  type: "image/png",
+};
+
 export const metadata: Metadata = {
   title: "Medspa Maps - Find the Right Local Medspa",
   description:
@@ -30,7 +39,7 @@ export const metadata: Metadata = {
       "Explore 600+ vetted medspas, read expert treatment guides, and book with confidence.",
     url: SITE_URL,
     siteName: SITE_NAME,
-    images: [DEFAULT_OG_IMAGE],
+    images: [HOMEPAGE_OG_IMAGE],
   },
   twitter: {
     card: "summary_large_image",
@@ -48,23 +57,38 @@ const homepageJsonLd = {
       "@type": "Organization",
       "@id": `${SITE_URL}/#organization`,
       name: SITE_NAME,
-      url: SITE_URL,
+      url: `${SITE_URL}/`,
       logo: {
         "@type": "ImageObject",
         "@id": `${SITE_URL}/#logo`,
-        url: `${SITE_URL}/images/hero/logo.svg`,
-        caption: SITE_NAME,
+        url: `${SITE_URL}/images/hero/logo.png`,
+        contentUrl: `${SITE_URL}/images/hero/logo.png`,
       },
+      image: {
+        "@type": "ImageObject",
+        url: DEFAULT_OG_IMAGE.url,
+        contentUrl: DEFAULT_OG_IMAGE.url,
+      },
+      areaServed: [
+        { "@type": "Country", name: "United States" },
+        { "@type": "Country", name: "United Kingdom" },
+        { "@type": "Country", name: "Canada" },
+      ],
     },
     {
       "@type": "WebSite",
       "@id": `${SITE_URL}/#website`,
-      url: SITE_URL,
+      url: `${SITE_URL}/`,
       name: SITE_NAME,
       description:
         "Explore 600+ vetted medspas, read expert treatment guides, and book with confidence.",
       publisher: {
         "@id": `${SITE_URL}/#organization`,
+      },
+      image: {
+        "@type": "ImageObject",
+        url: DEFAULT_OG_IMAGE.url,
+        contentUrl: DEFAULT_OG_IMAGE.url,
       },
       potentialAction: {
         "@type": "SearchAction",
@@ -72,32 +96,35 @@ const homepageJsonLd = {
           "@type": "EntryPoint",
           urlTemplate: `${SITE_URL}/search?q={search_term_string}`,
         },
-        "query-input": "required name=search_term_string",
+        "query-input": {
+          "@type": "PropertyValueSpecification",
+          valueRequired: true,
+          valueName: "search_term_string",
+        },
       },
     },
     {
       "@type": "WebPage",
       "@id": `${SITE_URL}/#webpage`,
-      url: SITE_URL,
-      name: "Medspa Maps - Find the Right Local Medspa",
+      url: `${SITE_URL}/`,
+      name: SITE_NAME,
+      description:
+        "Explore 600+ vetted medspas, read expert treatment guides, and book with confidence.",
       isPartOf: {
         "@id": `${SITE_URL}/#website`,
       },
       about: {
         "@id": `${SITE_URL}/#organization`,
       },
+      publisher: {
+        "@id": `${SITE_URL}/#organization`,
+      },
       primaryImageOfPage: {
         "@type": "ImageObject",
-        "@id": `${SITE_URL}/#primaryimage`,
         url: DEFAULT_OG_IMAGE.url,
         contentUrl: DEFAULT_OG_IMAGE.url,
-        width: DEFAULT_OG_IMAGE.width,
-        height: DEFAULT_OG_IMAGE.height,
-        caption: DEFAULT_OG_IMAGE.alt,
       },
-      image: {
-        "@id": `${SITE_URL}/#primaryimage`,
-      },
+      inLanguage: "en",
     },
   ],
 };
