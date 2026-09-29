@@ -16,16 +16,16 @@ export interface TopState {
 }
 
 export const TOP_STATES: TopState[] = [
-  { state: "Texas", abbr: "TX", city: "Austin", clinicCount: 68, image: "/images/states/tx.jpg" },
-  { state: "California", abbr: "CA", city: "Los Angeles", clinicCount: 64, image: "/images/states/ca.jpg" },
-  { state: "Florida", abbr: "FL", city: "Miami", clinicCount: 57, image: "/images/states/fl.jpg" },
-  { state: "New York", abbr: "NY", city: "New York City", clinicCount: 37, image: "/images/states/ny.jpg" },
-  { state: "Utah", abbr: "UT", city: "Salt Lake City", clinicCount: 33, image: "/images/states/ut.jpg" },
-  { state: "Arizona", abbr: "AZ", city: "Phoenix", clinicCount: 24, image: "/images/states/az.jpg" },
-  { state: "Georgia", abbr: "GA", city: "Atlanta", clinicCount: 23, image: "/images/states/ga.jpg" },
-  { state: "Pennsylvania", abbr: "PA", city: "Philadelphia", clinicCount: 23, image: "/images/states/pa.jpg" },
-  { state: "Tennessee", abbr: "TN", city: "Nashville", clinicCount: 22, image: "/images/states/tn.jpg" },
-  { state: "Washington", abbr: "WA", city: "Seattle", clinicCount: 22, image: "/images/states/wa.jpg" },
-  { state: "North Carolina", abbr: "NC", city: "Charlotte", clinicCount: 20, image: "/images/states/nc.jpg" },
-  { state: "Illinois", abbr: "IL", city: "Chicago", clinicCount: 19, image: "/images/states/il.jpg" },
+  { state: "Texas", abbr: "TX", city: "Austin", clinicCount: 68, image: "/images/states/tx.webp" },
+  { state: "California", abbr: "CA", city: "Los Angeles", clinicCount: 64, image: "/images/states/ca.webp" },
+  { state: "Florida", abbr: "FL", city: "Miami", clinicCount: 57, image: "/images/states/fl.webp" },
+  { state: "New York", abbr: "NY", city: "New York City", clinicCount: 37, image: "/images/states/ny.webp" },
+  { state: "Utah", abbr: "UT", city: "Salt Lake City", clinicCount: 33, image: "/images/states/ut.webp" },
+  { state: "Arizona", abbr: "AZ", city: "Phoenix", clinicCount: 24, image: "/images/states/az.webp" },
+  { state: "Georgia", abbr: "GA", city: "Atlanta", clinicCount: 23, image: "/images/states/ga.webp" },
+  { state: "Pennsylvania", abbr: "PA", city: "Philadelphia", clinicCount: 23, image: "/images/states/pa.webp" },
+  { state: "Tennessee", abbr: "TN", city: "Nashville", clinicCount: 22, image: "/images/states/tn.webp" },
+  { state: "Washington", abbr: "WA", city: "Seattle", clinicCount: 22, image: "/images/states/wa.webp" },
+  { state: "North Carolina", abbr: "NC", city: "Charlotte", clinicCount: 20, image: "/images/states/nc.webp" },
+  { state: "Illinois", abbr: "IL", city: "Chicago", clinicCount: 19, image: "/images/states/il.webp" },
 ];
