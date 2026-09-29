@@ -81,6 +81,30 @@ export interface ClinicPageData {
 }
 
 /** Shared loader used by both the clinic page (SSR) and the API route. */
+// The blob_* columns come from the image-durability migration
+// (scripts/2026-09-20-add-image-blobs-columns.sql). They are only used to give
+// the OG tag exact dimensions, so a database that has not run that migration
+// must still render the page: retry without them on undefined_column (42703)
+// instead of throwing a 500.
+const GALLERY_WHERE = `
+       FROM images
+       WHERE entity_type = 'clinic' AND entity_id = $1
+         AND role IN ('gallery', 'cover') AND scrape_status = 'ok'
+       ORDER BY (role = 'cover') DESC, sort_order
+       LIMIT 24`;
+
+async function queryGallery(clinicId: string | number) {
+  try {
+    return await pool.query(
+      `SELECT source_url, alt_text, blob_width, blob_height${GALLERY_WHERE}`,
+      [clinicId]
+    );
+  } catch (err) {
+    if ((err as { code?: string })?.code !== "42703") throw err;
+    return pool.query(`SELECT source_url, alt_text${GALLERY_WHERE}`, [clinicId]);
+  }
+}
+
 export async function getClinicData(slug: string): Promise<ClinicPageData | null> {
   const clinic = await pool.query(
     `SELECT
@@ -111,15 +135,7 @@ export async function getClinicData(slug: string): Promise<ClinicPageData | null
   const c = clinic.rows[0];
 
   const [gallery, galleryCount, beforeAfter, beforeAfterCount, treatments, concerns, reviews, locationsResult, providersResult] = await Promise.all([
-    pool.query(
-      `SELECT source_url, alt_text, blob_width, blob_height
-       FROM images
-       WHERE entity_type = 'clinic' AND entity_id = $1
-         AND role IN ('gallery', 'cover') AND scrape_status = 'ok'
-       ORDER BY (role = 'cover') DESC, sort_order
-       LIMIT 24`,
-      [c.id]
-    ),
+    queryGallery(c.id),
     pool.query(
       `SELECT count(*)::int AS total
        FROM images
