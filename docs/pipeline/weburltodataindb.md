@@ -2,11 +2,11 @@
 
 > How the AI ingestion pipeline turns a single clinic **website URL** into structured rows in the medspa-map database — every strategy, every field, and exactly where the **LLM** decides vs. where **deterministic code (cheerio/regex)** does the work. Read alongside a worked example (§10).
 >
-> **Entry point:** `ingestClinicByDomain(domain)` in [web/src/lib/ingest/ingest-clinic.ts](web/src/lib/ingest/ingest-clinic.ts). **Companion docs:** [ARCHITECTURE.md](ARCHITECTURE.md), [medspa-map-db.md](medspa-map-db.md), [ai-vision-plan.md](ai-vision-plan.md). **Last updated:** 2026-07-10.
+> **Entry point:** `ingestClinicByDomain(domain)` in [web/src/lib/ingest/ingest-clinic.ts](../../web/src/lib/ingest/ingest-clinic.ts). **Companion docs:** [ARCHITECTURE.md](../architecture/ARCHITECTURE.md), [medspa-map-db.md](../architecture/medspa-map-db.md), [ai-vision-plan.md](ai-vision-plan.md). **Last updated:** 2026-07-10.
 >
 > **In scope now:** basic details, all locations, **images (via Claude vision)**, **before/after photos** (own resolution step, §8), booking URL, working hours, **providers**, and **services/treatments (AI-normalized to a general treatment)** — all via the main `ingestClinicByDomain` pipeline. **Concerns/conditions** (§9) are scraped **separately**, on demand, by a standalone `ingestConcernsByDomain` pipeline — not part of the default full ingest. Out of scope: reviews, ratings.
 >
-> **AI provider:** both pipelines call through `extractViaTool` ([ai/anthropic.ts](web/src/lib/ai/anthropic.ts) — the filename is historical), and **OpenAI is the only active backend**: that function explicitly ignores a stale `INGEST_PROVIDER` and always delegates to [ai/openai.ts](web/src/lib/ai/openai.ts). The Anthropic and Gemini paths were removed; `GEMINI_API_KEY` / `INGEST_PROVIDER=gemini` do nothing.
+> **AI provider:** both pipelines call through `extractViaTool` ([ai/anthropic.ts](../../web/src/lib/ai/anthropic.ts) — the filename is historical), and **OpenAI is the only active backend**: that function explicitly ignores a stale `INGEST_PROVIDER` and always delegates to [ai/openai.ts](../../web/src/lib/ai/openai.ts). The Anthropic and Gemini paths were removed; `GEMINI_API_KEY` / `INGEST_PROVIDER=gemini` do nothing.
 
 ---
 
@@ -67,7 +67,7 @@ For images we go one step further: the AI doesn't just read a list of URLs, it a
 
 > **Concerns are not in this diagram** — they run through a separate `ingestConcernsByDomain` pipeline (§9) against an *existing* clinic, with its own page discovery and its own AI call.
 
-Model: **`claude-haiku-4-5`** by default (vision-capable), escalate once to **`claude-sonnet-5`** on parse failure or when zero locations come back. Forced `tool_choice`, `maxTokens 8192`, `retry-after`-aware backoff ([ai/anthropic.ts](web/src/lib/ai/anthropic.ts)).
+Model: **`claude-haiku-4-5`** by default (vision-capable), escalate once to **`claude-sonnet-5`** on parse failure or when zero locations come back. Forced `tool_choice`, `maxTokens 8192`, `retry-after`-aware backoff ([ai/anthropic.ts](../../web/src/lib/ai/anthropic.ts)).
 
 ---
 
@@ -76,28 +76,28 @@ Model: **`claude-haiku-4-5`** by default (vision-capable), escalate once to **`c
 Running example: **`bareskin-wellness.com`**.
 
 ### Stage 1 — Fetch · *code*
-`fetchHtml(url)` ([scraper/utils.ts](web/src/lib/scraper/utils.ts)) — static HTML only (no headless browser), 15s timeout, follows redirects (records `finalUrl`).
+`fetchHtml(url)` ([scraper/utils.ts](../../web/src/lib/scraper/utils.ts)) — static HTML only (no headless browser), 15s timeout, follows redirects (records `finalUrl`).
 *Example:* `bareskin-wellness.com` → `https://bareskin-wellness.com/` (200, HTML loaded into cheerio as `$home`).
 
 ### Stage 2 — Page discovery · *heuristic*
-`discoverContentPages($home, url)` ([ingest/discover.ts](web/src/lib/ingest/discover.ts)) finds up to **6** extra pages by combining sitemap(s), WordPress REST `/wp-json/wp/v2/pages`, and a nav-link scan + URL guesses ([scraper/pages.ts](web/src/lib/scraper/pages.ts)), then picking one page per category via `LOC_RE / CONTACT_RE / ABOUT_RE / TEAM_RE / SERVICES_RE / BEFOREAFTER_RE`.
+`discoverContentPages($home, url)` ([ingest/discover.ts](../../web/src/lib/ingest/discover.ts)) finds up to **6** extra pages by combining sitemap(s), WordPress REST `/wp-json/wp/v2/pages`, and a nav-link scan + URL guesses ([scraper/pages.ts](../../web/src/lib/scraper/pages.ts)), then picking one page per category via `LOC_RE / CONTACT_RE / ABOUT_RE / TEAM_RE / SERVICES_RE / BEFOREAFTER_RE`.
 *Example:* discovers `/services/`, `/about/`, `/contact/`, `/meet-the-team/`, `/before-and-after-treatment-images/`. Homepage + these become the `pages[]` array fed to the LLM.
 > No URL is ever *guessed* for the before/after page — a dead guess (e.g. `/before-and-after`) would rank ahead of the real sitemap URL in `pick()` and shadow it. Only sitemap/WP-REST/nav hits are used.
 
 ### Stage 3 — Candidate gathering · *heuristic (cheerio/regex)*
 Per fetched page:
 - **Page text** — `htmlToText($)` strips tags → plain text (operates on a **clone**, so the live DOM stays intact for image extraction).
-- **Image candidates** — `collectImageCandidates` ([scraper/images.ts](web/src/lib/scraper/images.ts)): every `<img>` (+ lazy attrs), `og:image`, schema.org `logo`, `<link rel=preload as=image>`, and **CSS `background-image`** (inline style, Elementor `data-settings`, `<style>` blocks). Each tagged with a `context` (og-image/header/hero/gallery/background/footer/…).
-- **Booking-link candidates** — `collectBookingLinkCandidates` ([scraper/contact.ts](web/src/lib/scraper/contact.ts)): `<a>` signalling booking or pointing at a known scheduler (Vagaro, GlossGenius, Boulevard, Zenoti, Square…). Fragment/relative hrefs resolved to absolute.
+- **Image candidates** — `collectImageCandidates` ([scraper/images.ts](../../web/src/lib/scraper/images.ts)): every `<img>` (+ lazy attrs), `og:image`, schema.org `logo`, `<link rel=preload as=image>`, and **CSS `background-image`** (inline style, Elementor `data-settings`, `<style>` blocks). Each tagged with a `context` (og-image/header/hero/gallery/background/footer/…).
+- **Booking-link candidates** — `collectBookingLinkCandidates` ([scraper/contact.ts](../../web/src/lib/scraper/contact.ts)): `<a>` signalling booking or pointing at a known scheduler (Vagaro, GlossGenius, Boulevard, Zenoti, Square…). Fragment/relative hrefs resolved to absolute.
 - **Provider image candidates** — `collectImageCandidates` over **content/team pages first** (headshots live there), homepage as filler, cap 80.
-- **Service candidates** — `extractServicesFromNav` (the nav mega-menu — captures the full catalogue site-wide) + `extractServiceAnchors` + `extractServices` on the services page ([scraper/services.ts](web/src/lib/scraper/services.ts)), cap 80.
+- **Service candidates** — `extractServicesFromNav` (the nav mega-menu — captures the full catalogue site-wide) + `extractServiceAnchors` + `extractServices` on the services page ([scraper/services.ts](../../web/src/lib/scraper/services.ts)), cap 80.
   *Example (bareskin nav):* `Botox®`, `Chemical Peels`, `Dermaplaning`, `Fillers`, `Hair Restoration`, `Hormone Therapy`, `Hydrafacial`, `InBody Scan`, `Microneedling`, `RF Microneedling`, `PRP Injections`, `Vitamin B12 Injections`, `Weight Management Program`, … (16 found).
-- **Before/after candidates** — every page is scanned for images whose **filename** matches the B&A pattern (`isBeforeAfterUrl`, [scraper/beforeafter.ts](web/src/lib/scraper/beforeafter.ts)); a page whose URL is a dedicated before/after page additionally has *every* content image pulled via `extractBeforeAfter`. Partitioned into **certain** (no AI needed) vs **uncertain** (§8). *Example (ruma.com):* `Dysport-BeforeandAfter-Ruma.webp`, `Fillers-BeforeandAfter-Ruma5-….webp` — filename-certain, no AI call needed.
+- **Before/after candidates** — every page is scanned for images whose **filename** matches the B&A pattern (`isBeforeAfterUrl`, [scraper/beforeafter.ts](../../web/src/lib/scraper/beforeafter.ts)); a page whose URL is a dedicated before/after page additionally has *every* content image pulled via `extractBeforeAfter`. Partitioned into **certain** (no AI needed) vs **uncertain** (§8). *Example (ruma.com):* `Dysport-BeforeandAfter-Ruma.webp`, `Fillers-BeforeandAfter-Ruma5-….webp` — filename-certain, no AI call needed.
 - **Maps links** — `collectMapsLinks` / `pickMapsLink`.
 - **Heuristic fallbacks** computed in parallel: `extractImages`, `extractBookingUrl`, `extractHours`, `extractProviders`, `extractServices`.
 
 ### Stage 4 — AI extraction (with vision) · *AI / LLM*
-`extractClinicDetails` ([ingest/ai-extract.ts](web/src/lib/ingest/ai-extract.ts)) sends Claude, in **one forced tool call** (`record_clinic`):
+`extractClinicDetails` ([ingest/ai-extract.ts](../../web/src/lib/ingest/ai-extract.ts)) sends Claude, in **one forced tool call** (`record_clinic`):
 1. the **page text** of every fetched page,
 2. the **candidate lists** (images, booking, provider images, services),
 3. the **top ~12 candidate images as actual pictures** — fetched by us and sent **base64** so the model judges the cover/logo/gallery *by sight* (see §6),
@@ -106,16 +106,16 @@ Per fetched page:
 The model returns one JSON object: business details, `locations[]`, `cover_image_url`/`logo_url`/`gallery_image_urls[]`, `working_hours[]`, `providers[]`, and `services[]` (`{raw_name, general_name, category}`). It must copy image/booking URLs **verbatim** from the candidate lists. Before/after images are **not** part of this call — they're resolved separately, next.
 
 ### Stage 4b — Before/after resolution · *heuristic + bounded AI vision* (full detail: §8)
-`resolveBeforeAfter` ([ingest/before-after.ts](web/src/lib/ingest/before-after.ts)): **certain** candidates (filename match or dedicated-page origin) need no AI at all. **Uncertain** candidates (generic gallery/results page, no filename signal) are sent to `classifyBeforeAfterImages` — one bounded vision call, only when there's still room under the cap. Results are de-duped against the cover/logo/gallery URLs just chosen in Stage 4 (load-bearing — see the `images` unique-key gotcha in [medspa-map-db.md](medspa-map-db.md)), capped at **10**, and labelled from the filename's treatment token when present.
+`resolveBeforeAfter` ([ingest/before-after.ts](../../web/src/lib/ingest/before-after.ts)): **certain** candidates (filename match or dedicated-page origin) need no AI at all. **Uncertain** candidates (generic gallery/results page, no filename signal) are sent to `classifyBeforeAfterImages` — one bounded vision call, only when there's still room under the cap. Results are de-duped against the cover/logo/gallery URLs just chosen in Stage 4 (load-bearing — see the `images` unique-key gotcha in [medspa-map-db.md](../architecture/medspa-map-db.md)), capped at **10**, and labelled from the filename's treatment token when present.
 
 ### Stage 5 — Validate + fallback · *code + heuristic*
 For each AI pick, code checks the URL is actually in the candidate set (drops hallucinations). If the AI returns nothing/invalid for a field, the pipeline falls back to the heuristic extractor for that field ("AI-first, heuristic-fallback").
 
 ### Stage 6 — Geocode · *external API*
-`geocodeAddress` ([lib/geocoder.ts](web/src/lib/geocoder.ts)) → Nominatim. Tries the full street address, then a city-level "City, State ZIP" query. Fills `lat`/`lng`/`geo` per location.
+`geocodeAddress` ([lib/geocoder.ts](../../web/src/lib/geocoder.ts)) → Nominatim. Tries the full street address, then a city-level "City, State ZIP" query. Fills `lat`/`lng`/`geo` per location.
 
 ### Stage 7 — Persist · *code*
-`saveClinicBundle(bundle, {overwrite:true})` ([admin/clinic-save.ts](web/src/lib/admin/clinic-save.ts)). Dedup key = **website domain**. On overwrite, `clinic_locations`, `clinic_services`, scraped `images`, and `providers` are **delete-then-inserted** (curated CDN'd image rows preserved). Services go through the **canonical resolver** (§7).
+`saveClinicBundle(bundle, {overwrite:true})` ([admin/clinic-save.ts](../../web/src/lib/admin/clinic-save.ts)). Dedup key = **website domain**. On overwrite, `clinic_locations`, `clinic_services`, scraped `images`, and `providers` are **delete-then-inserted** (curated CDN'd image rows preserved). Services go through the **canonical resolver** (§7).
 
 ### Stage 8 — Refresh
 `REFRESH MATERIALIZED VIEW clinic_search_view`. *(The public search route reads live base tables; the matview is refreshed for consumers that use it — it holds the GIN-indexed `service_slugs[]` used for treatment filtering.)*
@@ -242,7 +242,7 @@ Instead of guessing the cover/logo/gallery from filenames, the model **sees** th
 
 **AI step:** for each service the model returns `{ raw_name (verbatim), general_name (the general treatment; prefer a KNOWN TREATMENT, else a new generic name — no brand/®/™), category }`. It's *shown the current catalog names* so it reuses them.
 
-**Code step — the resolver** ([admin/clinic-save.ts](web/src/lib/admin/clinic-save.ts)), per service, raw name always stored:
+**Code step — the resolver** ([admin/clinic-save.ts](../../web/src/lib/admin/clinic-save.ts)), per service, raw name always stored:
 1. **Admin override** (`mapped_slug`) → that canonical row.
 2. **Curated `matchService(raw)`** — the 15 + rich brand aliases (`normalize()` strips `®™`; Dice ≥0.55). *Example:* `Botox®`, `Dysport®` → `botox`; `RUMA Gold Microchannel Treatment` → `microneedling`.
 3. **`bestCatalogMatch(raw, liveCatalog)`** — matches against the **live DB catalog** (includes previously AI-grown rows), so a later clinic's `IV Therapy` links to the row an earlier clinic created.
@@ -262,11 +262,11 @@ Instead of guessing the cover/logo/gallery from filenames, the model **sees** th
 **Goal:** capture a clinic's before-&-after **composite** photos (single image, before+after already side by side — e.g. `Dysport-BeforeandAfter-Ruma.webp`) as their own `images.role='before_after'`, disjoint from the regular `gallery`, capped at **10/clinic**. Some clinics genuinely have none (e.g. a JS-rendered gallery with no static filename signal) — that's a correct "skip", not a failure.
 
 **Classification — 3 tiers, cap 10, most need no AI at all:**
-1. **Certain — filename match.** `isBeforeAfterUrl` ([scraper/beforeafter.ts](web/src/lib/scraper/beforeafter.ts)) tests `BA_FILENAME_RE` (`before[-_. ]*(and[-_. ]*)?after`, `beforeafter`, `b&a`, `b2a`) against every image URL on every fetched page — homepage included. No AI.
-2. **Certain — dedicated before/after page.** When a fetched page's URL itself reads as a before/after page (`BA_DEDICATED_RE`), **every** content image on it is trusted via `extractBeforeAfter($, url)` ([scraper/beforeafter.ts](web/src/lib/scraper/beforeafter.ts)) — that's exactly what a dedicated page is for. No AI.
-3. **Uncertain — generic gallery/results page.** An image with no filename signal, from a page that only generically looks gallery-ish (`gallery`, `results`, `transformations`), is not trusted automatically. These go to `classifyBeforeAfterImages` ([ingest/ai-extract.ts](web/src/lib/ingest/ai-extract.ts)) — **one bounded vision call** (cap 12 images sent), asking "which of these are before-&-after composites?" — and **only runs at all** when certain matches haven't already filled the cap. Confirmed URLs are validated against the candidate set (anti-hallucination, same as cover/logo/gallery).
+1. **Certain — filename match.** `isBeforeAfterUrl` ([scraper/beforeafter.ts](../../web/src/lib/scraper/beforeafter.ts)) tests `BA_FILENAME_RE` (`before[-_. ]*(and[-_. ]*)?after`, `beforeafter`, `b&a`, `b2a`) against every image URL on every fetched page — homepage included. No AI.
+2. **Certain — dedicated before/after page.** When a fetched page's URL itself reads as a before/after page (`BA_DEDICATED_RE`), **every** content image on it is trusted via `extractBeforeAfter($, url)` ([scraper/beforeafter.ts](../../web/src/lib/scraper/beforeafter.ts)) — that's exactly what a dedicated page is for. No AI.
+3. **Uncertain — generic gallery/results page.** An image with no filename signal, from a page that only generically looks gallery-ish (`gallery`, `results`, `transformations`), is not trusted automatically. These go to `classifyBeforeAfterImages` ([ingest/ai-extract.ts](../../web/src/lib/ingest/ai-extract.ts)) — **one bounded vision call** (cap 12 images sent), asking "which of these are before-&-after composites?" — and **only runs at all** when certain matches haven't already filled the cap. Confirmed URLs are validated against the candidate set (anti-hallucination, same as cover/logo/gallery).
 
-**Collection is shared code** ([ingest/before-after.ts](web/src/lib/ingest/before-after.ts)) — `newBeforeAfterCandidates` / `scanPageForBeforeAfter` / `resolveBeforeAfter` — used by both the full ingest (`ingestClinicByDomain`) and the standalone refresh below, so the two paths can't drift apart.
+**Collection is shared code** ([ingest/before-after.ts](../../web/src/lib/ingest/before-after.ts)) — `newBeforeAfterCandidates` / `scanPageForBeforeAfter` / `resolveBeforeAfter` — used by both the full ingest (`ingestClinicByDomain`) and the standalone refresh below, so the two paths can't drift apart.
 
 **Resolution** (`resolveBeforeAfter`): de-dup candidates against the cover/logo/gallery URLs already chosen for this clinic — **load-bearing**, not cosmetic: the `images` unique key is `(entity_type, entity_id, source_url)` with **no `role` column in the key**, so a URL inserted as `gallery` first would make a later `before_after` insert of the *same URL* a silent `ON CONFLICT DO NOTHING` no-op. Then cap at `BA_CAP = 10`, keeping certain matches first.
 
@@ -279,7 +279,7 @@ Instead of guessing the cover/logo/gallery from filenames, the model **sees** th
 bun --env-file=.env scripts/ingest-before-after.ts <domain> [more…]
 #   → prints: saved | slug=… | found=N inserted=N deleted=N
 ```
-`ingestBeforeAfterByDomain` ([ingest/ingest-before-after.ts](web/src/lib/ingest/ingest-before-after.ts)) resolves the clinic by domain (never creates one), re-runs discovery + collection + resolution, then deletes this clinic's existing scraped `before_after` rows and re-inserts (idempotent).
+`ingestBeforeAfterByDomain` ([ingest/ingest-before-after.ts](../../web/src/lib/ingest/ingest-before-after.ts)) resolves the clinic by domain (never creates one), re-runs discovery + collection + resolution, then deletes this clinic's existing scraped `before_after` rows and re-inserts (idempotent).
 
 **Verified example (`ruma.com`):** 16 filename-certain candidates found on its dedicated `/before-and-after-treatment-images/` page → capped to **10** → 0 overlap with `gallery`/`cover` → labels `"Dysport before & after"`, `"Fillers before & after"` ×8, `"Kybella before & after"`.
 
@@ -292,11 +292,11 @@ bun --env-file=.env scripts/ingest-before-after.ts <domain> [more…]
 > `concern-validate.ts`, `scripts/ingest-concerns.ts`) has been **deleted** — it
 > was CLI-only and nothing in the app called it. Concerns now come out of the
 > **same single AI call as treatments**, in
-> [ingest-treatments-concerns.ts](web/src/lib/ingest/ingest-treatments-concerns.ts).
+> [ingest-treatments-concerns.ts](../../web/src/lib/ingest/ingest-treatments-concerns.ts).
 
 Treatments and concerns are extracted together by
 `extractClinicTreatmentsConcerns()`
-([ai-extract-treatments-concerns.ts](web/src/lib/ingest/ai-extract-treatments-concerns.ts)),
+([ai-extract-treatments-concerns.ts](../../web/src/lib/ingest/ai-extract-treatments-concerns.ts)),
 one forced-tool call per batch of pages returning two independent lists. There is
 **no verbatim-quote requirement** — that guarantee lived only in the deleted path.
 What keeps concerns honest instead:
@@ -305,7 +305,7 @@ What keeps concerns honest instead:
   problem, never the procedure or the goal — "Brow Lift" → Drooping Brows,
   "Skin Brightening" → Hyperpigmentation, and no "Improved Cognition" /
   "Skin Wellness" style outcome phrasing. One concern per row, ≤4 words, Title Case.
-- **`isConcernNoise()`** ([taxonomy/canonical.ts](web/src/lib/taxonomy/canonical.ts)):
+- **`isConcernNoise()`** ([taxonomy/canonical.ts](../../web/src/lib/taxonomy/canonical.ts)):
   a deterministic backstop — a blocklist of treatment/goal labels, goal-prefix and
   goal-suffix patterns, and a >4-word reject for sentence fragments.
 - **`splitCompoundConcern()`**: "Spider Veins, Rosacea & Redness" becomes three

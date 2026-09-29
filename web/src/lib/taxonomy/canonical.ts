@@ -109,7 +109,7 @@ export const CANONICAL_SERVICES: CanonicalService[] = [
       "fillers",
       // "lip filler" / "lip fillers" deliberately NOT listed: Lip Fillers is a
       // core treatment as of 2026-09-06. Keeping them here is what kept the
-      // lip-filler row at 5% coverage. See docs/INGESTION-ISSUES.md.
+      // lip-filler row at 5% coverage. See docs/pipeline/INGESTION-ISSUES.md.
       "cheek filler",
       "under eye filler",
       "under-eye filler",

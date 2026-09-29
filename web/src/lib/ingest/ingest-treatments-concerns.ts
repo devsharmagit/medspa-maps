@@ -517,7 +517,7 @@ function deterministicNeurotoxinConcerns(
  * A thin wrapper over the by-id function below, for the import path and the CLI
  * where a URL is what the caller has. Prefer the by-id form whenever the clinic
  * is already known: a domain can legitimately map to more than one clinic row
- * (see DUPLICATE-DOMAINS.md) and this wrapper has to pick one.
+ * (see docs/data/DUPLICATE-DOMAINS.md) and this wrapper has to pick one.
  */
 export async function ingestTreatmentsAndConcernsByDomain(
   rawDomain: string,

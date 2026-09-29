@@ -2,7 +2,7 @@
  * export-missed-websites.ts — which harvested G99 websites are NOT in the directory.
  *
  * The answer previously lived only in two hand-maintained markdown tables
- * (SKIPPED-CLINICS.md, DUPLICATE-DOMAINS.md), which go stale the moment a clinic
+ * (docs/data/SKIPPED-CLINICS.md, docs/data/DUPLICATE-DOMAINS.md), which go stale the moment a clinic
  * is added. This script derives it from the live DB instead and uses those
  * markdown files only as a source of *reasons*, so the interesting rows — a
  * missing website nobody has triaged yet — fall out on their own.
@@ -24,7 +24,7 @@ const OUT_DIR = resolve(REPO_ROOT, "web/reports");
 /** Markdown tables to mine for "why wasn't this added?". */
 const REASON_SOURCES = [
   {
-    file: "SKIPPED-CLINICS.md",
+    file: "docs/data/SKIPPED-CLINICS.md",
     category: "Not a medspa / no usable data",
     /** Column index (0-based, after the leading pipe) holding the reason. */
     reasonCol: 3,
@@ -41,7 +41,7 @@ const REASON_SOURCES = [
     fallbackCode: "UNCODED",
   },
   {
-    file: "DUPLICATE-DOMAINS.md",
+    file: "docs/data/DUPLICATE-DOMAINS.md",
     category: "Alternate domain of a clinic already in the DB",
     // Both tables in this file put a name/domain here ("Resolves to", "Business
     // name"), not prose — the prefix is what makes it a reason.

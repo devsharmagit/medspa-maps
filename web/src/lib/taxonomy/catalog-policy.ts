@@ -7,7 +7,7 @@
  * `origin='ai', is_active=true` row whenever a scraped name does not match the
  * live catalog. Every refresh pass therefore grew the public taxonomy back —
  * a monthly cron (`CRON_SCHEDULE=0 3 1 * *`) would have undone the reduction
- * one clinic at a time. See docs/INGESTION-ISSUES.md defect 6.
+ * one clinic at a time. See docs/pipeline/INGESTION-ISSUES.md defect 6.
  *
  * CLOSED (the default) means: a scraped name resolves onto a row that is
  * already active, or it is dropped. Never created.

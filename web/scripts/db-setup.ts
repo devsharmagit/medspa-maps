@@ -18,7 +18,7 @@
  *
  * NOT a migration tool: it cannot converge an *existing* database onto a
  * changed schema (new column, changed type). Until a migration ledger lands,
- * schema changes must be applied to production by hand. See TASKS.md.
+ * schema changes must be applied to production by hand. See docs/planning/TASKS.md.
  *
  * Env:
  *   DATABASE_URL          (required)

@@ -7,7 +7,7 @@
  * and a stale `INGEST_PROVIDER` in a local .env must not be able to reroute an
  * admin import). The Anthropic Messages-API client that used to live here was
  * unreachable and has been removed. Renaming the file touches every ingest
- * module, so it is deliberately left for its own change — see TASKS.md.
+ * module, so it is deliberately left for its own change — see docs/planning/TASKS.md.
  *
  * Structured output is obtained with FORCED tool use: declare one tool whose
  * `input_schema` is the JSON Schema we want, force the model to call it, and read

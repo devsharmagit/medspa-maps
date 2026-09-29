@@ -392,6 +392,6 @@ PGDUMP=/opt/homebrew/Cellar/postgresql@18/*/bin/pg_dump   # pg18 — default bre
 # Then refresh this doc from information_schema + pg_catalog (see the queries used to build §3–§9).
 ```
 
-Local SQL source: [web/db/schema.sql](web/db/schema.sql) — the only copy. There is no
+Local SQL source: [web/db/schema.sql](../../web/db/schema.sql) — the only copy. There is no
 migration history: the ad-hoc `web/scripts/*.sql` fragments were folded into the schema and
-deleted on 2026-07-27, and a real migration ledger is still pending (see [TASKS.md](TASKS.md)).
+deleted on 2026-07-27, and a real migration ledger is still pending (see [TASKS.md](../planning/TASKS.md)).

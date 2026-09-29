@@ -15,7 +15,7 @@
  *      and writes no run row.
  *   4. The catalog stays CLOSED: a refresh never adds an active services or
  *      concerns row. Before the closed-catalog gate this test itself minted an
- *      active "Kybella" row on every run — defect 6 in docs/INGESTION-ISSUES.md,
+ *      active "Kybella" row on every run — defect 6 in docs/pipeline/INGESTION-ISSUES.md,
  *      the exact mechanism by which the monthly cron would have undone the
  *      2026-09-06 reduction.
  *   5. A non-core name still lands on the core entry that absorbed it, via

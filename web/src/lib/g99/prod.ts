@@ -4,7 +4,7 @@
  * This is the database our clinic websites were harvested from, so the
  * `g99_clinic_id`/`g99_tenant_id` we stored resolve here. Reached via
  * `G99_PROD_DATABASE_URL`, which must point at a local SSH tunnel to the reader
- * (the tunnel helper is not in this repo — see medspa-map-db.md).
+ * (the tunnel helper is not in this repo — see docs/architecture/medspa-map-db.md).
  * Separate from `getG99Pool()` (G99_DATABASE_URL), which points at a different
  * G99 DB whose ids do NOT match our harvest.
  */

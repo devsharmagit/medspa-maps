@@ -5,7 +5,7 @@ Items are in **priority order** and executed **one at a time** — each is revie
 next starts.
 
 > The previous Figma-driven gap analysis moved to
-> [docs/FIGMA-GAP-ANALYSIS-2026-07-07.md](docs/FIGMA-GAP-ANALYSIS-2026-07-07.md). It still holds
+> [docs/FIGMA-GAP-ANALYSIS-2026-07-07.md](FIGMA-GAP-ANALYSIS-2026-07-07.md). It still holds
 > open product items (search filters, page rebuilds) and is kept for reference, not as the
 > active task list.
 

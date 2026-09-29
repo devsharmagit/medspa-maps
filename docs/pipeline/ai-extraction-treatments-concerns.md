@@ -3,7 +3,7 @@
 > **2026-07-27 — one engine, three surfaces.** There is now exactly ONE way a
 > clinic's treatments and concerns change:
 > `ingestTreatmentsAndConcernsForClinic(clinicId, { trigger })` in
-> [ingest-treatments-concerns.ts](web/src/lib/ingest/ingest-treatments-concerns.ts).
+> [ingest-treatments-concerns.ts](../../web/src/lib/ingest/ingest-treatments-concerns.ts).
 > The admin "Add Website with AI" button, the g99-websites Import button and the
 > scheduled refresh all call it, so a clinic's menu means the same thing
 > regardless of which one last ran.
@@ -80,7 +80,7 @@ up directly in `clinic_catalog_changes` as phantom additions and removals.
 
 This table is the running example for every step below.
 
-### A.1 Entry point · `ingestTreatmentsAndConcernsForClinic()` in [ingest-treatments-concerns.ts](web/src/lib/ingest/ingest-treatments-concerns.ts)
+### A.1 Entry point · `ingestTreatmentsAndConcernsForClinic()` in [ingest-treatments-concerns.ts](../../web/src/lib/ingest/ingest-treatments-concerns.ts)
 
 Takes a clinic **id** (never creates one — that is `ingestClinicByDomain`'s job in the separate clinic-details pipeline) and touches only `clinic_services`, `clinic_concerns` and the two history tables. `ingestTreatmentsAndConcernsByDomain(url)` is a thin wrapper for callers that only have a URL. Callable any time to refresh a clinic's treatments and concerns independently of its details:
 
@@ -96,11 +96,11 @@ fetchHtml("ruma.com") → https://ruma.com/  (home)
 discoverContentPages($home, homeUrl)        [discover.ts]
 ```
 
-`discoverContentPages()` ([discover.ts:95-146](web/src/lib/ingest/discover.ts)) tries, in order: sitemap.xml → wp-sitemap.xml → sitemap_index.xml → WordPress REST `/wp-json/wp/v2/pages` → nav-link scan + URL guesses. It picks **one page per category** (locations / contact / about / team / services / before-after), capped at **6 pages total** — the SAME function `ingestClinicByDomain` uses for its own page set, called independently here. For ruma.com this surfaces its `/services/` hub plus a handful of others; the **individual per-treatment pages** (`/botox-in-lehi-ut/`, `/dysport-in-lehi-ut/`, `/morpheus8-in-lehi-ut/`, …) are **not** separately fetched here — those get their raw text from the **service-candidate gathering** step below, and are not part of the `pages[]` array sent as page text (see A.2).
+`discoverContentPages()` ([discover.ts:95-146](../../web/src/lib/ingest/discover.ts)) tries, in order: sitemap.xml → wp-sitemap.xml → sitemap_index.xml → WordPress REST `/wp-json/wp/v2/pages` → nav-link scan + URL guesses. It picks **one page per category** (locations / contact / about / team / services / before-after), capped at **6 pages total** — the SAME function `ingestClinicByDomain` uses for its own page set, called independently here. For ruma.com this surfaces its `/services/` hub plus a handful of others; the **individual per-treatment pages** (`/botox-in-lehi-ut/`, `/dysport-in-lehi-ut/`, `/morpheus8-in-lehi-ut/`, …) are **not** separately fetched here — those get their raw text from the **service-candidate gathering** step below, and are not part of the `pages[]` array sent as page text (see A.2).
 
-### A.2 Gather SERVICE candidates (cheerio, no AI) · [ingest-treatments-concerns.ts](web/src/lib/ingest/ingest-treatments-concerns.ts)
+### A.2 Gather SERVICE candidates (cheerio, no AI) · [ingest-treatments-concerns.ts](../../web/src/lib/ingest/ingest-treatments-concerns.ts)
 
-Two source functions, both in [scraper/services.ts](web/src/lib/scraper/services.ts):
+Two source functions, both in [scraper/services.ts](../../web/src/lib/scraper/services.ts):
 
 - `extractServicesFromNav($home, url)` — walks the **nav mega-menu** (this is where the full catalogue lives site-wide — every page's nav lists all ~29 treatments).
 - `extractServiceAnchors($home, url)` — `<a>` tags that look like a service link.
@@ -108,9 +108,9 @@ Two source functions, both in [scraper/services.ts](web/src/lib/scraper/services
 
 All three feed one deduped list, capped at **80** (`SVC_CAND_CAP`), each entry `{ name, category, url }`. For ruma.com this candidate list is exactly the ~29 raw names above, each carrying its own detail-page URL (e.g. `Botox®` → `https://ruma.com/services/botox-in-lehi-ut/`).
 
-### A.3 The AI call · `extractClinicTreatmentsConcerns()` in [ai-extract-treatments-concerns.ts](web/src/lib/ingest/ai-extract-treatments-concerns.ts)
+### A.3 The AI call · `extractClinicTreatmentsConcerns()` in [ai-extract-treatments-concerns.ts](../../web/src/lib/ingest/ai-extract-treatments-concerns.ts)
 
-One forced-tool call named `record_clinic_treatments_concerns`, returning `treatments[]` and `concerns[]` as two independent lists. Pages are batched (70k chars per call, 3 calls in flight); a batch that fails is dropped rather than aborting the clinic, and the degrade guards then decide whether what survived is enough to save. What the model is **shown**, assembled in `extractClinicTreatmentsConcerns()` ([ai-extract-treatments-concerns.ts](web/src/lib/ingest/ai-extract-treatments-concerns.ts)):
+One forced-tool call named `record_clinic_treatments_concerns`, returning `treatments[]` and `concerns[]` as two independent lists. Pages are batched (70k chars per call, 3 calls in flight); a batch that fails is dropped rather than aborting the clinic, and the degrade guards then decide whether what survived is enough to save. What the model is **shown**, assembled in `extractClinicTreatmentsConcerns()` ([ai-extract-treatments-concerns.ts](../../web/src/lib/ingest/ai-extract-treatments-concerns.ts)):
 
 1. **Page text** of the ≤6 discovered pages (homepage + locations/contact/about/team/services hub), capped 16K chars/page.
 2. **SERVICE CANDIDATES** block — every `{name, category, url}` gathered in A.2, formatted as a text list.
@@ -118,7 +118,7 @@ One forced-tool call named `record_clinic_treatments_concerns`, returning `treat
 
 No vision/images here — this call is text-only (cheaper, faster; image judgement is the clinic-details pipeline's job).
 
-The **system prompt** ([ai-extract-treatments-concerns.ts](web/src/lib/ingest/ai-extract-treatments-concerns.ts)) is the actual instruction the model follows. A second pass, `refineClinicServices()` ([ai-refine-services.ts](web/src/lib/ingest/ai-refine-services.ts)), then re-reviews the merged treatment list as a quality gate:
+The **system prompt** ([ai-extract-treatments-concerns.ts](../../web/src/lib/ingest/ai-extract-treatments-concerns.ts)) is the actual instruction the model follows. A second pass, `refineClinicServices()` ([ai-refine-services.ts](../../web/src/lib/ingest/ai-refine-services.ts)), then re-reviews the merged treatment list as a quality gate:
 
 - Extract only med-spa/aesthetic/wellness treatments; explicitly excludes urgent care, physicals, labs, vaccinations, diagnostics/InBody, retail product lines.
 - `raw_name`: **verbatim**, keep ®/™/brand words.
@@ -140,9 +140,9 @@ The model's raw JSON for ruma.com's services array looks like:
   "source_url": "https://ruma.com/services/dysport-in-lehi-ut/", "public_decision": "public" }
 ```
 
-Output is zod-validated (`TreatmentSchema` / `ConcernSchema`, [ai-extract-treatments-concerns.ts](web/src/lib/ingest/ai-extract-treatments-concerns.ts)) — `public_decision` must be one of the 3 enum values or the call fails and retries/escalates.
+Output is zod-validated (`TreatmentSchema` / `ConcernSchema`, [ai-extract-treatments-concerns.ts](../../web/src/lib/ingest/ai-extract-treatments-concerns.ts)) — `public_decision` must be one of the 3 enum values or the call fails and retries/escalates.
 
-### A.4 Deterministic post-processing · `normalizeServiceOutput()` in [service-normalize.ts](web/src/lib/ingest/service-normalize.ts)
+### A.4 Deterministic post-processing · `normalizeServiceOutput()` in [service-normalize.ts](../../web/src/lib/ingest/service-normalize.ts)
 
 Runs on every AI-returned service **before** it reaches the resolver. This is regex-based, not AI — a small set of hand-coded special cases for names the model handles inconsistently:
 
@@ -151,7 +151,7 @@ Runs on every AI-returned service **before** it reaches the resolver. This is re
 - `sculptra\s*&\s*radiesse` (or "and") → **splits into 2 rows**, `Sculptra` and `Radiesse`, both `public_decision="public"` — this is why one raw combined listing became 2 separate `clinic_services` rows in the DB.
 - `sylfirm x ... rf microneedling`, `everesse ... skin tightening`, `regenerative aesthetics ... prp/prf` → pins `general_name` to a canonical phrasing (guards against the model drifting wording run-to-run).
 
-### A.5 Canonicalization / resolution · `saveClinicServices()` in [clinic-save.ts](web/src/lib/admin/clinic-save.ts)
+### A.5 Canonicalization / resolution · `saveClinicServices()` in [clinic-save.ts](../../web/src/lib/admin/clinic-save.ts)
 
 This is where the *raw_name → canonical `services` row* decision actually happens, deterministically, in code — not by the AI. This logic lives in its own exported function, `saveClinicServices(clinicId, services, opts)`, called by BOTH the unified engine (this pipeline) and `saveClinicBundle()` (the heuristic-scraper / admin-save path) — so a raw name resolves to the exact same canonical row no matter which caller touched it. Per service, in order:
 
@@ -185,11 +185,11 @@ This is where the *raw_name → canonical `services` row* decision actually happ
 
 Every successful match also calls `addAiAlias(row, raw)` — the raw name is appended to the resolved row's `aliases[]` array, so a **future** raw-name search for "RUMA Gold Microchannel Treatment" or "Botox®" still hits the clean canonical row.
 
-`INSERT INTO clinic_services (..., raw_name, service_id, match_status, match_confidence, ...) ON CONFLICT (clinic_id, raw_name) DO UPDATE ...` ([clinic-save.ts:722-736](web/src/lib/admin/clinic-save.ts)) — raw_name is **always** stored, service_id is nullable (unmatched but still searchable via `slugify(raw_name)` at the DB view layer).
+`INSERT INTO clinic_services (..., raw_name, service_id, match_status, match_confidence, ...) ON CONFLICT (clinic_id, raw_name) DO UPDATE ...` ([clinic-save.ts:722-736](../../web/src/lib/admin/clinic-save.ts)) — raw_name is **always** stored, service_id is nullable (unmatched but still searchable via `slugify(raw_name)` at the DB view layer).
 
 ### A.6 Why Dysport/Morpheus8 don't collapse into Botox/Microneedling
 
-This is the single most important design decision in the resolver, and it's explicit in a code comment at [clinic-save.ts:683-686](web/src/lib/admin/clinic-save.ts):
+This is the single most important design decision in the resolver, and it's explicit in a code comment at [clinic-save.ts:683-686](../../web/src/lib/admin/clinic-save.ts):
 
 > *"Public AI decision wins before the old alias matcher so real searchable brands/devices (Dysport, Morpheus8, MiraDry) do not collapse into broad buckets like Botox or Microneedling."*
 
@@ -216,7 +216,7 @@ Path 2 (public AI decision) is checked **before** path 3 (curated `matchService`
 > Two pieces of the old design DID survive into the unified engine and are worth
 > knowing about:
 >
-> - **`discoverConcernPages()`** ([discover.ts](web/src/lib/ingest/discover.ts))
+> - **`discoverConcernPages()`** ([discover.ts](../../web/src/lib/ingest/discover.ts))
 >   still finds condition-named pages and still excludes blog posts. Note its
 >   `hasConditionsSection` flag no longer gates which pages may contribute
 >   concerns — that gate was silently discarding ~90% of concerns on

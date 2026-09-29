@@ -67,7 +67,7 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
 - **This is not a migration tool.** It provisions an empty database and keeps
   seeds converged; it cannot bring an *existing* database onto a changed schema
   (new column, changed type). Until a migration ledger lands, schema changes go
-  to production by hand. See `TASKS.md`.
+  to production by hand. See `docs/planning/TASKS.md`.
 - **Idempotency model:** `schema.sql` is a one-time baseline; re-running it on a
   populated DB errors, which is why `db-setup.ts` guards it. `seed.sql` and the
   admin insert are safe to re-run any number of times.

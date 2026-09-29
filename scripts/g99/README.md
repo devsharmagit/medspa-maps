@@ -44,4 +44,4 @@ Re-running is safe/idempotent (`ON CONFLICT (g99_clinic_id) DO UPDATE`).
   `ssh_pkey=` in `open_tunnel()`.
 - `websiteDomain()` mirrors `web/src/lib/admin/clinic-save.ts` so domains match
   the app's dedup key.
-- ⚠️ Rotate all credentials before launch (see `TASKS.md` §6.5).
+- ⚠️ Rotate all credentials before launch (see `docs/planning/TASKS.md` §6.5).
