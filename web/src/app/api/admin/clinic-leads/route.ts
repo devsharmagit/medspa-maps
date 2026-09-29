@@ -8,13 +8,14 @@ export interface ClinicLead {
   full_name: string;
   business_email: string;
   business_name: string;
+  phone: string | null;
   status: "new" | "contacted" | "qualified" | "converted" | "rejected";
   notes: string | null;
   created_at: string;
   updated_at: string;
 }
 
-export const CLINIC_LEAD_COLUMNS = `id, full_name, business_email, business_name,
+export const CLINIC_LEAD_COLUMNS = `id, full_name, business_email, business_name, phone,
   status, notes, created_at, updated_at`;
 
 // GET /api/admin/clinic-leads — list "List your medspa" submissions, optional ?status filter

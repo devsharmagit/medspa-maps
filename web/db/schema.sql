@@ -1193,6 +1193,7 @@ CREATE TABLE IF NOT EXISTS public.clinic_leads (
     full_name text NOT NULL,
     business_email text NOT NULL,
     business_name text NOT NULL,
+    phone text,
     ip_address text,
     user_agent text,
     status text DEFAULT 'new'::text NOT NULL,
@@ -1206,6 +1207,9 @@ CREATE TABLE IF NOT EXISTS public.clinic_leads (
 CREATE INDEX IF NOT EXISTS idx_clinic_leads_created_at ON public.clinic_leads USING btree (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_clinic_leads_status ON public.clinic_leads USING btree (status);
 CREATE INDEX IF NOT EXISTS idx_clinic_leads_email ON public.clinic_leads USING btree (business_email);
+
+-- Added after launch: existing deployments get the column via ALTER.
+ALTER TABLE public.clinic_leads ADD COLUMN IF NOT EXISTS phone text;
 
 
 --
