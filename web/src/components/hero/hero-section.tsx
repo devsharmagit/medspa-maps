@@ -18,23 +18,14 @@ export function HeroSection() {
         {/* Background */}
         <div className="absolute inset-0" aria-hidden>
           <div className="absolute inset-0 bg-hero-gradient" />
-            <Image
-            src="/images/hero/bg-overlay-2.webp"
-            alt=""
-            fill
-            className="object-cover object-[70%_center] opacity-40 brightness-50"
-            priority
-            sizes="100vw"
+          <div
+            className="absolute inset-0 bg-cover bg-[70%_center] opacity-40 brightness-50"
+            style={{ backgroundImage: "url('/images/hero/bg-overlay-2.webp')" }}
           />
-          <Image
-            src="/images/hero/bg-overlay-1.webp"
-            alt=""
-            fill
-            className="object-cover object-[70%_center] opacity-40"
-            priority
-            sizes="100vw"
+          <div
+            className="absolute inset-0 bg-cover bg-[70%_center] opacity-40"
+            style={{ backgroundImage: "url('/images/hero/bg-overlay-1.webp')" }}
           />
-         
         </div>
 
         <HeroHeader />

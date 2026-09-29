@@ -8,6 +8,8 @@ import { ListingHero } from "@/components/shared/listing-hero";
 import { TREATMENT_PAGES } from "@/lib/landing/treatments";
 import { CONDITION_PAGES } from "@/lib/landing/conditions";
 import type { LandingContent } from "@/lib/landing/types";
+import { DEFAULT_OG_IMAGE, DEFAULT_TWITTER_IMAGE } from "@/lib/seo/metadata";
+import { SITE_NAME, SITE_URL } from "@/lib/site";
 
 export const dynamic = "force-static";
 
@@ -18,11 +20,20 @@ export const metadata: Metadata = {
   alternates: { canonical: "/patients-favourites" },
   openGraph: {
     type: "website",
+    locale: "en_US",
     title: "Patients' Favourites: Popular Treatments & Conditions | Medspa Maps",
     description:
       "The treatments and conditions our patients research most, with plain-English guides to each.",
-    url: "/patients-favourites",
-    siteName: "Medspa Maps",
+    url: `${SITE_URL}/patients-favourites`,
+    siteName: SITE_NAME,
+    images: [DEFAULT_OG_IMAGE],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Patients' Favourites: Popular Treatments & Conditions | Medspa Maps",
+    description:
+      "The treatments and conditions our patients research most, with plain-English guides to each.",
+    images: [DEFAULT_TWITTER_IMAGE],
   },
 };
 

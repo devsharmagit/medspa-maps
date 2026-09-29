@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 
 export function Newsletter() {
@@ -13,16 +12,11 @@ export function Newsletter() {
         }}
       >
         {/* Background Image of Faces (Right Aligned, blended via luminosity) */}
-        <div className="absolute right-0 top-0 h-full w-full lg:w-[55%] pointer-events-none select-none overflow-hidden rounded-r-[18px] z-0 opacity-30 sm:opacity-40">
-          <Image
-            src="/images/landingpage/newsletter-bg.webp"
-            alt=""
-            fill
-            className="object-cover object-right mix-blend-luminosity"
-            sizes="(max-width: 1024px) 100vw, 55vw"
-            priority
-          />
-        </div>
+        <div
+          className="absolute right-0 top-0 h-full w-full lg:w-[55%] pointer-events-none select-none overflow-hidden rounded-r-[18px] z-0 opacity-30 sm:opacity-40 bg-cover bg-right mix-blend-luminosity"
+          style={{ backgroundImage: "url('/images/landingpage/newsletter-bg.webp')" }}
+          aria-hidden="true"
+        />
 
         {/* Left Column Stack (Text & CTA together) */}
         <div className="relative flex flex-col items-start gap-4 lg:gap-[13px] max-w-full lg:max-w-[900px] z-10">

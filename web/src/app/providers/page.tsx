@@ -4,11 +4,31 @@ import { ListingHero } from "@/components/shared/listing-hero";
 import { ProvidersCarousel } from "@/components/shared/providers-carousel";
 import { getAllProviders } from "@/lib/providers/queries";
 
+import { DEFAULT_OG_IMAGE, DEFAULT_TWITTER_IMAGE } from "@/lib/seo/metadata";
+import { SITE_NAME, SITE_URL } from "@/lib/site";
+
 export const metadata: Metadata = {
   title: "Expert Providers — Medspa Maps",
   description:
     "Discover verified and expert medical spa providers tailored to your needs.",
   alternates: { canonical: "/providers" },
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    title: "Expert Providers — Medspa Maps",
+    description:
+      "Discover verified and expert medical spa providers tailored to your needs.",
+    url: `${SITE_URL}/providers`,
+    siteName: SITE_NAME,
+    images: [DEFAULT_OG_IMAGE],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Expert Providers — Medspa Maps",
+    description:
+      "Discover verified and expert medical spa providers tailored to your needs.",
+    images: [DEFAULT_TWITTER_IMAGE],
+  },
 };
 
 export const dynamic = "force-dynamic";

@@ -5,7 +5,8 @@ import NextAuthProvider from "@/app/_providers/session-provider";
 import ChatWidget from "@/components/chat/chat-widget";
 import { LocationProvider } from "@/lib/location/location-context";
 import { UsaOnlyNotice } from "@/components/location/usa-only-notice";
-import { SITE_URL } from "@/lib/site";
+import { SITE_NAME, SITE_URL } from "@/lib/site";
+import { DEFAULT_OG_IMAGE, DEFAULT_TWITTER_IMAGE } from "@/lib/seo/metadata";
 import "./globals.css";
 
 
@@ -39,6 +40,23 @@ export const metadata: Metadata = {
     "Explore 600+ vetted medspas, read expert treatment guides, and book with confidence.",
   verification: {
     google: "9fds86az679AXZLrdij1vD9s5RYzIhW3_m4_LEyKCao",
+  },
+  openGraph: {
+    title: "Medspa Maps - Find the Right Local Medspa",
+    description:
+      "Explore 600+ vetted medspas, read expert treatment guides, and book with confidence.",
+    url: SITE_URL,
+    siteName: SITE_NAME,
+    images: [DEFAULT_OG_IMAGE],
+    type: "website",
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Medspa Maps - Find the Right Local Medspa",
+    description:
+      "Explore 600+ vetted medspas, read expert treatment guides, and book with confidence.",
+    images: [DEFAULT_TWITTER_IMAGE],
   },
   // Site-wide crawler directive. Renders:
   //   <meta name="robots" content="index, follow, max-snippet:-1,

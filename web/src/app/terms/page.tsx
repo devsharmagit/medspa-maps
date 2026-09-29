@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 
 import { H2, H3, LegalPage, P, UL } from "@/components/legal/legal-page";
-import { SITE_NAME } from "@/lib/site";
+import { SITE_NAME, SITE_URL } from "@/lib/site";
+import { DEFAULT_OG_IMAGE, DEFAULT_TWITTER_IMAGE } from "@/lib/seo/metadata";
 
 export const dynamic = "force-static";
 
@@ -14,10 +15,18 @@ export const metadata: Metadata = {
   alternates: { canonical: "/terms" },
   openGraph: {
     type: "website",
+    locale: "en_US",
     title: `Terms & Conditions — ${SITE_NAME}`,
     description: DESCRIPTION,
-    url: "/terms",
+    url: `${SITE_URL}/terms`,
     siteName: SITE_NAME,
+    images: [DEFAULT_OG_IMAGE],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `Terms & Conditions — ${SITE_NAME}`,
+    description: DESCRIPTION,
+    images: [DEFAULT_TWITTER_IMAGE],
   },
 };
 

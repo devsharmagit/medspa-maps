@@ -25,6 +25,7 @@ import {
   type StateFaq,
 } from "@/lib/locations/state-content";
 import { absoluteUrl, SITE_NAME } from "@/lib/site";
+import { DEFAULT_OG_IMAGE } from "@/lib/seo/metadata";
 
 // Reads request params + DB per request; force-dynamic keeps it build-safe
 // (no build-time DB prerender) and always fresh.
@@ -48,17 +49,25 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const content = stateContent(st.abbr, st.state);
   const title = `Best Medspas in ${st.state} | Medspa Maps`;
   const path = `/locations/${stateSlug(st.state)}`;
+  const ogImg = st.image ? { url: absoluteUrl(st.image), alt: `${st.state} medspas` } : DEFAULT_OG_IMAGE;
   return {
     title,
     description: content.metaDescription,
     alternates: { canonical: path },
     openGraph: {
       type: "website",
+      locale: "en_US",
       title,
       description: content.metaDescription,
       url: path,
       siteName: SITE_NAME,
-      images: [st.image],
+      images: [ogImg],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description: content.metaDescription,
+      images: [typeof ogImg === "string" ? ogImg : ogImg.url],
     },
   };
 }

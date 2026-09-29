@@ -13,6 +13,7 @@ import {
   normalize,
 } from "@/lib/taxonomy/canonical";
 import { SITE_NAME } from "@/lib/site";
+import { DEFAULT_OG_IMAGE, DEFAULT_TWITTER_IMAGE } from "@/lib/seo/metadata";
 
 // Reads request search params, so this route renders dynamically per request —
 // the first result page is server-rendered into the HTML for crawlers/AI bots.
@@ -192,6 +193,13 @@ export async function generateMetadata({
       description,
       url: canonical,
       siteName: SITE_NAME,
+      images: [DEFAULT_OG_IMAGE],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [DEFAULT_TWITTER_IMAGE],
     },
     // A `q` or `condition` that names nothing real returns no clinics — don't
     // let those empty permutations into the index.

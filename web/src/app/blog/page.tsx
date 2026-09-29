@@ -5,7 +5,8 @@ import { Footer } from "@/components/footer";
 import { JsonLd } from "@/components/shared/json-ld";
 import { ListingHero } from "@/components/shared/listing-hero";
 import { getAllPosts } from "@/lib/blog";
-import { SITE_NAME, absoluteUrl } from "@/lib/site";
+import { SITE_NAME, SITE_URL, absoluteUrl } from "@/lib/site";
+import { DEFAULT_OG_IMAGE, DEFAULT_TWITTER_IMAGE } from "@/lib/seo/metadata";
 
 export const dynamic = "force-static";
 
@@ -18,10 +19,18 @@ export const metadata: Metadata = {
   alternates: { canonical: "/blog" },
   openGraph: {
     type: "website",
+    locale: "en_US",
     title: `Blog — ${SITE_NAME}`,
     description: DESCRIPTION,
-    url: "/blog",
+    url: `${SITE_URL}/blog`,
     siteName: SITE_NAME,
+    images: [DEFAULT_OG_IMAGE],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `Blog — ${SITE_NAME}`,
+    description: DESCRIPTION,
+    images: [DEFAULT_TWITTER_IMAGE],
   },
 };
 

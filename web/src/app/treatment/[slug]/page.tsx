@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { LandingPage } from "@/components/landing/landing-page";
 import { allTreatmentSlugs, getTreatmentPage } from "@/lib/landing/treatments";
 import { SITE_NAME } from "@/lib/site";
+import { DEFAULT_OG_IMAGE } from "@/lib/seo/metadata";
 
 // Fully prerendered: all slugs are known at build from the content registry.
 export const dynamic = "force-static";
@@ -23,19 +24,28 @@ export async function generateMetadata({
   if (!content) return {};
 
   const path = `/treatment/${slug}`;
+  const ogImg = content.hero?.src
+    ? { url: content.hero.src, alt: content.hero.alt || content.metaTitle }
+    : DEFAULT_OG_IMAGE;
+
   return {
     title: content.metaTitle,
     description: content.metaDescription,
     alternates: { canonical: path },
     openGraph: {
       type: "article",
+      locale: "en_US",
       title: content.metaTitle,
       description: content.metaDescription,
       url: path,
       siteName: SITE_NAME,
-      ...(content.hero?.src
-        ? { images: [{ url: content.hero.src, alt: content.hero.alt }] }
-        : {}),
+      images: [ogImg],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: content.metaTitle,
+      description: content.metaDescription,
+      images: [typeof ogImg === "string" ? ogImg : ogImg.url],
     },
   };
 }

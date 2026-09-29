@@ -53,7 +53,12 @@ export interface ClinicPageData {
   /** Evidence-based concerns this clinic treats (scraped ∪ manual − removed),
    *  each with the treatments its own website pairs with the concern. */
   concerns: { name: string; slug: string }[];
-  gallery: { source_url: string; alt_text: string | null }[];
+  gallery: {
+    source_url: string;
+    alt_text: string | null;
+    blob_width?: number | null;
+    blob_height?: number | null;
+  }[];
   gallery_total: number;
   before_after: { source_url: string; alt_text: string | null }[];
   before_after_total: number;
@@ -107,7 +112,7 @@ export async function getClinicData(slug: string): Promise<ClinicPageData | null
 
   const [gallery, galleryCount, beforeAfter, beforeAfterCount, treatments, concerns, reviews, locationsResult, providersResult] = await Promise.all([
     pool.query(
-      `SELECT source_url, alt_text
+      `SELECT source_url, alt_text, blob_width, blob_height
        FROM images
        WHERE entity_type = 'clinic' AND entity_id = $1
          AND role IN ('gallery', 'cover') AND scrape_status = 'ok'

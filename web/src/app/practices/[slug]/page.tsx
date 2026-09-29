@@ -22,6 +22,7 @@ import { RevisionRequestCta } from "./revision-request-cta";
 import { JsonLd } from "@/components/shared/json-ld";
 import { medicalBusinessJsonLd, breadcrumbListJsonLd } from "@/lib/seo/json-ld";
 import { absoluteUrl, SITE_NAME } from "@/lib/site";
+import { DEFAULT_OG_IMAGE } from "@/lib/seo/metadata";
 import { withBookingUtm, formatLongDate } from "@/lib/utils";
 import { ResilientImg } from "@/components/shared/resilient-img";
 
@@ -43,18 +44,37 @@ export async function generateMetadata({
     clinic.about?.slice(0, 155) ??
     clinic.tagline ??
     (loc ? `Book at ${clinic.name} in ${loc}` : undefined);
-  const ogImage = data.gallery[0]?.source_url ?? clinic.logo_url ?? null;
+  const firstGallery = data.gallery[0];
+  const hasKnownDims = Boolean(
+    firstGallery?.source_url && firstGallery.blob_width && firstGallery.blob_height
+  );
+  const ogImg = hasKnownDims
+    ? {
+        url: firstGallery.source_url,
+        width: firstGallery.blob_width!,
+        height: firstGallery.blob_height!,
+        alt: firstGallery.alt_text || `${clinic.name} in ${loc || "Medspa Maps"}`,
+      }
+    : DEFAULT_OG_IMAGE;
+
   return {
     title,
     description,
     alternates: { canonical: path },
     openGraph: {
       type: "website",
+      locale: "en_US",
       title,
       description,
       url: path,
       siteName: SITE_NAME,
-      ...(ogImage ? { images: [ogImage] } : {}),
+      images: [ogImg],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [typeof ogImg === "string" ? ogImg : ogImg.url],
     },
   };
 }

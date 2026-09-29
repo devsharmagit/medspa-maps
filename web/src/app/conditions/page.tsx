@@ -9,11 +9,31 @@ import { CORE_CONCERNS } from "@/lib/taxonomy/core-catalog";
 import { coreConcernFor } from "@/lib/taxonomy/core-catalog";
 import { conditionImage } from "@/lib/images/catalog-images";
 
+import { DEFAULT_OG_IMAGE, DEFAULT_TWITTER_IMAGE } from "@/lib/seo/metadata";
+import { SITE_NAME, SITE_URL } from "@/lib/site";
+
 export const metadata: Metadata = {
   title: "Skin & Body Conditions — Medspa Maps",
   description:
     "Explore treatment guides and expert information for various skin and body conditions.",
   alternates: { canonical: "/conditions" },
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    title: "Skin & Body Conditions — Medspa Maps",
+    description:
+      "Explore treatment guides and expert information for various skin and body conditions.",
+    url: `${SITE_URL}/conditions`,
+    siteName: SITE_NAME,
+    images: [DEFAULT_OG_IMAGE],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Skin & Body Conditions — Medspa Maps",
+    description:
+      "Explore treatment guides and expert information for various skin and body conditions.",
+    images: [DEFAULT_TWITTER_IMAGE],
+  },
 };
 
 /**
