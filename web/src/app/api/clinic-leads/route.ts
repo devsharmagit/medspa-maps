@@ -3,6 +3,7 @@ import { z } from "zod";
 import { errorResponse, handleApiError, successResponse } from "@/lib/api-response";
 import pool from "@/lib/db";
 import { rateLimit } from "@/lib/chat/rate-limit";
+import { isValidUsPhone, normalizeUsPhone } from "@/lib/phone";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,6 +26,11 @@ const ClinicLeadSchema = z.object({
   businessName: requiredText("Business name is required")
     .min(1, "Business name is required")
     .max(255),
+  // 10-digit US number in any format; stored as digits.
+  phone: requiredText("Phone number is required")
+    .min(1, "Phone number is required")
+    .max(20)
+    .refine(isValidUsPhone, "Enter a valid 10-digit US phone number"),
   // Honeypot: real users never see this field, bots fill everything.
   companyWebsiteHp: z.string().trim().max(255).optional().nullable(),
 });
@@ -56,13 +62,14 @@ export async function POST(req: NextRequest) {
 
     const { rows } = await pool.query<{ id: string }>(
       `INSERT INTO clinic_leads
-         (full_name, business_email, business_name, ip_address, user_agent)
-       VALUES ($1, $2, $3, $4, $5)
+         (full_name, business_email, business_name, phone, ip_address, user_agent)
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING id`,
       [
         lead.fullName,
         lead.businessEmail,
         lead.businessName,
+        normalizeUsPhone(lead.phone),
         ip,
         req.headers.get("user-agent"),
       ]

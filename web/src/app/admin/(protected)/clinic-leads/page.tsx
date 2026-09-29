@@ -10,6 +10,7 @@ import {
   Mail,
   User,
   Building2,
+  Phone,
   Calendar,
   CheckCircle2,
 } from "lucide-react";
@@ -24,6 +25,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { formatUsPhone } from "@/lib/phone";
 
 type LeadStatus = "new" | "contacted" | "qualified" | "converted" | "rejected";
 
@@ -32,6 +34,7 @@ interface ClinicLead {
   full_name: string;
   business_email: string;
   business_name: string;
+  phone: string | null;
   status: LeadStatus;
   notes: string | null;
   created_at: string;
@@ -114,7 +117,9 @@ export default function ClinicLeadsPage() {
       return (
         l.full_name.toLowerCase().includes(q) ||
         l.business_email.toLowerCase().includes(q) ||
-        l.business_name.toLowerCase().includes(q)
+        l.business_name.toLowerCase().includes(q) ||
+        (l.phone ?? "").toLowerCase().includes(q) ||
+        (l.phone ?? "").replace(/\D/g, "").includes(q.replace(/\D/g, "") || "\u0000")
       );
     });
   }, [leads, search, statusFilter]);
@@ -181,7 +186,7 @@ export default function ClinicLeadsPage() {
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search name, business, email…"
+              placeholder="Search name, business, email, phone…"
               className="h-9 pl-9"
             />
           </div>
@@ -223,6 +228,12 @@ export default function ClinicLeadsPage() {
                           <Mail size={12} className="shrink-0" />
                           {l.business_email}
                         </span>
+                        {l.phone && (
+                          <span className="flex items-center gap-1">
+                            <Phone size={12} className="shrink-0" />
+                            {formatUsPhone(l.phone)}
+                          </span>
+                        )}
                       </span>
                     </div>
                     <div className="flex shrink-0 items-center gap-3">
@@ -327,6 +338,18 @@ function ClinicLeadDetail({
                 >
                   {lead.business_email}
                 </a>
+              </DetailRow>
+              <DetailRow icon={<Phone size={14} />} label="Phone">
+                {lead.phone ? (
+                  <a
+                    href={`tel:${lead.phone}`}
+                    className="text-purple-700 hover:underline"
+                  >
+                    {formatUsPhone(lead.phone)}
+                  </a>
+                ) : (
+                  <span className="text-slate-400">—</span>
+                )}
               </DetailRow>
               <DetailRow icon={<Building2 size={14} />} label="Business name">
                 {lead.business_name}

@@ -2,20 +2,22 @@
 
 import { useState } from "react";
 import { Clock, Loader2 } from "lucide-react";
+import { formatUsPhone } from "@/lib/phone";
 
 // ─── ListYourMedspaForm ───────────────────────────────────────────────────────
 // Native replacement for the old Growth99 iframe widget. Collects contact info
-// only (name / business email / business name) and shows a "coming soon"
+// only (name / business email / phone / business name) and shows a "coming soon"
 // message — nothing is routed to a sales team yet. Submissions land in
 // clinic_leads for review at /admin/clinic-leads.
 
 const INPUT_CLASS =
-  "w-full rounded-lg border border-[#D4C4D8] bg-white px-4 py-3 font-montserrat text-sm text-[#6B4A6B] placeholder-[#B8A8B8] transition-colors focus:border-[#9B6FB5] focus:outline-none disabled:opacity-60";
+  "h-12 w-full rounded-lg border border-[#D4C4D8] bg-white px-4 font-montserrat text-sm text-[#6B4A6B] placeholder-[#B8A8B8] transition-colors focus:border-[#9B6FB5] focus:outline-none disabled:opacity-60";
 
 const EMPTY_FORM = {
   fullName: "",
   businessEmail: "",
   businessName: "",
+  phone: "",
 };
 
 export function ListYourMedspaForm() {
@@ -24,6 +26,11 @@ export function ListYourMedspaForm() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+
+  // Masked as the visitor types; the server stores digits only.
+  function handlePhoneChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setForm((prev) => ({ ...prev, phone: formatUsPhone(e.target.value) }));
+  }
 
   function field(key: keyof typeof EMPTY_FORM) {
     return {
@@ -104,6 +111,19 @@ export function ListYourMedspaForm() {
         disabled={submitting}
         className={INPUT_CLASS}
         {...field("businessEmail")}
+      />
+      <input
+        type="tel"
+        name="phone"
+        placeholder="Phone number"
+        autoComplete="tel-national"
+        inputMode="tel"
+        required
+        maxLength={14}
+        disabled={submitting}
+        className={INPUT_CLASS}
+        value={form.phone}
+        onChange={handlePhoneChange}
       />
       <input
         type="text"
