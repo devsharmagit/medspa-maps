@@ -11,8 +11,15 @@
  *      it yet. schema.sql is a pg_dump baseline (plain `CREATE TABLE`), so
  *      re-running it on a populated database errors; the guard below is what
  *      makes this script safe to run on every boot.
- *   2. TAXONOMY — applies db/seed.sql (the curated 15 services + 10 concerns).
- *      Every row is ON CONFLICT DO NOTHING, so this runs every time.
+ *   2. TAXONOMY — applies db/seed.sql (the canonical 22 treatments + 14
+ *      conditions), but ONLY on a database whose catalog is still EMPTY.
+ *      The seed BOOTSTRAPS a new database; it must never converge an existing
+ *      one. Its statements are ON CONFLICT DO NOTHING, which stops duplicates
+ *      but does NOT stop a row that was deliberately DELETEd from coming back —
+ *      so without this guard every container boot resurrects the whole file.
+ *      That is precisely what undid the 2026-09-30 production catalog purge on
+ *      the very next deploy (63 junk rows restored, is_active=true, live in
+ *      search). See docs/pipeline/INGESTION-ISSUES.md.
  *   3. ADMIN — upserts one admin user from env, ON CONFLICT (email) DO NOTHING
  *      so a rotated password is never clobbered.
  *
@@ -26,8 +33,16 @@
  *   SEED_ADMIN_PASSWORD   (recommended — defaults to a placeholder; CHANGE IT)
  *
  * Flags:
- *   --force   apply schema.sql even if the guard says it is already present.
- *             Only meaningful against an empty database.
+ *   --force       apply schema.sql even if the guard says it is already present.
+ *                 Only meaningful against an empty database: schema.sql is a
+ *                 pg_dump baseline, so on a populated one it errors on the first
+ *                 existing object and the run stops there.
+ *   --force-seed  apply db/seed.sql even if the catalog is already populated.
+ *                 Deliberately SEPARATE from --force, because --force stops at
+ *                 the schema step on any populated database and could therefore
+ *                 never reach the seed. Use this only for an intentional,
+ *                 reviewed catalog restore — it re-adds every row in seed.sql,
+ *                 including any you deleted on purpose.
  *
  * The role must be allowed to CREATE EXTENSION (postgis, pg_trgm, unaccent,
  * pgcrypto, uuid-ossp) — Neon and rds_superuser both are.
@@ -45,6 +60,7 @@ if (!process.env.DATABASE_URL) {
 }
 
 const force = process.argv.includes("--force");
+const forceSeed = process.argv.includes("--force-seed");
 
 const ADMIN_EMAIL = process.env.SEED_ADMIN_EMAIL || "admin@medspa.com";
 const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD || "ChangeMe!123";
@@ -100,8 +116,24 @@ async function setup() {
     // every unqualified statement after it would fail to resolve. Put it back.
     await client.query("SET search_path TO public");
 
-    console.log("→ Seeding canonical taxonomy (15 services, 10 concerns) …");
-    await client.query(seedSql);
+    // The seed bootstraps an EMPTY catalog. ON CONFLICT DO NOTHING protects
+    // against duplicates, not against re-inserting a row somebody deleted on
+    // purpose, so applying it unconditionally makes every deploy undo any
+    // catalog cleanup. Guard it the same way the schema above is guarded.
+    const { rows: catalog } = await client.query<{ n: string }>(
+      "SELECT (SELECT count(*) FROM services) + (SELECT count(*) FROM concerns) AS n",
+    );
+    const catalogRows = Number(catalog[0].n);
+
+    if (catalogRows > 0 && !forceSeed) {
+      console.log(
+        `• Catalog already populated (${catalogRows} rows) — skipping db/seed.sql. ` +
+          "(--force-seed overrides, but it re-adds every row in the file.)",
+      );
+    } else {
+      console.log("→ Seeding canonical taxonomy (22 treatments, 14 conditions) …");
+      await client.query(seedSql);
+    }
 
     console.log("→ Seeding admin user …");
     const hash = await bcrypt.hash(ADMIN_PASSWORD, 12);

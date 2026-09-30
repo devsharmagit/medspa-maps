@@ -1,102 +1,67 @@
 --
--- web/db/seed.sql — canonical Phase-0 taxonomy ONLY.
+-- web/db/seed.sql — the canonical public taxonomy: 22 treatments + 14 conditions.
 --
--- 15 services + 10 concerns: every row with origin='seed'.
--- AI-grown taxonomy (origin='ai') is NOT seeded — it is created at ingest time
--- and must not be baked into a fresh database.
+-- WHAT THIS IS FOR: bootstrapping an EMPTY database. scripts/db-setup.ts applies
+-- it only when `services` and `concerns` are both empty. It is NOT a convergence
+-- tool and must never be applied to a populated catalog.
 --
--- There is no global concern<->service link table: concern_services was dropped
--- in the 2026-07-18 simplification and the mapping is now per-clinic
--- Per-clinic treatment<->concern links are not modelled; a clinic's concerns
--- live in clinic_concerns, populated by ingest.
+-- WHY THAT GUARD EXISTS: every statement here is ON CONFLICT DO NOTHING, which
+-- prevents duplicates but does NOT prevent a row that was deliberately DELETEd
+-- from being re-inserted. Before 2026-10-01 db-setup.ts ran this file on every
+-- container boot, so each deploy silently restored the entire file. That is what
+-- undid the 2026-09-30 production catalog purge: 63 junk rows came back as
+-- is_active = true and went straight back into public search.
 --
--- Every statement is ON CONFLICT DO NOTHING: idempotent, re-runnable, never
--- duplicates. Applied by scripts/db-setup.ts, and safe via plain psql.
+-- WHY IT IS EXACTLY 22 + 14: the 2026-09-06 reduction cut the public taxonomy to
+-- a small flat list, extended to 22 treatments on 2026-09-12 (Cryotherapy, Red
+-- Light Therapy, Hormone Therapy). The ingest path is a CLOSED catalog — it
+-- resolves a scraped name onto an already-active row or drops it, and never
+-- creates one (src/lib/taxonomy/catalog-policy.ts).
 --
--- Regenerated from the curated database (see web/db/README.md).
+-- IF YOU ADD A ROW HERE you are changing the public taxonomy of the whole site.
+-- Add it to src/lib/taxonomy/core-catalog.ts as well, or ingest will drop it.
+-- Do not re-add surgical / day-spa / nail rows: they were removed on 2026-09-30
+-- because they carried zero clinic links.
 --
+-- UUIDs match production (growthops-rds) so a fresh database is id-compatible.
+-- Regenerated 2026-10-01 from the live canonical rows.
+--
+-- Treatments (22)
+INSERT INTO public.services (id, name, slug, is_active, origin) VALUES ('14e456e3-aa0c-4057-8d6f-b75ded201cae', 'Body Contouring', 'body-contouring', true, 'seed') ON CONFLICT DO NOTHING;
+INSERT INTO public.services (id, name, slug, is_active, origin) VALUES ('734f962f-5916-4990-b84c-2738ac7532c5', 'Botox®', 'botox', true, 'seed') ON CONFLICT DO NOTHING;
+INSERT INTO public.services (id, name, slug, is_active, origin) VALUES ('1148cf9a-7640-43a4-b49c-96656d09a78e', 'Chemical Peels', 'chemical-peels', true, 'seed') ON CONFLICT DO NOTHING;
+INSERT INTO public.services (id, name, slug, is_active, origin) VALUES ('2b700c73-bc8a-472f-82c3-0aaae640ef1d', 'Cryotherapy', 'cryotherapy', true, 'manual') ON CONFLICT DO NOTHING;
+INSERT INTO public.services (id, name, slug, is_active, origin) VALUES ('32cb4064-2b95-45af-9100-742469976364', 'Dermal Fillers', 'dermal-fillers', true, 'seed') ON CONFLICT DO NOTHING;
+INSERT INTO public.services (id, name, slug, is_active, origin) VALUES ('91f8b638-3fd0-45d9-ab96-24a0cfe513bf', 'Dysport®', 'dysport', true, 'ai') ON CONFLICT DO NOTHING;
+INSERT INTO public.services (id, name, slug, is_active, origin) VALUES ('24f71862-07e5-4335-b89b-e3dcb89a32ee', 'Facials', 'facials', true, 'manual') ON CONFLICT DO NOTHING;
+INSERT INTO public.services (id, name, slug, is_active, origin) VALUES ('308d8668-3337-43c6-a6ed-f6096f29d4c3', 'Hair Restoration', 'hair-restoration', true, 'ai') ON CONFLICT DO NOTHING;
+INSERT INTO public.services (id, name, slug, is_active, origin) VALUES ('8a9fb2d0-9d5d-4b09-ba1a-cd456f35d0bc', 'Hormone Therapy', 'hormone-therapy', true, 'manual') ON CONFLICT DO NOTHING;
+INSERT INTO public.services (id, name, slug, is_active, origin) VALUES ('2a461a03-54fa-4413-8d03-031a3ce121b2', 'HydraFacial®', 'hydrafacial', true, 'seed') ON CONFLICT DO NOTHING;
+INSERT INTO public.services (id, name, slug, is_active, origin) VALUES ('59b16f6c-ef26-4e3b-b006-cd2f05a7d9e9', 'IPL Photofacial', 'ipl-photofacial', true, 'seed') ON CONFLICT DO NOTHING;
+INSERT INTO public.services (id, name, slug, is_active, origin) VALUES ('7c49a9de-3ef9-43e3-89ad-d8c532465dd5', 'IV Therapy', 'iv-therapy', true, 'ai') ON CONFLICT DO NOTHING;
+INSERT INTO public.services (id, name, slug, is_active, origin) VALUES ('a1232a0c-ddb8-4cf7-840e-c08b4be7825c', 'Laser Hair Removal', 'laser-hair-removal', true, 'seed') ON CONFLICT DO NOTHING;
+INSERT INTO public.services (id, name, slug, is_active, origin) VALUES ('3e34866d-e05c-4cb7-9502-363016f61938', 'Laser Skin Resurfacing', 'laser-skin-resurfacing', true, 'seed') ON CONFLICT DO NOTHING;
+INSERT INTO public.services (id, name, slug, is_active, origin) VALUES ('c1b64dac-c2c7-4a7f-810a-1bdd5632ca9e', 'Laser Treatments', 'laser-treatments', true, 'ai') ON CONFLICT DO NOTHING;
+INSERT INTO public.services (id, name, slug, is_active, origin) VALUES ('02754cfe-b29f-44ad-a336-a88683ab7d5d', 'Lip Fillers', 'lip-fillers', true, 'manual') ON CONFLICT DO NOTHING;
+INSERT INTO public.services (id, name, slug, is_active, origin) VALUES ('0cbaabfa-58ee-4dc6-bd69-bcaf9155a08d', 'Medical Weight Loss', 'medical-weight-loss', true, 'ai') ON CONFLICT DO NOTHING;
+INSERT INTO public.services (id, name, slug, is_active, origin) VALUES ('5aa3d56e-44c9-47bd-ac2e-7f1fa80f531e', 'Microneedling', 'microneedling', true, 'seed') ON CONFLICT DO NOTHING;
+INSERT INTO public.services (id, name, slug, is_active, origin) VALUES ('7288006a-eedb-4f76-82d7-d7dbf0e4d0df', 'PRP / PRF Therapy', 'prp-prf', true, 'seed') ON CONFLICT DO NOTHING;
+INSERT INTO public.services (id, name, slug, is_active, origin) VALUES ('c9bfab75-b54d-4e5a-9368-bb54ad3e7c4d', 'Red Light Therapy', 'red-light-therapy', true, 'manual') ON CONFLICT DO NOTHING;
+INSERT INTO public.services (id, name, slug, is_active, origin) VALUES ('c16b7a85-6574-4672-9444-f10a094c7313', 'RF Microneedling', 'rf-microneedling', true, 'ai') ON CONFLICT DO NOTHING;
+INSERT INTO public.services (id, name, slug, is_active, origin) VALUES ('73b963f1-42ab-48a4-bc0f-340e9906adb0', 'Sculptra®', 'sculptra', true, 'ai') ON CONFLICT DO NOTHING;
 
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('14e456e3-aa0c-4057-8d6f-b75ded201cae', 'Body Contouring', 'body-contouring', true, '2026-06-24T09:02:19.142Z', '2026-06-24T13:01:15.991Z', 'seed') ON CONFLICT DO NOTHING;
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('734f962f-5916-4990-b84c-2738ac7532c5', 'Botox®', 'botox', true, '2026-06-22T14:49:05.613Z', '2026-07-14T05:34:26.124Z', 'seed') ON CONFLICT DO NOTHING;
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('1148cf9a-7640-43a4-b49c-96656d09a78e', 'Chemical Peels', 'chemical-peels', true, '2026-06-22T14:49:05.613Z', '2026-07-14T05:53:03.639Z', 'seed') ON CONFLICT DO NOTHING;
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('e450ba93-b5af-46b9-b2b6-efdd41ba871d', 'CoolSculpting', 'coolsculpting', true, '2026-06-24T09:02:19.142Z', '2026-06-24T13:01:15.469Z', 'seed') ON CONFLICT DO NOTHING;
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('32cb4064-2b95-45af-9100-742469976364', 'Dermal Fillers', 'dermal-fillers', true, '2026-06-22T14:49:05.613Z', '2026-07-14T05:52:43.937Z', 'seed') ON CONFLICT DO NOTHING;
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('2a461a03-54fa-4413-8d03-031a3ce121b2', 'HydraFacial®', 'hydrafacial', true, '2026-06-24T09:02:19.142Z', '2026-07-14T05:34:32.921Z', 'seed') ON CONFLICT DO NOTHING;
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('59b16f6c-ef26-4e3b-b006-cd2f05a7d9e9', 'IPL / Photofacial', 'ipl-photofacial', true, '2026-06-24T09:02:19.142Z', '2026-06-24T13:01:17.677Z', 'seed') ON CONFLICT DO NOTHING;
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('1cfe44ca-42ce-4cda-b0cc-26246c53a9d8', 'Kybella', 'kybella', true, '2026-06-22T14:49:05.613Z', '2026-07-14T05:52:47.549Z', 'seed') ON CONFLICT DO NOTHING;
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('a1232a0c-ddb8-4cf7-840e-c08b4be7825c', 'Laser Hair Removal', 'laser-hair-removal', true, '2026-06-22T14:49:05.613Z', '2026-07-14T04:34:19.582Z', 'seed') ON CONFLICT DO NOTHING;
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('3e34866d-e05c-4cb7-9502-363016f61938', 'Laser Skin Resurfacing', 'laser-skin-resurfacing', true, '2026-06-22T14:49:05.613Z', '2026-07-14T04:04:49.083Z', 'seed') ON CONFLICT DO NOTHING;
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('5aa3d56e-44c9-47bd-ac2e-7f1fa80f531e', 'Microneedling', 'microneedling', true, '2026-06-22T14:49:05.613Z', '2026-07-14T04:04:50.274Z', 'seed') ON CONFLICT DO NOTHING;
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('77fad708-78e9-411b-82bc-8d8a0b528460', 'PDO Threads', 'pdo-threads', true, '2026-06-22T14:49:05.613Z', '2026-07-13T07:57:56.280Z', 'seed') ON CONFLICT DO NOTHING;
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('7288006a-eedb-4f76-82d7-d7dbf0e4d0df', 'PRP (Platelet-Rich Plasma)', 'prp-prf', true, '2026-06-22T14:49:05.613Z', '2026-07-14T04:40:52.186Z', 'seed') ON CONFLICT DO NOTHING;
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('3e6a118b-aed6-43be-8200-27e7f41de7c5', 'RF Skin Tightening', 'rf-skin-tightening', true, '2026-06-24T09:02:19.142Z', '2026-06-24T13:01:17.199Z', 'seed') ON CONFLICT DO NOTHING;
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('5eff1b8a-9cbe-4d06-beb6-61df499750b4', 'Ultherapy', 'ultherapy', true, '2026-06-24T09:02:19.142Z', '2026-06-24T13:01:16.228Z', 'seed') ON CONFLICT DO NOTHING;
-
-INSERT INTO public.concerns (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('38fc4881-2467-4fc0-a2e0-01f1a606f6cc', 'Acne Scars', 'acne-scars', true, '2026-06-24T09:02:19.142Z', '2026-07-13T10:43:07.214Z', 'seed') ON CONFLICT DO NOTHING;
-INSERT INTO public.concerns (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('d30d4123-fbbb-4862-acbb-6e12347c2710', 'Dark Spots & Melasma', 'dark-spots-melasma', true, '2026-06-24T09:02:19.142Z', '2026-06-24T09:02:19.142Z', 'seed') ON CONFLICT DO NOTHING;
-INSERT INTO public.concerns (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('b9715e49-f29c-4e50-aa63-40046d1c1b19', 'Double Chin', 'double-chin-submental-fullness', true, '2026-06-22T14:49:05.613Z', '2026-06-24T10:20:28.575Z', 'seed') ON CONFLICT DO NOTHING;
-INSERT INTO public.concerns (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('86721a3e-dc92-49b6-bab6-0e02ea3712b8', 'Wrinkles & Fine Lines', 'fine-lines-wrinkles', true, '2026-06-22T14:49:05.613Z', '2026-07-13T10:43:07.214Z', 'seed') ON CONFLICT DO NOTHING;
-INSERT INTO public.concerns (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('60dc011c-e458-4676-8965-863ac7d19c2a', 'Hyperpigmentation', 'hyperpigmentation', true, '2026-06-24T09:02:19.142Z', '2026-07-13T10:43:07.214Z', 'seed') ON CONFLICT DO NOTHING;
-INSERT INTO public.concerns (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('8ab63fa4-92bc-4f1e-ab02-3bd3e62e93a9', 'Rosacea', 'rosacea', true, '2026-06-24T09:02:19.142Z', '2026-06-24T09:02:19.142Z', 'seed') ON CONFLICT DO NOTHING;
-INSERT INTO public.concerns (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('0eef1b52-1173-4024-99f2-2de9c6daa114', 'Loose & Sagging Skin', 'skin-laxity-sagging', true, '2026-06-22T14:49:05.613Z', '2026-07-13T10:43:07.214Z', 'seed') ON CONFLICT DO NOTHING;
-INSERT INTO public.concerns (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('c0ef6d55-dfc7-4ead-b962-3d8214bf94dd', 'Stretch Marks', 'stretch-marks', true, '2026-06-24T09:02:19.142Z', '2026-07-13T10:43:07.214Z', 'seed') ON CONFLICT DO NOTHING;
-INSERT INTO public.concerns (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('f47b94ca-f82f-4d7c-8c01-47d7a7c8debe', 'Stubborn Body Fat', 'stubborn-body-fat', true, '2026-06-24T09:02:19.142Z', '2026-06-24T09:02:19.142Z', 'seed') ON CONFLICT DO NOTHING;
-INSERT INTO public.concerns (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('e99d687d-fcbd-42a5-8025-6b0678239587', 'Sun Damage', 'sun-damage', true, '2026-06-24T09:02:19.142Z', '2026-06-24T10:20:27.868Z', 'seed') ON CONFLICT DO NOTHING;
-
--- ── origin='manual' catalog rows (added 2026-07-29) ─────────────────────────
--- Canonical treatment/concern targets for the broadened scope (plastic surgery,
--- day spa / nail salon). Kept OUT of CANONICAL_SERVICES on purpose — see
--- scripts/2026-07-29-catalog-prep-surgical-spa.sql. Without these rows a fresh
--- DB re-fragments: saveClinicServices matches general_name by EXACT name only,
--- so a missing target means every clinic mints its own spelling of a procedure.
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('6dd72d3f-7e5b-4be0-a3ee-e99b1e2fc1b0', 'Abdominoplasty', 'abdominoplasty', true, '2026-07-14 05:34:43.105445+00', '2026-07-29 14:23:00.912386+00', 'manual') ON CONFLICT DO NOTHING;
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('804ea44d-9c29-47ab-81d5-afcf9a5440fb', 'Arm Lift Surgery', 'arm-lift-surgery', true, '2026-07-14 05:34:45.587108+00', '2026-07-29 14:23:00.912386+00', 'manual') ON CONFLICT DO NOTHING;
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('3beb031f-fc9f-49f0-9c45-1b9b6052470b', 'Blepharoplasty', 'blepharoplasty', true, '2026-07-14 05:34:47.918923+00', '2026-07-29 14:23:00.912386+00', 'manual') ON CONFLICT DO NOTHING;
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('2845eb4d-0e0e-4c70-b428-1fbd2454e3cf', 'Body Scrub', 'body-scrub', true, '2026-07-29 14:23:00.912386+00', '2026-07-29 14:23:00.912386+00', 'manual') ON CONFLICT DO NOTHING;
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('ca2441d8-e432-4a22-bbf7-a35ddd9c0fd3', 'Body Wrap', 'body-wrap', true, '2026-07-29 14:23:00.912386+00', '2026-07-29 14:23:00.912386+00', 'manual') ON CONFLICT DO NOTHING;
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('083d7619-b58d-410b-823c-d761fdd5249e', 'Brazilian Butt Lift (BBL)', 'brazilian-butt-lift-bbl', true, '2026-07-14 06:20:37.376244+00', '2026-07-29 14:23:00.912386+00', 'manual') ON CONFLICT DO NOTHING;
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('d28d8cd4-5f5a-4b13-925e-192aab5775be', 'Breast Augmentation', 'breast-augmentation', true, '2026-07-14 05:34:42.309949+00', '2026-07-29 14:23:00.912386+00', 'manual') ON CONFLICT DO NOTHING;
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('5731f0ff-f01c-4b92-ab7a-e0797e3b94d8', 'Breast Implant Revision', 'breast-implant-revision', true, '2026-07-18 14:54:03.941421+00', '2026-07-29 14:23:00.912386+00', 'manual') ON CONFLICT DO NOTHING;
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('2424cf34-8aef-45ef-af97-edde95c6f59c', 'Breast Lift', 'breast-lift', true, '2026-07-18 14:54:04.668525+00', '2026-07-29 14:23:00.912386+00', 'manual') ON CONFLICT DO NOTHING;
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('37feb3c2-822b-447c-8873-40210306322b', 'Breast Reconstruction', 'breast-reconstruction', true, '2026-07-19 20:27:53.791564+00', '2026-07-29 14:23:00.912386+00', 'manual') ON CONFLICT DO NOTHING;
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('eb85d515-3440-480d-a2e0-413c84d9adcc', 'Breast Reduction', 'breast-reduction', true, '2026-07-18 14:54:05.411204+00', '2026-07-29 14:23:00.912386+00', 'manual') ON CONFLICT DO NOTHING;
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('72576fd1-f213-47cd-aad9-865a717332e7', 'Brow Lamination', 'brow-lamination', true, '2026-07-09 11:28:04.03701+00', '2026-07-29 14:23:00.912386+00', 'manual') ON CONFLICT DO NOTHING;
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('7a64233f-43ff-477e-8265-fbeaa3300ec1', 'Brow Lift', 'brow-lift', true, '2026-07-09 11:26:43.505563+00', '2026-07-29 14:23:00.912386+00', 'manual') ON CONFLICT DO NOTHING;
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('a126371b-96ee-4192-a927-96dc1a7f65f5', 'Buccal Fat Removal', 'buccal-fat-removal', true, '2026-07-09 11:26:48.055764+00', '2026-07-29 14:23:00.912386+00', 'manual') ON CONFLICT DO NOTHING;
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('b175893c-3f96-4cb6-8de7-b7e9fb8bf416', 'Chin Augmentation', 'chin-augmentation', true, '2026-07-18 14:53:54.278444+00', '2026-07-29 14:23:00.912386+00', 'manual') ON CONFLICT DO NOTHING;
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('d6b35fed-422c-4e17-99a3-ddeabefc9f7f', 'Eyelid Surgery', 'eyelid-surgery', true, '2026-07-19 19:25:14.278265+00', '2026-07-29 14:23:00.912386+00', 'manual') ON CONFLICT DO NOTHING;
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('2b10ca0e-d12d-4937-b201-db5371c1745c', 'Facelift', 'facelift', true, '2026-07-09 11:26:40.478513+00', '2026-07-29 14:23:00.912386+00', 'manual') ON CONFLICT DO NOTHING;
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('24f71862-07e5-4335-b89b-e3dcb89a32ee', 'Facials', 'facials', true, '2026-07-13 09:04:40.388385+00', '2026-07-29 14:23:00.912386+00', 'manual') ON CONFLICT DO NOTHING;
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('1e4d64f3-05a7-44e7-86bd-0fad900bd341', 'Gel Manicure', 'gel-manicure', true, '2026-07-29 14:23:00.912386+00', '2026-07-29 14:23:00.912386+00', 'manual') ON CONFLICT DO NOTHING;
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('4fb9a652-9ebf-4103-83fc-446315a19e83', 'Gynecomastia Surgery', 'gynecomastia-surgery', true, '2026-07-14 05:34:51.690441+00', '2026-07-29 14:23:00.912386+00', 'manual') ON CONFLICT DO NOTHING;
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('ad715b6e-23e9-4203-8e70-570b7e631d34', 'Labiaplasty', 'labiaplasty', true, '2026-07-19 19:49:55.848435+00', '2026-07-29 14:23:00.912386+00', 'manual') ON CONFLICT DO NOTHING;
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('34fd3c99-7029-4069-9d62-e3549c91ddea', 'Lash Extensions', 'lash-extensions', true, '2026-07-19 13:54:00.286116+00', '2026-07-29 14:23:00.912386+00', 'manual') ON CONFLICT DO NOTHING;
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('902a1d89-b0c3-4e9e-9277-45c2f66d92a1', 'Lash Lift', 'lash-lift', true, '2026-07-19 19:36:17.09479+00', '2026-07-29 14:23:00.912386+00', 'manual') ON CONFLICT DO NOTHING;
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('57cff151-cbf1-4d58-a32c-2d4a0195201c', 'Liposuction', 'liposuction', true, '2026-07-14 05:34:46.382068+00', '2026-07-29 14:23:00.912386+00', 'manual') ON CONFLICT DO NOTHING;
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('e7e27bc5-16ce-4272-a8ce-d677d8c3e7af', 'Manicure', 'manicure', true, '2026-07-29 14:23:00.912386+00', '2026-07-29 14:23:00.912386+00', 'manual') ON CONFLICT DO NOTHING;
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('8fa46c70-a2ad-4dea-b2e5-94d395e381b5', 'Massage', 'massage', true, '2026-07-19 14:02:44.309368+00', '2026-07-29 14:23:00.912386+00', 'manual') ON CONFLICT DO NOTHING;
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('f93562a9-2b26-411d-bd62-1b5c3f64fc8e', 'Massage Therapy', 'massage-therapy', true, '2026-07-09 11:29:40.599058+00', '2026-07-29 14:23:00.912386+00', 'manual') ON CONFLICT DO NOTHING;
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('fe1fe277-2ee6-484a-b9ea-c8871ef2f8e3', 'Mommy Makeover', 'mommy-makeover', true, '2026-07-19 05:49:51.711907+00', '2026-07-29 14:23:00.912386+00', 'manual') ON CONFLICT DO NOTHING;
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('414c0c63-292a-41d6-a5f7-919319728b35', 'Nail Care', 'nail-care', true, '2026-07-19 19:18:43.398421+00', '2026-07-29 14:23:00.912386+00', 'manual') ON CONFLICT DO NOTHING;
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('be5c20ac-124c-44cf-bb27-fbb69023f347', 'Nail Enhancements', 'nail-enhancements', true, '2026-07-29 14:23:00.912386+00', '2026-07-29 14:23:00.912386+00', 'manual') ON CONFLICT DO NOTHING;
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('2e188418-cbbd-4296-97ff-d695fb565f35', 'Neck Lift', 'neck-lift', true, '2026-07-09 11:26:41.296893+00', '2026-07-29 14:23:00.912386+00', 'manual') ON CONFLICT DO NOTHING;
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('a64f1044-8e76-4a3c-97c5-32a19a8546b1', 'Non-Surgical Rhinoplasty', 'non-surgical-rhinoplasty', true, '2026-07-18 14:54:00.348831+00', '2026-07-29 14:23:00.912386+00', 'manual') ON CONFLICT DO NOTHING;
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('cbb07dfa-f1b4-4a31-8e74-f12a4eaa8e24', 'Otoplasty', 'otoplasty', true, '2026-07-18 14:54:01.276764+00', '2026-07-29 14:23:00.912386+00', 'manual') ON CONFLICT DO NOTHING;
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('865d949a-9ff9-4462-9ed0-1ad6f65271b0', 'Pedicure', 'pedicure', true, '2026-07-29 14:23:00.912386+00', '2026-07-29 14:23:00.912386+00', 'manual') ON CONFLICT DO NOTHING;
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('5c77cfa0-8039-412f-88a6-daf8c7f87354', 'Permanent Makeup', 'permanent-makeup', true, '2026-07-09 11:26:52.254084+00', '2026-07-29 14:23:00.912386+00', 'manual') ON CONFLICT DO NOTHING;
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('f54be6e9-90bf-44df-82d2-38081a3e9843', 'Rhinoplasty', 'rhinoplasty', true, '2026-07-19 07:28:13.806085+00', '2026-07-29 14:23:00.912386+00', 'manual') ON CONFLICT DO NOTHING;
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('db83b02c-457d-4585-9095-e22721802fa6', 'Thigh Lift Surgery', 'thigh-lift-surgery', true, '2026-07-14 05:34:43.796335+00', '2026-07-29 14:23:00.912386+00', 'manual') ON CONFLICT DO NOTHING;
-INSERT INTO public.services (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('21f1e410-42ad-4f4d-b346-546ee9ce489b', 'Waxing', 'waxing', true, '2026-07-19 05:50:11.935252+00', '2026-07-29 14:23:00.912386+00', 'manual') ON CONFLICT DO NOTHING;
-INSERT INTO public.concerns (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('1a310c94-33c3-4c5e-b59a-499b89e74fa1', 'Diastasis Recti', 'diastasis-recti', true, '2026-07-29 14:23:00.912386+00', '2026-07-29 14:23:00.912386+00', 'manual') ON CONFLICT DO NOTHING;
-INSERT INTO public.concerns (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('f5c7288e-69ec-4884-9aeb-1a28c3570cac', 'Excess Abdominal Skin', 'excess-abdominal-skin', true, '2026-07-29 14:23:00.912386+00', '2026-07-29 14:23:00.912386+00', 'manual') ON CONFLICT DO NOTHING;
-INSERT INTO public.concerns (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('b3b9c827-5432-4151-91e8-5b16727b83e9', 'Excess Skin', 'excess-skin', true, '2026-07-29 14:23:00.912386+00', '2026-07-29 14:23:00.912386+00', 'manual') ON CONFLICT DO NOTHING;
-INSERT INTO public.concerns (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('fb308a42-5c23-418d-8e3a-439ed9072859', 'Flat Buttocks', 'flat-buttocks', true, '2026-07-29 14:23:00.912386+00', '2026-07-29 14:23:00.912386+00', 'manual') ON CONFLICT DO NOTHING;
-INSERT INTO public.concerns (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('24da67bd-7799-4512-9b31-d4d87820ff6f', 'Gynecomastia', 'gynecomastia', true, '2026-07-29 14:23:00.912386+00', '2026-07-29 14:23:00.912386+00', 'manual') ON CONFLICT DO NOTHING;
-INSERT INTO public.concerns (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('1a34810d-f1cc-4761-9830-52f253c3bce9', 'Muscle Tension', 'muscle-tension', true, '2026-07-29 14:23:00.912386+00', '2026-07-29 14:23:00.912386+00', 'manual') ON CONFLICT DO NOTHING;
-INSERT INTO public.concerns (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('15bbe2c1-c4cf-4e65-8de7-0c7aee9f0024', 'Nasal Obstruction', 'nasal-obstruction', true, '2026-07-29 14:23:00.912386+00', '2026-07-29 14:23:00.912386+00', 'manual') ON CONFLICT DO NOTHING;
-INSERT INTO public.concerns (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('63edad3e-99ed-4a31-b086-84fd878aec9c', 'Nose Shape', 'nose-shape', true, '2026-07-29 14:23:00.912386+00', '2026-07-29 14:23:00.912386+00', 'manual') ON CONFLICT DO NOTHING;
-INSERT INTO public.concerns (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('cc947913-4dd8-40d3-9b58-8f32b9ac300a', 'Overly Large Breasts', 'overly-large-breasts', true, '2026-07-29 14:23:00.912386+00', '2026-07-29 14:23:00.912386+00', 'manual') ON CONFLICT DO NOTHING;
-INSERT INTO public.concerns (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('6a42422c-8b99-4c70-8d3e-4d8f2dac4324', 'Protruding Ears', 'protruding-ears', true, '2026-07-29 14:23:00.912386+00', '2026-07-29 14:23:00.912386+00', 'manual') ON CONFLICT DO NOTHING;
-INSERT INTO public.concerns (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('e48996ce-c219-436d-9967-5e47188cab8a', 'Sagging Breasts', 'sagging-breasts', true, '2026-07-29 14:23:00.912386+00', '2026-07-29 14:23:00.912386+00', 'manual') ON CONFLICT DO NOTHING;
-INSERT INTO public.concerns (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('ad94ad3d-6967-4a18-b041-921711b498fa', 'Small Breasts', 'small-breasts', true, '2026-07-29 14:23:00.912386+00', '2026-07-29 14:23:00.912386+00', 'manual') ON CONFLICT DO NOTHING;
-INSERT INTO public.concerns (id, name, slug, is_active, created_at, updated_at, origin) VALUES ('22705b49-5d28-4520-93a8-24faf8a87652', 'Under-Eye Bags', 'under-eye-bags', true, '2026-07-29 14:23:00.912386+00', '2026-07-29 14:23:00.912386+00', 'manual') ON CONFLICT DO NOTHING;
+-- Conditions (14)
+INSERT INTO public.concerns (id, name, slug, is_active, origin) VALUES ('07f06a38-ee98-4052-8ded-dc2150021dd2', 'Acne', 'acne', true, 'ai') ON CONFLICT DO NOTHING;
+INSERT INTO public.concerns (id, name, slug, is_active, origin) VALUES ('38fc4881-2467-4fc0-a2e0-01f1a606f6cc', 'Acne Scars', 'acne-scars', true, 'seed') ON CONFLICT DO NOTHING;
+INSERT INTO public.concerns (id, name, slug, is_active, origin) VALUES ('d863d1b9-f0f9-482d-afc0-837ad34c4683', 'Dark Spots', 'dark-spots', true, 'ai') ON CONFLICT DO NOTHING;
+INSERT INTO public.concerns (id, name, slug, is_active, origin) VALUES ('7b19a640-00e0-46a7-911d-1e132275d549', 'Facial Volume Loss', 'facial-volume-loss', true, 'manual') ON CONFLICT DO NOTHING;
+INSERT INTO public.concerns (id, name, slug, is_active, origin) VALUES ('0f62edf0-f582-43c7-8525-3c5820c76207', 'Fine Lines', 'fine-lines', true, 'ai') ON CONFLICT DO NOTHING;
+INSERT INTO public.concerns (id, name, slug, is_active, origin) VALUES ('bb66d7bf-9438-4bf5-a5de-2db97d87f9fe', 'Hair Loss', 'hair-loss', true, 'ai') ON CONFLICT DO NOTHING;
+INSERT INTO public.concerns (id, name, slug, is_active, origin) VALUES ('00ee81f5-631c-45b5-85bb-21be511aad3a', 'Melasma', 'melasma', true, 'ai') ON CONFLICT DO NOTHING;
+INSERT INTO public.concerns (id, name, slug, is_active, origin) VALUES ('655d145a-d892-461b-a934-462417f31e03', 'Pigmentation', 'pigmentation', true, 'ai') ON CONFLICT DO NOTHING;
+INSERT INTO public.concerns (id, name, slug, is_active, origin) VALUES ('471278ed-11da-4a77-8e20-9c2185ac6880', 'Skin Laxity', 'skin-laxity', true, 'ai') ON CONFLICT DO NOTHING;
+INSERT INTO public.concerns (id, name, slug, is_active, origin) VALUES ('e99d687d-fcbd-42a5-8025-6b0678239587', 'Sun Damage', 'sun-damage', true, 'seed') ON CONFLICT DO NOTHING;
+INSERT INTO public.concerns (id, name, slug, is_active, origin) VALUES ('56afb94d-5953-4ba5-aada-f92f76661a32', 'Uneven Skin Texture', 'uneven-skin-texture', true, 'manual') ON CONFLICT DO NOTHING;
+INSERT INTO public.concerns (id, name, slug, is_active, origin) VALUES ('bb437923-3d64-4848-aa8c-495effc994b8', 'Uneven Skin Tone', 'uneven-skin-tone', true, 'ai') ON CONFLICT DO NOTHING;
+INSERT INTO public.concerns (id, name, slug, is_active, origin) VALUES ('9cd9828a-aff4-4524-b531-2cf1a19a640b', 'Veins', 'veins', true, 'manual') ON CONFLICT DO NOTHING;
+INSERT INTO public.concerns (id, name, slug, is_active, origin) VALUES ('7e510d71-0b09-46e8-b86c-4950fff9f66b', 'Wrinkles', 'wrinkles', true, 'manual') ON CONFLICT DO NOTHING;
